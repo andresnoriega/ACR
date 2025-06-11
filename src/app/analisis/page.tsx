@@ -44,6 +44,15 @@ const sampleAvailableSites: Array<{ id: string; name: string }> = [
   { id: '4', name: 'Almacén Regional Norte' },
 ];
 
+// Sample users, ideally this would come from a shared state or API
+const sampleAvailableUsers: Array<{ id: string; name: string }> = [
+  { id: '1', name: 'Carlos Ruiz' },
+  { id: '2', name: 'Ana López' },
+  { id: '3', name: 'Luis Torres' },
+  { id: '4', name: 'Maria Solano' },
+  { id: '5', name: 'Pedro Gómez' },
+];
+
 
 export default function RCAAnalysisPage() {
   const [step, setStep] = useState(1);
@@ -286,6 +295,7 @@ export default function RCAAnalysisPage() {
             onUpdateImmediateAction={handleUpdateImmediateAction}
             onRemoveImmediateAction={handleRemoveImmediateAction}
             availableSites={sampleAvailableSites}
+            availableUsers={sampleAvailableUsers}
             onNext={handleNextStep}
           />
         )}
@@ -327,6 +337,7 @@ export default function RCAAnalysisPage() {
           onAddPlannedAction={handleAddPlannedAction}
           onUpdatePlannedAction={handleUpdatePlannedAction}
           onRemovePlannedAction={handleRemovePlannedAction}
+          availableUsers={sampleAvailableUsers}
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
         />
@@ -363,5 +374,7 @@ export default function RCAAnalysisPage() {
     </>
   );
 }
+
+    
 
     

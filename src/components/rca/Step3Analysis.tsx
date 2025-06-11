@@ -33,6 +33,7 @@ interface Step3AnalysisProps {
   onAddPlannedAction: () => void;
   onUpdatePlannedAction: (index: number, field: keyof PlannedAction, value: string) => void;
   onRemovePlannedAction: (index: number) => void;
+  availableUsers: Array<{ id: string; name: string; }>; // Added prop
   onPrevious: () => void;
   onNext: () => void;
 }
@@ -57,11 +58,16 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   onAddPlannedAction,
   onUpdatePlannedAction,
   onRemovePlannedAction,
+  availableUsers, // Destructure new prop
   onPrevious,
   onNext,
 }) => {
   const handleActionChange = (index: number, field: keyof PlannedAction, value: string) => {
     onUpdatePlannedAction(index, field, value);
+  };
+
+  const handleActionResponsibleChange = (index: number, value: string) => {
+    onUpdatePlannedAction(index, 'responsible', value);
   };
 
   const getPlaceholderForNotes = () => {
@@ -172,7 +178,19 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor={`pa-resp-${index}`}>Responsable</Label>
-                  <Input id={`pa-resp-${index}`} value={action.responsible} onChange={(e) => handleActionChange(index, 'responsible', e.target.value)} placeholder="Nombre del responsable" />
+                  <Select value={action.responsible} onValueChange={(value) => handleActionResponsibleChange(index, value)}>
+                    <SelectTrigger id={`pa-resp-${index}`}>
+                      <SelectValue placeholder="-- Seleccione un responsable --" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableUsers.map(user => (
+                        <SelectItem key={user.id} value={user.name}>{user.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                   <p className="text-xs text-muted-foreground">
+                    Nota: Lista de usuarios de ejemplo.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor={`pa-date-${index}`}>Fecha Límite</Label>
@@ -199,3 +217,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     </Card>
   );
 };
+
+
+    

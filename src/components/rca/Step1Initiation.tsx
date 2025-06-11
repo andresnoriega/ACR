@@ -17,7 +17,8 @@ interface Step1InitiationProps {
   onAddImmediateAction: () => void;
   onUpdateImmediateAction: (index: number, field: keyof ImmediateAction, value: string) => void;
   onRemoveImmediateAction: (index: number) => void;
-  availableSites: Array<{ id: string; name: string; }>; // Added prop
+  availableSites: Array<{ id: string; name: string; }>;
+  availableUsers: Array<{ id: string; name: string; }>; // Added prop
   onNext: () => void;
 }
 
@@ -28,7 +29,8 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   onAddImmediateAction,
   onUpdateImmediateAction,
   onRemoveImmediateAction,
-  availableSites, // Destructure new prop
+  availableSites,
+  availableUsers, // Destructure new prop
   onNext,
 }) => {
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, field: keyof RCAEventData) => {
@@ -41,6 +43,10 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
 
   const handleActionChange = (index: number, field: keyof ImmediateAction, value: string) => {
     onUpdateImmediateAction(index, field, value);
+  };
+
+  const handleActionResponsibleChange = (index: number, value: string) => {
+    onUpdateImmediateAction(index, 'responsible', value);
   };
 
   const getTodayDateString = () => {
@@ -101,7 +107,19 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor={`ia-resp-${index}`}>Responsable</Label>
-                  <Input id={`ia-resp-${index}`} value={action.responsible} onChange={(e) => handleActionChange(index, 'responsible', e.target.value)} placeholder="Nombre del responsable" />
+                   <Select value={action.responsible} onValueChange={(value) => handleActionResponsibleChange(index, value)}>
+                    <SelectTrigger id={`ia-resp-${index}`}>
+                      <SelectValue placeholder="-- Seleccione un responsable --" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableUsers.map(user => (
+                        <SelectItem key={user.id} value={user.name}>{user.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Nota: Lista de usuarios de ejemplo.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor={`ia-date-${index}`}>Fecha</Label>
@@ -127,5 +145,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     </Card>
   );
 };
+
+    
 
     
