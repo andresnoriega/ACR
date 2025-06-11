@@ -1,3 +1,4 @@
+
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import type { RCAEventData, ImmediateAction } from '@/types/rca';
@@ -34,6 +35,15 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   const handleActionChange = (index: number, field: keyof ImmediateAction, value: string) => {
     onUpdateImmediateAction(index, field, value);
   };
+
+  const getTodayDateString = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  const maxDateForImmediateActions = getTodayDateString();
 
   return (
     <Card>
@@ -75,8 +85,14 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
                   <Input id={`ia-resp-${index}`} value={action.responsible} onChange={(e) => handleActionChange(index, 'responsible', e.target.value)} placeholder="Nombre del responsable" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor={`ia-date-${index}`}>Fecha Límite</Label>
-                  <Input id={`ia-date-${index}`} type="date" value={action.dueDate} onChange={(e) => handleActionChange(index, 'dueDate', e.target.value)} />
+                  <Label htmlFor={`ia-date-${index}`}>Fecha</Label>
+                  <Input 
+                    id={`ia-date-${index}`} 
+                    type="date" 
+                    value={action.dueDate} 
+                    onChange={(e) => handleActionChange(index, 'dueDate', e.target.value)}
+                    max={maxDateForImmediateActions}
+                  />
                 </div>
               </div>
             </Card>
