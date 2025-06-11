@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Users, CalendarDays, AlertTriangle, Target, Settings, Zap } from 'lucide-react';
+import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from "@/lib/utils"; // Added import for cn
 
 interface Step5ResultsProps {
   eventId: string;
