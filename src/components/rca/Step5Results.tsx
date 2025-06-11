@@ -30,7 +30,7 @@ interface Step5ResultsProps {
   finalComments: string; 
   onFinalCommentsChange: (value: string) => void;
   onPrintReport: () => void;
-  availableUsers: Array<{ id: string; name: string; email: string; }>; // Added prop
+  availableUsers: Array<{ id: string; name: string; email: string; }>;
 }
 
 const SectionTitle: FC<{ icon?: React.ElementType; title: string; className?: string }> = ({ icon: Icon, title, className }) => (
@@ -137,6 +137,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   };
 
   const filteredUsers = useMemo(() => {
+    if (!availableUsers || !Array.isArray(availableUsers)) return [];
     return availableUsers.filter(user => 
       user.name.toLowerCase().includes(emailSearchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(emailSearchTerm.toLowerCase())
@@ -267,6 +268,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
               ) : (
                    <p>No se han definido acciones planificadas.</p>
               )}
+              {/* This condition seems redundant with the one above, but kept for structural similarity to previous state if any */}
               {plannedActions.length === 0 && (
                   <p>No se han definido acciones recomendadas.</p>
               )}
@@ -328,7 +330,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
             </ScrollArea>
             <div>
               <p className="text-xs text-muted-foreground">
-                Seleccionados: {selectedUserEmails.length} de {availableUsers.length} usuarios.
+                Seleccionados: {selectedUserEmails.length} de {availableUsers ? availableUsers.length : 0} usuarios.
               </p>
             </div>
           </div>
@@ -343,4 +345,3 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     </>
   );
 };
-
