@@ -47,3 +47,13 @@ export interface IshikawaCategory {
 }
 
 export type IshikawaData = IshikawaCategory[];
+
+// Types for Interactive 5 Whys
+export interface FiveWhyEntry {
+  id: string; // Unique ID for React key
+  why: string; // The "Why?" question
+  because: string; // The "Because..." answer/reason
+}
+
+export type FiveWhysData = FiveWhyEntry[];
+

@@ -1,7 +1,7 @@
 
 'use client';
 import type { FC, ChangeEvent } from 'react';
-import type { PlannedAction, AIInsights, AnalysisTechnique, IshikawaData, RCAEventData } from '@/types/rca';
+import type { PlannedAction, AIInsights, AnalysisTechnique, IshikawaData, FiveWhysData, RCAEventData } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -10,16 +10,21 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { PlusCircle, Sparkles, Trash2, Loader2, Brain } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from '@/components/ui/textarea';
-import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive'; // Import new component
+import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
+import { FiveWhysInteractive } from './FiveWhysInteractive'; // Import new component
 
 interface Step3AnalysisProps {
-  eventData: RCAEventData; // Pass eventData to access focusEventDescription
+  eventData: RCAEventData;
   analysisTechnique: AnalysisTechnique;
   onAnalysisTechniqueChange: (value: AnalysisTechnique) => void;
   analysisTechniqueNotes: string;
   onAnalysisTechniqueNotesChange: (value: string) => void;
   ishikawaData: IshikawaData;
   onSetIshikawaData: (data: IshikawaData) => void;
+  fiveWhysData: FiveWhysData;
+  onAddFiveWhyEntry: () => void;
+  onUpdateFiveWhyEntry: (id: string, field: 'why' | 'because', value: string) => void;
+  onRemoveFiveWhyEntry: (id: string) => void;
   aiInsights: AIInsights | null;
   onGenerateAIInsights: () => void;
   isGeneratingInsights: boolean;
@@ -39,6 +44,10 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   onAnalysisTechniqueNotesChange,
   ishikawaData,
   onSetIshikawaData,
+  fiveWhysData,
+  onAddFiveWhyEntry,
+  onUpdateFiveWhyEntry,
+  onRemoveFiveWhyEntry,
   aiInsights,
   onGenerateAIInsights,
   isGeneratingInsights,
@@ -82,10 +91,19 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
           />
         )}
 
-        {analysisTechnique && analysisTechnique !== 'Ishikawa' && (
+        {analysisTechnique === 'WhyWhy' && (
+          <FiveWhysInteractive
+            focusEventDescription={eventData.focusEventDescription || "Evento Foco (no definido en Paso 1)"}
+            fiveWhysData={fiveWhysData}
+            onAddFiveWhyEntry={onAddFiveWhyEntry}
+            onUpdateFiveWhyEntry={onUpdateFiveWhyEntry}
+            onRemoveFiveWhyEntry={onRemoveFiveWhyEntry}
+          />
+        )}
+
+        {analysisTechnique && analysisTechnique !== 'Ishikawa' && analysisTechnique !== 'WhyWhy' && (
           <div className="space-y-2 mt-4">
             <Label htmlFor="analysisTechniqueNotes">
-              {analysisTechnique === 'WhyWhy' && 'Desarrolle los 5 Porqués:'}
               {analysisTechnique === 'CTM' && 'Notas para el Árbol de Causas (CTM):'}
               {(!analysisTechnique || analysisTechnique === '') && 'Notas Generales de Análisis:'}
             </Label>
@@ -169,3 +187,4 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     </Card>
   );
 };
+

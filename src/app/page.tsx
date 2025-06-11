@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AIInsights, AnalysisTechnique, IshikawaData, IshikawaCategory, IshikawaCause } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AIInsights, AnalysisTechnique, IshikawaData, FiveWhysData, FiveWhyEntry } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -20,6 +20,10 @@ const initialIshikawaData: IshikawaData = [
   { id: 'material', name: 'Material', causes: [] },
   { id: 'measurement', name: 'Medición', causes: [] },
   { id: 'environment', name: 'Medio Ambiente', causes: [] },
+];
+
+const initialFiveWhysData: FiveWhysData = [
+  { id: `5why-${Date.now()}`, why: '', because: '' }
 ];
 
 
@@ -45,6 +49,8 @@ export default function RCAHomePage() {
   const [analysisTechnique, setAnalysisTechnique] = useState<AnalysisTechnique>('');
   const [analysisTechniqueNotes, setAnalysisTechniqueNotes] = useState('');
   const [ishikawaData, setIshikawaData] = useState<IshikawaData>(JSON.parse(JSON.stringify(initialIshikawaData)));
+  const [fiveWhysData, setFiveWhysData] = useState<FiveWhysData>(JSON.parse(JSON.stringify(initialFiveWhysData)));
+  
   const [aiInsights, setAIInsights] = useState<AIInsights | null>(null);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [plannedActions, setPlannedActions] = useState<PlannedAction[]>([]);
@@ -69,7 +75,7 @@ export default function RCAHomePage() {
     if (targetStep > step && targetStep > maxCompletedStep + 1 && targetStep !== 1) {
       return;
     }
-     if (targetStep >= 1 && !eventData.id && targetStep !== 1) { // Allow going to step 1 without ID
+     if (targetStep >= 1 && !eventData.id && targetStep !== 1) { 
         ensureEventId();
     }
     setStep(targetStep);
@@ -78,17 +84,11 @@ export default function RCAHomePage() {
   const handleNextStep = () => {
     ensureEventId(); 
     setMaxCompletedStep(prevMax => Math.max(prevMax, step));
-    setStep(prevStep => {
-      if (prevStep < 5) return prevStep + 1;
-      return prevStep;
-    });
+    setStep(prevStep => Math.min(prevStep + 1, 5));
   };
 
   const handlePreviousStep = () => {
-    setStep(prevStep => {
-      if (prevStep > 1) return prevStep - 1;
-      return prevStep;
-    });
+    setStep(prevStep => Math.max(prevStep - 1, 1));
   };
   
   // Step 1 Logic
@@ -113,14 +113,28 @@ export default function RCAHomePage() {
   // Step 3 Logic
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);
-    setAnalysisTechniqueNotes(''); // Clear general notes when technique changes
+    setAnalysisTechniqueNotes(''); 
     if (value === 'Ishikawa') {
-      setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData))); // Reset Ishikawa data
+      setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData))); 
+    } else if (value === 'WhyWhy') {
+      setFiveWhysData(JSON.parse(JSON.stringify(initialFiveWhysData)));
     }
   };
   
   const handleSetIshikawaData = (newData: IshikawaData) => {
     setIshikawaData(newData);
+  };
+
+  const handleAddFiveWhyEntry = () => {
+    setFiveWhysData(prev => [...prev, { id: `5why-${Date.now()}-${Math.random().toString(36).substring(2,7)}`, why: '', because: '' }]);
+  };
+
+  const handleUpdateFiveWhyEntry = (id: string, field: 'why' | 'because', value: string) => {
+    setFiveWhysData(prev => prev.map(entry => entry.id === id ? { ...entry, [field]: value } : entry));
+  };
+
+  const handleRemoveFiveWhyEntry = (id: string) => {
+    setFiveWhysData(prev => prev.filter(entry => entry.id !== id));
   };
 
 
@@ -135,20 +149,28 @@ export default function RCAHomePage() {
     let analysisPayload = `${analysisDetails}\n\nTÉCNICA DE ANÁLISIS PRINCIPAL: ${analysisTechnique || 'No especificada'}`;
     
     if (analysisTechnique === 'Ishikawa') {
-      let ishikawaNotesContent = "Diagrama de Ishikawa (6M):\n";
+      let ishikawaContent = "Diagrama de Ishikawa (6M):\n";
       ishikawaData.forEach(category => {
-        ishikawaNotesContent += `\nCategoría: ${category.name}\n`;
+        ishikawaContent += `\nCategoría: ${category.name}\n`;
         if (category.causes.length > 0) {
           category.causes.forEach((cause, index) => {
             if (cause.description.trim()) {
-              ishikawaNotesContent += `  - Causa ${index + 1}: ${cause.description.trim()}\n`;
+              ishikawaContent += `  - Causa ${index + 1}: ${cause.description.trim()}\n`;
             }
           });
         } else {
-          ishikawaNotesContent += "  (Sin causas identificadas para esta categoría)\n";
+          ishikawaContent += "  (Sin causas identificadas para esta categoría)\n";
         }
       });
-      analysisPayload += `\n\nDETALLES DEL DIAGRAMA DE ISHIKAWA:\n${ishikawaNotesContent}`;
+      analysisPayload += `\n\nDETALLES DEL DIAGRAMA DE ISHIKAWA:\n${ishikawaContent}`;
+    } else if (analysisTechnique === 'WhyWhy') {
+      let fiveWhysContent = "Análisis de los 5 Porqués:\n";
+      fiveWhysData.forEach((entry, index) => {
+        if (entry.why.trim() || entry.because.trim()) {
+           fiveWhysContent += `\nNivel ${index + 1}:\n  Por qué?: ${entry.why.trim() || '(No especificado)'}\n  Porque: ${entry.because.trim() || '(No especificado)'}\n`;
+        }
+      });
+      analysisPayload += `\n\nDETALLES DEL ANÁLISIS DE LOS 5 PORQUÉS:\n${fiveWhysContent}`;
     } else if (analysisTechniqueNotes.trim()) {
       analysisPayload += `\n\nNOTAS SOBRE LA TÉCNICA (${analysisTechnique || 'General'}):\n${analysisTechniqueNotes}`;
     }
@@ -267,6 +289,10 @@ export default function RCAHomePage() {
           onAnalysisTechniqueNotesChange={setAnalysisTechniqueNotes}
           ishikawaData={ishikawaData}
           onSetIshikawaData={handleSetIshikawaData}
+          fiveWhysData={fiveWhysData}
+          onAddFiveWhyEntry={handleAddFiveWhyEntry}
+          onUpdateFiveWhyEntry={handleUpdateFiveWhyEntry}
+          onRemoveFiveWhyEntry={handleRemoveFiveWhyEntry}
           aiInsights={aiInsights}
           onGenerateAIInsights={handleGenerateAIInsights}
           isGeneratingInsights={isGeneratingInsights}
@@ -303,3 +329,4 @@ export default function RCAHomePage() {
     </div>
   );
 }
+
