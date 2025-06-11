@@ -1,101 +1,85 @@
 
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ListChecks, UserCog, Users, Edit3, KeyRound, ShieldOff, History } from 'lucide-react';
+import Link from 'next/link';
+import { SettingsIcon, Users, Globe, KeyRound } from 'lucide-react';
 
-const usersPermissions = [
-  { id: '1', name: 'Carlos Ruiz', projectAccess: 'Todos', edition: 'Total' },
-  { id: '2', name: 'Ana López', projectAccess: 'Solo su equipo', edition: 'Lectura' },
-  { id: '3', name: 'Luis Torres', projectAccess: 'Solo revisión', edition: 'Limitado' },
-];
-
-export default function ConfiguracionPermisosPage() {
+export default function ConfiguracionHubPage() {
   return (
     <div className="space-y-8 py-8">
       <header className="text-center space-y-2">
         <div className="inline-flex items-center justify-center bg-primary/10 text-primary p-3 rounded-full mb-4">
-          <KeyRound className="h-10 w-10" />
+          <SettingsIcon className="h-10 w-10" />
         </div>
         <h1 className="text-4xl font-bold font-headline text-primary">
-          Configuración de Permisos
+          Configuración General
         </h1>
-        <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-          Gestione los niveles de acceso y permisos dentro de RCA Assistant.
+        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          Administre los diferentes aspectos de RCA Assistant.
         </p>
       </header>
 
-      <Card className="max-w-3xl mx-auto shadow-lg">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <Users className="h-6 w-6 text-primary" />
-            <CardTitle className="text-2xl">Permisos de Usuario</CardTitle>
-          </div>
-          <CardDescription>
-            Visualice y edite los permisos asignados a cada usuario del sistema.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[30%]">Usuario</TableHead>
-                  <TableHead className="w-[35%]">Acceso a Proyectos</TableHead>
-                  <TableHead className="w-[35%]">Edición</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {usersPermissions.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.name}</TableCell>
-                    <TableCell>{user.projectAccess}</TableCell>
-                    <TableCell>{user.edition}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          <div className="flex justify-start">
-            <Button variant="default">
-              <Edit3 className="mr-2 h-4 w-4" />
-              Editar Permisos
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <CardHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <Users className="h-7 w-7 text-primary" />
+              <CardTitle className="text-2xl">Usuarios</CardTitle>
+            </div>
+            <CardDescription>Gestione los usuarios del sistema, sus roles y accesos.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/config/usuarios" passHref>
+              <Button className="w-full" size="lg">
+                Configurar Usuarios
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
 
-      <Card className="max-w-3xl mx-auto shadow-lg">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <ListChecks className="h-6 w-6 text-primary" />
-            <CardTitle className="text-2xl">Opciones de Administración de Permisos</CardTitle>
-          </div>
-           <CardDescription>
-            Acciones rápidas para la gestión de roles y permisos.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ul className="space-y-3 text-sm">
-            <li className="flex items-center p-2 hover:bg-secondary/50 rounded-md cursor-pointer">
-              <KeyRound className="mr-3 h-5 w-5 text-primary/80" />
-              Definir nuevos roles
-            </li>
-            <li className="flex items-center p-2 hover:bg-secondary/50 rounded-md cursor-pointer">
-              <ShieldOff className="mr-3 h-5 w-5 text-primary/80" />
-              Asignar permisos a roles
-            </li>
-            <li className="flex items-center p-2 hover:bg-secondary/50 rounded-md cursor-pointer">
-              <History className="mr-3 h-5 w-5 text-primary/80" />
-              Ver historial de cambios de permisos
-            </li>
-          </ul>
-        </CardContent>
-         <CardFooter>
-          <p className="text-xs text-muted-foreground">
-            Estas opciones son representativas. La funcionalidad completa de gestión de permisos se implementaría en un sistema de backend.
+        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <CardHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <Globe className="h-7 w-7 text-primary" />
+              <CardTitle className="text-2xl">Sitios/Plantas</CardTitle>
+            </div>
+            <CardDescription>Administre los sitios, plantas o áreas de su organización.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/config/sitios" passHref>
+              <Button className="w-full" size="lg">
+                Configurar Sitios
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <CardHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <KeyRound className="h-7 w-7 text-primary" />
+              <CardTitle className="text-2xl">Permisos</CardTitle>
+            </div>
+            <CardDescription>Defina roles y gestione los permisos detallados del sistema.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/config/permisos" passHref>
+              <Button className="w-full" size="lg">
+                Configurar Permisos
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+      
+      <Card className="mt-8 bg-secondary/30">
+        <CardContent className="pt-6">
+          <h3 className="text-lg font-semibold text-primary mb-2">Mantenimiento del Sistema</h3>
+          <p className="text-sm text-foreground">
+            Desde esta sección puede ajustar los parámetros fundamentales de la aplicación para adaptarla a las necesidades de su organización. 
+            Asegúrese de que los cambios realizados sean consistentes con sus políticas internas.
           </p>
-        </CardFooter>
+        </CardContent>
       </Card>
     </div>
   );
