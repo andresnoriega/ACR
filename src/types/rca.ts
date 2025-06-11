@@ -10,7 +10,7 @@ export interface ImmediateAction {
   id: string;
   description: string;
   responsible: string;
-  dueDate: string;
+  dueDate: string; // Renamed from dueDate to reflect "Fecha"
 }
 
 export interface PlannedAction {
@@ -26,24 +26,17 @@ export interface Validation {
   status: 'pending' | 'validated';
 }
 
-// AIInsights interface removed
-// export interface AIInsights {
-//   summary: string;
-//   potentialRootCauses: string;
-//   recommendations: string;
-// }
-
 export type AnalysisTechnique = '' | 'WhyWhy' | 'Ishikawa' | 'CTM';
 
 // Types for Interactive Ishikawa Diagram
 export interface IshikawaCause {
-  id: string; // Unique ID for React key, e.g., 'cause-timestamp-random'
+  id: string; 
   description: string;
 }
 
 export interface IshikawaCategory {
-  id: string; // e.g., 'measurement', 'machinery'
-  name: string; // e.g., 'Medición', 'Maquinaria'
+  id: string; 
+  name: string; 
   causes: IshikawaCause[];
 }
 
@@ -51,9 +44,9 @@ export type IshikawaData = IshikawaCategory[];
 
 // Types for Interactive 5 Whys
 export interface FiveWhyEntry {
-  id: string; // Unique ID for React key
-  why: string; // The "Why?" question
-  because: string; // The "Because..." answer/reason
+  id: string; 
+  why: string; 
+  because: string; 
 }
 
 export type FiveWhysData = FiveWhyEntry[];
@@ -98,4 +91,30 @@ export interface DetailedFacts {
   cuando: string;
   cualCuanto: string;
   como: string;
+}
+
+// Types for Preserved Facts in Step 2
+export const PRESERVED_FACT_CATEGORIES = [
+  "Partes, Posición, Personas, Papel y Paradigmas",
+  "Fotografías o videos del Evento",
+  "Datos operacionales (Sensores, Vibraciones, etc.)",
+  "Registro mantenimientos y pruebas realizadas",
+  "Procedimientos",
+  "Entrevistas",
+  "PT, AST, OT", // (Permisos de Trabajo, Análisis Seguro de Trabajo, Órdenes de Trabajo)
+  "Charlas",
+  "Manuales, planos, P&ID, catálogos, Normativa asociada, entre otras."
+] as const;
+
+export type PreservedFactCategory = typeof PRESERVED_FACT_CATEGORIES[number];
+
+export interface PreservedFact {
+  id: string;
+  userGivenName: string;
+  fileName: string | null;
+  fileType: string | null;
+  fileSize: number | null;
+  category: PreservedFactCategory | '';
+  description: string;
+  uploadDate: string;
 }

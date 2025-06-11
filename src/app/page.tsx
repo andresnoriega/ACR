@@ -1,14 +1,13 @@
 
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, FiveWhyEntry, CTMData, FailureMode, Hypothesis, PhysicalCause, HumanCause, LatentCause, DetailedFacts } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, FiveWhyEntry, CTMData, FailureMode, Hypothesis, PhysicalCause, HumanCause, LatentCause, DetailedFacts, PreservedFact, PreservedFactCategory } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
 import { Step3Analysis } from '@/components/rca/Step3Analysis';
 import { Step4Validation } from '@/components/rca/Step4Validation';
 import { Step5Results } from '@/components/rca/Step5Results';
-// import { getAIInsightsAction } from '@/app/actions'; // AI Action removed
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -56,6 +55,7 @@ export default function RCAHomePage() {
   // Step 2 State
   const [detailedFacts, setDetailedFacts] = useState<DetailedFacts>(initialDetailedFacts);
   const [analysisDetails, setAnalysisDetails] = useState(''); 
+  const [preservedFacts, setPreservedFacts] = useState<PreservedFact[]>([]);
 
   // Step 3 State
   const [analysisTechnique, setAnalysisTechnique] = useState<AnalysisTechnique>('');
@@ -64,11 +64,7 @@ export default function RCAHomePage() {
   const [fiveWhysData, setFiveWhysData] = useState<FiveWhysData>(JSON.parse(JSON.stringify(initialFiveWhysData)));
   const [ctmData, setCtmData] = useState<CTMData>(JSON.parse(JSON.stringify(initialCTMData)));
   const [userDefinedRootCause, setUserDefinedRootCause] = useState('');
-  
-  // AI state removed
-  // const [aiInsights, setAIInsights] = useState<AIInsights | null>(null);
-  // const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
-  
+    
   const [plannedActions, setPlannedActions] = useState<PlannedAction[]>([]);
   const [plannedActionCounter, setPlannedActionCounter] = useState(1);
 
@@ -141,6 +137,22 @@ export default function RCAHomePage() {
     setDetailedFacts(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleAddPreservedFact = (fact: Omit<PreservedFact, 'id' | 'uploadDate'>) => {
+    const newFact: PreservedFact = {
+      ...fact,
+      id: `pf-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      uploadDate: new Date().toISOString(),
+    };
+    setPreservedFacts(prev => [...prev, newFact]);
+    toast({ title: "Hecho Preservado Añadido", description: `Se añadió "${newFact.userGivenName}".` });
+  };
+
+  const handleRemovePreservedFact = (id: string) => {
+    setPreservedFacts(prev => prev.filter(fact => fact.id !== id));
+    toast({ title: "Hecho Preservado Eliminado", variant: 'destructive'});
+  };
+
+
   // Step 3 Logic
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);
@@ -177,8 +189,6 @@ export default function RCAHomePage() {
   const handleSetCtmData = (newData: CTMData) => {
     setCtmData(newData);
   };
-
-  // handleGenerateAIInsights function removed
   
   const handleAddPlannedAction = () => {
     const currentEventId = ensureEventId(); 
@@ -266,6 +276,9 @@ export default function RCAHomePage() {
           onDetailedFactChange={handleDetailedFactChange}
           analysisDetails={analysisDetails}
           onAnalysisDetailsChange={setAnalysisDetails}
+          preservedFacts={preservedFacts}
+          onAddPreservedFact={handleAddPreservedFact}
+          onRemovePreservedFact={handleRemovePreservedFact}
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
         />
@@ -289,10 +302,6 @@ export default function RCAHomePage() {
           onSetCtmData={handleSetCtmData}
           userDefinedRootCause={userDefinedRootCause}
           onUserDefinedRootCauseChange={setUserDefinedRootCause}
-          // AI props removed
-          // aiInsights={aiInsights}
-          // onGenerateAIInsights={handleGenerateAIInsights}
-          // isGeneratingInsights={isGeneratingInsights}
           plannedActions={plannedActions}
           onAddPlannedAction={handleAddPlannedAction}
           onUpdatePlannedAction={handleUpdatePlannedAction}
@@ -324,7 +333,7 @@ export default function RCAHomePage() {
           ishikawaData={ishikawaData}
           fiveWhysData={fiveWhysData}
           ctmData={ctmData}
-          // aiInsights={aiInsights} // AI prop removed
+          // preservedFacts for report removed for now, can be added later
           plannedActions={plannedActions}
           finalComments={finalComments}
           onFinalCommentsChange={setFinalComments}
