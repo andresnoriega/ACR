@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Globe, PlusCircle, Edit2, Trash2, FileUp, FileDown } from 'lucide-react';
+import { Globe, PlusCircle, Edit2, Trash2, FileUp, FileDown, MapPin } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 
 interface Site {
@@ -78,7 +78,7 @@ export default function ConfiguracionSitiosPage() {
       return;
     }
     const newSite: Site = {
-      id: (Date.now()).toString(), // More unique ID
+      id: (Date.now()).toString(), 
       name: newSiteName,
       address: newSiteAddress,
       zone: newSiteZone,
@@ -143,6 +143,9 @@ export default function ConfiguracionSitiosPage() {
     toast({ title: "Funcionalidad no implementada", description: "La exportación a Excel aún no está disponible." });
   };
 
+  const getGoogleMapsLink = (address: string) => {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+  };
 
   return (
     <div className="space-y-8 py-8">
@@ -246,7 +249,21 @@ export default function ConfiguracionSitiosPage() {
                   sites.map((site) => (
                     <TableRow key={site.id}>
                       <TableCell className="font-medium">{site.name}</TableCell>
-                      <TableCell>{site.address}</TableCell>
+                      <TableCell>
+                        {site.address ? (
+                          <a
+                            href={getGoogleMapsLink(site.address)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center hover:text-primary hover:underline"
+                          >
+                            <MapPin className="mr-1.5 h-4 w-4 flex-shrink-0" />
+                            {site.address}
+                          </a>
+                        ) : (
+                          '-'
+                        )}
+                      </TableCell>
                       <TableCell>{site.zone}</TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" className="mr-2 hover:text-primary" onClick={() => openEditSiteDialog(site)}>
@@ -345,6 +362,3 @@ export default function ConfiguracionSitiosPage() {
     </div>
   );
 }
-
-
-    
