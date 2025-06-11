@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AIInsights, AnalysisTechnique } from '@/types/rca';
@@ -41,7 +42,6 @@ export default function RCAHomePage() {
   const [validations, setValidations] = useState<Validation[]>([]);
   const [finalComments, setFinalComments] = useState('');
 
-  // Ensure event ID is generated when moving from step 1 to 2, or if not set by then.
   const ensureEventId = useCallback(() => {
     if (!eventData.id) {
       const newEventID = `E-${String(eventCounter).padStart(5, '0')}`;
@@ -54,31 +54,32 @@ export default function RCAHomePage() {
 
 
   const handleGoToStep = (targetStep: number) => {
-    if (targetStep > step && targetStep > maxCompletedStep + 1) return; // Prevent skipping uncompleted steps
+    // Prevent skipping uncompleted steps when navigating directly via StepNavigation
+    if (targetStep > step && targetStep > maxCompletedStep + 1) {
+      return;
+    }
 
-    // Logic from user for Event ID generation (adapted)
-    // Generate Event ID when moving from Step 3 to 4 if not already set
-    if (step === 3 && targetStep === 4 && !eventData.id) {
-      ensureEventId();
+    // Ensure event ID exists if navigating to step 3 or later, where it might be needed
+    if (targetStep >= 3 && !eventData.id) {
+        ensureEventId();
     }
     setStep(targetStep);
   };
 
   const handleNextStep = () => {
-    const currentEventId = ensureEventId(); // Ensure ID is set as we progress
+    ensureEventId(); // Ensure ID is set as we progress
     
-    // Update max completed step
-    if (step > maxCompletedStep) {
-      setMaxCompletedStep(step);
-    }
+    // Current step is now considered completed
+    setMaxCompletedStep(prevMax => Math.max(prevMax, step));
+
     if (step < 5) {
-      handleGoToStep(step + 1);
+      setStep(prevStep => prevStep + 1); // Go to the next step
     }
   };
 
   const handlePreviousStep = () => {
     if (step > 1) {
-      handleGoToStep(step - 1);
+      setStep(prevStep => prevStep - 1); // Go to previous step
     }
   };
   
@@ -169,13 +170,13 @@ export default function RCAHomePage() {
     nonPrintableElements.forEach(el => el.classList.remove('hidden'));
   };
 
-  // Update max completed step on initial load if needed or based on loaded data
+  // Initialize maxCompletedStep based on the initial step
   useEffect(() => {
     if (step > maxCompletedStep) {
       setMaxCompletedStep(step -1); // Current step is not yet "completed"
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // Runs only once on mount
 
 
   return (
@@ -259,3 +260,4 @@ export default function RCAHomePage() {
     </div>
   );
 }
+
