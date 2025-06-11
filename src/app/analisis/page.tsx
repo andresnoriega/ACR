@@ -84,6 +84,8 @@ export default function RCAAnalysisPage() {
 
   const [validations, setValidations] = useState<Validation[]>([]);
   const [finalComments, setFinalComments] = useState(''); 
+  const [isFinalized, setIsFinalized] = useState(false);
+
 
   const ensureEventId = useCallback(() => {
     if (!eventData.id) {
@@ -268,6 +270,12 @@ export default function RCAAnalysisPage() {
     }
   };
 
+  const handleMarkAsFinalized = () => {
+    setIsFinalized(true);
+    toast({ title: "Proceso Finalizado", description: `El análisis RCA para el evento ${eventData.id || 'actual'} ha sido marcado como finalizado.`, className: "bg-primary text-primary-foreground"});
+  };
+
+
   useEffect(() => {
     if (step > maxCompletedStep) {
       setMaxCompletedStep(step -1); 
@@ -376,6 +384,8 @@ export default function RCAAnalysisPage() {
           onFinalCommentsChange={setFinalComments}
           onPrintReport={handlePrintReport}
           availableUsers={sampleAvailableUsers} 
+          isFinalized={isFinalized}
+          onMarkAsFinalized={handleMarkAsFinalized}
         />
       )}
     </>
@@ -385,3 +395,4 @@ export default function RCAAnalysisPage() {
     
 
     
+

@@ -31,6 +31,8 @@ interface Step5ResultsProps {
   onFinalCommentsChange: (value: string) => void;
   onPrintReport: () => void;
   availableUsers: Array<{ id: string; name: string; email: string; }>;
+  isFinalized: boolean;
+  onMarkAsFinalized: () => void;
 }
 
 const SectionTitle: FC<{ icon?: React.ElementType; title: string; className?: string }> = ({ icon: Icon, title, className }) => (
@@ -62,6 +64,8 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   onFinalCommentsChange,
   onPrintReport,
   availableUsers,
+  isFinalized,
+  onMarkAsFinalized,
 }) => {
   const { toast } = useToast();
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
@@ -132,9 +136,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     setIsEmailDialogOpen(false);
   };
   
-  const handleFinalize = () => {
-     toast({ title: "Proceso Finalizado", description: `El análisis RCA para el evento ${eventId || 'actual'} ha sido marcado como finalizado.`, className: "bg-primary text-primary-foreground"});
-  };
 
   const filteredUsers = useMemo(() => {
     if (!availableUsers || !Array.isArray(availableUsers)) return [];
@@ -283,8 +284,14 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           <Button onClick={handleOpenEmailDialog} variant="outline" className="w-full sm:w-auto">
             <Send className="mr-2 h-4 w-4" /> Enviar por correo
           </Button>
-          <Button onClick={handleFinalize} variant="secondary" className="w-full sm:w-auto">
-            <CheckCircle className="mr-2 h-4 w-4" /> Finalizar
+          <Button 
+            onClick={onMarkAsFinalized} 
+            variant="secondary" 
+            className="w-full sm:w-auto"
+            disabled={isFinalized}
+          >
+            <CheckCircle className="mr-2 h-4 w-4" /> 
+            {isFinalized ? "Análisis Finalizado" : "Finalizar"}
           </Button>
         </CardFooter>
       </Card>
@@ -345,3 +352,4 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     </>
   );
 };
+
