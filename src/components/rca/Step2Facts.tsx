@@ -1,18 +1,18 @@
 
 'use client';
 import type { FC, ChangeEvent } from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { DetailedFacts } from '@/types/rca';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { Calendar as CalendarIcon } from 'lucide-react';
-import { format, parse } from 'date-fns';
+import { Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { format, parse, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 interface Step2FactsProps {
@@ -34,50 +34,84 @@ export const Step2Facts: FC<Step2FactsProps> = ({
 }) => {
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | undefined>();
 
-  useEffect(() => {
-    const dateString = detailedFacts.cuando;
-    // Intenta extraer la fecha del formato 'dd-MM-yyyy' al final de la cadena o sola
-    const datePartMatch = dateString.match(/(\d{2}-\d{2}-\d{4})(?=\s*$|\s)/);
-    if (datePartMatch && datePartMatch[1]) {
-      try {
-        const parsedDate = parse(datePartMatch[1], "dd-MM-yyyy", new Date());
-        if (!isNaN(parsedDate.getTime())) {
-          setSelectedCalendarDate(parsedDate);
-        } else {
-          setSelectedCalendarDate(undefined);
-        }
-      } catch (e) {
-        setSelectedCalendarDate(undefined);
+  const { derivedDate, derivedTime } = useMemo(() => {
+    const text = detailedFacts.cuando;
+    let dDate: Date | undefined;
+    let tString = "";
+
+    const dateMatch = text.match(/(\d{2}-\d{2}-\d{4})/);
+    if (dateMatch?.[1]) {
+      const parsed = parse(dateMatch[1], "dd-MM-yyyy", new Date());
+      if (isValid(parsed)) {
+        dDate = parsed;
       }
-    } else {
-      setSelectedCalendarDate(undefined);
     }
+
+    const timeMatch = text.match(/(\d{2}:\d{2})/); // HH:mm
+    if (timeMatch?.[1]) {
+      tString = timeMatch[1];
+    }
+    return { derivedDate: dDate, derivedTime: tString };
   }, [detailedFacts.cuando]);
+
+  useEffect(() => {
+    setSelectedCalendarDate(derivedDate);
+  }, [derivedDate]);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, field: keyof DetailedFacts) => {
     onDetailedFactChange(field, e.target.value);
   };
-
+  
   const handleDateSelect = (date?: Date) => {
-    if (date) {
-      const newDateString = format(date, "dd-MM-yyyy");
-      const currentTimeString = detailedFacts.cuando;
-      
-      // Regex para encontrar "A las HH:mm:ss del " o "A las HH:mm del "
-      const timePrefixMatch = currentTimeString.match(/^(A las \d{1,2}:\d{2}(:\d{2})?\sdel\s)/i);
-      
-      if (timePrefixMatch && timePrefixMatch[1]) {
-        onDetailedFactChange('cuando', `${timePrefixMatch[1]}${newDateString}`);
+    setSelectedCalendarDate(date);
+    const newDateString = date ? format(date, "dd-MM-yyyy") : "";
+    const currentTimeString = derivedTime; // HH:mm from useMemo
+
+    if (newDateString) {
+      if (currentTimeString) {
+        onDetailedFactChange('cuando', `A las ${currentTimeString} del ${newDateString}`);
       } else {
-        // Si no hay prefijo de tiempo o el formato es distinto, solo ponemos la fecha
-        // o si el usuario quiere añadir la hora luego.
         onDetailedFactChange('cuando', newDateString);
       }
-      setSelectedCalendarDate(date); // Actualiza el estado interno del calendario
-    } else {
-      // Si se limpia la fecha, se limpia el campo 'cuando'
-      onDetailedFactChange('cuando', '');
-      setSelectedCalendarDate(undefined);
+    } else { // Date cleared
+      if (currentTimeString) {
+        onDetailedFactChange('cuando', `A las ${currentTimeString}`);
+      } else {
+        onDetailedFactChange('cuando', '');
+      }
+    }
+  };
+
+  const handleTimeChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const newTime = e.target.value; // HH:mm from input type="time"
+    const currentDate = selectedCalendarDate; // Date object from state
+    
+    const dateString = currentDate ? format(currentDate, "dd-MM-yyyy") : "";
+
+    if (newTime) {
+      if (dateString) {
+        onDetailedFactChange('cuando', `A las ${newTime} del ${dateString}`);
+      } else {
+         // If no date, try to find one in the original string
+        const existingDateMatch = detailedFacts.cuando.match(/(\d{2}-\d{2}-\d{4})/);
+        if (existingDateMatch?.[1]) {
+          onDetailedFactChange('cuando', `A las ${newTime} del ${existingDateMatch[1]}`);
+        } else {
+          onDetailedFactChange('cuando', `A las ${newTime}`);
+        }
+      }
+    } else { // Time cleared
+      if (dateString) {
+        onDetailedFactChange('cuando', dateString); // Keep only date
+      } else {
+        // If no date, try to find one in the original string
+        const existingDateMatch = detailedFacts.cuando.match(/(\d{2}-\d{2}-\d{4})/);
+        if (existingDateMatch?.[1]) {
+          onDetailedFactChange('cuando', existingDateMatch[1]);
+        } else {
+           onDetailedFactChange('cuando', ''); // Clear all if both are cleared
+        }
+      }
     }
   };
 
@@ -92,7 +126,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     <Card>
       <CardHeader>
         <CardTitle className="font-headline">Paso 2: Hechos y Análisis Preliminar</CardTitle>
-        {/* CardDescription removida */}
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -114,8 +147,8 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="cuando-input">CUÁNDO (ocurrió)</Label>
-            <div className="flex gap-2">
+            <Label htmlFor="cuando-input">CUÁNDO (Fecha y Hora)</Label>
+            <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
                 <Input 
                     id="cuando-input" 
                     value={detailedFacts.cuando} 
@@ -123,22 +156,32 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                     placeholder="Ej: A las 18:13 del 28-05-2021"
                     className="flex-grow"
                 />
-                <Popover>
-                    <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-auto shrink-0">
-                        <CalendarIcon className="h-4 w-4" />
-                    </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                    <Calendar
-                        mode="single"
-                        selected={selectedCalendarDate}
-                        onSelect={handleDateSelect}
-                        initialFocus
-                        locale={es}
+                <div className="flex gap-2 shrink-0">
+                    <Input 
+                        type="time"
+                        value={derivedTime}
+                        onChange={handleTimeChange}
+                        className="w-auto"
+                        aria-label="Seleccionar hora"
                     />
-                    </PopoverContent>
-                </Popover>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-auto aspect-square p-2.5"> {/* Adjusted padding for square-like button */}
+                            <CalendarIcon className="h-4 w-4" />
+                            <span className="sr-only">Abrir calendario</span>
+                        </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                        <Calendar
+                            mode="single"
+                            selected={selectedCalendarDate}
+                            onSelect={handleDateSelect}
+                            initialFocus
+                            locale={es}
+                        />
+                        </PopoverContent>
+                    </Popover>
+                </div>
             </div>
           </div>
 
@@ -177,3 +220,4 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     </Card>
   );
 };
+
