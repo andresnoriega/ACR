@@ -22,6 +22,8 @@ interface Step4ValidationProps {
   onNext: () => void;
 }
 
+const NONE_USER_VALUE = "--NONE--"; // Define a constant for the "none" value
+
 export const Step4Validation: FC<Step4ValidationProps> = ({
   plannedActions,
   validations,
@@ -86,14 +88,14 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
             Actuar como (Simulación de Usuario):
           </Label>
           <Select
-            value={currentSimulatedUser || ''}
-            onValueChange={(value) => onSetCurrentSimulatedUser(value === '' ? null : value)}
+            value={currentSimulatedUser || NONE_USER_VALUE}
+            onValueChange={(value) => onSetCurrentSimulatedUser(value === NONE_USER_VALUE ? null : value)}
           >
             <SelectTrigger id="simulatedUser">
               <SelectValue placeholder="-- Seleccione un perfil para simular --" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">-- Ninguno --</SelectItem>
+              <SelectItem value={NONE_USER_VALUE}>-- Ninguno --</SelectItem>
               {availableUserProfiles.map(user => (
                 <SelectItem key={user.id} value={user.name}>
                   {user.name} ({user.role} - Edición: {user.permissionLevel})
