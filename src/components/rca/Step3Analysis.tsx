@@ -11,7 +11,7 @@ import { PlusCircle, Sparkles, Trash2, Loader2, Brain } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
-import { FiveWhysInteractive } from './FiveWhysInteractive'; // Import new component
+import { FiveWhysInteractive } from './FiveWhysInteractive';
 
 interface Step3AnalysisProps {
   eventData: RCAEventData;
@@ -62,6 +62,13 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     onUpdatePlannedAction(index, field, value);
   };
 
+  const getPlaceholderForNotes = () => {
+    if (analysisTechnique === 'CTM') {
+      return `Ejemplo de estructura para Árbol de Causas:\n\nEvento Foco: ${eventData.focusEventDescription || '(Defina el evento foco en Paso 1)'}\n\n- Causa Nivel 1 (Ej: Modo de Falla 1)\n  - Causa Nivel 2 (Ej: Hipótesis 1)\n    - Causa Nivel 3 (Ej: Desbalanceo)\n      - Causa Nivel 4 (Ej: No hay Procedimiento)\n  - Causa Nivel 2 (Ej: Fatiga)\n    - Causa Nivel 3 (Ej: Desalineamiento)\n      - Causa Nivel 4 (Ej: Mal montaje)\n        - Causa Nivel 5 (Ej: Mal Entrenamiento)\n        - Causa Nivel 5 (Ej: Malas Herramientas)\n\n- Causa Nivel 1 (Ej: Rotura de Rodamiento)\n  - ... (continúa la estructura)\n\nUtilice guiones (-) e indentación para definir la jerarquía.\nLa IA utilizará esta estructura para entender las relaciones causales.`;
+    }
+    return "Escriba aquí sus notas detalladas sobre la aplicación de la técnica seleccionada o notas generales si no ha elegido una técnica específica...";
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -101,18 +108,17 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
           />
         )}
 
-        {analysisTechnique && analysisTechnique !== 'Ishikawa' && analysisTechnique !== 'WhyWhy' && (
+        {(analysisTechnique === 'CTM' || analysisTechnique === '') && (
           <div className="space-y-2 mt-4">
             <Label htmlFor="analysisTechniqueNotes">
-              {analysisTechnique === 'CTM' && 'Notas para el Árbol de Causas (CTM):'}
-              {(!analysisTechnique || analysisTechnique === '') && 'Notas Generales de Análisis:'}
+              {analysisTechnique === 'CTM' ? 'Desarrollo del Árbol de Causas (CTM):' : 'Notas Generales de Análisis:'}
             </Label>
             <Textarea
               id="analysisTechniqueNotes"
               value={analysisTechniqueNotes}
               onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onAnalysisTechniqueNotesChange(e.target.value)}
-              placeholder="Escriba aquí sus notas detalladas sobre la aplicación de la técnica seleccionada..."
-              rows={5}
+              placeholder={getPlaceholderForNotes()}
+              rows={10}
             />
           </div>
         )}
