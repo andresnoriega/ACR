@@ -43,12 +43,12 @@ export default function RCAAnalysisPage() {
 
   // State for RCA data
   const [eventData, setEventData] = useState<RCAEventData>({
-    id: '',
+    id: '', // ID se generará al guardar el Paso 1 si está vacío
     place: '',
     date: '',
     focusEventDescription: '',
   });
-  const [eventCounter, setEventCounter] = useState(1); 
+  const [eventCounter, setEventCounter] = useState(1); // Para generar IDs de evento secuenciales E-00001, E-00002, etc.
   const [immediateActions, setImmediateActions] = useState<ImmediateAction[]>([]);
   const [immediateActionCounter, setImmediateActionCounter] = useState(1);
 
@@ -77,20 +77,23 @@ export default function RCAAnalysisPage() {
     if (!eventData.id) {
       const newEventID = `E-${String(eventCounter).padStart(5, '0')}`;
       setEventData(prev => ({ ...prev, id: newEventID }));
-      setEventCounter(prev => prev + 1);
+      setEventCounter(prev => prev + 1); // Incrementar para el *próximo* evento
+      toast({ title: "ID de Evento Generado", description: `Nuevo ID de evento: ${newEventID}` });
       return newEventID;
     }
-    return eventData.id;
-  }, [eventData.id, eventCounter]);
+    return eventData.id; // Devuelve el ID existente si ya hay uno
+  }, [eventData.id, eventCounter, toast]);
 
 
   const handleGoToStep = (targetStep: number) => {
     if (targetStep > step && targetStep > maxCompletedStep + 1 && targetStep !== 1) {
       return;
     }
+    // Asegurar ID si se salta el paso 1 o se va a un paso donde el ID es necesario.
     if (targetStep >=1 && !eventData.id && targetStep > 1 ) { 
         ensureEventId();
     }
+    // Particularmente importante para el paso 3 donde se crean acciones planeadas que dependen del ID del evento.
     if (targetStep >=3 && !eventData.id ) { 
       ensureEventId();
     }
@@ -101,7 +104,7 @@ export default function RCAAnalysisPage() {
   };
 
   const handleNextStep = () => {
-    ensureEventId(); 
+    ensureEventId(); // Asegura o genera el ID del evento al pasar del Paso 1
     const newStep = Math.min(step + 1, 5);
     const newMaxCompletedStep = Math.max(maxCompletedStep, step);
     setStep(newStep);
@@ -195,7 +198,11 @@ export default function RCAAnalysisPage() {
   };
   
   const handleAddPlannedAction = () => {
-    const currentEventId = ensureEventId(); 
+    const currentEventId = ensureEventId(); // Asegura que el ID del evento exista y lo obtiene
+    if (!currentEventId) { // Si por alguna razón no se pudo obtener el ID
+      toast({ title: "Error", description: "No se pudo generar/obtener ID de evento para la acción planificada.", variant: "destructive" });
+      return;
+    }
     const newActionId = `${currentEventId}-PA-${String(plannedActionCounter).padStart(3, '0')}`;
     setPlannedActions(prev => [...prev, { id: newActionId, eventId: currentEventId, description: '', responsible: '', dueDate: '' }]);
     setPlannedActionCounter(prev => prev + 1);

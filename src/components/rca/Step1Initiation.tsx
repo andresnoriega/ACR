@@ -49,7 +49,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     <Card>
       <CardHeader>
         <CardTitle className="font-headline">Paso 1: Iniciación</CardTitle>
-        <CardDescription>Información básica del evento y acciones inmediatas.</CardDescription>
+        <CardDescription>Información básica del evento y acciones inmediatas. ID Evento: <span className="font-semibold text-primary">{eventData.id || "Pendiente"}</span></CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
@@ -103,7 +103,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
         </div>
       </CardContent>
       <CardFooter className="flex justify-end">
-        <Button onClick={onNext} className="transition-transform hover:scale-105">Siguiente</Button>
+        <Button onClick={onNext} className="transition-transform hover:scale-105">Guardar y Continuar</Button>
       </CardFooter>
     </Card>
   );
