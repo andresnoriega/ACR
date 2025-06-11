@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon } from 'lucide-react';
-import { format, parse, isValid, startOfDay } from 'date-fns';
+import { format, parse, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 interface Step2FactsProps {
@@ -39,7 +39,6 @@ export const Step2Facts: FC<Step2FactsProps> = ({
     let dDate: Date | undefined;
     let tString = "";
 
-    // Try to parse DD-MM-YYYY format
     const dateMatchDMY = text.match(/(\d{2}-\d{2}-\d{4})/);
     if (dateMatchDMY?.[1]) {
       const parsed = parse(dateMatchDMY[1], "dd-MM-yyyy", new Date());
@@ -47,7 +46,6 @@ export const Step2Facts: FC<Step2FactsProps> = ({
         dDate = parsed;
       }
     } else {
-      // Try to parse YYYY-MM-DD format (common from date inputs)
       const dateMatchYMD = text.match(/(\d{4}-\d{2}-\d{2})/);
       if (dateMatchYMD?.[1]) {
         const parsed = parse(dateMatchYMD[1], "yyyy-MM-dd", new Date());
@@ -57,10 +55,9 @@ export const Step2Facts: FC<Step2FactsProps> = ({
       }
     }
     
-
-    const timeMatch = text.match(/(\d{2}:\d{2}(?::\d{2})?)/); // HH:mm or HH:mm:ss
+    const timeMatch = text.match(/(\d{2}:\d{2}(?::\d{2})?)/);
     if (timeMatch?.[1]) {
-      tString = timeMatch[1].substring(0,5); // Ensure HH:mm format for time input
+      tString = timeMatch[1].substring(0,5);
     }
     return { derivedDate: dDate, derivedTime: tString };
   }, [detailedFacts.cuando]);
@@ -85,7 +82,7 @@ export const Step2Facts: FC<Step2FactsProps> = ({
       } else {
         finalCuando = newDateString;
       }
-    } else { // Date cleared
+    } else { 
       if (currentTimeString) {
         finalCuando = `A las ${currentTimeString}`;
       } else {
@@ -96,7 +93,7 @@ export const Step2Facts: FC<Step2FactsProps> = ({
   };
 
   const handleTimeChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const newTime = e.target.value; // HH:mm from input type="time"
+    const newTime = e.target.value; 
     
     const dateString = selectedCalendarDate ? format(selectedCalendarDate, "dd-MM-yyyy") : (derivedDate ? format(derivedDate, "dd-MM-yyyy") : "");
 
@@ -105,7 +102,6 @@ export const Step2Facts: FC<Step2FactsProps> = ({
       if (dateString) {
         finalCuando = `A las ${newTime} del ${dateString}`;
       } else {
-        // If no date, try to find one in the original string
         const existingDateMatch = detailedFacts.cuando.match(/(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})/);
         if (existingDateMatch?.[0]) {
            const parsedExisting = parse(existingDateMatch[0], existingDateMatch[0].includes('-') && existingDateMatch[0].length === 10 && existingDateMatch[0][4] === '-' ? "yyyy-MM-dd" : "dd-MM-yyyy", new Date());
@@ -118,9 +114,9 @@ export const Step2Facts: FC<Step2FactsProps> = ({
           finalCuando = `A las ${newTime}`;
         }
       }
-    } else { // Time cleared
+    } else { 
       if (dateString) {
-        finalCuando = dateString; // Keep only date
+        finalCuando = dateString; 
       } else {
         const existingDateMatch = detailedFacts.cuando.match(/(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})/);
          if (existingDateMatch?.[0]) {
@@ -131,17 +127,17 @@ export const Step2Facts: FC<Step2FactsProps> = ({
                 finalCuando = '';
             }
         } else {
-           finalCuando = ''; // Clear all if both are cleared
+           finalCuando = ''; 
         }
       }
     }
      onDetailedFactChange('cuando', finalCuando);
   };
 
-  const constructedPhenomenonDescription = `Un evento, identificado como "${detailedFacts.que || 'QUÉ (no especificado)'}",
-tuvo lugar en "${detailedFacts.donde || 'DÓNDE (no especificado)'}"
-el "${detailedFacts.cuando || 'CUÁNDO (no especificado)'}".
-La desviación ocurrió de la siguiente manera: "${detailedFacts.como || 'CÓMO (no especificado)'}".
+  const constructedPhenomenonDescription = `La desviación ocurrió de la siguiente manera: "${detailedFacts.como || 'CÓMO (no especificado)'}".
+El evento identificado fue: "${detailedFacts.que || 'QUÉ (no especificado)'}".
+Esto tuvo lugar en: "${detailedFacts.donde || 'DÓNDE (no especificado)'}".
+Sucedió el: "${detailedFacts.cuando || 'CUÁNDO (no especificado)'}".
 El impacto o tendencia fue: "${detailedFacts.cualCuanto || 'CUÁL/CUÁNTO (no especificado)'}".
 Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no especificado)'}".`;
 
@@ -152,10 +148,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <Label htmlFor="quien">QUIÉN</Label>
-            <Input id="quien" value={detailedFacts.quien} onChange={(e) => handleInputChange(e, 'quien')} placeholder="Personas o equipos implicados (Ej: N/A, Operador Turno A)" />
-          </div>
           <div className="space-y-2">
             <Label htmlFor="como">CÓMO (ocurrió la desviación)</Label>
             <Input id="como" value={detailedFacts.como} onChange={(e) => handleInputChange(e, 'como')} placeholder="Ej: Durante operación normal" />
@@ -209,9 +201,13 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
             </div>
           </div>
 
-          <div className="space-y-2 md:col-span-2">
+          <div className="space-y-2">
             <Label htmlFor="cualCuanto">CUÁL/CUÁNTO (tendencia e impacto)</Label>
             <Input id="cualCuanto" value={detailedFacts.cualCuanto} onChange={(e) => handleInputChange(e, 'cualCuanto')} placeholder="Ej: Evento único / 2 Días de detención" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="quien">QUIÉN</Label>
+            <Input id="quien" value={detailedFacts.quien} onChange={(e) => handleInputChange(e, 'quien')} placeholder="Personas o equipos implicados (Ej: N/A, Operador Turno A)" />
           </div>
         </div>
 
@@ -219,7 +215,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
           <Label className="font-semibold">DESCRIPCIÓN DEL FENÓMENO (Auto-generado)</Label>
           <Alert variant="default" className="bg-secondary/30">
             <AlertDescription className="whitespace-pre-line">
-              {detailedFacts.que || detailedFacts.donde || detailedFacts.cuando || detailedFacts.cualCuanto || detailedFacts.como || detailedFacts.quien ? 
+              {detailedFacts.como || detailedFacts.que || detailedFacts.donde || detailedFacts.cuando || detailedFacts.cualCuanto || detailedFacts.quien ? 
                constructedPhenomenonDescription : 
                "Complete los campos anteriores para generar la descripción."}
             </AlertDescription>
@@ -244,5 +240,4 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     </Card>
   );
 };
-
     

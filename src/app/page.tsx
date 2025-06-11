@@ -55,7 +55,7 @@ export default function RCAHomePage() {
 
   // Step 2 State
   const [detailedFacts, setDetailedFacts] = useState<DetailedFacts>(initialDetailedFacts);
-  const [analysisDetails, setAnalysisDetails] = useState(''); // This remains for 'Análisis Realizado'
+  const [analysisDetails, setAnalysisDetails] = useState(''); 
 
   // Step 3 State
   const [analysisTechnique, setAnalysisTechnique] = useState<AnalysisTechnique>('');
@@ -73,7 +73,7 @@ export default function RCAHomePage() {
   // Step 4 State
   const [validations, setValidations] = useState<Validation[]>([]);
   // Step 5 State
-  const [finalComments, setFinalComments] = useState(''); // This will be used as "Introducción" in Step 5
+  const [finalComments, setFinalComments] = useState(''); 
 
   const ensureEventId = useCallback(() => {
     if (!eventData.id) {
@@ -93,11 +93,11 @@ export default function RCAHomePage() {
     if (targetStep >=1 && !eventData.id && targetStep > 1 ) { 
         ensureEventId();
     }
-    if (targetStep >=3 && !eventData.id ) { // Ensure ID if jumping to step 3 or later
+    if (targetStep >=3 && !eventData.id ) { 
       ensureEventId();
     }
     setStep(targetStep);
-    if (targetStep > maxCompletedStep && targetStep > step ) { // Only update if moving forward to uncompleted step
+    if (targetStep > maxCompletedStep && targetStep > step ) { 
         setMaxCompletedStep(targetStep -1);
     }
   };
@@ -142,7 +142,6 @@ export default function RCAHomePage() {
   // Step 3 Logic
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);
-    // Reset notes and specific technique data when technique changes
     setAnalysisTechniqueNotes(''); 
     if (value === 'Ishikawa') {
       setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData))); 
@@ -178,7 +177,12 @@ export default function RCAHomePage() {
   };
 
   const handleGenerateAIInsights = async () => {
-    const constructedDetailedFactsString = `Un evento, identificado como "${detailedFacts.que || 'QUÉ (no especificado)'}", tuvo lugar en "${detailedFacts.donde || 'DÓNDE (no especificado)'}" el "${detailedFacts.cuando || 'CUÁNDO (no especificado)'}". La desviación ocurrió de la siguiente manera: "${detailedFacts.como || 'CÓMO (no especificado)'}". El impacto o tendencia fue: "${detailedFacts.cualCuanto || 'CUÁL/CUÁNTO (no especificado)'}". Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no especificado)'}".`;
+    const constructedDetailedFactsString = `La desviación ocurrió de la siguiente manera: "${detailedFacts.como || 'CÓMO (no especificado)'}".
+El evento identificado fue: "${detailedFacts.que || 'QUÉ (no especificado)'}".
+Esto tuvo lugar en: "${detailedFacts.donde || 'DÓNDE (no especificado)'}".
+Sucedió el: "${detailedFacts.cuando || 'CUÁNDO (no especificado)'}".
+El impacto o tendencia fue: "${detailedFacts.cualCuanto || 'CUÁL/CUÁNTO (no especificado)'}".
+Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no especificado)'}".`;
 
     if (!eventData.focusEventDescription && !constructedDetailedFactsString && !analysisDetails && !userDefinedRootCause) {
       toast({ title: "Información Insuficiente", description: "Por favor, complete la descripción del evento, hechos, análisis o causa raíz definida para generar ideas.", variant: "destructive" });
@@ -236,11 +240,9 @@ export default function RCAHomePage() {
       analysisPayload += (ctmContent.trim().endsWith("(CTM):") ? '(No se definieron elementos para el Árbol de Causas)' : ctmContent);
     }
     
-    // Include generic notes if analysisTechniqueNotes has content, regardless of specific technique
     if (analysisTechniqueNotes.trim()) {
       analysisPayload += `\n\nNOTAS ADICIONALES DEL ANÁLISIS (${analysisTechnique || 'General'}):\n${analysisTechniqueNotes}`;
     }
-
 
     const factsForAI = `${eventData.focusEventDescription || 'Evento no descrito.'}\n\nDESCRIPCIÓN DEL FENÓMENO (Hechos Observados):\n${constructedDetailedFactsString || 'Hechos no detallados.'}`;
     
@@ -275,8 +277,6 @@ export default function RCAHomePage() {
     setPlannedActions(prev => prev.filter((_, i) => i !== index));
   };
 
-
-  // Step 4 Logic - Update validations whenever planned actions change
   useEffect(() => {
     setValidations(prevValidations => {
       const newValidations = plannedActions.map(pa => {
@@ -293,22 +293,18 @@ export default function RCAHomePage() {
     );
   };
   
-  // Step 5 Logic
   const handlePrintReport = () => {
     const nonPrintableElements = document.querySelectorAll('.no-print');
     nonPrintableElements.forEach(el => el.classList.add('hidden'));
     
-    // Ensure the report area is styled for printing
     const reportArea = document.getElementById('printable-report-area');
     if (reportArea) {
-      // Temporarily adjust styles for printing if needed
     }
 
     window.print();
 
     nonPrintableElements.forEach(el => el.classList.remove('hidden'));
      if (reportArea) {
-      // Revert temporary styles if any
     }
   };
 
