@@ -1,21 +1,25 @@
 
 'use client';
 import type { FC, ChangeEvent } from 'react';
-import type { PlannedAction, AIInsights, AnalysisTechnique } from '@/types/rca';
+import type { PlannedAction, AIInsights, AnalysisTechnique, IshikawaData, RCAEventData } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Sparkles, Trash2, Loader2 } from 'lucide-react';
+import { PlusCircle, Sparkles, Trash2, Loader2, Brain } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from '@/components/ui/textarea';
+import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive'; // Import new component
 
 interface Step3AnalysisProps {
+  eventData: RCAEventData; // Pass eventData to access focusEventDescription
   analysisTechnique: AnalysisTechnique;
   onAnalysisTechniqueChange: (value: AnalysisTechnique) => void;
   analysisTechniqueNotes: string;
   onAnalysisTechniqueNotesChange: (value: string) => void;
+  ishikawaData: IshikawaData;
+  onSetIshikawaData: (data: IshikawaData) => void;
   aiInsights: AIInsights | null;
   onGenerateAIInsights: () => void;
   isGeneratingInsights: boolean;
@@ -28,10 +32,13 @@ interface Step3AnalysisProps {
 }
 
 export const Step3Analysis: FC<Step3AnalysisProps> = ({
+  eventData,
   analysisTechnique,
   onAnalysisTechniqueChange,
   analysisTechniqueNotes,
   onAnalysisTechniqueNotesChange,
+  ishikawaData,
+  onSetIshikawaData,
   aiInsights,
   onGenerateAIInsights,
   isGeneratingInsights,
@@ -67,12 +74,20 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
           </Select>
         </div>
 
-        {analysisTechnique && (
+        {analysisTechnique === 'Ishikawa' && (
+          <IshikawaDiagramInteractive
+            focusEventDescription={eventData.focusEventDescription || "Evento Foco (no definido en Paso 1)"}
+            ishikawaData={ishikawaData}
+            onSetIshikawaData={onSetIshikawaData}
+          />
+        )}
+
+        {analysisTechnique && analysisTechnique !== 'Ishikawa' && (
           <div className="space-y-2 mt-4">
             <Label htmlFor="analysisTechniqueNotes">
               {analysisTechnique === 'WhyWhy' && 'Desarrolle los 5 Porqués:'}
-              {analysisTechnique === 'Ishikawa' && 'Notas para el Diagrama de Ishikawa:'}
               {analysisTechnique === 'CTM' && 'Notas para el Árbol de Causas (CTM):'}
+              {(!analysisTechnique || analysisTechnique === '') && 'Notas Generales de Análisis:'}
             </Label>
             <Textarea
               id="analysisTechniqueNotes"
@@ -83,9 +98,9 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
             />
           </div>
         )}
-
+        
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold font-headline">Asistente IA para RCA</h3>
+          <h3 className="text-lg font-semibold font-headline flex items-center"><Brain className="mr-2 h-5 w-5 text-primary" />Asistente IA para RCA</h3>
           <Button onClick={onGenerateAIInsights} disabled={isGeneratingInsights} className="w-full sm:w-auto">
             {isGeneratingInsights ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

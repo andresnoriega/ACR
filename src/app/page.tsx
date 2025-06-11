@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AIInsights, AnalysisTechnique } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AIInsights, AnalysisTechnique, IshikawaData, IshikawaCategory, IshikawaCause } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -12,6 +12,16 @@ import { getAIInsightsAction } from '@/app/actions';
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+
+const initialIshikawaData: IshikawaData = [
+  { id: 'manpower', name: 'Mano de Obra', causes: [] },
+  { id: 'method', name: 'Método', causes: [] },
+  { id: 'machinery', name: 'Maquinaria', causes: [] },
+  { id: 'material', name: 'Material', causes: [] },
+  { id: 'measurement', name: 'Medición', causes: [] },
+  { id: 'environment', name: 'Medio Ambiente', causes: [] },
+];
+
 
 export default function RCAHomePage() {
   const [step, setStep] = useState(1);
@@ -34,6 +44,7 @@ export default function RCAHomePage() {
 
   const [analysisTechnique, setAnalysisTechnique] = useState<AnalysisTechnique>('');
   const [analysisTechniqueNotes, setAnalysisTechniqueNotes] = useState('');
+  const [ishikawaData, setIshikawaData] = useState<IshikawaData>(JSON.parse(JSON.stringify(initialIshikawaData)));
   const [aiInsights, setAIInsights] = useState<AIInsights | null>(null);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [plannedActions, setPlannedActions] = useState<PlannedAction[]>([]);
@@ -58,7 +69,7 @@ export default function RCAHomePage() {
     if (targetStep > step && targetStep > maxCompletedStep + 1 && targetStep !== 1) {
       return;
     }
-    if (targetStep >= 3 && !eventData.id) {
+     if (targetStep >= 1 && !eventData.id && targetStep !== 1) { // Allow going to step 1 without ID
         ensureEventId();
     }
     setStep(targetStep);
@@ -67,15 +78,17 @@ export default function RCAHomePage() {
   const handleNextStep = () => {
     ensureEventId(); 
     setMaxCompletedStep(prevMax => Math.max(prevMax, step));
-    if (step < 5) {
-      setStep(prevStep => prevStep + 1); 
-    }
+    setStep(prevStep => {
+      if (prevStep < 5) return prevStep + 1;
+      return prevStep;
+    });
   };
 
   const handlePreviousStep = () => {
-    if (step > 1) {
-      setStep(prevStep => prevStep - 1); 
-    }
+    setStep(prevStep => {
+      if (prevStep > 1) return prevStep - 1;
+      return prevStep;
+    });
   };
   
   // Step 1 Logic
@@ -100,9 +113,16 @@ export default function RCAHomePage() {
   // Step 3 Logic
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);
-    // Optionally, clear notes when technique changes, or handle specific logic
-    // setAnalysisTechniqueNotes(''); 
+    setAnalysisTechniqueNotes(''); // Clear general notes when technique changes
+    if (value === 'Ishikawa') {
+      setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData))); // Reset Ishikawa data
+    }
   };
+  
+  const handleSetIshikawaData = (newData: IshikawaData) => {
+    setIshikawaData(newData);
+  };
+
 
   const handleGenerateAIInsights = async () => {
     if (!eventData.focusEventDescription && !analysisFacts && !analysisDetails) {
@@ -113,9 +133,26 @@ export default function RCAHomePage() {
     setAIInsights(null);
     
     let analysisPayload = `${analysisDetails}\n\nTÉCNICA DE ANÁLISIS PRINCIPAL: ${analysisTechnique || 'No especificada'}`;
-    if (analysisTechniqueNotes.trim()) {
+    
+    if (analysisTechnique === 'Ishikawa') {
+      let ishikawaNotesContent = "Diagrama de Ishikawa (6M):\n";
+      ishikawaData.forEach(category => {
+        ishikawaNotesContent += `\nCategoría: ${category.name}\n`;
+        if (category.causes.length > 0) {
+          category.causes.forEach((cause, index) => {
+            if (cause.description.trim()) {
+              ishikawaNotesContent += `  - Causa ${index + 1}: ${cause.description.trim()}\n`;
+            }
+          });
+        } else {
+          ishikawaNotesContent += "  (Sin causas identificadas para esta categoría)\n";
+        }
+      });
+      analysisPayload += `\n\nDETALLES DEL DIAGRAMA DE ISHIKAWA:\n${ishikawaNotesContent}`;
+    } else if (analysisTechniqueNotes.trim()) {
       analysisPayload += `\n\nNOTAS SOBRE LA TÉCNICA (${analysisTechnique || 'General'}):\n${analysisTechniqueNotes}`;
     }
+
 
     const inputForAI: Parameters<typeof getAIInsightsAction>[0] = {
       facts: `${eventData.focusEventDescription}\n\nHECHOS OBSERVADOS:\n${analysisFacts}`,
@@ -223,10 +260,13 @@ export default function RCAHomePage() {
       <div className={step === 3 ? "" : "print:hidden"}>
       {step === 3 && (
         <Step3Analysis
+          eventData={eventData}
           analysisTechnique={analysisTechnique}
           onAnalysisTechniqueChange={handleAnalysisTechniqueChange}
           analysisTechniqueNotes={analysisTechniqueNotes}
           onAnalysisTechniqueNotesChange={setAnalysisTechniqueNotes}
+          ishikawaData={ishikawaData}
+          onSetIshikawaData={handleSetIshikawaData}
           aiInsights={aiInsights}
           onGenerateAIInsights={handleGenerateAIInsights}
           isGeneratingInsights={isGeneratingInsights}

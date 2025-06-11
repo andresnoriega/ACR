@@ -1,3 +1,4 @@
+
 export interface RCAEventData {
   id: string;
   place: string;
@@ -32,3 +33,17 @@ export interface AIInsights {
 }
 
 export type AnalysisTechnique = '' | 'WhyWhy' | 'Ishikawa' | 'CTM';
+
+// Types for Interactive Ishikawa Diagram
+export interface IshikawaCause {
+  id: string; // Unique ID for React key, e.g., 'cause-timestamp-random'
+  description: string;
+}
+
+export interface IshikawaCategory {
+  id: string; // e.g., 'measurement', 'machinery'
+  name: string; // e.g., 'Medición', 'Maquinaria'
+  causes: IshikawaCause[];
+}
+
+export type IshikawaData = IshikawaCategory[];
