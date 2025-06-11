@@ -1,7 +1,7 @@
 
 'use client';
 import type { FC, ChangeEvent } from 'react';
-import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhysData, RCAEventData, CTMData } from '@/types/rca';
+import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhysData, RCAEventData, CTMData, IdentifiedRootCause } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -27,11 +27,13 @@ interface Step3AnalysisProps {
   onRemoveFiveWhyEntry: (id: string) => void;
   ctmData: CTMData;
   onSetCtmData: (data: CTMData) => void;
-  userDefinedRootCause: string;
-  onUserDefinedRootCauseChange: (value: string) => void;
+  identifiedRootCauses: IdentifiedRootCause[];
+  onAddIdentifiedRootCause: () => void;
+  onUpdateIdentifiedRootCause: (id: string, description: string) => void;
+  onRemoveIdentifiedRootCause: (id: string) => void;
   plannedActions: PlannedAction[];
   onAddPlannedAction: () => void;
-  onUpdatePlannedAction: (index: number, field: keyof PlannedAction, value: string) => void;
+  onUpdatePlannedAction: (index: number, field: keyof Omit<PlannedAction, 'eventId'>, value: string) => void;
   onRemovePlannedAction: (index: number) => void;
   availableUsers: Array<{ id: string; name: string; email: string; }>; 
   onPrevious: () => void;
@@ -52,8 +54,10 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   onRemoveFiveWhyEntry,
   ctmData,
   onSetCtmData,
-  userDefinedRootCause,
-  onUserDefinedRootCauseChange,
+  identifiedRootCauses,
+  onAddIdentifiedRootCause,
+  onUpdateIdentifiedRootCause,
+  onRemoveIdentifiedRootCause,
   plannedActions,
   onAddPlannedAction,
   onUpdatePlannedAction,
@@ -62,7 +66,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   onPrevious,
   onNext,
 }) => {
-  const handleActionChange = (index: number, field: keyof PlannedAction, value: string) => {
+  const handleActionChange = (index: number, field: keyof Omit<PlannedAction, 'eventId'>, value: string) => {
     onUpdatePlannedAction(index, field, value);
   };
 
@@ -148,17 +152,33 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
           </div>
         )}
         
-        <div className="space-y-2">
-          <Label htmlFor="userDefinedRootCause" className="font-semibold flex items-center">
-            <MessageSquare className="mr-2 h-5 w-5 text-primary" /> Indicar la Causa Raíz de la Falla (según su análisis)
-          </Label>
-          <Textarea
-            id="userDefinedRootCause"
-            value={userDefinedRootCause}
-            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onUserDefinedRootCauseChange(e.target.value)}
-            placeholder="Describa aquí la causa raíz principal que ha identificado a través de su análisis..."
-            rows={4}
-          />
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold font-headline flex items-center">
+            <MessageSquare className="mr-2 h-5 w-5 text-primary" />
+            Causas Raíz Identificadas
+          </h3>
+          {identifiedRootCauses.map((rc, index) => (
+            <Card key={rc.id} className="p-4 space-y-3 bg-secondary/40">
+              <div className="flex justify-between items-center">
+                <Label htmlFor={`rc-desc-${rc.id}`} className="font-medium text-sm text-primary">
+                  Causa Raíz #{index + 1}
+                </Label>
+                <Button variant="ghost" size="icon" onClick={() => onRemoveIdentifiedRootCause(rc.id)} aria-label="Eliminar causa raíz">
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+              <Textarea
+                id={`rc-desc-${rc.id}`}
+                value={rc.description}
+                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onUpdateIdentifiedRootCause(rc.id, e.target.value)}
+                placeholder={`Describa la causa raíz #${index + 1}...`}
+                rows={3}
+              />
+            </Card>
+          ))}
+          <Button onClick={onAddIdentifiedRootCause} variant="outline" className="w-full">
+            <PlusCircle className="mr-2 h-4 w-4" /> Añadir Causa Raíz
+          </Button>
         </div>
 
         <div className="space-y-4">
@@ -175,6 +195,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                 <Label htmlFor={`pa-desc-${index}`}>Descripción de la Acción</Label>
                 <Input id={`pa-desc-${index}`} value={action.description} onChange={(e) => handleActionChange(index, 'description', e.target.value)} placeholder="Detalle de la acción correctiva" />
               </div>
+              {/* Aquí se podría añadir la selección de causas raíz vinculadas si se implementa la Parte 2 */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor={`pa-resp-${index}`}>Responsable</Label>
@@ -217,8 +238,3 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     </Card>
   );
 };
-
-
-    
-
-    

@@ -8,9 +8,15 @@ export interface RCAEventData {
 
 export interface ImmediateAction {
   id: string;
+  eventId: string;
   description: string;
   responsible: string;
-  dueDate: string; // Renamed from dueDate to reflect "Fecha"
+  dueDate: string; 
+}
+
+export interface IdentifiedRootCause {
+  id: string;
+  description: string;
 }
 
 export interface PlannedAction {
@@ -19,11 +25,12 @@ export interface PlannedAction {
   description: string;
   responsible: string;
   dueDate: string;
+  // relatedRootCauseIds?: string[]; // Futura mejora para vincular a causas raíz específicas
 }
 
 export interface Validation {
-  actionId: string; // Corresponds to PlannedAction.id
-  eventId: string; // Explicitly link validation to the event
+  actionId: string; 
+  eventId: string; 
   status: 'pending' | 'validated';
 }
 
@@ -111,6 +118,7 @@ export type PreservedFactCategory = typeof PRESERVED_FACT_CATEGORIES[number];
 
 export interface PreservedFact {
   id: string;
+  eventId: string;
   userGivenName: string;
   fileName: string | null;
   fileType: string | null;
@@ -119,4 +127,3 @@ export interface PreservedFact {
   description: string;
   uploadDate: string;
 }
-

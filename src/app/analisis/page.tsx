@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, FiveWhyEntry, CTMData, DetailedFacts, PreservedFact, PreservedFactCategory } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, FiveWhyEntry, CTMData, DetailedFacts, PreservedFact, PreservedFactCategory, IdentifiedRootCause } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -77,7 +77,7 @@ export default function RCAAnalysisPage() {
   const [ishikawaData, setIshikawaData] = useState<IshikawaData>(JSON.parse(JSON.stringify(initialIshikawaData)));
   const [fiveWhysData, setFiveWhysData] = useState<FiveWhysData>(JSON.parse(JSON.stringify(initialFiveWhysData)));
   const [ctmData, setCtmData] = useState<CTMData>(JSON.parse(JSON.stringify(initialCTMData)));
-  const [userDefinedRootCause, setUserDefinedRootCause] = useState('');
+  const [identifiedRootCauses, setIdentifiedRootCauses] = useState<IdentifiedRootCause[]>([]);
     
   const [plannedActions, setPlannedActions] = useState<PlannedAction[]>([]);
   const [plannedActionCounter, setPlannedActionCounter] = useState(1);
@@ -159,7 +159,7 @@ export default function RCAAnalysisPage() {
     setImmediateActionCounter(prev => prev + 1);
   };
 
-  const handleUpdateImmediateAction = (index: number, field: keyof ImmediateAction, value: string) => {
+  const handleUpdateImmediateAction = (index: number, field: keyof Omit<ImmediateAction, 'eventId'>, value: string) => {
     setImmediateActions(prev => prev.map((act, i) => i === index ? { ...act, [field]: value } : act));
   };
   
@@ -176,7 +176,7 @@ export default function RCAAnalysisPage() {
   };
 
   const handleAddPreservedFact = (fact: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId'>) => {
-    const currentEventId = eventData.id; 
+    const currentEventId = ensureEventId(); 
     if (!currentEventId) {
       toast({ title: "Error", description: "ID de evento no encontrado para asociar el hecho preservado.", variant: "destructive" });
       return;
@@ -236,6 +236,18 @@ export default function RCAAnalysisPage() {
     setCtmData(newData);
   };
   
+  const handleAddIdentifiedRootCause = () => {
+    setIdentifiedRootCauses(prev => [...prev, { id: `rc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, description: '' }]);
+  };
+
+  const handleUpdateIdentifiedRootCause = (id: string, description: string) => {
+    setIdentifiedRootCauses(prev => prev.map(rc => rc.id === id ? { ...rc, description } : rc));
+  };
+
+  const handleRemoveIdentifiedRootCause = (id: string) => {
+    setIdentifiedRootCauses(prev => prev.filter(rc => rc.id !== id));
+  };
+
   const handleAddPlannedAction = () => {
     const currentEventId = ensureEventId(); 
     if (!currentEventId) { 
@@ -247,7 +259,7 @@ export default function RCAAnalysisPage() {
     setPlannedActionCounter(prev => prev + 1);
   };
 
-  const handleUpdatePlannedAction = (index: number, field: keyof PlannedAction, value: string) => {
+  const handleUpdatePlannedAction = (index: number, field: keyof Omit<PlannedAction, 'eventId'>, value: string) => {
     setPlannedActions(prev => prev.map((act, i) => i === index ? { ...act, [field]: value } : act));
   };
 
@@ -355,8 +367,10 @@ export default function RCAAnalysisPage() {
           onRemoveFiveWhyEntry={handleRemoveFiveWhyEntry}
           ctmData={ctmData}
           onSetCtmData={handleSetCtmData}
-          userDefinedRootCause={userDefinedRootCause}
-          onUserDefinedRootCauseChange={setUserDefinedRootCause}
+          identifiedRootCauses={identifiedRootCauses}
+          onAddIdentifiedRootCause={handleAddIdentifiedRootCause}
+          onUpdateIdentifiedRootCause={handleUpdateIdentifiedRootCause}
+          onRemoveIdentifiedRootCause={handleRemoveIdentifiedRootCause}
           plannedActions={plannedActions}
           onAddPlannedAction={handleAddPlannedAction}
           onUpdatePlannedAction={handleUpdatePlannedAction}
@@ -389,6 +403,7 @@ export default function RCAAnalysisPage() {
           ishikawaData={ishikawaData}
           fiveWhysData={fiveWhysData}
           ctmData={ctmData}
+          identifiedRootCauses={identifiedRootCauses}
           plannedActions={plannedActions}
           finalComments={finalComments}
           onFinalCommentsChange={setFinalComments}
@@ -401,11 +416,3 @@ export default function RCAAnalysisPage() {
     </>
   );
 }
-        
-    
-
-    
-
-
-
-    

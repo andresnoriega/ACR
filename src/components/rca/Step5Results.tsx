@@ -2,7 +2,7 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo } from 'react';
-import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, PlannedAction } from '@/types/rca';
+import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, PlannedAction, IdentifiedRootCause } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -26,6 +26,7 @@ interface Step5ResultsProps {
   ishikawaData: IshikawaData;
   fiveWhysData: FiveWhysData;
   ctmData: CTMData;
+  identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
   finalComments: string; 
   onFinalCommentsChange: (value: string) => void;
@@ -59,6 +60,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   ishikawaData,
   fiveWhysData,
   ctmData,
+  identifiedRootCauses,
   plannedActions,
   finalComments,
   onFinalCommentsChange,
@@ -247,7 +249,15 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           <section>
             <SectionTitle title="Causas Raíz" icon={Zap}/>
             <SectionContent>
-              <p>Detalle aquí las causas raíz identificadas por su análisis o utilice la sección de Introducción/Comentarios finales.</p>
+              {identifiedRootCauses.length > 0 ? (
+                <ul className="list-disc pl-6 space-y-1">
+                  {identifiedRootCauses.map((rc, index) => (
+                    rc.description.trim() && <li key={rc.id}><strong>Causa Raíz #{index + 1}:</strong> {rc.description}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No se han definido causas raíz específicas.</p>
+              )}
             </SectionContent>
           </section>
           <Separator className="my-4" />
@@ -268,10 +278,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                 </>
               ) : (
                    <p>No se han definido acciones planificadas.</p>
-              )}
-              {/* This condition seems redundant with the one above, but kept for structural similarity to previous state if any */}
-              {plannedActions.length === 0 && (
-                  <p>No se han definido acciones recomendadas.</p>
               )}
             </SectionContent>
           </section>
@@ -352,4 +358,3 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     </>
   );
 };
-
