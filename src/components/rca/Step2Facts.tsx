@@ -24,8 +24,6 @@ interface Step2FactsProps {
   onNext: () => void;
 }
 
-const problemIdentificationGuidance = "¿QUÉ ocurrió? / ¿DÓNDE ocurrió la desviación (máquina, lugar, material)? ¿En qué parte/lugar del producto/proceso estamos viendo el problema? ¿CUANDO ocurrió (en qué momento del proceso, a qué hora)? / ¿QUIÉN, el problema está relacionado con las habilidades de las personas? / ¿CÓMO se diferencia el problema del estado normal (óptimo)? ¿La tendencia en la que aparece el problema es aleatoria o sigue un patrón? ¿CUÁL es la tendencia? ¿CUÁNTO impacto ha ocasionado la desviación?";
-
 export const Step2Facts: FC<Step2FactsProps> = ({
   detailedFacts,
   onDetailedFactChange,
@@ -94,7 +92,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     <Card>
       <CardHeader>
         <CardTitle className="font-headline">Paso 2: Hechos y Análisis Preliminar</CardTitle>
-        <CardDescription>{problemIdentificationGuidance}</CardDescription>
+        {/* CardDescription removida */}
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
