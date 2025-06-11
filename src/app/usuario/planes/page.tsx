@@ -281,7 +281,7 @@ export default function UserActionPlansPage() {
             <div className="pt-2">
               <h4 className="font-semibold text-primary mb-1">[Actualizar estado]</h4>
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => handleUpdateStatus('Completado')} disabled={selectedPlan.estado === 'Completado'}>
+                <Button size="sm" variant="outline" onClick={() => handleUpdateStatus('Completado')}>
                   <CheckCircle2 className="mr-1.5 h-4 w-4" /> Marcar como completado
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => toast({ title: 'Simulación', description: 'Progreso guardado.'})}>
