@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon } from 'lucide-react';
-import { format, parse, isValid } from 'date-fns';
+import { format, parse, isValid, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 interface Step2FactsProps {
@@ -39,17 +39,28 @@ export const Step2Facts: FC<Step2FactsProps> = ({
     let dDate: Date | undefined;
     let tString = "";
 
-    const dateMatch = text.match(/(\d{2}-\d{2}-\d{4})/);
-    if (dateMatch?.[1]) {
-      const parsed = parse(dateMatch[1], "dd-MM-yyyy", new Date());
+    // Try to parse DD-MM-YYYY format
+    const dateMatchDMY = text.match(/(\d{2}-\d{2}-\d{4})/);
+    if (dateMatchDMY?.[1]) {
+      const parsed = parse(dateMatchDMY[1], "dd-MM-yyyy", new Date());
       if (isValid(parsed)) {
         dDate = parsed;
       }
+    } else {
+      // Try to parse YYYY-MM-DD format (common from date inputs)
+      const dateMatchYMD = text.match(/(\d{4}-\d{2}-\d{2})/);
+      if (dateMatchYMD?.[1]) {
+        const parsed = parse(dateMatchYMD[1], "yyyy-MM-dd", new Date());
+        if (isValid(parsed)) {
+          dDate = parsed;
+        }
+      }
     }
+    
 
-    const timeMatch = text.match(/(\d{2}:\d{2})/); // HH:mm
+    const timeMatch = text.match(/(\d{2}:\d{2}(?::\d{2})?)/); // HH:mm or HH:mm:ss
     if (timeMatch?.[1]) {
-      tString = timeMatch[1];
+      tString = timeMatch[1].substring(0,5); // Ensure HH:mm format for time input
     }
     return { derivedDate: dDate, derivedTime: tString };
   }, [detailedFacts.cuando]);
@@ -65,54 +76,66 @@ export const Step2Facts: FC<Step2FactsProps> = ({
   const handleDateSelect = (date?: Date) => {
     setSelectedCalendarDate(date);
     const newDateString = date ? format(date, "dd-MM-yyyy") : "";
-    const currentTimeString = derivedTime; // HH:mm from useMemo
+    const currentTimeString = derivedTime;
 
+    let finalCuando = "";
     if (newDateString) {
       if (currentTimeString) {
-        onDetailedFactChange('cuando', `A las ${currentTimeString} del ${newDateString}`);
+        finalCuando = `A las ${currentTimeString} del ${newDateString}`;
       } else {
-        onDetailedFactChange('cuando', newDateString);
+        finalCuando = newDateString;
       }
     } else { // Date cleared
       if (currentTimeString) {
-        onDetailedFactChange('cuando', `A las ${currentTimeString}`);
+        finalCuando = `A las ${currentTimeString}`;
       } else {
-        onDetailedFactChange('cuando', '');
+        finalCuando = '';
       }
     }
+    onDetailedFactChange('cuando', finalCuando);
   };
 
   const handleTimeChange = (e: ChangeEvent<HTMLInputElement>) => {
     const newTime = e.target.value; // HH:mm from input type="time"
-    const currentDate = selectedCalendarDate; // Date object from state
     
-    const dateString = currentDate ? format(currentDate, "dd-MM-yyyy") : "";
+    const dateString = selectedCalendarDate ? format(selectedCalendarDate, "dd-MM-yyyy") : (derivedDate ? format(derivedDate, "dd-MM-yyyy") : "");
 
+    let finalCuando = "";
     if (newTime) {
       if (dateString) {
-        onDetailedFactChange('cuando', `A las ${newTime} del ${dateString}`);
+        finalCuando = `A las ${newTime} del ${dateString}`;
       } else {
-         // If no date, try to find one in the original string
-        const existingDateMatch = detailedFacts.cuando.match(/(\d{2}-\d{2}-\d{4})/);
-        if (existingDateMatch?.[1]) {
-          onDetailedFactChange('cuando', `A las ${newTime} del ${existingDateMatch[1]}`);
+        // If no date, try to find one in the original string
+        const existingDateMatch = detailedFacts.cuando.match(/(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})/);
+        if (existingDateMatch?.[0]) {
+           const parsedExisting = parse(existingDateMatch[0], existingDateMatch[0].includes('-') && existingDateMatch[0].length === 10 && existingDateMatch[0][4] === '-' ? "yyyy-MM-dd" : "dd-MM-yyyy", new Date());
+           if (isValid(parsedExisting)) {
+             finalCuando = `A las ${newTime} del ${format(parsedExisting, "dd-MM-yyyy")}`;
+           } else {
+             finalCuando = `A las ${newTime}`;
+           }
         } else {
-          onDetailedFactChange('cuando', `A las ${newTime}`);
+          finalCuando = `A las ${newTime}`;
         }
       }
     } else { // Time cleared
       if (dateString) {
-        onDetailedFactChange('cuando', dateString); // Keep only date
+        finalCuando = dateString; // Keep only date
       } else {
-        // If no date, try to find one in the original string
-        const existingDateMatch = detailedFacts.cuando.match(/(\d{2}-\d{2}-\d{4})/);
-        if (existingDateMatch?.[1]) {
-          onDetailedFactChange('cuando', existingDateMatch[1]);
+        const existingDateMatch = detailedFacts.cuando.match(/(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})/);
+         if (existingDateMatch?.[0]) {
+            const parsedExisting = parse(existingDateMatch[0], existingDateMatch[0].includes('-') && existingDateMatch[0].length === 10 && existingDateMatch[0][4] === '-' ? "yyyy-MM-dd" : "dd-MM-yyyy", new Date());
+            if (isValid(parsedExisting)) {
+                finalCuando = format(parsedExisting, "dd-MM-yyyy");
+            } else {
+                finalCuando = '';
+            }
         } else {
-           onDetailedFactChange('cuando', ''); // Clear all if both are cleared
+           finalCuando = ''; // Clear all if both are cleared
         }
       }
     }
+     onDetailedFactChange('cuando', finalCuando);
   };
 
   const constructedPhenomenonDescription = `Un evento, identificado como "${detailedFacts.que || 'QUÉ (no especificado)'}",
@@ -171,6 +194,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                             onSelect={handleDateSelect}
                             initialFocus
                             locale={es}
+                            disabled={{ after: new Date() }}
                         />
                         </PopoverContent>
                     </Popover>
@@ -178,7 +202,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                         type="time"
                         value={derivedTime}
                         onChange={handleTimeChange}
-                        className="w-auto"
+                        className="w-auto shrink-0"
                         aria-label="Seleccionar hora"
                     />
                 </div>
@@ -221,3 +245,4 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
   );
 };
 
+    
