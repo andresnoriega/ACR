@@ -158,7 +158,11 @@ export default function RCAHomePage() {
   };
 
   const handleAddFiveWhyEntry = () => {
-    setFiveWhysData(prev => [...prev, { id: `5why-${Date.now()}-${Math.random().toString(36).substring(2,7)}`, why: '', because: '' }]);
+    setFiveWhysData(prev => {
+      const lastEntry = prev.length > 0 ? prev[prev.length - 1] : null;
+      const initialWhy = lastEntry && lastEntry.because ? lastEntry.because : '';
+      return [...prev, { id: `5why-${Date.now()}-${Math.random().toString(36).substring(2,7)}`, why: initialWhy, because: '' }];
+    });
   };
 
   const handleUpdateFiveWhyEntry = (id: string, field: 'why' | 'because', value: string) => {
