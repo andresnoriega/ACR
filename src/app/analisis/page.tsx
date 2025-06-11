@@ -175,7 +175,7 @@ export default function RCAAnalysisPage() {
     setDetailedFacts(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleAddPreservedFact = (fact: Omit<PreservedFact, 'id' | 'uploadDate'>) => {
+  const handleAddPreservedFact = (fact: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId'>) => {
     const currentEventId = eventData.id; 
     if (!currentEventId) {
       toast({ title: "Error", description: "ID de evento no encontrado para asociar el hecho preservado.", variant: "destructive" });
@@ -261,7 +261,6 @@ export default function RCAAnalysisPage() {
         const existingValidation = prevValidations.find(v => v.actionId === pa.id);
         return existingValidation || { actionId: pa.id, eventId: pa.eventId, status: 'pending' };
       });
-      // Filter out validations for actions that no longer exist
       return newValidations.filter(v => plannedActions.some(pa => pa.id === v.actionId));
     });
   }, [plannedActions]);
@@ -276,15 +275,9 @@ export default function RCAAnalysisPage() {
     const nonPrintableElements = document.querySelectorAll('.no-print');
     nonPrintableElements.forEach(el => el.classList.add('hidden'));
     
-    const reportArea = document.getElementById('printable-report-area');
-    if (reportArea) {
-    }
-
     window.print();
 
     nonPrintableElements.forEach(el => el.classList.remove('hidden'));
-     if (reportArea) {
-    }
   };
 
   const handleMarkAsFinalized = () => {
