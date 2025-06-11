@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -33,7 +34,15 @@ export function TopNavigation() {
         <div className="flex items-center justify-center h-16">
           <div className="flex space-x-1 sm:space-x-2 md:space-x-4">
             {mainMenuItems.map((item) => {
-              const isActive = (pathname === '/' && item.href === '/inicio') || (item.href !== '/' && pathname.startsWith(item.href)) || (pathname === item.href) ;
+              let isActive = false;
+              if (item.href === '/inicio') {
+                isActive = pathname === '/inicio' || pathname === '/';
+              } else {
+                // For other main menu items like /analisis, /informes
+                // Active if the current path starts with the item's href
+                isActive = item.href !== '/' && pathname.startsWith(item.href);
+              }
+              
               return (
                 <Link
                   key={item.href}
