@@ -9,8 +9,8 @@ import { Separator } from '@/components/ui/separator';
 import { PieChart, ClipboardList, ListChecks, History, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell } from 'lucide-react';
 
 const staticStats = {
-  proyectosActivos: 4,
-  finalizados: 3,
+  eventosNotificados: 4, // Cambiado de proyectosActivos
+  enTratamiento: 3,    // Cambiado de finalizados
   enValidacion: 1,
 };
 
@@ -56,12 +56,12 @@ export default function DashboardRCAPage() {
         </CardHeader>
         <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
           <div className="p-4 bg-secondary/40 rounded-lg">
-            <p className="text-3xl font-bold text-primary">{staticStats.proyectosActivos}</p>
-            <p className="text-sm text-muted-foreground">Proyectos Activos</p>
+            <p className="text-3xl font-bold text-primary">{staticStats.eventosNotificados}</p>
+            <p className="text-sm text-muted-foreground">Eventos Notificados</p> {/* Cambiado */}
           </div>
           <div className="p-4 bg-secondary/40 rounded-lg">
-            <p className="text-3xl font-bold text-green-600">{staticStats.finalizados}</p>
-            <p className="text-sm text-muted-foreground">Finalizados</p>
+            <p className="text-3xl font-bold text-green-600">{staticStats.enTratamiento}</p>
+            <p className="text-sm text-muted-foreground">En Tratamiento</p> {/* Cambiado */}
           </div>
           <div className="p-4 bg-secondary/40 rounded-lg">
             <p className="text-3xl font-bold text-yellow-600">{staticStats.enValidacion}</p>
