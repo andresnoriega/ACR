@@ -117,6 +117,22 @@ export default function RCAAnalysisPage() {
 
   const handleNextStep = () => {
     ensureEventId(); 
+
+    if (step === 3) {
+      plannedActions.forEach(action => {
+        if (action.responsible) {
+          const responsibleUser = sampleAvailableUsers.find(user => user.name === action.responsible);
+          if (responsibleUser && responsibleUser.email) {
+            toast({
+              title: "Simulación de Envío de Correo",
+              description: `Correo enviado a ${responsibleUser.name} (${responsibleUser.email}) sobre la acción: "${action.description.substring(0, 50)}${action.description.length > 50 ? "..." : ""}".`,
+              duration: 5000,
+            });
+          }
+        }
+      });
+    }
+
     const newStep = Math.min(step + 1, 5);
     const newMaxCompletedStep = Math.max(maxCompletedStep, step);
     setStep(newStep);
@@ -139,7 +155,7 @@ export default function RCAAnalysisPage() {
       return;
     }
     const newActionId = `${currentEventId}-IMA-${String(immediateActionCounter).padStart(3, '0')}`;
-    setImmediateActions(prev => [...prev, { id: newActionId, description: '', responsible: '', dueDate: '' }]);
+    setImmediateActions(prev => [...prev, { id: newActionId, eventId: currentEventId, description: '', responsible: '', dueDate: '' }]);
     setImmediateActionCounter(prev => prev + 1);
   };
 
@@ -169,6 +185,7 @@ export default function RCAAnalysisPage() {
       ...fact,
       id: `${currentEventId}-pf-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
       uploadDate: new Date().toISOString(),
+      eventId: currentEventId,
     };
     setPreservedFacts(prev => [...prev, newFact]);
     toast({ title: "Hecho Preservado Añadido", description: `Se añadió "${newFact.userGivenName}".` });
@@ -351,7 +368,7 @@ export default function RCAAnalysisPage() {
           onAddPlannedAction={handleAddPlannedAction}
           onUpdatePlannedAction={handleUpdatePlannedAction}
           onRemovePlannedAction={handleRemovePlannedAction}
-          availableUsers={sampleAvailableUsers.map(u => ({id: u.id, name: u.name}))}
+          availableUsers={sampleAvailableUsers} 
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
         />
@@ -396,3 +413,6 @@ export default function RCAAnalysisPage() {
 
     
 
+
+
+    

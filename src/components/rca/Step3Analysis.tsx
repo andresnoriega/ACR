@@ -33,7 +33,7 @@ interface Step3AnalysisProps {
   onAddPlannedAction: () => void;
   onUpdatePlannedAction: (index: number, field: keyof PlannedAction, value: string) => void;
   onRemovePlannedAction: (index: number) => void;
-  availableUsers: Array<{ id: string; name: string; }>; // Added prop
+  availableUsers: Array<{ id: string; name: string; email: string; }>; 
   onPrevious: () => void;
   onNext: () => void;
 }
@@ -58,7 +58,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   onAddPlannedAction,
   onUpdatePlannedAction,
   onRemovePlannedAction,
-  availableUsers, // Destructure new prop
+  availableUsers, 
   onPrevious,
   onNext,
 }) => {
@@ -212,11 +212,13 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
       </CardContent>
       <CardFooter className="flex justify-between">
         <Button onClick={onPrevious} variant="outline" className="transition-transform hover:scale-105">Anterior</Button>
-        <Button onClick={onNext} className="transition-transform hover:scale-105">Siguiente</Button>
+        <Button onClick={onNext} className="transition-transform hover:scale-105">Guardar y Continuar</Button>
       </CardFooter>
     </Card>
   );
 };
 
+
+    
 
     
