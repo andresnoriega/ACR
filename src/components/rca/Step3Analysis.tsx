@@ -1,17 +1,18 @@
 
 'use client';
 import type { FC, ChangeEvent } from 'react';
-import type { PlannedAction, AIInsights, AnalysisTechnique, IshikawaData, FiveWhysData, RCAEventData } from '@/types/rca';
+import type { PlannedAction, AIInsights, AnalysisTechnique, IshikawaData, FiveWhysData, RCAEventData, CTMData } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Sparkles, Trash2, Loader2, Brain } from 'lucide-react';
+import { PlusCircle, Sparkles, Trash2, Loader2, Brain, ShareTree } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
 import { FiveWhysInteractive } from './FiveWhysInteractive';
+import { CTMInteractive } from './CTMInteractive';
 
 interface Step3AnalysisProps {
   eventData: RCAEventData;
@@ -25,6 +26,8 @@ interface Step3AnalysisProps {
   onAddFiveWhyEntry: () => void;
   onUpdateFiveWhyEntry: (id: string, field: 'why' | 'because', value: string) => void;
   onRemoveFiveWhyEntry: (id: string) => void;
+  ctmData: CTMData;
+  onSetCtmData: (data: CTMData) => void;
   aiInsights: AIInsights | null;
   onGenerateAIInsights: () => void;
   isGeneratingInsights: boolean;
@@ -48,6 +51,8 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   onAddFiveWhyEntry,
   onUpdateFiveWhyEntry,
   onRemoveFiveWhyEntry,
+  ctmData,
+  onSetCtmData,
   aiInsights,
   onGenerateAIInsights,
   isGeneratingInsights,
@@ -63,10 +68,12 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   };
 
   const getPlaceholderForNotes = () => {
-    if (analysisTechnique === 'CTM') {
-      return `Ejemplo de estructura para Árbol de Causas:\n\nEvento Foco: ${eventData.focusEventDescription || '(Defina el evento foco en Paso 1)'}\n\n- Causa Nivel 1 (Ej: Modo de Falla 1)\n  - Causa Nivel 2 (Ej: Hipótesis 1)\n    - Causa Nivel 3 (Ej: Desbalanceo)\n      - Causa Nivel 4 (Ej: No hay Procedimiento)\n  - Causa Nivel 2 (Ej: Fatiga)\n    - Causa Nivel 3 (Ej: Desalineamiento)\n      - Causa Nivel 4 (Ej: Mal montaje)\n        - Causa Nivel 5 (Ej: Mal Entrenamiento)\n        - Causa Nivel 5 (Ej: Malas Herramientas)\n\n- Causa Nivel 1 (Ej: Rotura de Rodamiento)\n  - ... (continúa la estructura)\n\nUtilice guiones (-) e indentación para definir la jerarquía.\nLa IA utilizará esta estructura para entender las relaciones causales.`;
+    // This function is now less relevant for CTM as it has its own interactive component
+    // but can be kept for a generic fallback if analysisTechnique is empty.
+    if (analysisTechnique === '') {
+       return "Escriba aquí sus notas detalladas sobre la aplicación de la técnica seleccionada o notas generales si no ha elegido una técnica específica...";
     }
-    return "Escriba aquí sus notas detalladas sobre la aplicación de la técnica seleccionada o notas generales si no ha elegido una técnica específica...";
+    return `Notas para ${analysisTechnique}`;
   };
 
   return (
@@ -108,10 +115,19 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
           />
         )}
 
-        {(analysisTechnique === 'CTM' || analysisTechnique === '') && (
+        {analysisTechnique === 'CTM' && (
+           <CTMInteractive
+            focusEventDescription={eventData.focusEventDescription || "Evento Foco (no definido en Paso 1)"}
+            ctmData={ctmData}
+            onSetCtmData={onSetCtmData}
+          />
+        )}
+        
+        {/* Fallback for notes if no specific interactive component is active */}
+        {analysisTechnique === '' && (
           <div className="space-y-2 mt-4">
             <Label htmlFor="analysisTechniqueNotes">
-              {analysisTechnique === 'CTM' ? 'Desarrollo del Árbol de Causas (CTM):' : 'Notas Generales de Análisis:'}
+              Notas Generales de Análisis:
             </Label>
             <Textarea
               id="analysisTechniqueNotes"

@@ -57,3 +57,34 @@ export interface FiveWhyEntry {
 
 export type FiveWhysData = FiveWhyEntry[];
 
+// Types for Interactive CTM (Cause Tree Method)
+export interface LatentCause {
+  id: string;
+  description: string;
+}
+
+export interface HumanCause {
+  id: string;
+  description: string;
+  latentCauses: LatentCause[];
+}
+
+export interface PhysicalCause {
+  id: string;
+  description: string;
+  humanCauses: HumanCause[];
+}
+
+export interface Hypothesis {
+  id: string;
+  description: string;
+  physicalCauses: PhysicalCause[];
+}
+
+export interface FailureMode {
+  id: string;
+  description: string;
+  hypotheses: Hypothesis[];
+}
+
+export type CTMData = FailureMode[];

@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AIInsights, AnalysisTechnique, IshikawaData, FiveWhysData, FiveWhyEntry } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AIInsights, AnalysisTechnique, IshikawaData, FiveWhysData, FiveWhyEntry, CTMData, FailureMode, Hypothesis, PhysicalCause, HumanCause, LatentCause } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -25,6 +25,8 @@ const initialIshikawaData: IshikawaData = [
 const initialFiveWhysData: FiveWhysData = [
   { id: `5why-${Date.now()}`, why: '', because: '' }
 ];
+
+const initialCTMData: CTMData = [];
 
 
 export default function RCAHomePage() {
@@ -50,6 +52,7 @@ export default function RCAHomePage() {
   const [analysisTechniqueNotes, setAnalysisTechniqueNotes] = useState('');
   const [ishikawaData, setIshikawaData] = useState<IshikawaData>(JSON.parse(JSON.stringify(initialIshikawaData)));
   const [fiveWhysData, setFiveWhysData] = useState<FiveWhysData>(JSON.parse(JSON.stringify(initialFiveWhysData)));
+  const [ctmData, setCtmData] = useState<CTMData>(JSON.parse(JSON.stringify(initialCTMData)));
   
   const [aiInsights, setAIInsights] = useState<AIInsights | null>(null);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
@@ -75,15 +78,19 @@ export default function RCAHomePage() {
     if (targetStep > step && targetStep > maxCompletedStep + 1 && targetStep !== 1) {
       return;
     }
-     if (targetStep >= 1 && !eventData.id && targetStep !== 1) { 
+    if (targetStep >= 1 && !eventData.id && targetStep > 1 ) { 
         ensureEventId();
     }
     setStep(targetStep);
+    if (targetStep > maxCompletedStep) {
+        setMaxCompletedStep(targetStep -1);
+    }
   };
 
   const handleNextStep = () => {
     ensureEventId(); 
-    setMaxCompletedStep(prevMax => Math.max(prevMax, step));
+    const newMaxCompletedStep = Math.max(maxCompletedStep, step);
+    setMaxCompletedStep(newMaxCompletedStep);
     setStep(prevStep => Math.min(prevStep + 1, 5));
   };
 
@@ -118,6 +125,8 @@ export default function RCAHomePage() {
       setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData))); 
     } else if (value === 'WhyWhy') {
       setFiveWhysData(JSON.parse(JSON.stringify(initialFiveWhysData)));
+    } else if (value === 'CTM') {
+      setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
     }
   };
   
@@ -135,6 +144,11 @@ export default function RCAHomePage() {
 
   const handleRemoveFiveWhyEntry = (id: string) => {
     setFiveWhysData(prev => prev.filter(entry => entry.id !== id));
+  };
+
+  // CTM Data Handlers
+  const handleSetCtmData = (newData: CTMData) => {
+    setCtmData(newData);
   };
 
 
@@ -171,7 +185,30 @@ export default function RCAHomePage() {
         }
       });
       analysisPayload += `\n\nDETALLES DEL ANÁLISIS DE LOS 5 PORQUÉS:\n${fiveWhysContent}`;
-    } else if (analysisTechniqueNotes.trim()) {
+    } else if (analysisTechnique === 'CTM') {
+      let ctmContent = "Árbol de Causas (CTM):\n";
+      const formatCTMLevel = (items: any[], prefix = "", levelName: string): string => {
+        let content = "";
+        items.forEach((item, index) => {
+          if (item.description.trim()) {
+            content += `${prefix}- ${levelName} ${index + 1}: ${item.description.trim()}\n`;
+            if (item.hypotheses && item.hypotheses.length > 0) {
+              content += formatCTMLevel(item.hypotheses, prefix + "  ", "Hipótesis");
+            } else if (item.physicalCauses && item.physicalCauses.length > 0) {
+              content += formatCTMLevel(item.physicalCauses, prefix + "  ", "Causa Física");
+            } else if (item.humanCauses && item.humanCauses.length > 0) {
+              content += formatCTMLevel(item.humanCauses, prefix + "  ", "Causa Humana");
+            } else if (item.latentCauses && item.latentCauses.length > 0) {
+              content += formatCTMLevel(item.latentCauses, prefix + "  ", "Causa Latente");
+            }
+          }
+        });
+        return content;
+      };
+      ctmContent += formatCTMLevel(ctmData, "", "Modo de Falla");
+      analysisPayload += `\n\nDETALLES DEL ÁRBOL DE CAUSAS (CTM):\n${ctmContent.trim() ? ctmContent : '(No se definieron elementos para el Árbol de Causas)'}`;
+    }
+    else if (analysisTechniqueNotes.trim()) {
       analysisPayload += `\n\nNOTAS SOBRE LA TÉCNICA (${analysisTechnique || 'General'}):\n${analysisTechniqueNotes}`;
     }
 
@@ -293,6 +330,8 @@ export default function RCAHomePage() {
           onAddFiveWhyEntry={handleAddFiveWhyEntry}
           onUpdateFiveWhyEntry={handleUpdateFiveWhyEntry}
           onRemoveFiveWhyEntry={handleRemoveFiveWhyEntry}
+          ctmData={ctmData}
+          onSetCtmData={handleSetCtmData}
           aiInsights={aiInsights}
           onGenerateAIInsights={handleGenerateAIInsights}
           isGeneratingInsights={isGeneratingInsights}
