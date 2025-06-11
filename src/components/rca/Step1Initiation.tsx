@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PlusCircle, Trash2 } from 'lucide-react';
 
 interface Step1InitiationProps {
@@ -16,6 +17,7 @@ interface Step1InitiationProps {
   onAddImmediateAction: () => void;
   onUpdateImmediateAction: (index: number, field: keyof ImmediateAction, value: string) => void;
   onRemoveImmediateAction: (index: number) => void;
+  availableSites: Array<{ id: string; name: string; }>; // Added prop
   onNext: () => void;
 }
 
@@ -26,10 +28,15 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   onAddImmediateAction,
   onUpdateImmediateAction,
   onRemoveImmediateAction,
+  availableSites, // Destructure new prop
   onNext,
 }) => {
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, field: keyof RCAEventData) => {
     onEventDataChange(field, e.target.value);
+  };
+
+  const handleSelectChange = (value: string, field: keyof RCAEventData) => {
+    onEventDataChange(field, value);
   };
 
   const handleActionChange = (index: number, field: keyof ImmediateAction, value: string) => {
@@ -54,7 +61,19 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
       <CardContent className="space-y-6">
         <div className="space-y-2">
           <Label htmlFor="place">Lugar del Evento</Label>
-          <Input id="place" value={eventData.place} onChange={(e) => handleInputChange(e, 'place')} placeholder="Ej: Planta de Producción Alfa" />
+          <Select onValueChange={(value) => handleSelectChange(value, 'place')} value={eventData.place}>
+            <SelectTrigger id="place">
+              <SelectValue placeholder="-- Seleccione un lugar --" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableSites.map(site => (
+                <SelectItem key={site.id} value={site.name}>{site.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Nota: En una aplicación completa, esta lista se cargaría dinámicamente desde la configuración de sitios.
+          </p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="date">Fecha del Evento</Label>
@@ -108,3 +127,5 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     </Card>
   );
 };
+
+    

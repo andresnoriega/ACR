@@ -36,6 +36,15 @@ const initialDetailedFacts: DetailedFacts = {
   como: '',
 };
 
+// Sample sites, ideally this would come from a shared state or API
+const sampleAvailableSites: Array<{ id: string; name: string }> = [
+  { id: '1', name: 'Planta Industrial' },
+  { id: '2', name: 'Centro Logístico' },
+  { id: '3', name: 'Oficina Central' },
+  { id: '4', name: 'Almacén Regional Norte' },
+];
+
+
 export default function RCAAnalysisPage() {
   const [step, setStep] = useState(1);
   const [maxCompletedStep, setMaxCompletedStep] = useState(0);
@@ -276,6 +285,7 @@ export default function RCAAnalysisPage() {
             onAddImmediateAction={handleAddImmediateAction}
             onUpdateImmediateAction={handleUpdateImmediateAction}
             onRemoveImmediateAction={handleRemoveImmediateAction}
+            availableSites={sampleAvailableSites}
             onNext={handleNextStep}
           />
         )}
@@ -353,3 +363,5 @@ export default function RCAAnalysisPage() {
     </>
   );
 }
+
+    
