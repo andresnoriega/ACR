@@ -2,7 +2,7 @@
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Home, BarChart3, FileText, SettingsIcon, Zap } from 'lucide-react';
+import { Home, BarChart3, FileText, SettingsIcon, Zap, UserCheck } from 'lucide-react';
 
 export default function InicioPage() {
   return (
@@ -19,7 +19,7 @@ export default function InicioPage() {
         </p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-6">
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
           <CardHeader>
             <div className="flex items-center gap-3 mb-2">
@@ -43,12 +43,29 @@ export default function InicioPage() {
               <FileText className="h-7 w-7 text-primary" />
               <CardTitle className="text-2xl">Informes</CardTitle>
             </div>
-            <CardDescription>Visualice y gestione los informes de sus análisis completados. (Próximamente)</CardDescription>
+            <CardDescription>Visualice y gestione los informes de sus análisis completados.</CardDescription>
           </CardHeader>
           <CardContent>
             <Link href="/informes" passHref>
               <Button className="w-full" size="lg">
                 Ver Informes
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <CardHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <UserCheck className="h-7 w-7 text-primary" />
+              <CardTitle className="text-2xl">Menú de Usuario</CardTitle>
+            </div>
+            <CardDescription>Gestione sus planes de acción y tareas asignadas.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/usuario/planes" passHref>
+              <Button className="w-full" size="lg">
+                Ir a Mis Tareas
               </Button>
             </Link>
           </CardContent>

@@ -3,14 +3,15 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, BarChart3, FileText, SettingsIcon } from 'lucide-react';
+import { Home, BarChart3, FileText, SettingsIcon, UserCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const mainMenuItems = [
   { href: '/inicio', label: 'Inicio', icon: Home },
   { href: '/analisis', label: 'Análisis', icon: BarChart3 },
   { href: '/informes', label: 'Informes', icon: FileText },
-  { href: '/config', label: 'Config.', icon: SettingsIcon }, // Changed from Dropdown to direct Link
+  { href: '/usuario/planes', label: 'Mis Tareas', icon: UserCheck },
+  { href: '/config', label: 'Config.', icon: SettingsIcon },
 ];
 
 export function TopNavigation() {
@@ -26,8 +27,11 @@ export function TopNavigation() {
               if (item.href === '/inicio') {
                 isActive = (pathname === item.href || pathname === '/');
               } else if (item.href === '/config') {
-                isActive = pathname.startsWith(item.href); // Active if path starts with /config
-              } else {
+                isActive = pathname.startsWith(item.href); 
+              } else if (item.href === '/usuario/planes') {
+                isActive = pathname.startsWith('/usuario');
+              }
+               else {
                 if (item.href && item.href !== '/') {
                    isActive = pathname.startsWith(item.href);
                 }
