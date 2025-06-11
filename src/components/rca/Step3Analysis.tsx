@@ -1,3 +1,4 @@
+
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import type { PlannedAction, AIInsights, AnalysisTechnique } from '@/types/rca';
@@ -54,6 +55,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
               <SelectValue placeholder="-- Seleccione una técnica --" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="">-- Seleccione una técnica --</SelectItem>
               <SelectItem value="WhyWhy">5 Porqués</SelectItem>
               <SelectItem value="Ishikawa">Ishikawa (Diagrama de Causa-Efecto)</SelectItem>
               <SelectItem value="CTM">Árbol de Causas (CTM)</SelectItem>
