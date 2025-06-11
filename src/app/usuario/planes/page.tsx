@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -92,14 +92,17 @@ const sampleActionPlansData: ActionPlan[] = [
 
 export default function UserActionPlansPage() {
   const { toast } = useToast();
+  const [actionPlansList, setActionPlansList] = useState<ActionPlan[]>(sampleActionPlansData);
   const [selectedPlan, setSelectedPlan] = useState<ActionPlan | null>(null);
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
 
-  const summary = {
-    pendientes: sampleActionPlansData.filter(p => p.estado === 'Pendiente').length,
-    enProceso: sampleActionPlansData.filter(p => p.estado === 'En proceso').length,
-    completadas: sampleActionPlansData.filter(p => p.estado === 'Completado').length,
-  };
+  const summary = useMemo(() => {
+    return {
+      pendientes: actionPlansList.filter(p => p.estado === 'Pendiente').length,
+      enProceso: actionPlansList.filter(p => p.estado === 'En proceso').length,
+      completadas: actionPlansList.filter(p => p.estado === 'Completado').length,
+    };
+  }, [actionPlansList]);
 
   const handleSelectPlan = (plan: ActionPlan) => {
     setSelectedPlan(plan);
@@ -119,9 +122,29 @@ export default function UserActionPlansPage() {
       toast({ title: "Error", description: "Por favor, seleccione un archivo para subir.", variant: "destructive" });
       return;
     }
+    // Simulate upload
+    const newEvidence: Evidence = {
+        id: `ev-${Date.now()}`,
+        nombre: fileToUpload.name,
+        tipo: fileToUpload.name.endsWith('.pdf') ? 'pdf' : fileToUpload.name.endsWith('.jpg') || fileToUpload.name.endsWith('.jpeg') ? 'jpg' : fileToUpload.name.endsWith('.docx') ? 'docx' : 'other',
+        accionLabel: 'Descargar', // Default or determine based on type
+    };
+
+    setActionPlansList(prevPlans =>
+        prevPlans.map(p =>
+            p.id === selectedPlan.id
+                ? { ...p, evidencias: [...p.evidencias, newEvidence] }
+                : p
+        )
+    );
+    setSelectedPlan(prev => prev ? { ...prev, evidencias: [...prev.evidencias, newEvidence] } : null);
+
     toast({ title: "Simulación", description: `Archivo "${fileToUpload.name}" subido para "${selectedPlan.tituloDetalle}".` });
     setFileToUpload(null);
-    // In a real app, you'd update the evidences array for selectedPlan here
+    const fileInput = document.getElementById('evidence-file-input') as HTMLInputElement;
+    if (fileInput) {
+        fileInput.value = '';
+    }
   };
 
   const getEvidenceIcon = (tipo: Evidence['tipo']) => {
@@ -135,10 +158,16 @@ export default function UserActionPlansPage() {
   
   const handleUpdateStatus = (newStatus: ActionPlan['estado']) => {
     if (!selectedPlan) return;
-     // Simulate update - in real app, update state and backend
+
+    setActionPlansList(prevPlans => 
+      prevPlans.map(plan => 
+        plan.id === selectedPlan.id ? { ...plan, estado: newStatus, ultimaActualizacion: { usuario: 'Usuario Actual', mensaje: `Estado cambiado a ${newStatus}.`, fechaRelativa: '(ahora)'} } : plan
+      )
+    );
+    
+    setSelectedPlan(prev => prev ? {...prev, estado: newStatus, ultimaActualizacion: { usuario: 'Usuario Actual', mensaje: `Estado cambiado a ${newStatus}.`, fechaRelativa: '(ahora)'}} : null);
+    
     toast({ title: "Estado Actualizado", description: `El plan "${selectedPlan.tituloDetalle}" se marcó como "${newStatus}".` });
-    // This would ideally update the main list and re-render
-    setSelectedPlan(prev => prev ? {...prev, estado: newStatus} : null);
   };
 
   return (
@@ -149,7 +178,6 @@ export default function UserActionPlansPage() {
         </h1>
       </header>
 
-      {/* Resumen Rápido */}
       <Card className="shadow-md">
         <CardHeader>
           <CardTitle className="text-lg font-semibold text-primary">[Resumen Rápido]</CardTitle>
@@ -170,7 +198,6 @@ export default function UserActionPlansPage() {
         </CardContent>
       </Card>
 
-      {/* Lista de Planes de Acción */}
       <Card className="shadow-md">
         <CardHeader>
           <CardTitle className="text-lg font-semibold text-primary">Lista de Planes de Acción</CardTitle>
@@ -187,7 +214,7 @@ export default function UserActionPlansPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sampleActionPlansData.map((plan) => (
+                {actionPlansList.map((plan) => (
                   <TableRow 
                     key={plan.id} 
                     onClick={() => handleSelectPlan(plan)}
@@ -210,6 +237,13 @@ export default function UserActionPlansPage() {
                     <TableCell>{plan.asignadoPor}</TableCell>
                   </TableRow>
                 ))}
+                 {actionPlansList.length === 0 && (
+                    <TableRow>
+                        <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                            No hay planes de acción para mostrar.
+                        </TableCell>
+                    </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>
@@ -228,7 +262,6 @@ export default function UserActionPlansPage() {
         </CardFooter>
       </Card>
 
-      {/* Detalle del Plan Seleccionado */}
       {selectedPlan && (
         <Card className="shadow-lg animate-in fade-in-50 duration-300">
           <CardHeader>
@@ -270,7 +303,7 @@ export default function UserActionPlansPage() {
             <div className="pt-2">
               <h4 className="font-semibold text-primary mb-1">[Adjuntar nueva evidencia]</h4>
               <div className="flex items-center gap-2">
-                <Input type="file" onChange={handleFileChange} className="text-xs h-9 flex-grow" />
+                <Input id="evidence-file-input" type="file" onChange={handleFileChange} className="text-xs h-9 flex-grow" />
                 <Button size="sm" onClick={handleUploadEvidence} disabled={!fileToUpload}>
                   <UploadCloud className="mr-1.5 h-4 w-4" /> Subir
                 </Button>
@@ -284,7 +317,7 @@ export default function UserActionPlansPage() {
                 <Button size="sm" variant="outline" onClick={() => handleUpdateStatus('Completado')}>
                   <CheckCircle2 className="mr-1.5 h-4 w-4" /> Marcar como completado
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => toast({ title: 'Simulación', description: 'Progreso guardado.'})}>
+                <Button size="sm" variant="outline" onClick={() => handleUpdateStatus('En proceso')}>
                   <Save className="mr-1.5 h-4 w-4" /> Guardar progreso
                 </Button>
               </div>
@@ -300,7 +333,6 @@ export default function UserActionPlansPage() {
         </Card>
       )}
 
-      {/* Nota final para el usuario sobre la interactividad (opcional) */}
       <Card className="mt-6 bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700">
         <CardContent className="pt-4">
           <div className="flex items-start">
@@ -309,7 +341,7 @@ export default function UserActionPlansPage() {
               <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-0.5">Nota sobre la interactividad</h3>
               <p className="text-xs text-blue-600 dark:text-blue-400/90">
                 Esta es una maqueta visual. Algunas acciones como "Subir Evidencia" o "Guardar Progreso" están simuladas y mostrarán notificaciones.
-                La selección de un plan en la tabla superior mostrará sus detalles a continuación.
+                La selección de un plan en la tabla superior mostrará sus detalles a continuación. La actualización de estados sí se refleja en la tabla y el resumen.
               </p>
             </div>
           </div>
@@ -318,3 +350,5 @@ export default function UserActionPlansPage() {
 
     </div>
   );
+}
+
