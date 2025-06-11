@@ -11,11 +11,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Globe, PlusCircle, Edit2, Trash2, FileUp, FileDown, MapPin } from 'lucide-react';
+import { Globe, PlusCircle, Edit2, Trash2, FileUp, FileDown, MapPin, Loader2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { db } from '@/lib/firebase'; // Import Firestore instance
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy } from "firebase/firestore";
 
 interface Site {
-  id: string;
+  id: string; // Firestore document ID
   name: string;
   address: string;
   zone: string;
@@ -23,16 +25,12 @@ interface Site {
   description?: string;
 }
 
-const initialSites: Site[] = [
-  { id: '1', name: 'Planta Industrial', address: 'Calle 10, Madrid', zone: 'Norte', coordinator: 'Juan Pérez', description: 'Planta principal de producción.' },
-  { id: '2', name: 'Centro Logístico', address: 'Avda. 5, Barcelona', zone: 'Sur', coordinator: 'Ana García', description: 'Almacén y distribución.' },
-];
-
 const geographicalZones = ['Norte', 'Sur', 'Este', 'Oeste', 'Centro', 'Noreste', 'Noroeste', 'Sureste', 'Suroeste'];
 
 export default function ConfiguracionSitiosPage() {
-  const [sites, setSites] = useState<Site[]>(initialSites);
+  const [sites, setSites] = useState<Site[]>([]);
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
 
   // State for Add Site Dialog
   const [isAddSiteDialogOpen, setIsAddSiteDialogOpen] = useState(false);
@@ -55,6 +53,26 @@ export default function ConfiguracionSitiosPage() {
   const [isDeleteSiteConfirmOpen, setIsDeleteSiteConfirmOpen] = useState(false);
   const [siteToDelete, setSiteToDelete] = useState<Site | null>(null);
 
+  // Fetch sites from Firestore
+  useEffect(() => {
+    const fetchSites = async () => {
+      setIsLoading(true);
+      try {
+        const sitesCollectionRef = collection(db, "sites");
+        const q = query(sitesCollectionRef, orderBy("name", "asc"));
+        const querySnapshot = await getDocs(q);
+        const sitesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
+        setSites(sitesData);
+      } catch (error) {
+        console.error("Error fetching sites: ", error);
+        toast({ title: "Error", description: "No se pudieron cargar los sitios. Verifique la consola para más detalles.", variant: "destructive" });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchSites();
+  }, [toast]);
+
   const resetNewSiteForm = () => {
     setNewSiteName('');
     setNewSiteAddress('');
@@ -72,23 +90,31 @@ export default function ConfiguracionSitiosPage() {
     setEditSiteDescription('');
   };
 
-  const handleAddSite = () => {
+  const handleAddSite = async () => {
     if (!newSiteName.trim()) {
       toast({ title: "Error", description: "El nombre del sitio es obligatorio.", variant: "destructive" });
       return;
     }
-    const newSite: Site = {
-      id: (Date.now()).toString(), 
-      name: newSiteName,
-      address: newSiteAddress,
-      zone: newSiteZone,
-      coordinator: newSiteCoordinator,
-      description: newSiteDescription,
-    };
-    setSites([...sites, newSite]);
-    toast({ title: "Sitio Añadido", description: `El sitio "${newSite.name}" ha sido añadido.` });
-    resetNewSiteForm();
-    setIsAddSiteDialogOpen(false);
+    setIsLoading(true);
+    try {
+      const newSiteData = {
+        name: newSiteName,
+        address: newSiteAddress,
+        zone: newSiteZone,
+        coordinator: newSiteCoordinator,
+        description: newSiteDescription,
+      };
+      const docRef = await addDoc(collection(db, "sites"), newSiteData);
+      setSites(prevSites => [...prevSites, { id: docRef.id, ...newSiteData }]);
+      toast({ title: "Sitio Añadido", description: `El sitio "${newSiteName}" ha sido añadido.` });
+      resetNewSiteForm();
+      setIsAddSiteDialogOpen(false);
+    } catch (error) {
+      console.error("Error adding site: ", error);
+      toast({ title: "Error", description: "No se pudo añadir el sitio.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const openEditSiteDialog = (site: Site) => {
@@ -101,24 +127,33 @@ export default function ConfiguracionSitiosPage() {
     setIsEditSiteDialogOpen(true);
   };
 
-  const handleUpdateSite = () => {
+  const handleUpdateSite = async () => {
     if (!currentSiteToEdit) return;
     if (!editSiteName.trim()) {
       toast({ title: "Error", description: "El nombre del sitio es obligatorio.", variant: "destructive" });
       return;
     }
-    
-    setSites(sites.map(s => s.id === currentSiteToEdit.id ? {
-      ...s,
-      name: editSiteName,
-      address: editSiteAddress,
-      zone: editSiteZone,
-      coordinator: editSiteCoordinator,
-      description: editSiteDescription,
-    } : s));
-    toast({ title: "Sitio Actualizado", description: `El sitio "${editSiteName}" ha sido actualizado.` });
-    resetEditSiteForm();
-    setIsEditSiteDialogOpen(false);
+    setIsLoading(true);
+    try {
+      const siteRef = doc(db, "sites", currentSiteToEdit.id);
+      const updatedSiteData = {
+        name: editSiteName,
+        address: editSiteAddress,
+        zone: editSiteZone,
+        coordinator: editSiteCoordinator,
+        description: editSiteDescription,
+      };
+      await updateDoc(siteRef, updatedSiteData);
+      setSites(sites.map(s => s.id === currentSiteToEdit.id ? { ...s, ...updatedSiteData } : s));
+      toast({ title: "Sitio Actualizado", description: `El sitio "${editSiteName}" ha sido actualizado.` });
+      resetEditSiteForm();
+      setIsEditSiteDialogOpen(false);
+    } catch (error) {
+      console.error("Error updating site: ", error);
+      toast({ title: "Error", description: "No se pudo actualizar el sitio.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const openDeleteSiteDialog = (site: Site) => {
@@ -126,11 +161,20 @@ export default function ConfiguracionSitiosPage() {
     setIsDeleteSiteConfirmOpen(true);
   };
 
-  const confirmDeleteSite = () => {
+  const confirmDeleteSite = async () => {
     if (siteToDelete) {
-      setSites(sites.filter(s => s.id !== siteToDelete.id));
-      toast({ title: "Sitio Eliminado", description: `El sitio "${siteToDelete.name}" ha sido eliminado.`, variant: 'destructive' });
-      setSiteToDelete(null);
+      setIsLoading(true);
+      try {
+        await deleteDoc(doc(db, "sites", siteToDelete.id));
+        setSites(sites.filter(s => s.id !== siteToDelete.id));
+        toast({ title: "Sitio Eliminado", description: `El sitio "${siteToDelete.name}" ha sido eliminado.`, variant: 'destructive' });
+        setSiteToDelete(null);
+      } catch (error) {
+        console.error("Error deleting site: ", error);
+        toast({ title: "Error", description: "No se pudo eliminar el sitio.", variant: "destructive" });
+      } finally {
+        setIsLoading(false);
+      }
     }
     setIsDeleteSiteConfirmOpen(false);
   };
@@ -223,75 +267,85 @@ export default function ConfiguracionSitiosPage() {
                       <DialogClose asChild>
                         <Button type="button" variant="outline" onClick={() => setIsAddSiteDialogOpen(false)}>Cancelar</Button>
                       </DialogClose>
-                      <Button type="button" onClick={handleAddSite}>Guardar Sitio</Button>
+                      <Button type="button" onClick={handleAddSite} disabled={isLoading}>
+                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Guardar Sitio
+                      </Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
             </div>
           </div>
           <CardDescription>
-            Visualice, añada, edite o elimine sitios registrados en el sistema.
+            Visualice, añada, edite o elimine sitios registrados en el sistema. Los datos se almacenan en Firestore.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[25%]">Nombre</TableHead>
-                  <TableHead className="w-[35%]">Dirección</TableHead>
-                  <TableHead className="w-[15%]">Zona</TableHead>
-                  <TableHead className="w-[25%] text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sites.length > 0 ? (
-                  sites.map((site) => (
-                    <TableRow key={site.id}>
-                      <TableCell className="font-medium">{site.name}</TableCell>
-                      <TableCell>
-                        {site.address ? (
-                          <a
-                            href={getGoogleMapsLink(site.address)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center hover:text-primary hover:underline"
-                          >
-                            <MapPin className="mr-1.5 h-4 w-4 flex-shrink-0" />
-                            {site.address}
-                          </a>
-                        ) : (
-                          '-'
-                        )}
-                      </TableCell>
-                      <TableCell>{site.zone}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" className="mr-2 hover:text-primary" onClick={() => openEditSiteDialog(site)}>
-                          <Edit2 className="h-4 w-4" />
-                          <span className="sr-only">Editar</span>
-                        </Button>
-                        <Button variant="ghost" size="icon" className="hover:text-destructive" onClick={() => openDeleteSiteDialog(site)}>
-                          <Trash2 className="h-4 w-4" />
-                           <span className="sr-only">Eliminar</span>
-                        </Button>
+          {isLoading && sites.length === 0 ? (
+            <div className="flex justify-center items-center h-24">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="ml-2 text-muted-foreground">Cargando sitios...</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[25%]">Nombre</TableHead>
+                    <TableHead className="w-[35%]">Dirección</TableHead>
+                    <TableHead className="w-[15%]">Zona</TableHead>
+                    <TableHead className="w-[25%] text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sites.length > 0 ? (
+                    sites.map((site) => (
+                      <TableRow key={site.id}>
+                        <TableCell className="font-medium">{site.name}</TableCell>
+                        <TableCell>
+                          {site.address ? (
+                            <a
+                              href={getGoogleMapsLink(site.address)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center hover:text-primary hover:underline"
+                            >
+                              <MapPin className="mr-1.5 h-4 w-4 flex-shrink-0" />
+                              {site.address}
+                            </a>
+                          ) : (
+                            '-'
+                          )}
+                        </TableCell>
+                        <TableCell>{site.zone}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" className="mr-2 hover:text-primary" onClick={() => openEditSiteDialog(site)} disabled={isLoading}>
+                            <Edit2 className="h-4 w-4" />
+                            <span className="sr-only">Editar</span>
+                          </Button>
+                          <Button variant="ghost" size="icon" className="hover:text-destructive" onClick={() => openDeleteSiteDialog(site)} disabled={isLoading}>
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Eliminar</span>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-muted-foreground h-24">
+                        No hay sitios registrados. Puede añadir uno usando el botón de arriba.
                       </TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground h-24">
-                      No hay sitios registrados.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
          {sites.length > 0 && (
           <CardFooter>
             <p className="text-xs text-muted-foreground">
-              La importación/exportación desde Excel no está implementada en esta maqueta.
+              Actualmente gestionando {sites.length} sitio(s) desde Firestore. La importación/exportación no está implementada.
             </p>
           </CardFooter>
         )}
@@ -338,7 +392,10 @@ export default function ConfiguracionSitiosPage() {
             <DialogClose asChild>
               <Button type="button" variant="outline" onClick={() => { resetEditSiteForm(); setIsEditSiteDialogOpen(false); }}>Cancelar</Button>
             </DialogClose>
-            <Button type="button" onClick={handleUpdateSite}>Guardar Cambios</Button>
+            <Button type="button" onClick={handleUpdateSite} disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Guardar Cambios
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -354,7 +411,10 @@ export default function ConfiguracionSitiosPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setSiteToDelete(null)}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteSite} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Eliminar</AlertDialogAction>
+            <AlertDialogAction onClick={confirmDeleteSite} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" disabled={isLoading}>
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Eliminar
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -362,3 +422,4 @@ export default function ConfiguracionSitiosPage() {
     </div>
   );
 }
+
