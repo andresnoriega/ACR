@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import type { FullUserProfile } from '@/types/rca'; // Import FullUserProfile
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -14,46 +15,54 @@ import { Switch } from '@/components/ui/switch';
 import { Users, PlusCircle, Edit2, Trash2, FileUp, FileDown } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: 'Admin' | 'Analista' | 'Revisor' | '';
+// Define a local interface extending FullUserProfile for fields specific to this page
+interface UserConfigProfile extends FullUserProfile {
   assignedSites?: string;
   emailNotifications: boolean;
-  // No almacenaremos contraseñas en el estado del cliente por seguridad en un caso real
-  // pero para el prototipo, el formulario de edición la pedirá para "cambiarla"
+  // Password is not stored in state but used for forms
 }
 
-const initialUsers: User[] = [
-  { id: '1', name: 'Carlos Ruiz', email: 'carlos@example.com', role: 'Admin', emailNotifications: true, assignedSites: 'Planta Industrial, Centro Logístico' },
-  { id: '2', name: 'Ana López', email: 'ana@example.com', role: 'Analista', emailNotifications: false, assignedSites: 'Planta Industrial' },
-  { id: '3', name: 'Luis Torres', email: 'luis@example.com', role: 'Revisor', emailNotifications: true, assignedSites: 'Centro Logístico' },
+// Base user data, aligned with FullUserProfile structure from /config/permisos
+const masterInitialUserProfiles: Omit<FullUserProfile, 'permissionLevel'>[] = [
+  { id: 'u1', name: 'Carlos Ruiz', email: 'carlos.ruiz@example.com', role: 'Admin' },
+  { id: 'u2', name: 'Ana López', email: 'ana.lopez@example.com', role: 'Analista' },
+  { id: 'u3', name: 'Luis Torres', email: 'luis.torres@example.com', role: 'Revisor' },
+  { id: 'u4', name: 'Maria Solano', email: 'maria.solano@example.com', role: 'Analista'},
+  { id: 'u5', name: 'Pedro Gómez', email: 'pedro.gomez@example.com', role: 'Analista'},
 ];
 
-const userRoles: User['role'][] = ['Admin', 'Analista', 'Revisor'];
+// Initial data for this page, extending the master list
+const initialUserProfilesData: UserConfigProfile[] = masterInitialUserProfiles.map((user, index) => ({
+  ...user,
+  permissionLevel: user.role === 'Admin' ? 'Total' : (index % 2 === 0 ? 'Lectura' : 'Limitado'), // Assign permissionLevel
+  emailNotifications: index % 2 === 0,
+  assignedSites: user.role === 'Admin' ? 'Planta Industrial, Centro Logístico' : (index === 1 ? 'Planta Industrial' : (index === 2 ? 'Centro Logístico' : `Planta Ejemplo ${index + 1}`)),
+}));
+
+
+const userRoles: FullUserProfile['role'][] = ['Admin', 'Analista', 'Revisor', ''];
 
 export default function ConfiguracionUsuariosPage() {
-  const [users, setUsers] = useState<User[]>(initialUsers);
+  const [users, setUsers] = useState<UserConfigProfile[]>(initialUserProfilesData);
   const { toast } = useToast();
 
   // State for Add/Edit Dialog
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserConfigProfile | null>(null);
 
   // Form state for new/edit user
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userPassword, setUserPassword] = useState('');
   const [userConfirmPassword, setUserConfirmPassword] = useState('');
-  const [userRole, setUserRole] = useState<User['role']>('');
+  const [userRole, setUserRole] = useState<FullUserProfile['role']>('');
   const [userAssignedSites, setUserAssignedSites] = useState('');
   const [userEmailNotifications, setUserEmailNotifications] = useState(false);
 
   // State for Delete Confirmation Dialog
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [userToDelete, setUserToDelete] = useState<UserConfigProfile | null>(null);
 
 
   const resetUserForm = () => {
@@ -74,7 +83,7 @@ export default function ConfiguracionUsuariosPage() {
     setIsUserDialogOpen(true);
   };
 
-  const openEditUserDialog = (user: User) => {
+  const openEditUserDialog = (user: UserConfigProfile) => {
     resetUserForm();
     setIsEditing(true);
     setCurrentUser(user);
@@ -83,7 +92,6 @@ export default function ConfiguracionUsuariosPage() {
     setUserRole(user.role);
     setUserAssignedSites(user.assignedSites || '');
     setUserEmailNotifications(user.emailNotifications);
-    // No pre-llenamos la contraseña por seguridad/simplicidad del prototipo
     setUserPassword(''); 
     setUserConfirmPassword('');
     setIsUserDialogOpen(true);
@@ -98,7 +106,7 @@ export default function ConfiguracionUsuariosPage() {
       toast({ title: "Error", description: "El correo electrónico no es válido.", variant: "destructive" });
       return;
     }
-    if (!isEditing && !userPassword) { // Password required for new users
+    if (!isEditing && !userPassword) { 
       toast({ title: "Error", description: "La contraseña es obligatoria para nuevos usuarios.", variant: "destructive" });
       return;
     }
@@ -112,9 +120,8 @@ export default function ConfiguracionUsuariosPage() {
     }
 
     if (isEditing && currentUser) {
-      // Update existing user
       setUsers(users.map(u => u.id === currentUser.id ? {
-        ...u,
+        ...u, // Spread existing fields like permissionLevel
         name: userName,
         email: userEmail,
         role: userRole,
@@ -123,12 +130,12 @@ export default function ConfiguracionUsuariosPage() {
       } : u));
       toast({ title: "Usuario Actualizado", description: `El usuario "${userName}" ha sido actualizado.` });
     } else {
-      // Add new user
-      const newUser: User = {
-        id: (Date.now()).toString(), // More unique ID for client-side
+      const newUser: UserConfigProfile = {
+        id: `u-${Date.now()}`, 
         name: userName,
         email: userEmail,
         role: userRole,
+        permissionLevel: 'Lectura', // Default permission level for new users
         assignedSites: userAssignedSites,
         emailNotifications: userEmailNotifications,
       };
@@ -139,7 +146,7 @@ export default function ConfiguracionUsuariosPage() {
     setIsUserDialogOpen(false);
   };
 
-  const openDeleteDialog = (user: User) => {
+  const openDeleteDialog = (user: UserConfigProfile) => {
     setUserToDelete(user);
     setIsDeleteConfirmOpen(true);
   };
@@ -270,13 +277,13 @@ export default function ConfiguracionUsuariosPage() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="user-role" className="text-right">Rol <span className="text-destructive">*</span></Label>
-              <Select value={userRole} onValueChange={(value) => setUserRole(value as User['role'])}>
+              <Select value={userRole} onValueChange={(value) => setUserRole(value as FullUserProfile['role'])}>
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="-- Seleccione un rol --" />
                 </SelectTrigger>
                 <SelectContent>
-                  {userRoles.map(role => (
-                    role && <SelectItem key={role} value={role}>{role}</SelectItem>
+                  {userRoles.filter(r => r !== '').map(role => (
+                    <SelectItem key={role} value={role}>{role}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

@@ -43,6 +43,7 @@ const sampleAvailableSites: Array<{ id: string; name: string }> = [
   { id: '4', name: 'Almacén Regional Norte' },
 ];
 
+// Consistent initial user profiles, also used as base for config pages
 const sampleUserProfiles: FullUserProfile[] = [
   { id: 'u1', name: 'Carlos Ruiz', email: 'carlos.ruiz@example.com', role: 'Admin', permissionLevel: 'Total' },
   { id: 'u2', name: 'Ana López', email: 'ana.lopez@example.com', role: 'Analista', permissionLevel: 'Lectura' },
@@ -336,7 +337,7 @@ export default function RCAAnalysisPage() {
             onUpdateImmediateAction={handleUpdateImmediateAction}
             onRemoveImmediateAction={handleRemoveImmediateAction}
             availableSites={sampleAvailableSites}
-            availableUsers={sampleUserProfiles.map(u => ({id: u.id, name: u.name}))}
+            availableUsers={sampleUserProfiles.map(u => ({id: u.id, name: u.name}))} // Pass only id and name
             onNext={handleNextStep}
           />
         )}
@@ -346,7 +347,7 @@ export default function RCAAnalysisPage() {
         <Step2Facts
           projectLeader={projectLeader}
           onProjectLeaderChange={handleProjectLeaderChange}
-          availableUsers={sampleUserProfiles.map(u => ({id: u.id, name: u.name}))}
+          availableUsers={sampleUserProfiles.map(u => ({id: u.id, name: u.name}))} // Pass only id and name
           detailedFacts={detailedFacts}
           onDetailedFactChange={handleDetailedFactChange}
           analysisDetails={analysisDetails}
@@ -383,7 +384,7 @@ export default function RCAAnalysisPage() {
           onAddPlannedAction={handleAddPlannedAction}
           onUpdatePlannedAction={handleUpdatePlannedAction}
           onRemovePlannedAction={handleRemovePlannedAction}
-          availableUsers={sampleUserProfiles} 
+          availableUsers={sampleUserProfiles} // Pass full user profile for email access
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
         />
@@ -396,7 +397,7 @@ export default function RCAAnalysisPage() {
           validations={validations}
           onToggleValidation={handleToggleValidation}
           projectLeader={projectLeader}
-          availableUserProfiles={sampleUserProfiles}
+          availableUserProfiles={sampleUserProfiles} // Pass full user profile
           currentSimulatedUser={currentSimulatedUser}
           onSetCurrentSimulatedUser={setCurrentSimulatedUser}
           onPrevious={handlePreviousStep}
@@ -420,7 +421,7 @@ export default function RCAAnalysisPage() {
           finalComments={finalComments}
           onFinalCommentsChange={setFinalComments}
           onPrintReport={handlePrintReport}
-          availableUsers={sampleUserProfiles} 
+          availableUsers={sampleUserProfiles} // Pass full user profile for email dialog
           isFinalized={isFinalized}
           onMarkAsFinalized={handleMarkAsFinalized}
         />

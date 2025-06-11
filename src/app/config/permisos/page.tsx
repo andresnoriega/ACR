@@ -9,9 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogC
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ListChecks, Users, Edit3, KeyRound, ShieldOff, History, Edit2 } from 'lucide-react';
-import type { FullUserProfile } from '@/types/rca'; // Assuming FullUserProfile is suitable
+import type { FullUserProfile } from '@/types/rca'; 
 import { useToast } from "@/hooks/use-toast";
 
+// This initial data should ideally be consistent with /config/usuarios page's initial data
 const initialUserProfilesData: FullUserProfile[] = [
   { id: 'u1', name: 'Carlos Ruiz', email: 'carlos.ruiz@example.com', role: 'Admin', permissionLevel: 'Total' },
   { id: 'u2', name: 'Ana López', email: 'ana.lopez@example.com', role: 'Analista', permissionLevel: 'Lectura' },
@@ -59,7 +60,6 @@ export default function ConfiguracionPermisosPage() {
     setCurrentUserToEdit(null);
   };
 
-  // Map role to a more descriptive projectAccess string for display if needed, or use role directly
   const getProjectAccessDisplay = (role: FullUserProfile['role']): string => {
     switch (role) {
       case 'Admin': return 'Total (Administrador)';
@@ -69,7 +69,6 @@ export default function ConfiguracionPermisosPage() {
     }
   };
 
-  // Map permissionLevel to a more descriptive edition string for display, or use permissionLevel directly
   const getEditionDisplay = (level: FullUserProfile['permissionLevel']): string => {
     switch (level) {
       case 'Total': return 'Total';
@@ -101,7 +100,7 @@ export default function ConfiguracionPermisosPage() {
             <CardTitle className="text-2xl">Permisos de Usuario</CardTitle>
           </div>
           <CardDescription>
-            Visualice y edite los permisos asignados a cada usuario del sistema.
+            Visualice y edite los permisos asignados a cada usuario del sistema. La lista de usuarios se inicializa de forma consistente con la página de gestión de usuarios.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -129,6 +128,13 @@ export default function ConfiguracionPermisosPage() {
                     </TableCell>
                   </TableRow>
                 ))}
+                 {userProfiles.length === 0 && (
+                    <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground h-24">
+                        No hay usuarios para mostrar.
+                        </TableCell>
+                    </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>
@@ -217,3 +223,4 @@ export default function ConfiguracionPermisosPage() {
     </div>
   );
 }
+
