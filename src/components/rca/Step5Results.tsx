@@ -1,7 +1,7 @@
 
 'use client';
 import type { FC, ChangeEvent } from 'react';
-import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, AIInsights, PlannedAction } from '@/types/rca';
+import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, PlannedAction } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from "@/lib/utils"; // Added import for cn
+import { cn } from "@/lib/utils";
 
 interface Step5ResultsProps {
   eventId: string;
@@ -21,12 +21,11 @@ interface Step5ResultsProps {
   ishikawaData: IshikawaData;
   fiveWhysData: FiveWhysData;
   ctmData: CTMData;
-  aiInsights: AIInsights | null;
+  // aiInsights: AIInsights | null; // AIInsights removed
   plannedActions: PlannedAction[];
-  finalComments: string; // Used for "Introducción"
+  finalComments: string; 
   onFinalCommentsChange: (value: string) => void;
   onPrintReport: () => void;
-  // onPrevious is removed as per mockup
 }
 
 const SectionTitle: FC<{ icon?: React.ElementType; title: string; className?: string }> = ({ icon: Icon, title, className }) => (
@@ -53,7 +52,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   ishikawaData,
   fiveWhysData,
   ctmData,
-  aiInsights,
+  // aiInsights, // AIInsights removed
   plannedActions,
   finalComments,
   onFinalCommentsChange,
@@ -114,7 +113,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   
   const handleFinalize = () => {
      toast({ title: "Proceso Finalizado", description: `El análisis RCA para el evento ${eventId || 'actual'} ha sido marcado como finalizado.`, className: "bg-primary text-primary-foreground"});
-    // Potentially navigate to home or reset form in a real scenario
   };
 
 
@@ -190,12 +188,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                 <p className="pl-2 whitespace-pre-line">{analysisTechniqueNotes}</p>
               </>
             )}
-            {aiInsights?.summary && (
-              <>
-                <p className="font-medium mt-3 mb-1">Resumen del Evento (Generado por IA):</p>
-                <p className="pl-2 italic">{aiInsights.summary}</p>
-              </>
-            )}
+            {/* AIInsights related summary removed */}
           </SectionContent>
         </section>
         <Separator className="my-4" />
@@ -203,11 +196,8 @@ export const Step5Results: FC<Step5ResultsProps> = ({
         <section>
           <SectionTitle title="Causas Raíz" icon={Zap}/>
           <SectionContent>
-            {aiInsights?.potentialRootCauses ? (
-              <pre className="whitespace-pre-wrap text-sm bg-accent/10 p-3 rounded-md">{aiInsights.potentialRootCauses}</pre>
-            ) : (
-              <p>No se han identificado causas raíz mediante IA, o la función no se ha ejecutado. Puede detallarlas en la introducción o análisis.</p>
-            )}
+            {/* AIInsights related root causes removed */}
+            <p>Detalle aquí las causas raíz identificadas por su análisis o utilice la sección de Introducción/Comentarios finales.</p>
           </SectionContent>
         </section>
         <Separator className="my-4" />
@@ -215,7 +205,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
         <section>
           <SectionTitle title="Acciones Recomendadas" icon={Target}/>
           <SectionContent>
-            {plannedActions.length > 0 && (
+            {plannedActions.length > 0 ? (
               <>
                 <p className="font-medium mb-1">Plan de Acción Definido:</p>
                 <ul className="list-disc pl-6 space-y-1">
@@ -226,14 +216,11 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                   ))}
                 </ul>
               </>
+            ) : (
+                 <p>No se han definido acciones planificadas.</p>
             )}
-            {aiInsights?.recommendations && (
-              <>
-                <p className="font-medium mt-3 mb-1">Recomendaciones Adicionales (Generadas por IA):</p>
-                <pre className="whitespace-pre-wrap text-sm italic bg-accent/10 p-3 rounded-md">{aiInsights.recommendations}</pre>
-              </>
-            )}
-            {plannedActions.length === 0 && !aiInsights?.recommendations && (
+            {/* AIInsights related recommendations removed */}
+            {plannedActions.length === 0 && (
                 <p>No se han definido acciones recomendadas.</p>
             )}
           </SectionContent>
@@ -254,4 +241,3 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     </Card>
   );
 };
-

@@ -1,14 +1,14 @@
 
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AIInsights, AnalysisTechnique, IshikawaData, FiveWhysData, FiveWhyEntry, CTMData, FailureMode, Hypothesis, PhysicalCause, HumanCause, LatentCause, DetailedFacts } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, FiveWhyEntry, CTMData, FailureMode, Hypothesis, PhysicalCause, HumanCause, LatentCause, DetailedFacts } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
 import { Step3Analysis } from '@/components/rca/Step3Analysis';
 import { Step4Validation } from '@/components/rca/Step4Validation';
 import { Step5Results } from '@/components/rca/Step5Results';
-import { getAIInsightsAction } from '@/app/actions';
+// import { getAIInsightsAction } from '@/app/actions'; // AI Action removed
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -49,7 +49,7 @@ export default function RCAHomePage() {
     date: '',
     focusEventDescription: '',
   });
-  const [eventCounter, setEventCounter] = useState(1); // For generating unique event IDs
+  const [eventCounter, setEventCounter] = useState(1); 
   const [immediateActions, setImmediateActions] = useState<ImmediateAction[]>([]);
   const [immediateActionCounter, setImmediateActionCounter] = useState(1);
 
@@ -65,8 +65,10 @@ export default function RCAHomePage() {
   const [ctmData, setCtmData] = useState<CTMData>(JSON.parse(JSON.stringify(initialCTMData)));
   const [userDefinedRootCause, setUserDefinedRootCause] = useState('');
   
-  const [aiInsights, setAIInsights] = useState<AIInsights | null>(null);
-  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+  // AI state removed
+  // const [aiInsights, setAIInsights] = useState<AIInsights | null>(null);
+  // const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+  
   const [plannedActions, setPlannedActions] = useState<PlannedAction[]>([]);
   const [plannedActionCounter, setPlannedActionCounter] = useState(1);
 
@@ -176,91 +178,7 @@ export default function RCAHomePage() {
     setCtmData(newData);
   };
 
-  const handleGenerateAIInsights = async () => {
-    const constructedDetailedFactsString = `La desviación ocurrió de la siguiente manera: "${detailedFacts.como || 'CÓMO (no especificado)'}".
-El evento identificado fue: "${detailedFacts.que || 'QUÉ (no especificado)'}".
-Esto tuvo lugar en: "${detailedFacts.donde || 'DÓNDE (no especificado)'}".
-Sucedió el: "${detailedFacts.cuando || 'CUÁNDO (no especificado)'}".
-El impacto o tendencia fue: "${detailedFacts.cualCuanto || 'CUÁL/CUÁNTO (no especificado)'}".
-Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no especificado)'}".`;
-
-    if (!eventData.focusEventDescription && !constructedDetailedFactsString && !analysisDetails && !userDefinedRootCause) {
-      toast({ title: "Información Insuficiente", description: "Por favor, complete la descripción del evento, hechos, análisis o causa raíz definida para generar ideas.", variant: "destructive" });
-      return;
-    }
-    setIsGeneratingInsights(true);
-    setAIInsights(null);
-    
-    let analysisPayload = `${analysisDetails || 'Análisis preliminar no detallado.'}\n\nTÉCNICA DE ANÁLISIS PRINCIPAL: ${analysisTechnique || 'No especificada'}`;
-    
-    if (analysisTechnique === 'Ishikawa') {
-      let ishikawaContent = "\n\nDETALLES DEL DIAGRAMA DE ISHIKAWA (6M):\n";
-      ishikawaData.forEach(category => {
-        ishikawaContent += `\nCategoría: ${category.name}\n`;
-        if (category.causes.length > 0) {
-          category.causes.forEach((cause, index) => {
-            if (cause.description.trim()) {
-              ishikawaContent += `  - Causa ${index + 1}: ${cause.description.trim()}\n`;
-            }
-          });
-        } else {
-          ishikawaContent += "  (Sin causas identificadas para esta categoría)\n";
-        }
-      });
-      analysisPayload += ishikawaContent;
-    } else if (analysisTechnique === 'WhyWhy') {
-      let fiveWhysContent = "\n\nDETALLES DEL ANÁLISIS DE LOS 5 PORQUÉS:\n";
-      fiveWhysData.forEach((entry, index) => {
-        if (entry.why.trim() || entry.because.trim()) {
-           fiveWhysContent += `\nNivel ${index + 1}:\n  Por qué?: ${entry.why.trim() || '(No especificado)'}\n  Porque: ${entry.because.trim() || '(No especificado)'}\n`;
-        }
-      });
-      analysisPayload += fiveWhysContent;
-    } else if (analysisTechnique === 'CTM') {
-      let ctmContent = "\n\nDETALLES DEL ÁRBOL DE CAUSAS (CTM):\n";
-      const formatCTMLevel = (items: any[], prefix = "", levelName: string): string => {
-        let content = "";
-        items.forEach((item, index) => {
-          if (item.description.trim()) {
-            content += `${prefix}- ${levelName} ${index + 1}: ${item.description.trim()}\n`;
-            if (item.hypotheses && item.hypotheses.length > 0) {
-              content += formatCTMLevel(item.hypotheses, prefix + "  ", "Hipótesis");
-            } else if (item.physicalCauses && item.physicalCauses.length > 0) {
-              content += formatCTMLevel(item.physicalCauses, prefix + "  ", "Causa Física");
-            } else if (item.humanCauses && item.humanCauses.length > 0) {
-              content += formatCTMLevel(item.humanCauses, prefix + "  ", "Causa Humana");
-            } else if (item.latentCauses && item.latentCauses.length > 0) {
-              content += formatCTMLevel(item.latentCauses, prefix + "  ", "Causa Latente");
-            }
-          }
-        });
-        return content;
-      };
-      ctmContent += formatCTMLevel(ctmData, "", "Modo de Falla");
-      analysisPayload += (ctmContent.trim().endsWith("(CTM):") ? '(No se definieron elementos para el Árbol de Causas)' : ctmContent);
-    }
-    
-    if (analysisTechniqueNotes.trim()) {
-      analysisPayload += `\n\nNOTAS ADICIONALES DEL ANÁLISIS (${analysisTechnique || 'General'}):\n${analysisTechniqueNotes}`;
-    }
-
-    const factsForAI = `${eventData.focusEventDescription || 'Evento no descrito.'}\n\nDESCRIPCIÓN DEL FENÓMENO (Hechos Observados):\n${constructedDetailedFactsString || 'Hechos no detallados.'}`;
-    
-    const inputForAI: Parameters<typeof getAIInsightsAction>[0] = {
-      facts: factsForAI,
-      analysis: analysisPayload,
-      userDefinedRootCause: userDefinedRootCause || undefined,
-    };
-
-    const result = await getAIInsightsAction(inputForAI);
-    if ('error' in result) {
-      toast({ title: "Error de IA", description: result.error, variant: "destructive" });
-    } else {
-      setAIInsights(result);
-      toast({ title: "Ideas Generadas", description: "Se han generado nuevas perspectivas usando IA.", className: "bg-accent text-accent-foreground" });
-    }
-    setIsGeneratingInsights(false);
-  };
+  // handleGenerateAIInsights function removed
   
   const handleAddPlannedAction = () => {
     const currentEventId = ensureEventId(); 
@@ -371,9 +289,10 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
           onSetCtmData={handleSetCtmData}
           userDefinedRootCause={userDefinedRootCause}
           onUserDefinedRootCauseChange={setUserDefinedRootCause}
-          aiInsights={aiInsights}
-          onGenerateAIInsights={handleGenerateAIInsights}
-          isGeneratingInsights={isGeneratingInsights}
+          // AI props removed
+          // aiInsights={aiInsights}
+          // onGenerateAIInsights={handleGenerateAIInsights}
+          // isGeneratingInsights={isGeneratingInsights}
           plannedActions={plannedActions}
           onAddPlannedAction={handleAddPlannedAction}
           onUpdatePlannedAction={handleUpdatePlannedAction}
@@ -405,7 +324,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
           ishikawaData={ishikawaData}
           fiveWhysData={fiveWhysData}
           ctmData={ctmData}
-          aiInsights={aiInsights}
+          // aiInsights={aiInsights} // AI prop removed
           plannedActions={plannedActions}
           finalComments={finalComments}
           onFinalCommentsChange={setFinalComments}

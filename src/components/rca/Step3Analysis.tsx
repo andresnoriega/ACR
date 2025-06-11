@@ -1,14 +1,13 @@
 
 'use client';
 import type { FC, ChangeEvent } from 'react';
-import type { PlannedAction, AIInsights, AnalysisTechnique, IshikawaData, FiveWhysData, RCAEventData, CTMData } from '@/types/rca';
+import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhysData, RCAEventData, CTMData } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Sparkles, Trash2, Loader2, Brain, MessageSquare, ShareTree } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { PlusCircle, Trash2, MessageSquare, ShareTree } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
 import { FiveWhysInteractive } from './FiveWhysInteractive';
@@ -30,9 +29,6 @@ interface Step3AnalysisProps {
   onSetCtmData: (data: CTMData) => void;
   userDefinedRootCause: string;
   onUserDefinedRootCauseChange: (value: string) => void;
-  aiInsights: AIInsights | null;
-  onGenerateAIInsights: () => void;
-  isGeneratingInsights: boolean;
   plannedActions: PlannedAction[];
   onAddPlannedAction: () => void;
   onUpdatePlannedAction: (index: number, field: keyof PlannedAction, value: string) => void;
@@ -57,9 +53,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   onSetCtmData,
   userDefinedRootCause,
   onUserDefinedRootCauseChange,
-  aiInsights,
-  onGenerateAIInsights,
-  isGeneratingInsights,
   plannedActions,
   onAddPlannedAction,
   onUpdatePlannedAction,
@@ -91,7 +84,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     <Card>
       <CardHeader>
         <CardTitle className="font-headline">Paso 3: Análisis y Plan de Acción</CardTitle>
-        <CardDescription>Seleccione la técnica de análisis, defina la causa raíz, genere ideas con IA y defina el plan de acción.</CardDescription>
+        <CardDescription>Seleccione la técnica de análisis, defina la causa raíz y el plan de acción.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
@@ -149,38 +142,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
           </div>
         )}
         
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold font-headline flex items-center"><Brain className="mr-2 h-5 w-5 text-primary" />Asistente IA para RCA</h3>
-          <Button onClick={onGenerateAIInsights} disabled={isGeneratingInsights} className="w-full sm:w-auto">
-            {isGeneratingInsights ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="mr-2 h-4 w-4" />
-            )}
-            Generar Ideas con IA
-          </Button>
-          {aiInsights && (
-            <Alert variant="default" className="mt-4 bg-accent/20 border-accent">
-              <Sparkles className="h-5 w-5 text-accent" />
-              <AlertTitle className="font-headline text-accent">Perspectivas Generadas por IA</AlertTitle>
-              <AlertDescription className="space-y-3">
-                <div>
-                  <h4 className="font-semibold">Resumen del Evento:</h4>
-                  <p className="text-sm">{aiInsights.summary}</p>
-                </div>
-                <div>
-                  <h4 className="font-semibold">Posibles Causas Raíz:</h4>
-                  <p className="text-sm whitespace-pre-line">{aiInsights.potentialRootCauses}</p>
-                </div>
-                <div>
-                  <h4 className="font-semibold">Recomendaciones Sugeridas:</h4>
-                  <p className="text-sm whitespace-pre-line">{aiInsights.recommendations}</p>
-                </div>
-              </AlertDescription>
-            </Alert>
-          )}
-        </div>
-
         <div className="space-y-2">
           <Label htmlFor="userDefinedRootCause" className="font-semibold flex items-center">
             <MessageSquare className="mr-2 h-5 w-5 text-primary" /> Indicar la Causa Raíz de la Falla (según su análisis)
@@ -238,6 +199,3 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     </Card>
   );
 };
-
-
-    

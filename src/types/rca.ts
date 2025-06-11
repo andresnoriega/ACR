@@ -26,11 +26,12 @@ export interface Validation {
   status: 'pending' | 'validated';
 }
 
-export interface AIInsights {
-  summary: string;
-  potentialRootCauses: string;
-  recommendations: string;
-}
+// AIInsights interface removed
+// export interface AIInsights {
+//   summary: string;
+//   potentialRootCauses: string;
+//   recommendations: string;
+// }
 
 export type AnalysisTechnique = '' | 'WhyWhy' | 'Ishikawa' | 'CTM';
 
