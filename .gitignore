@@ -5,18 +5,13 @@
 /node_modules
 /.pnp
 .pnp.js
-.yarn/install-state.gz
 
-# Local Environment Variables
-.env
-.env*.local
-!/.env.example
-!/.env.sample
+# Testing
+/coverage
 
 # Next.js
 /.next/
 /out/
-next-env.d.ts
 
 # Production
 /build
@@ -25,22 +20,26 @@ next-env.d.ts
 .DS_Store
 *.pem
 
-# Debug files
+# Debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# Editor directories and files
-.vscode/*
-!.vscode/settings.json
-!.vscode/extensions.json
-.idea
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# Local Zips
+*.zip
+
+# Local Environment Variables
+.env*.local
+.env
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
 
 # Firebase
 firebase-debug.log
+firebase-crashlytics-build.json
+
+# IDX
+.idx/
