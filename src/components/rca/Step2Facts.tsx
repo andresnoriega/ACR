@@ -11,7 +11,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { Calendar as CalendarIcon } from 'lucide-react';
 import { format, parse, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -157,16 +157,9 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                     className="flex-grow"
                 />
                 <div className="flex gap-2 shrink-0">
-                    <Input 
-                        type="time"
-                        value={derivedTime}
-                        onChange={handleTimeChange}
-                        className="w-auto"
-                        aria-label="Seleccionar hora"
-                    />
                     <Popover>
                         <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-auto aspect-square p-2.5"> {/* Adjusted padding for square-like button */}
+                        <Button variant="outline" className="w-auto aspect-square p-2.5">
                             <CalendarIcon className="h-4 w-4" />
                             <span className="sr-only">Abrir calendario</span>
                         </Button>
@@ -181,6 +174,13 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                         />
                         </PopoverContent>
                     </Popover>
+                    <Input 
+                        type="time"
+                        value={derivedTime}
+                        onChange={handleTimeChange}
+                        className="w-auto"
+                        aria-label="Seleccionar hora"
+                    />
                 </div>
             </div>
           </div>
