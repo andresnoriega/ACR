@@ -56,7 +56,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     const day = String(today.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
-  const maxDateForImmediateActions = getTodayDateString();
+  const maxDate = getTodayDateString();
 
   return (
     <Card>
@@ -83,7 +83,13 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
         </div>
         <div className="space-y-2">
           <Label htmlFor="date">Fecha del Evento</Label>
-          <Input id="date" type="date" value={eventData.date} onChange={(e) => handleInputChange(e, 'date')} />
+          <Input 
+            id="date" 
+            type="date" 
+            value={eventData.date} 
+            onChange={(e) => handleInputChange(e, 'date')} 
+            max={maxDate} 
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="focusEventDescription">Descripción del Evento Foco</Label>
@@ -128,7 +134,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
                     type="date" 
                     value={action.dueDate} 
                     onChange={(e) => handleActionChange(index, 'dueDate', e.target.value)}
-                    max={maxDateForImmediateActions}
+                    max={maxDate}
                   />
                 </div>
               </div>
@@ -145,7 +151,3 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     </Card>
   );
 };
-
-    
-
-    
