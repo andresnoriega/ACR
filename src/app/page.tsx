@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AIInsights, AnalysisTechnique, IshikawaData, FiveWhysData, FiveWhyEntry, CTMData, FailureMode, Hypothesis, PhysicalCause, HumanCause, LatentCause } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AIInsights, AnalysisTechnique, IshikawaData, FiveWhysData, FiveWhyEntry, CTMData, FailureMode, Hypothesis, PhysicalCause, HumanCause, LatentCause, DetailedFacts } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -28,6 +28,14 @@ const initialFiveWhysData: FiveWhysData = [
 
 const initialCTMData: CTMData = [];
 
+const initialDetailedFacts: DetailedFacts = {
+  quien: '',
+  que: '',
+  donde: '',
+  cuando: '',
+  cualCuanto: '',
+  como: '',
+};
 
 export default function RCAHomePage() {
   const [step, setStep] = useState(1);
@@ -45,9 +53,11 @@ export default function RCAHomePage() {
   const [immediateActions, setImmediateActions] = useState<ImmediateAction[]>([]);
   const [immediateActionCounter, setImmediateActionCounter] = useState(1);
 
-  const [analysisFacts, setAnalysisFacts] = useState('');
-  const [analysisDetails, setAnalysisDetails] = useState('');
+  // Step 2 State
+  const [detailedFacts, setDetailedFacts] = useState<DetailedFacts>(initialDetailedFacts);
+  const [analysisDetails, setAnalysisDetails] = useState(''); // This remains for 'Análisis Realizado'
 
+  // Step 3 State
   const [analysisTechnique, setAnalysisTechnique] = useState<AnalysisTechnique>('');
   const [analysisTechniqueNotes, setAnalysisTechniqueNotes] = useState('');
   const [ishikawaData, setIshikawaData] = useState<IshikawaData>(JSON.parse(JSON.stringify(initialIshikawaData)));
@@ -59,8 +69,9 @@ export default function RCAHomePage() {
   const [plannedActions, setPlannedActions] = useState<PlannedAction[]>([]);
   const [plannedActionCounter, setPlannedActionCounter] = useState(1);
 
-
+  // Step 4 State
   const [validations, setValidations] = useState<Validation[]>([]);
+  // Step 5 State
   const [finalComments, setFinalComments] = useState('');
 
   const ensureEventId = useCallback(() => {
@@ -82,7 +93,7 @@ export default function RCAHomePage() {
         ensureEventId();
     }
     setStep(targetStep);
-    if (targetStep > maxCompletedStep) {
+    if (targetStep > maxCompletedStep && targetStep > step ) { // Only update if moving forward to uncompleted step
         setMaxCompletedStep(targetStep -1);
     }
   };
@@ -117,6 +128,11 @@ export default function RCAHomePage() {
     setImmediateActions(prev => prev.filter((_, i) => i !== index));
   };
 
+  // Step 2 Logic
+  const handleDetailedFactChange = (field: keyof DetailedFacts, value: string) => {
+    setDetailedFacts(prev => ({ ...prev, [field]: value }));
+  };
+
   // Step 3 Logic
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);
@@ -146,14 +162,14 @@ export default function RCAHomePage() {
     setFiveWhysData(prev => prev.filter(entry => entry.id !== id));
   };
 
-  // CTM Data Handlers
   const handleSetCtmData = (newData: CTMData) => {
     setCtmData(newData);
   };
 
-
   const handleGenerateAIInsights = async () => {
-    if (!eventData.focusEventDescription && !analysisFacts && !analysisDetails) {
+    const constructedDetailedFactsString = `Durante ${detailedFacts.como || 'operación desconocida'} en ${detailedFacts.donde || 'lugar desconocido'}, ${detailedFacts.que || 'evento desconocido'}, a las ${detailedFacts.cuando || 'momento desconocido'} ${detailedFacts.cualCuanto || 'consecuencia desconocida'}.`;
+
+    if (!eventData.focusEventDescription && !constructedDetailedFactsString && !analysisDetails) {
       toast({ title: "Información Insuficiente", description: "Por favor, complete la descripción del evento, hechos y análisis para generar ideas.", variant: "destructive" });
       return;
     }
@@ -208,13 +224,14 @@ export default function RCAHomePage() {
       ctmContent += formatCTMLevel(ctmData, "", "Modo de Falla");
       analysisPayload += `\n\nDETALLES DEL ÁRBOL DE CAUSAS (CTM):\n${ctmContent.trim() ? ctmContent : '(No se definieron elementos para el Árbol de Causas)'}`;
     }
-    else if (analysisTechniqueNotes.trim()) {
+    else if (analysisTechniqueNotes.trim()) { // For generic notes if no specific technique OR for WhyWhy/CTM if they use the notes field
       analysisPayload += `\n\nNOTAS SOBRE LA TÉCNICA (${analysisTechnique || 'General'}):\n${analysisTechniqueNotes}`;
     }
 
-
+    const factsForAI = `${eventData.focusEventDescription || 'Evento no descrito.'}\n\nDESCRIPCIÓN DEL FENÓMENO (Hechos Observados):\n${constructedDetailedFactsString || 'Hechos no detallados.'}`;
+    
     const inputForAI: Parameters<typeof getAIInsightsAction>[0] = {
-      facts: `${eventData.focusEventDescription}\n\nHECHOS OBSERVADOS:\n${analysisFacts}`,
+      facts: factsForAI,
       analysis: analysisPayload,
     };
 
@@ -307,8 +324,8 @@ export default function RCAHomePage() {
       <div className={step === 2 ? "" : "print:hidden"}>
       {step === 2 && (
         <Step2Facts
-          analysisFacts={analysisFacts}
-          onAnalysisFactsChange={setAnalysisFacts}
+          detailedFacts={detailedFacts}
+          onDetailedFactChange={handleDetailedFactChange}
           analysisDetails={analysisDetails}
           onAnalysisDetailsChange={setAnalysisDetails}
           onPrevious={handlePreviousStep}

@@ -88,3 +88,13 @@ export interface FailureMode {
 }
 
 export type CTMData = FailureMode[];
+
+// Types for Detailed Facts in Step 2
+export interface DetailedFacts {
+  quien: string;
+  que: string;
+  donde: string;
+  cuando: string;
+  cualCuanto: string;
+  como: string;
+}
