@@ -1,12 +1,14 @@
+
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
+import { TopNavigation } from '@/components/layout/TopNavigation';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
-  title: 'Analizador RCA Avanzado',
+  title: 'RCA Assistant',
   description: 'Herramienta de Análisis de Causa Raíz con gráficos',
 };
 
@@ -20,8 +22,13 @@ export default function RootLayout({
       <head>
         {/* Google Fonts link for Inter is managed by next/font */}
       </head>
-      <body className="font-body antialiased">
-        {children}
+      <body className="font-body antialiased bg-background text-foreground flex flex-col min-h-screen">
+        <TopNavigation />
+        <main className="flex-grow w-full print-container">
+          <div className="container mx-auto p-4 sm:p-6 lg:p-8 h-full">
+            {children}
+          </div>
+        </main>
         <Toaster />
       </body>
     </html>
