@@ -46,9 +46,11 @@ export default function InicioPage() {
             <CardDescription>Visualice y gestione los informes de sus análisis completados. (Próximamente)</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button className="w-full" size="lg" disabled>
-              Ver Informes (Próximamente)
-            </Button>
+            <Link href="/informes" passHref>
+              <Button className="w-full" size="lg">
+                Ver Informes
+              </Button>
+            </Link>
           </CardContent>
         </Card>
 
@@ -58,12 +60,14 @@ export default function InicioPage() {
               <SettingsIcon className="h-7 w-7 text-primary" />
               <CardTitle className="text-2xl">Configuración</CardTitle>
             </div>
-            <CardDescription>Ajuste las preferencias y configuraciones de la aplicación. (Próximamente)</CardDescription>
+            <CardDescription>Ajuste las preferencias y configuraciones de la aplicación.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button className="w-full" size="lg" disabled>
-              Ir a Configuración (Próximamente)
-            </Button>
+            <Link href="/config" passHref>
+              <Button className="w-full" size="lg">
+                Ir a Configuración
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
