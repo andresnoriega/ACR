@@ -131,7 +131,12 @@ export default function RCAAnalysisPage() {
   };
 
   const handleAddImmediateAction = () => {
-    const newActionId = `IMA-${String(immediateActionCounter).padStart(3, '0')}`;
+    const currentEventId = ensureEventId();
+    if (!currentEventId) {
+      toast({ title: "Error", description: "No se pudo generar/obtener ID de evento para la acción inmediata.", variant: "destructive" });
+      return;
+    }
+    const newActionId = `${currentEventId}-IMA-${String(immediateActionCounter).padStart(3, '0')}`;
     setImmediateActions(prev => [...prev, { id: newActionId, description: '', responsible: '', dueDate: '' }]);
     setImmediateActionCounter(prev => prev + 1);
   };
@@ -153,9 +158,16 @@ export default function RCAAnalysisPage() {
   };
 
   const handleAddPreservedFact = (fact: Omit<PreservedFact, 'id' | 'uploadDate'>) => {
+    const currentEventId = eventData.id; // Event ID should exist by Step 2
+    if (!currentEventId) {
+      toast({ title: "Error", description: "ID de evento no encontrado para asociar el hecho preservado.", variant: "destructive" });
+      // Potentially call ensureEventId() here if it's possible to reach Step 2 without an ID, though current logic tries to prevent this.
+      // For now, we assume eventData.id is populated by the time we are in Step 2 or adding facts.
+      return;
+    }
     const newFact: PreservedFact = {
       ...fact,
-      id: `pf-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      id: `${currentEventId}-pf-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
       uploadDate: new Date().toISOString(),
     };
     setPreservedFacts(prev => [...prev, newFact]);
@@ -371,4 +383,6 @@ export default function RCAAnalysisPage() {
   );
 }
         
+    
+
     
