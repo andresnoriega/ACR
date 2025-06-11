@@ -67,6 +67,7 @@ export default function RCAAnalysisPage() {
   const [immediateActions, setImmediateActions] = useState<ImmediateAction[]>([]);
   const [immediateActionCounter, setImmediateActionCounter] = useState(1);
 
+  const [projectLeader, setProjectLeader] = useState('');
   const [detailedFacts, setDetailedFacts] = useState<DetailedFacts>(initialDetailedFacts);
   const [analysisDetails, setAnalysisDetails] = useState(''); 
   const [preservedFacts, setPreservedFacts] = useState<PreservedFact[]>([]);
@@ -141,6 +142,10 @@ export default function RCAAnalysisPage() {
   
   const handleRemoveImmediateAction = (index: number) => {
     setImmediateActions(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleProjectLeaderChange = (value: string) => {
+    setProjectLeader(value);
   };
 
   const handleDetailedFactChange = (field: keyof DetailedFacts, value: string) => {
@@ -282,7 +287,7 @@ export default function RCAAnalysisPage() {
             onUpdateImmediateAction={handleUpdateImmediateAction}
             onRemoveImmediateAction={handleRemoveImmediateAction}
             availableSites={sampleAvailableSites}
-            availableUsers={sampleAvailableUsers.map(u => ({id: u.id, name: u.name}))} // Pass only id and name for selection
+            availableUsers={sampleAvailableUsers.map(u => ({id: u.id, name: u.name}))}
             onNext={handleNextStep}
           />
         )}
@@ -290,6 +295,9 @@ export default function RCAAnalysisPage() {
       <div className={step === 2 ? "" : "print:hidden"}>
       {step === 2 && (
         <Step2Facts
+          projectLeader={projectLeader}
+          onProjectLeaderChange={handleProjectLeaderChange}
+          availableUsers={sampleAvailableUsers.map(u => ({id: u.id, name: u.name}))}
           detailedFacts={detailedFacts}
           onDetailedFactChange={handleDetailedFactChange}
           analysisDetails={analysisDetails}
@@ -324,7 +332,7 @@ export default function RCAAnalysisPage() {
           onAddPlannedAction={handleAddPlannedAction}
           onUpdatePlannedAction={handleUpdatePlannedAction}
           onRemovePlannedAction={handleRemovePlannedAction}
-          availableUsers={sampleAvailableUsers.map(u => ({id: u.id, name: u.name}))} // Pass only id and name for selection
+          availableUsers={sampleAvailableUsers.map(u => ({id: u.id, name: u.name}))}
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
         />
@@ -356,7 +364,7 @@ export default function RCAAnalysisPage() {
           finalComments={finalComments}
           onFinalCommentsChange={setFinalComments}
           onPrintReport={handlePrintReport}
-          availableUsers={sampleAvailableUsers} // Pass full user object with email
+          availableUsers={sampleAvailableUsers} 
         />
       )}
     </>

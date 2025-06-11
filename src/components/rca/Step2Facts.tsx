@@ -14,12 +14,15 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
-import { Calendar as CalendarIcon, PlusCircle, Trash2, FileText, Paperclip } from 'lucide-react';
+import { Calendar as CalendarIcon, PlusCircle, Trash2, FileText, Paperclip, UserCircle } from 'lucide-react';
 import { format, parse, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
 
 interface Step2FactsProps {
+  projectLeader: string;
+  onProjectLeaderChange: (value: string) => void;
+  availableUsers: Array<{ id: string; name: string; }>;
   detailedFacts: DetailedFacts;
   onDetailedFactChange: (field: keyof DetailedFacts, value: string) => void;
   analysisDetails: string;
@@ -127,6 +130,9 @@ const PreservedFactDialog: FC<{
 
 
 export const Step2Facts: FC<Step2FactsProps> = ({
+  projectLeader,
+  onProjectLeaderChange,
+  availableUsers,
   detailedFacts,
   onDetailedFactChange,
   analysisDetails,
@@ -252,9 +258,30 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     <Card>
       <CardHeader>
         <CardTitle className="font-headline">Paso 2: Hechos y Análisis Preliminar</CardTitle>
+        <CardDescription>Recopile y documente todos los hechos relevantes sobre el evento.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <Label htmlFor="projectLeader" className="flex items-center">
+            <UserCircle className="mr-2 h-4 w-4 text-primary" />
+            Líder del Proyecto
+          </Label>
+          <Select value={projectLeader} onValueChange={onProjectLeaderChange}>
+            <SelectTrigger id="projectLeader">
+              <SelectValue placeholder="-- Seleccione un líder --" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableUsers.map(user => (
+                <SelectItem key={user.id} value={user.name}>{user.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Nota: Lista de usuarios de ejemplo. En una aplicación real, esta lista se cargaría dinámicamente.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="como">CÓMO (ocurrió la desviación)</Label>
             <Input id="como" value={detailedFacts.como} onChange={(e) => handleInputChange(e, 'como')} placeholder="Ej: Durante operación normal" />
