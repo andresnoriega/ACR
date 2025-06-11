@@ -160,7 +160,11 @@ export default function RCAAnalysisPage() {
     if (value === 'Ishikawa') {
       setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData))); 
     } else if (value === 'WhyWhy') {
-      setFiveWhysData(JSON.parse(JSON.stringify(initialFiveWhysData)));
+      const newFiveWhysData = JSON.parse(JSON.stringify(initialFiveWhysData));
+       if (eventData.focusEventDescription) {
+         newFiveWhysData[0].why = `¿Por qué ocurrió: "${eventData.focusEventDescription.substring(0,70)}${eventData.focusEventDescription.length > 70 ? "..." : ""}"?`;
+       }
+      setFiveWhysData(newFiveWhysData);
     } else if (value === 'CTM') {
       setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
     }
