@@ -283,8 +283,17 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({
              <Card className="p-0 bg-secondary/40 shadow">
                 <AccordionTrigger className="p-3 hover:no-underline">
                     <div className="flex justify-between items-center w-full">
-                        <span className="text-sm font-medium text-red-700 dark:text-red-400">Causa Humana #{index + 1}: {hc.description.substring(0,30) || "(Sin describir)"}...</span>
-                        <Button variant="ghost" size="icon" onClick={(e) => {e.stopPropagation(); handleRemoveHumanCause(fmId, hypId, pcId, hc.id)}} className="h-7 w-7 mr-2"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        <span className="text-sm font-medium text-red-700 dark:text-red-400 flex-grow text-left pr-2">Causa Humana #{index + 1}: {hc.description.substring(0,30) || "(Sin describir)"}...</span>
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Eliminar Causa Humana ${index + 1}`}
+                          onClick={(e) => { e.stopPropagation(); handleRemoveHumanCause(fmId, hypId, pcId, hc.id); }}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); handleRemoveHumanCause(fmId, hypId, pcId, hc.id); } }}
+                          className="p-1 rounded-md hover:bg-destructive/10 focus:outline-none focus:ring-1 focus:ring-destructive cursor-pointer h-7 w-7 flex items-center justify-center shrink-0"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </div>
                     </div>
                 </AccordionTrigger>
                 <AccordionContent className="p-3 border-t">
@@ -308,8 +317,17 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({
             <Card className="p-0 bg-background/80 shadow">
                 <AccordionTrigger className="p-3 hover:no-underline">
                      <div className="flex justify-between items-center w-full">
-                        <span className="text-sm font-medium text-orange-700 dark:text-orange-400">Causa Física #{index + 1}: {pc.description.substring(0,35) || "(Sin describir)"}...</span>
-                        <Button variant="ghost" size="icon" onClick={(e) => {e.stopPropagation(); handleRemovePhysicalCause(fmId, hypId, pc.id)}} className="h-7 w-7 mr-2"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        <span className="text-sm font-medium text-orange-700 dark:text-orange-400 flex-grow text-left pr-2">Causa Física #{index + 1}: {pc.description.substring(0,35) || "(Sin describir)"}...</span>
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Eliminar Causa Física ${index + 1}`}
+                          onClick={(e) => { e.stopPropagation(); handleRemovePhysicalCause(fmId, hypId, pc.id); }}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); handleRemovePhysicalCause(fmId, hypId, pc.id); } }}
+                          className="p-1 rounded-md hover:bg-destructive/10 focus:outline-none focus:ring-1 focus:ring-destructive cursor-pointer h-7 w-7 flex items-center justify-center shrink-0"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </div>
                     </div>
                 </AccordionTrigger>
                 <AccordionContent className="p-3 border-t">
@@ -333,8 +351,17 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({
             <Card className="p-0 bg-secondary/50 shadow-md">
                 <AccordionTrigger className="p-3 hover:no-underline">
                      <div className="flex justify-between items-center w-full">
-                        <span className="text-base font-medium text-teal-700 dark:text-teal-400">Hipótesis #{index + 1}: {hyp.description.substring(0,40) || "(Sin describir)"}...</span>
-                        <Button variant="ghost" size="icon" onClick={(e) => {e.stopPropagation(); handleRemoveHypothesis(fmId, hyp.id)}} className="h-8 w-8 mr-2"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        <span className="text-base font-medium text-teal-700 dark:text-teal-400 flex-grow text-left pr-2">Hipótesis #{index + 1}: {hyp.description.substring(0,40) || "(Sin describir)"}...</span>
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Eliminar Hipótesis ${index + 1}`}
+                          onClick={(e) => { e.stopPropagation(); handleRemoveHypothesis(fmId, hyp.id); }}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); handleRemoveHypothesis(fmId, hyp.id); } }}
+                          className="p-1 rounded-md hover:bg-destructive/10 focus:outline-none focus:ring-1 focus:ring-destructive cursor-pointer h-8 w-8 flex items-center justify-center shrink-0"
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </div>
                     </div>
                 </AccordionTrigger>
                 <AccordionContent className="p-3 border-t">
@@ -371,8 +398,17 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({
             <Card className="p-0">
                 <AccordionTrigger className="p-4 hover:no-underline bg-primary/5 hover:bg-primary/10 rounded-t-md">
                     <div className="flex justify-between items-center w-full">
-                        <span className="text-lg font-semibold text-primary">Modo de Falla #{index + 1}: {fm.description.substring(0,50) || "(Sin describir)"}...</span>
-                        <Button variant="ghost" size="icon" onClick={(e) => {e.stopPropagation(); handleRemoveFailureMode(fm.id)}} className="h-9 w-9 mr-2"><Trash2 className="h-5 w-5 text-destructive" /></Button>
+                        <span className="text-lg font-semibold text-primary flex-grow text-left pr-2">Modo de Falla #{index + 1}: {fm.description.substring(0,50) || "(Sin describir)"}...</span>
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Eliminar Modo de Falla ${index + 1}`}
+                          onClick={(e) => { e.stopPropagation(); handleRemoveFailureMode(fm.id); }}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); handleRemoveFailureMode(fm.id); } }}
+                          className="p-1 rounded-md hover:bg-destructive/10 focus:outline-none focus:ring-1 focus:ring-destructive cursor-pointer h-9 w-9 flex items-center justify-center shrink-0"
+                        >
+                          <Trash2 className="h-5 w-5 text-destructive" />
+                        </div>
                     </div>
                 </AccordionTrigger>
                 <AccordionContent className="p-4 border-t">
@@ -392,3 +428,5 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({
   );
 };
 
+
+    
