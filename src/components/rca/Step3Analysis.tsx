@@ -78,6 +78,15 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     return `Notas para ${analysisTechnique}`;
   };
 
+  const getTodayDateString = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  const minDateForPlannedActions = getTodayDateString();
+
   return (
     <Card>
       <CardHeader>
@@ -125,17 +134,17 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
           />
         )}
         
-        {analysisTechnique === '' && ( /* Fallback for notes if no specific interactive component */
+        {(analysisTechnique === '' || analysisTechniqueNotes.trim() !== '') && (
           <div className="space-y-2 mt-4">
             <Label htmlFor="analysisTechniqueNotes">
-              Notas Generales de Análisis:
+              Notas Adicionales del Análisis ({analysisTechnique || 'General'}):
             </Label>
             <Textarea
               id="analysisTechniqueNotes"
               value={analysisTechniqueNotes}
               onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onAnalysisTechniqueNotesChange(e.target.value)}
               placeholder={getPlaceholderForNotes()}
-              rows={10}
+              rows={analysisTechnique === '' ? 10 : 4}
             />
           </div>
         )}
@@ -206,7 +215,13 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor={`pa-date-${index}`}>Fecha Límite</Label>
-                  <Input id={`pa-date-${index}`} type="date" value={action.dueDate} onChange={(e) => handleActionChange(index, 'dueDate', e.target.value)} />
+                  <Input 
+                    id={`pa-date-${index}`} 
+                    type="date" 
+                    value={action.dueDate} 
+                    onChange={(e) => handleActionChange(index, 'dueDate', e.target.value)}
+                    min={minDateForPlannedActions}
+                  />
                 </div>
               </div>
             </Card>
@@ -224,3 +239,5 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   );
 };
 
+
+    
