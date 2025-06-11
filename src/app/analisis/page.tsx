@@ -44,11 +44,11 @@ const sampleAvailableSites: Array<{ id: string; name: string }> = [
 ];
 
 const sampleAvailableUsers: Array<{ id: string; name: string; email: string }> = [
-  { id: '1', name: 'Carlos Ruiz', email: 'carlos.ruiz@example.com' },
-  { id: '2', name: 'Ana López', email: 'ana.lopez@example.com' },
-  { id: '3', name: 'Luis Torres', email: 'luis.torres@example.com' },
-  { id: '4', name: 'Maria Solano', email: 'maria.solano@example.com' },
-  { id: '5', name: 'Pedro Gómez', email: 'pedro.gomez@example.com' },
+  { id: 'u1', name: 'Carlos Ruiz', email: 'carlos.ruiz@example.com' },
+  { id: 'u2', name: 'Ana López', email: 'ana.lopez@example.com' },
+  { id: 'u3', name: 'Luis Torres', email: 'luis.torres@example.com' },
+  { id: 'u4', name: 'Maria Solano', email: 'maria.solano@example.com' },
+  { id: 'u5', name: 'Pedro Gómez', email: 'pedro.gomez@example.com' },
 ];
 
 
@@ -116,7 +116,7 @@ export default function RCAAnalysisPage() {
   };
 
   const handleNextStep = () => {
-    ensureEventId(); 
+    const currentEventId = ensureEventId(); 
 
     if (step === 3) {
       plannedActions.forEach(action => {
@@ -159,7 +159,7 @@ export default function RCAAnalysisPage() {
     setImmediateActionCounter(prev => prev + 1);
   };
 
-  const handleUpdateImmediateAction = (index: number, field: keyof Omit<ImmediateAction, 'eventId'>, value: string) => {
+  const handleUpdateImmediateAction = (index: number, field: keyof Omit<ImmediateAction, 'eventId' | 'id'>, value: string) => {
     setImmediateActions(prev => prev.map((act, i) => i === index ? { ...act, [field]: value } : act));
   };
   
@@ -255,11 +255,18 @@ export default function RCAAnalysisPage() {
       return;
     }
     const newActionId = `${currentEventId}-PA-${String(plannedActionCounter).padStart(3, '0')}`;
-    setPlannedActions(prev => [...prev, { id: newActionId, eventId: currentEventId, description: '', responsible: '', dueDate: '' }]);
+    setPlannedActions(prev => [...prev, { 
+      id: newActionId, 
+      eventId: currentEventId, 
+      description: '', 
+      responsible: '', 
+      dueDate: '',
+      relatedRootCauseIds: [] 
+    }]);
     setPlannedActionCounter(prev => prev + 1);
   };
 
-  const handleUpdatePlannedAction = (index: number, field: keyof Omit<PlannedAction, 'eventId'>, value: string) => {
+  const handleUpdatePlannedAction = (index: number, field: keyof Omit<PlannedAction, 'eventId' | 'id'>, value: string | string[]) => {
     setPlannedActions(prev => prev.map((act, i) => i === index ? { ...act, [field]: value } : act));
   };
 
@@ -416,3 +423,4 @@ export default function RCAAnalysisPage() {
     </>
   );
 }
+

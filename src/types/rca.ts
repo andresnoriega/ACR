@@ -25,7 +25,7 @@ export interface PlannedAction {
   description: string;
   responsible: string;
   dueDate: string;
-  // relatedRootCauseIds?: string[]; // Futura mejora para vincular a causas raíz específicas
+  relatedRootCauseIds?: string[]; // Campo para vincular a causas raíz específicas
 }
 
 export interface Validation {
@@ -127,3 +127,4 @@ export interface PreservedFact {
   description: string;
   uploadDate: string;
 }
+

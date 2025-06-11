@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail } from 'lucide-react';
+import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
@@ -268,10 +268,22 @@ export const Step5Results: FC<Step5ResultsProps> = ({
               {plannedActions.length > 0 ? (
                 <>
                   <p className="font-medium mb-1">Plan de Acción Definido:</p>
-                  <ul className="list-disc pl-6 space-y-1">
+                  <ul className="list-none pl-0 space-y-2">
                     {plannedActions.map(action => (
-                      <li key={action.id}>
-                        {action.description} (Responsable: {action.responsible || 'N/A'}, Fecha Límite: {action.dueDate || 'N/A'})
+                      <li key={action.id} className="border-b pb-2 mb-2">
+                        <span className="font-semibold">{action.description}</span>
+                        <p className="text-xs text-muted-foreground">Responsable: {action.responsible || 'N/A'} | Fecha Límite: {action.dueDate || 'N/A'}</p>
+                        {action.relatedRootCauseIds && action.relatedRootCauseIds.length > 0 && (
+                          <div className="mt-1">
+                            <span className="text-xs font-medium text-primary flex items-center"><Link2 className="h-3 w-3 mr-1"/>Aborda Causas Raíz:</span>
+                            <ul className="list-disc pl-5 text-xs">
+                              {action.relatedRootCauseIds.map(rcId => {
+                                const cause = identifiedRootCauses.find(c => c.id === rcId);
+                                return cause ? <li key={rcId}>{cause.description}</li> : <li key={rcId}>ID: {rcId} (no encontrada)</li>;
+                              })}
+                            </ul>
+                          </div>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -358,3 +370,4 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     </>
   );
 };
+

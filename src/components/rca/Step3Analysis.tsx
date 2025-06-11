@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Trash2, MessageSquare, ShareTree } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
 import { FiveWhysInteractive } from './FiveWhysInteractive';
@@ -33,7 +34,7 @@ interface Step3AnalysisProps {
   onRemoveIdentifiedRootCause: (id: string) => void;
   plannedActions: PlannedAction[];
   onAddPlannedAction: () => void;
-  onUpdatePlannedAction: (index: number, field: keyof Omit<PlannedAction, 'eventId'>, value: string) => void;
+  onUpdatePlannedAction: (index: number, field: keyof Omit<PlannedAction, 'eventId' | 'id'>, value: string | string[]) => void;
   onRemovePlannedAction: (index: number) => void;
   availableUsers: Array<{ id: string; name: string; email: string; }>; 
   onPrevious: () => void;
@@ -66,12 +67,25 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   onPrevious,
   onNext,
 }) => {
-  const handleActionChange = (index: number, field: keyof Omit<PlannedAction, 'eventId'>, value: string) => {
+  const handleActionChange = (index: number, field: keyof Omit<PlannedAction, 'eventId' | 'id'>, value: string) => {
     onUpdatePlannedAction(index, field, value);
   };
 
   const handleActionResponsibleChange = (index: number, value: string) => {
     onUpdatePlannedAction(index, 'responsible', value);
+  };
+
+  const handleToggleRootCauseForAction = (actionIndex: number, rootCauseId: string, checked: boolean) => {
+    const action = plannedActions[actionIndex];
+    const currentRelatedIds = action.relatedRootCauseIds || [];
+    let newRelatedIds: string[];
+
+    if (checked) {
+      newRelatedIds = [...currentRelatedIds, rootCauseId];
+    } else {
+      newRelatedIds = currentRelatedIds.filter(id => id !== rootCauseId);
+    }
+    onUpdatePlannedAction(actionIndex, 'relatedRootCauseIds', newRelatedIds);
   };
 
   const getPlaceholderForNotes = () => {
@@ -195,7 +209,32 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                 <Label htmlFor={`pa-desc-${index}`}>Descripción de la Acción</Label>
                 <Input id={`pa-desc-${index}`} value={action.description} onChange={(e) => handleActionChange(index, 'description', e.target.value)} placeholder="Detalle de la acción correctiva" />
               </div>
-              {/* Aquí se podría añadir la selección de causas raíz vinculadas si se implementa la Parte 2 */}
+              
+              <div className="space-y-2">
+                <Label className="flex items-center"><Link2 className="mr-2 h-4 w-4" />Causas Raíz Abordadas</Label>
+                <div className="space-y-1.5 max-h-32 overflow-y-auto p-2 border rounded-md bg-background/50">
+                  {identifiedRootCauses.length > 0 ? (
+                    identifiedRootCauses.map(rc => (
+                      <div key={rc.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`pa-${action.id}-rc-${rc.id}`}
+                          checked={action.relatedRootCauseIds?.includes(rc.id)}
+                          onCheckedChange={(checked) => {
+                            handleToggleRootCauseForAction(index, rc.id, checked as boolean);
+                          }}
+                        />
+                        <Label htmlFor={`pa-${action.id}-rc-${rc.id}`} className="text-xs font-normal cursor-pointer flex-grow">
+                          {rc.description.substring(0, 60) || `Causa Raíz (ID: ${rc.id.substring(0,5)}... )`}
+                          {rc.description.length > 60 ? "..." : ""}
+                        </Label>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-muted-foreground">No hay causas raíz identificadas para vincular.</p>
+                  )}
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor={`pa-resp-${index}`}>Responsable</Label>
@@ -238,3 +277,4 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     </Card>
   );
 };
+
