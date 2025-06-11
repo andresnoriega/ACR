@@ -63,6 +63,7 @@ export default function RCAHomePage() {
   const [ishikawaData, setIshikawaData] = useState<IshikawaData>(JSON.parse(JSON.stringify(initialIshikawaData)));
   const [fiveWhysData, setFiveWhysData] = useState<FiveWhysData>(JSON.parse(JSON.stringify(initialFiveWhysData)));
   const [ctmData, setCtmData] = useState<CTMData>(JSON.parse(JSON.stringify(initialCTMData)));
+  const [userDefinedRootCause, setUserDefinedRootCause] = useState('');
   
   const [aiInsights, setAIInsights] = useState<AIInsights | null>(null);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
@@ -175,8 +176,8 @@ export default function RCAHomePage() {
   const handleGenerateAIInsights = async () => {
     const constructedDetailedFactsString = `Un evento, identificado como "${detailedFacts.que || 'QUÉ (no especificado)'}", tuvo lugar en "${detailedFacts.donde || 'DÓNDE (no especificado)'}" el "${detailedFacts.cuando || 'CUÁNDO (no especificado)'}". La desviación ocurrió de la siguiente manera: "${detailedFacts.como || 'CÓMO (no especificado)'}". El impacto o tendencia fue: "${detailedFacts.cualCuanto || 'CUÁL/CUÁNTO (no especificado)'}". Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no especificado)'}".`;
 
-    if (!eventData.focusEventDescription && !constructedDetailedFactsString && !analysisDetails) {
-      toast({ title: "Información Insuficiente", description: "Por favor, complete la descripción del evento, hechos y análisis para generar ideas.", variant: "destructive" });
+    if (!eventData.focusEventDescription && !constructedDetailedFactsString && !analysisDetails && !userDefinedRootCause) {
+      toast({ title: "Información Insuficiente", description: "Por favor, complete la descripción del evento, hechos, análisis o causa raíz definida para generar ideas.", variant: "destructive" });
       return;
     }
     setIsGeneratingInsights(true);
@@ -242,6 +243,7 @@ export default function RCAHomePage() {
     const inputForAI: Parameters<typeof getAIInsightsAction>[0] = {
       facts: factsForAI,
       analysis: analysisPayload,
+      userDefinedRootCause: userDefinedRootCause || undefined,
     };
 
     const result = await getAIInsightsAction(inputForAI);
@@ -367,6 +369,8 @@ export default function RCAHomePage() {
           onRemoveFiveWhyEntry={handleRemoveFiveWhyEntry}
           ctmData={ctmData}
           onSetCtmData={handleSetCtmData}
+          userDefinedRootCause={userDefinedRootCause}
+          onUserDefinedRootCauseChange={setUserDefinedRootCause}
           aiInsights={aiInsights}
           onGenerateAIInsights={handleGenerateAIInsights}
           isGeneratingInsights={isGeneratingInsights}

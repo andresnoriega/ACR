@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Sparkles, Trash2, Loader2, Brain, ShareTree } from 'lucide-react';
+import { PlusCircle, Sparkles, Trash2, Loader2, Brain, MessageSquare, ShareTree } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
@@ -28,6 +28,8 @@ interface Step3AnalysisProps {
   onRemoveFiveWhyEntry: (id: string) => void;
   ctmData: CTMData;
   onSetCtmData: (data: CTMData) => void;
+  userDefinedRootCause: string;
+  onUserDefinedRootCauseChange: (value: string) => void;
   aiInsights: AIInsights | null;
   onGenerateAIInsights: () => void;
   isGeneratingInsights: boolean;
@@ -53,6 +55,8 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   onRemoveFiveWhyEntry,
   ctmData,
   onSetCtmData,
+  userDefinedRootCause,
+  onUserDefinedRootCauseChange,
   aiInsights,
   onGenerateAIInsights,
   isGeneratingInsights,
@@ -68,8 +72,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   };
 
   const getPlaceholderForNotes = () => {
-    // This function is now less relevant for CTM as it has its own interactive component
-    // but can be kept for a generic fallback if analysisTechnique is empty.
     if (analysisTechnique === '') {
        return "Escriba aquí sus notas detalladas sobre la aplicación de la técnica seleccionada o notas generales si no ha elegido una técnica específica...";
     }
@@ -80,7 +82,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     <Card>
       <CardHeader>
         <CardTitle className="font-headline">Paso 3: Análisis y Plan de Acción</CardTitle>
-        <CardDescription>Seleccione la técnica de análisis, genere ideas con IA y defina el plan de acción.</CardDescription>
+        <CardDescription>Seleccione la técnica de análisis, defina la causa raíz, genere ideas con IA y defina el plan de acción.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
@@ -123,8 +125,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
           />
         )}
         
-        {/* Fallback for notes if no specific interactive component is active */}
-        {analysisTechnique === '' && (
+        {analysisTechnique === '' && ( /* Fallback for notes if no specific interactive component */
           <div className="space-y-2 mt-4">
             <Label htmlFor="analysisTechniqueNotes">
               Notas Generales de Análisis:
@@ -169,6 +170,19 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
               </AlertDescription>
             </Alert>
           )}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="userDefinedRootCause" className="font-semibold flex items-center">
+            <MessageSquare className="mr-2 h-5 w-5 text-primary" /> Indicar la Causa Raíz de la Falla (según su análisis)
+          </Label>
+          <Textarea
+            id="userDefinedRootCause"
+            value={userDefinedRootCause}
+            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onUserDefinedRootCauseChange(e.target.value)}
+            placeholder="Describa aquí la causa raíz principal que ha identificado a través de su análisis..."
+            rows={4}
+          />
         </div>
 
         <div className="space-y-4">

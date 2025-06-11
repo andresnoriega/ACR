@@ -1,3 +1,4 @@
+
 // src/ai/flows/generate-rca-insights.ts
 'use server';
 
@@ -15,12 +16,13 @@ import {z} from 'genkit';
 const GenerateRCAInsightsInputSchema = z.object({
   facts: z.string().describe('A detailed description of the facts related to the event.'),
   analysis: z.string().describe('The analysis performed, including techniques used and findings.'),
+  userDefinedRootCause: z.string().optional().describe('The root cause identified by the user, if any. The AI should consider, validate, or contrast this with its own findings.'),
 });
 export type GenerateRCAInsightsInput = z.infer<typeof GenerateRCAInsightsInputSchema>;
 
 const GenerateRCAInsightsOutputSchema = z.object({
   summary: z.string().describe('A concise summary of the event and its context.'),
-  potentialRootCauses: z.string().describe('A list of potential root causes identified from the analysis.'),
+  potentialRootCauses: z.string().describe('A list of potential root causes identified from the analysis, considering user input if provided.'),
   recommendations: z.string().describe('Recommendations for addressing the root causes and preventing recurrence.'),
 });
 export type GenerateRCAInsightsOutput = z.infer<typeof GenerateRCAInsightsOutputSchema>;
@@ -38,7 +40,12 @@ const generateRCAInsightsPrompt = ai.definePrompt({
 Facts: {{{facts}}}
 Analysis: {{{analysis}}}
 
-Provide a concise summary of the event, a list of potential root causes, and recommendations to address these causes and prevent similar events in the future.
+{{#if userDefinedRootCause}}
+The user has also identified the following as a potential root cause: "{{{userDefinedRootCause}}}"
+Please consider this in your analysis and recommendations. You can validate, expand upon, or contrast it with your findings.
+{{/if}}
+
+Provide a concise summary of the event, a list of potential root causes (considering the user's input if provided), and recommendations to address these causes and prevent similar events in the future.
 `,
 });
 
@@ -53,3 +60,4 @@ const generateRCAInsightsFlow = ai.defineFlow(
     return output!;
   }
 );
+
