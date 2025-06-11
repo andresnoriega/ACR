@@ -33,6 +33,7 @@ export default function RCAHomePage() {
   const [analysisDetails, setAnalysisDetails] = useState('');
 
   const [analysisTechnique, setAnalysisTechnique] = useState<AnalysisTechnique>('');
+  const [analysisTechniqueNotes, setAnalysisTechniqueNotes] = useState('');
   const [aiInsights, setAIInsights] = useState<AIInsights | null>(null);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [plannedActions, setPlannedActions] = useState<PlannedAction[]>([]);
@@ -54,12 +55,9 @@ export default function RCAHomePage() {
 
 
   const handleGoToStep = (targetStep: number) => {
-    // Prevent skipping uncompleted steps when navigating directly via StepNavigation
-    if (targetStep > step && targetStep > maxCompletedStep + 1) {
+    if (targetStep > step && targetStep > maxCompletedStep + 1 && targetStep !== 1) {
       return;
     }
-
-    // Ensure event ID exists if navigating to step 3 or later, where it might be needed
     if (targetStep >= 3 && !eventData.id) {
         ensureEventId();
     }
@@ -67,19 +65,16 @@ export default function RCAHomePage() {
   };
 
   const handleNextStep = () => {
-    ensureEventId(); // Ensure ID is set as we progress
-    
-    // Current step is now considered completed
+    ensureEventId(); 
     setMaxCompletedStep(prevMax => Math.max(prevMax, step));
-
     if (step < 5) {
-      setStep(prevStep => prevStep + 1); // Go to the next step
+      setStep(prevStep => prevStep + 1); 
     }
   };
 
   const handlePreviousStep = () => {
     if (step > 1) {
-      setStep(prevStep => prevStep - 1); // Go to previous step
+      setStep(prevStep => prevStep - 1); 
     }
   };
   
@@ -103,6 +98,12 @@ export default function RCAHomePage() {
   };
 
   // Step 3 Logic
+  const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
+    setAnalysisTechnique(value);
+    // Optionally, clear notes when technique changes, or handle specific logic
+    // setAnalysisTechniqueNotes(''); 
+  };
+
   const handleGenerateAIInsights = async () => {
     if (!eventData.focusEventDescription && !analysisFacts && !analysisDetails) {
       toast({ title: "Información Insuficiente", description: "Por favor, complete la descripción del evento, hechos y análisis para generar ideas.", variant: "destructive" });
@@ -110,10 +111,17 @@ export default function RCAHomePage() {
     }
     setIsGeneratingInsights(true);
     setAIInsights(null);
+    
+    let analysisPayload = `${analysisDetails}\n\nTÉCNICA DE ANÁLISIS PRINCIPAL: ${analysisTechnique || 'No especificada'}`;
+    if (analysisTechniqueNotes.trim()) {
+      analysisPayload += `\n\nNOTAS SOBRE LA TÉCNICA (${analysisTechnique || 'General'}):\n${analysisTechniqueNotes}`;
+    }
+
     const inputForAI: Parameters<typeof getAIInsightsAction>[0] = {
       facts: `${eventData.focusEventDescription}\n\nHECHOS OBSERVADOS:\n${analysisFacts}`,
-      analysis: `${analysisDetails}\n\nTÉCNICA DE ANÁLISIS PRINCIPAL: ${analysisTechnique || 'No especificada'}`,
+      analysis: analysisPayload,
     };
+
     const result = await getAIInsightsAction(inputForAI);
     if ('error' in result) {
       toast({ title: "Error de IA", description: result.error, variant: "destructive" });
@@ -125,7 +133,7 @@ export default function RCAHomePage() {
   };
   
   const handleAddPlannedAction = () => {
-    const currentEventId = ensureEventId(); // Ensure event ID exists
+    const currentEventId = ensureEventId(); 
     const newActionId = `${currentEventId}-PA-${String(plannedActionCounter).padStart(3, '0')}`;
     setPlannedActions(prev => [...prev, { id: newActionId, eventId: currentEventId, description: '', responsible: '', dueDate: '' }]);
     setPlannedActionCounter(prev => prev + 1);
@@ -147,7 +155,6 @@ export default function RCAHomePage() {
         const existingValidation = prevValidations.find(v => v.actionId === pa.id);
         return existingValidation || { actionId: pa.id, status: 'pending' };
       });
-      // Filter out validations for actions that no longer exist
       return newValidations.filter(v => plannedActions.some(pa => pa.id === v.actionId));
     });
   }, [plannedActions]);
@@ -160,23 +167,20 @@ export default function RCAHomePage() {
   
   // Step 5 Logic
   const handlePrintReport = () => {
-    // Optional: Hide non-printable elements before printing
     const nonPrintableElements = document.querySelectorAll('.no-print');
     nonPrintableElements.forEach(el => el.classList.add('hidden'));
     
     window.print();
 
-    // Optional: Show non-printable elements again after printing
     nonPrintableElements.forEach(el => el.classList.remove('hidden'));
   };
 
-  // Initialize maxCompletedStep based on the initial step
   useEffect(() => {
     if (step > maxCompletedStep) {
-      setMaxCompletedStep(step -1); // Current step is not yet "completed"
+      setMaxCompletedStep(step -1); 
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Runs only once on mount
+  }, []); 
 
 
   return (
@@ -191,8 +195,6 @@ export default function RCAHomePage() {
         <Separator className="my-6" />
       </div>
       
-      {/* Content for each step */}
-      {/* This div is for print styling to make sure the current step is what's printed */}
       <div className={step === 1 ? "" : "print:hidden"}>
         {step === 1 && (
           <Step1Initiation
@@ -222,7 +224,9 @@ export default function RCAHomePage() {
       {step === 3 && (
         <Step3Analysis
           analysisTechnique={analysisTechnique}
-          onAnalysisTechniqueChange={setAnalysisTechnique}
+          onAnalysisTechniqueChange={handleAnalysisTechniqueChange}
+          analysisTechniqueNotes={analysisTechniqueNotes}
+          onAnalysisTechniqueNotesChange={setAnalysisTechniqueNotes}
           aiInsights={aiInsights}
           onGenerateAIInsights={handleGenerateAIInsights}
           isGeneratingInsights={isGeneratingInsights}
@@ -246,7 +250,6 @@ export default function RCAHomePage() {
         />
       )}
       </div>
-       {/* Step 5 is always printable if it's the current step */}
       {step === 5 && (
         <Step5Results
           eventId={eventData.id}
@@ -260,4 +263,3 @@ export default function RCAHomePage() {
     </div>
   );
 }
-

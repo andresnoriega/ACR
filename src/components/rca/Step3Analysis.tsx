@@ -9,10 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlusCircle, Sparkles, Trash2, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Textarea } from '@/components/ui/textarea';
 
 interface Step3AnalysisProps {
   analysisTechnique: AnalysisTechnique;
   onAnalysisTechniqueChange: (value: AnalysisTechnique) => void;
+  analysisTechniqueNotes: string;
+  onAnalysisTechniqueNotesChange: (value: string) => void;
   aiInsights: AIInsights | null;
   onGenerateAIInsights: () => void;
   isGeneratingInsights: boolean;
@@ -27,6 +30,8 @@ interface Step3AnalysisProps {
 export const Step3Analysis: FC<Step3AnalysisProps> = ({
   analysisTechnique,
   onAnalysisTechniqueChange,
+  analysisTechniqueNotes,
+  onAnalysisTechniqueNotesChange,
   aiInsights,
   onGenerateAIInsights,
   isGeneratingInsights,
@@ -55,13 +60,29 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
               <SelectValue placeholder="-- Seleccione una técnica --" />
             </SelectTrigger>
             <SelectContent>
-              {/* <SelectItem value="">-- Seleccione una técnica --</SelectItem>  Removido para corregir el error */}
               <SelectItem value="WhyWhy">5 Porqués</SelectItem>
               <SelectItem value="Ishikawa">Ishikawa (Diagrama de Causa-Efecto)</SelectItem>
               <SelectItem value="CTM">Árbol de Causas (CTM)</SelectItem>
             </SelectContent>
           </Select>
         </div>
+
+        {analysisTechnique && (
+          <div className="space-y-2 mt-4">
+            <Label htmlFor="analysisTechniqueNotes">
+              {analysisTechnique === 'WhyWhy' && 'Desarrolle los 5 Porqués:'}
+              {analysisTechnique === 'Ishikawa' && 'Notas para el Diagrama de Ishikawa:'}
+              {analysisTechnique === 'CTM' && 'Notas para el Árbol de Causas (CTM):'}
+            </Label>
+            <Textarea
+              id="analysisTechniqueNotes"
+              value={analysisTechniqueNotes}
+              onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onAnalysisTechniqueNotesChange(e.target.value)}
+              placeholder="Escriba aquí sus notas detalladas sobre la aplicación de la técnica seleccionada..."
+              rows={5}
+            />
+          </div>
+        )}
 
         <div className="space-y-4">
           <h3 className="text-lg font-semibold font-headline">Asistente IA para RCA</h3>
