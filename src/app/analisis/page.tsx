@@ -36,7 +36,6 @@ const initialDetailedFacts: DetailedFacts = {
   como: '',
 };
 
-// Sample sites, ideally this would come from a shared state or API
 const sampleAvailableSites: Array<{ id: string; name: string }> = [
   { id: '1', name: 'Planta Industrial' },
   { id: '2', name: 'Centro Logístico' },
@@ -44,13 +43,12 @@ const sampleAvailableSites: Array<{ id: string; name: string }> = [
   { id: '4', name: 'Almacén Regional Norte' },
 ];
 
-// Sample users, ideally this would come from a shared state or API
-const sampleAvailableUsers: Array<{ id: string; name: string }> = [
-  { id: '1', name: 'Carlos Ruiz' },
-  { id: '2', name: 'Ana López' },
-  { id: '3', name: 'Luis Torres' },
-  { id: '4', name: 'Maria Solano' },
-  { id: '5', name: 'Pedro Gómez' },
+const sampleAvailableUsers: Array<{ id: string; name: string; email: string }> = [
+  { id: '1', name: 'Carlos Ruiz', email: 'carlos.ruiz@example.com' },
+  { id: '2', name: 'Ana López', email: 'ana.lopez@example.com' },
+  { id: '3', name: 'Luis Torres', email: 'luis.torres@example.com' },
+  { id: '4', name: 'Maria Solano', email: 'maria.solano@example.com' },
+  { id: '5', name: 'Pedro Gómez', email: 'pedro.gomez@example.com' },
 ];
 
 
@@ -59,23 +57,20 @@ export default function RCAAnalysisPage() {
   const [maxCompletedStep, setMaxCompletedStep] = useState(0);
   const { toast } = useToast();
 
-  // State for RCA data
   const [eventData, setEventData] = useState<RCAEventData>({
-    id: '', // ID se generará al guardar el Paso 1 si está vacío
+    id: '', 
     place: '',
     date: '',
     focusEventDescription: '',
   });
-  const [eventCounter, setEventCounter] = useState(1); // Para generar IDs de evento secuenciales E-00001, E-00002, etc.
+  const [eventCounter, setEventCounter] = useState(1); 
   const [immediateActions, setImmediateActions] = useState<ImmediateAction[]>([]);
   const [immediateActionCounter, setImmediateActionCounter] = useState(1);
 
-  // Step 2 State
   const [detailedFacts, setDetailedFacts] = useState<DetailedFacts>(initialDetailedFacts);
   const [analysisDetails, setAnalysisDetails] = useState(''); 
   const [preservedFacts, setPreservedFacts] = useState<PreservedFact[]>([]);
 
-  // Step 3 State
   const [analysisTechnique, setAnalysisTechnique] = useState<AnalysisTechnique>('');
   const [analysisTechniqueNotes, setAnalysisTechniqueNotes] = useState('');
   const [ishikawaData, setIshikawaData] = useState<IshikawaData>(JSON.parse(JSON.stringify(initialIshikawaData)));
@@ -86,20 +81,18 @@ export default function RCAAnalysisPage() {
   const [plannedActions, setPlannedActions] = useState<PlannedAction[]>([]);
   const [plannedActionCounter, setPlannedActionCounter] = useState(1);
 
-  // Step 4 State
   const [validations, setValidations] = useState<Validation[]>([]);
-  // Step 5 State
   const [finalComments, setFinalComments] = useState(''); 
 
   const ensureEventId = useCallback(() => {
     if (!eventData.id) {
       const newEventID = `E-${String(eventCounter).padStart(5, '0')}`;
       setEventData(prev => ({ ...prev, id: newEventID }));
-      setEventCounter(prev => prev + 1); // Incrementar para el *próximo* evento
+      setEventCounter(prev => prev + 1);
       toast({ title: "ID de Evento Generado", description: `Nuevo ID de evento: ${newEventID}` });
       return newEventID;
     }
-    return eventData.id; // Devuelve el ID existente si ya hay uno
+    return eventData.id;
   }, [eventData.id, eventCounter, toast]);
 
 
@@ -107,11 +100,9 @@ export default function RCAAnalysisPage() {
     if (targetStep > step && targetStep > maxCompletedStep + 1 && targetStep !== 1) {
       return;
     }
-    // Asegurar ID si se salta el paso 1 o se va a un paso donde el ID es necesario.
     if (targetStep >=1 && !eventData.id && targetStep > 1 ) { 
         ensureEventId();
     }
-    // Particularmente importante para el paso 3 donde se crean acciones planeadas que dependen del ID del evento.
     if (targetStep >=3 && !eventData.id ) { 
       ensureEventId();
     }
@@ -122,7 +113,7 @@ export default function RCAAnalysisPage() {
   };
 
   const handleNextStep = () => {
-    ensureEventId(); // Asegura o genera el ID del evento al pasar del Paso 1
+    ensureEventId(); 
     const newStep = Math.min(step + 1, 5);
     const newMaxCompletedStep = Math.max(maxCompletedStep, step);
     setStep(newStep);
@@ -134,7 +125,6 @@ export default function RCAAnalysisPage() {
     setStep(newStep);
   };
   
-  // Step 1 Logic
   const handleEventDataChange = (field: keyof RCAEventData, value: string) => {
     setEventData(prev => ({ ...prev, [field]: value }));
   };
@@ -153,7 +143,6 @@ export default function RCAAnalysisPage() {
     setImmediateActions(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Step 2 Logic
   const handleDetailedFactChange = (field: keyof DetailedFacts, value: string) => {
     setDetailedFacts(prev => ({ ...prev, [field]: value }));
   };
@@ -173,8 +162,6 @@ export default function RCAAnalysisPage() {
     toast({ title: "Hecho Preservado Eliminado", variant: 'destructive'});
   };
 
-
-  // Step 3 Logic
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);
     setAnalysisTechniqueNotes(''); 
@@ -216,8 +203,8 @@ export default function RCAAnalysisPage() {
   };
   
   const handleAddPlannedAction = () => {
-    const currentEventId = ensureEventId(); // Asegura que el ID del evento exista y lo obtiene
-    if (!currentEventId) { // Si por alguna razón no se pudo obtener el ID
+    const currentEventId = ensureEventId(); 
+    if (!currentEventId) { 
       toast({ title: "Error", description: "No se pudo generar/obtener ID de evento para la acción planificada.", variant: "destructive" });
       return;
     }
@@ -295,7 +282,7 @@ export default function RCAAnalysisPage() {
             onUpdateImmediateAction={handleUpdateImmediateAction}
             onRemoveImmediateAction={handleRemoveImmediateAction}
             availableSites={sampleAvailableSites}
-            availableUsers={sampleAvailableUsers}
+            availableUsers={sampleAvailableUsers.map(u => ({id: u.id, name: u.name}))} // Pass only id and name for selection
             onNext={handleNextStep}
           />
         )}
@@ -337,7 +324,7 @@ export default function RCAAnalysisPage() {
           onAddPlannedAction={handleAddPlannedAction}
           onUpdatePlannedAction={handleUpdatePlannedAction}
           onRemovePlannedAction={handleRemovePlannedAction}
-          availableUsers={sampleAvailableUsers}
+          availableUsers={sampleAvailableUsers.map(u => ({id: u.id, name: u.name}))} // Pass only id and name for selection
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
         />
@@ -369,12 +356,11 @@ export default function RCAAnalysisPage() {
           finalComments={finalComments}
           onFinalCommentsChange={setFinalComments}
           onPrintReport={handlePrintReport}
+          availableUsers={sampleAvailableUsers} // Pass full user object with email
         />
       )}
     </>
   );
 }
-
-    
-
+        
     
