@@ -25,7 +25,7 @@ export interface PlannedAction {
   description: string;
   responsible: string;
   dueDate: string;
-  relatedRootCauseIds?: string[]; // Campo para vincular a causas raíz específicas
+  relatedRootCauseIds?: string[]; 
 }
 
 export interface Validation {
@@ -36,7 +36,6 @@ export interface Validation {
 
 export type AnalysisTechnique = '' | 'WhyWhy' | 'Ishikawa' | 'CTM';
 
-// Types for Interactive Ishikawa Diagram
 export interface IshikawaCause {
   id: string; 
   description: string;
@@ -50,7 +49,6 @@ export interface IshikawaCategory {
 
 export type IshikawaData = IshikawaCategory[];
 
-// Types for Interactive 5 Whys
 export interface FiveWhyEntry {
   id: string; 
   why: string; 
@@ -59,7 +57,6 @@ export interface FiveWhyEntry {
 
 export type FiveWhysData = FiveWhyEntry[];
 
-// Types for Interactive CTM (Cause Tree Method)
 export interface LatentCause {
   id: string;
   description: string;
@@ -91,7 +88,6 @@ export interface FailureMode {
 
 export type CTMData = FailureMode[];
 
-// Types for Detailed Facts in Step 2
 export interface DetailedFacts {
   quien: string;
   que: string;
@@ -101,7 +97,6 @@ export interface DetailedFacts {
   como: string;
 }
 
-// Types for Preserved Facts in Step 2
 export const PRESERVED_FACT_CATEGORIES = [
   "Partes, Posición, Personas, Papel y Paradigmas",
   "Fotografías o videos del Evento",
@@ -109,7 +104,7 @@ export const PRESERVED_FACT_CATEGORIES = [
   "Registro mantenimientos y pruebas realizadas",
   "Procedimientos",
   "Entrevistas",
-  "PT, AST, OT", // (Permisos de Trabajo, Análisis Seguro de Trabajo, Órdenes de Trabajo)
+  "PT, AST, OT", 
   "Charlas",
   "Manuales, planos, P&ID, catálogos, Normativa asociada, entre otras."
 ] as const;
@@ -128,3 +123,11 @@ export interface PreservedFact {
   uploadDate: string;
 }
 
+// Interface para perfiles de usuario con roles y permisos simulados
+export interface FullUserProfile {
+  id: string;
+  name: string;
+  email: string;
+  role: 'Admin' | 'Analista' | 'Revisor' | '';
+  permissionLevel: 'Total' | 'Lectura' | 'Limitado' | '';
+}

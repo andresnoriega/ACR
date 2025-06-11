@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, FiveWhyEntry, CTMData, DetailedFacts, PreservedFact, PreservedFactCategory, IdentifiedRootCause } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, FiveWhyEntry, CTMData, DetailedFacts, PreservedFact, PreservedFactCategory, IdentifiedRootCause, FullUserProfile } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -43,12 +43,12 @@ const sampleAvailableSites: Array<{ id: string; name: string }> = [
   { id: '4', name: 'Almacén Regional Norte' },
 ];
 
-const sampleAvailableUsers: Array<{ id: string; name: string; email: string }> = [
-  { id: 'u1', name: 'Carlos Ruiz', email: 'carlos.ruiz@example.com' },
-  { id: 'u2', name: 'Ana López', email: 'ana.lopez@example.com' },
-  { id: 'u3', name: 'Luis Torres', email: 'luis.torres@example.com' },
-  { id: 'u4', name: 'Maria Solano', email: 'maria.solano@example.com' },
-  { id: 'u5', name: 'Pedro Gómez', email: 'pedro.gomez@example.com' },
+const sampleUserProfiles: FullUserProfile[] = [
+  { id: 'u1', name: 'Carlos Ruiz', email: 'carlos.ruiz@example.com', role: 'Admin', permissionLevel: 'Total' },
+  { id: 'u2', name: 'Ana López', email: 'ana.lopez@example.com', role: 'Analista', permissionLevel: 'Lectura' },
+  { id: 'u3', name: 'Luis Torres', email: 'luis.torres@example.com', role: 'Revisor', permissionLevel: 'Limitado' },
+  { id: 'u4', name: 'Maria Solano', email: 'maria.solano@example.com', role: 'Analista', permissionLevel: 'Lectura'},
+  { id: 'u5', name: 'Pedro Gómez', email: 'pedro.gomez@example.com', role: 'Analista', permissionLevel: 'Lectura'},
 ];
 
 
@@ -68,6 +68,7 @@ export default function RCAAnalysisPage() {
   const [immediateActionCounter, setImmediateActionCounter] = useState(1);
 
   const [projectLeader, setProjectLeader] = useState('');
+  const [currentSimulatedUser, setCurrentSimulatedUser] = useState<string | null>(null);
   const [detailedFacts, setDetailedFacts] = useState<DetailedFacts>(initialDetailedFacts);
   const [analysisDetails, setAnalysisDetails] = useState(''); 
   const [preservedFacts, setPreservedFacts] = useState<PreservedFact[]>([]);
@@ -116,12 +117,12 @@ export default function RCAAnalysisPage() {
   };
 
   const handleNextStep = () => {
-    const currentEventId = ensureEventId(); 
+    ensureEventId(); 
 
     if (step === 3) {
       plannedActions.forEach(action => {
         if (action.responsible) {
-          const responsibleUser = sampleAvailableUsers.find(user => user.name === action.responsible);
+          const responsibleUser = sampleUserProfiles.find(user => user.name === action.responsible);
           if (responsibleUser && responsibleUser.email) {
             toast({
               title: "Simulación de Envío de Correo",
@@ -335,7 +336,7 @@ export default function RCAAnalysisPage() {
             onUpdateImmediateAction={handleUpdateImmediateAction}
             onRemoveImmediateAction={handleRemoveImmediateAction}
             availableSites={sampleAvailableSites}
-            availableUsers={sampleAvailableUsers.map(u => ({id: u.id, name: u.name}))}
+            availableUsers={sampleUserProfiles.map(u => ({id: u.id, name: u.name}))}
             onNext={handleNextStep}
           />
         )}
@@ -345,7 +346,7 @@ export default function RCAAnalysisPage() {
         <Step2Facts
           projectLeader={projectLeader}
           onProjectLeaderChange={handleProjectLeaderChange}
-          availableUsers={sampleAvailableUsers.map(u => ({id: u.id, name: u.name}))}
+          availableUsers={sampleUserProfiles.map(u => ({id: u.id, name: u.name}))}
           detailedFacts={detailedFacts}
           onDetailedFactChange={handleDetailedFactChange}
           analysisDetails={analysisDetails}
@@ -382,7 +383,7 @@ export default function RCAAnalysisPage() {
           onAddPlannedAction={handleAddPlannedAction}
           onUpdatePlannedAction={handleUpdatePlannedAction}
           onRemovePlannedAction={handleRemovePlannedAction}
-          availableUsers={sampleAvailableUsers} 
+          availableUsers={sampleUserProfiles} 
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
         />
@@ -394,6 +395,10 @@ export default function RCAAnalysisPage() {
           plannedActions={plannedActions}
           validations={validations}
           onToggleValidation={handleToggleValidation}
+          projectLeader={projectLeader}
+          availableUserProfiles={sampleUserProfiles}
+          currentSimulatedUser={currentSimulatedUser}
+          onSetCurrentSimulatedUser={setCurrentSimulatedUser}
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
         />
@@ -415,7 +420,7 @@ export default function RCAAnalysisPage() {
           finalComments={finalComments}
           onFinalCommentsChange={setFinalComments}
           onPrintReport={handlePrintReport}
-          availableUsers={sampleAvailableUsers} 
+          availableUsers={sampleUserProfiles} 
           isFinalized={isFinalized}
           onMarkAsFinalized={handleMarkAsFinalized}
         />
