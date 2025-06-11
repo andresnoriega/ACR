@@ -23,6 +23,7 @@ export interface PlannedAction {
 
 export interface Validation {
   actionId: string; // Corresponds to PlannedAction.id
+  eventId: string; // Explicitly link validation to the event
   status: 'pending' | 'validated';
 }
 
@@ -118,3 +119,4 @@ export interface PreservedFact {
   description: string;
   uploadDate: string;
 }
+

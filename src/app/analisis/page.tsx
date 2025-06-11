@@ -158,11 +158,9 @@ export default function RCAAnalysisPage() {
   };
 
   const handleAddPreservedFact = (fact: Omit<PreservedFact, 'id' | 'uploadDate'>) => {
-    const currentEventId = eventData.id; // Event ID should exist by Step 2
+    const currentEventId = eventData.id; 
     if (!currentEventId) {
       toast({ title: "Error", description: "ID de evento no encontrado para asociar el hecho preservado.", variant: "destructive" });
-      // Potentially call ensureEventId() here if it's possible to reach Step 2 without an ID, though current logic tries to prevent this.
-      // For now, we assume eventData.id is populated by the time we are in Step 2 or adding facts.
       return;
     }
     const newFact: PreservedFact = {
@@ -242,8 +240,9 @@ export default function RCAAnalysisPage() {
     setValidations(prevValidations => {
       const newValidations = plannedActions.map(pa => {
         const existingValidation = prevValidations.find(v => v.actionId === pa.id);
-        return existingValidation || { actionId: pa.id, status: 'pending' };
+        return existingValidation || { actionId: pa.id, eventId: pa.eventId, status: 'pending' };
       });
+      // Filter out validations for actions that no longer exist
       return newValidations.filter(v => plannedActions.some(pa => pa.id === v.actionId));
     });
   }, [plannedActions]);
