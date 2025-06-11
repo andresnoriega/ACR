@@ -35,12 +35,16 @@ export function TopNavigation() {
           <div className="flex space-x-1 sm:space-x-2 md:space-x-4">
             {mainMenuItems.map((item) => {
               let isActive = false;
+              // Specific logic for "Inicio" button
               if (item.href === '/inicio') {
-                isActive = pathname === '/inicio' || pathname === '/';
+                isActive = (pathname === item.href || pathname === '/');
               } else {
-                // For other main menu items like /analisis, /informes
+                // Logic for other main menu items
                 // Active if the current path starts with the item's href
-                isActive = item.href !== '/' && pathname.startsWith(item.href);
+                // Ensure item.href is valid before calling startsWith
+                if (item.href && item.href !== '/') {
+                   isActive = pathname.startsWith(item.href);
+                }
               }
               
               return (
