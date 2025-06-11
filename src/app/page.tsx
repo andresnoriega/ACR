@@ -72,7 +72,7 @@ export default function RCAHomePage() {
   // Step 4 State
   const [validations, setValidations] = useState<Validation[]>([]);
   // Step 5 State
-  const [finalComments, setFinalComments] = useState('');
+  const [finalComments, setFinalComments] = useState(''); // This will be used as "Introducción" in Step 5
 
   const ensureEventId = useCallback(() => {
     if (!eventData.id) {
@@ -89,8 +89,11 @@ export default function RCAHomePage() {
     if (targetStep > step && targetStep > maxCompletedStep + 1 && targetStep !== 1) {
       return;
     }
-    if (targetStep >= 1 && !eventData.id && targetStep > 1 ) { 
+    if (targetStep >=1 && !eventData.id && targetStep > 1 ) { 
         ensureEventId();
+    }
+    if (targetStep >=3 && !eventData.id ) { // Ensure ID if jumping to step 3 or later
+      ensureEventId();
     }
     setStep(targetStep);
     if (targetStep > maxCompletedStep && targetStep > step ) { // Only update if moving forward to uncompleted step
@@ -100,13 +103,15 @@ export default function RCAHomePage() {
 
   const handleNextStep = () => {
     ensureEventId(); 
+    const newStep = Math.min(step + 1, 5);
     const newMaxCompletedStep = Math.max(maxCompletedStep, step);
+    setStep(newStep);
     setMaxCompletedStep(newMaxCompletedStep);
-    setStep(prevStep => Math.min(prevStep + 1, 5));
   };
 
   const handlePreviousStep = () => {
-    setStep(prevStep => Math.max(prevStep - 1, 1));
+    const newStep = Math.max(step - 1, 1);
+    setStep(newStep);
   };
   
   // Step 1 Logic
@@ -136,6 +141,7 @@ export default function RCAHomePage() {
   // Step 3 Logic
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);
+    // Reset notes and specific technique data when technique changes
     setAnalysisTechniqueNotes(''); 
     if (value === 'Ishikawa') {
       setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData))); 
@@ -167,7 +173,7 @@ export default function RCAHomePage() {
   };
 
   const handleGenerateAIInsights = async () => {
-    const constructedDetailedFactsString = `Durante ${detailedFacts.como || 'operación desconocida'} en ${detailedFacts.donde || 'lugar desconocido'}, ${detailedFacts.que || 'evento desconocido'}, a las ${detailedFacts.cuando || 'momento desconocido'} ${detailedFacts.cualCuanto || 'consecuencia desconocida'}.`;
+    const constructedDetailedFactsString = `Un evento, identificado como "${detailedFacts.que || 'QUÉ (no especificado)'}", tuvo lugar en "${detailedFacts.donde || 'DÓNDE (no especificado)'}" el "${detailedFacts.cuando || 'CUÁNDO (no especificado)'}". La desviación ocurrió de la siguiente manera: "${detailedFacts.como || 'CÓMO (no especificado)'}". El impacto o tendencia fue: "${detailedFacts.cualCuanto || 'CUÁL/CUÁNTO (no especificado)'}". Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no especificado)'}".`;
 
     if (!eventData.focusEventDescription && !constructedDetailedFactsString && !analysisDetails) {
       toast({ title: "Información Insuficiente", description: "Por favor, complete la descripción del evento, hechos y análisis para generar ideas.", variant: "destructive" });
@@ -176,10 +182,10 @@ export default function RCAHomePage() {
     setIsGeneratingInsights(true);
     setAIInsights(null);
     
-    let analysisPayload = `${analysisDetails}\n\nTÉCNICA DE ANÁLISIS PRINCIPAL: ${analysisTechnique || 'No especificada'}`;
+    let analysisPayload = `${analysisDetails || 'Análisis preliminar no detallado.'}\n\nTÉCNICA DE ANÁLISIS PRINCIPAL: ${analysisTechnique || 'No especificada'}`;
     
     if (analysisTechnique === 'Ishikawa') {
-      let ishikawaContent = "Diagrama de Ishikawa (6M):\n";
+      let ishikawaContent = "\n\nDETALLES DEL DIAGRAMA DE ISHIKAWA (6M):\n";
       ishikawaData.forEach(category => {
         ishikawaContent += `\nCategoría: ${category.name}\n`;
         if (category.causes.length > 0) {
@@ -192,17 +198,17 @@ export default function RCAHomePage() {
           ishikawaContent += "  (Sin causas identificadas para esta categoría)\n";
         }
       });
-      analysisPayload += `\n\nDETALLES DEL DIAGRAMA DE ISHIKAWA:\n${ishikawaContent}`;
+      analysisPayload += ishikawaContent;
     } else if (analysisTechnique === 'WhyWhy') {
-      let fiveWhysContent = "Análisis de los 5 Porqués:\n";
+      let fiveWhysContent = "\n\nDETALLES DEL ANÁLISIS DE LOS 5 PORQUÉS:\n";
       fiveWhysData.forEach((entry, index) => {
         if (entry.why.trim() || entry.because.trim()) {
            fiveWhysContent += `\nNivel ${index + 1}:\n  Por qué?: ${entry.why.trim() || '(No especificado)'}\n  Porque: ${entry.because.trim() || '(No especificado)'}\n`;
         }
       });
-      analysisPayload += `\n\nDETALLES DEL ANÁLISIS DE LOS 5 PORQUÉS:\n${fiveWhysContent}`;
+      analysisPayload += fiveWhysContent;
     } else if (analysisTechnique === 'CTM') {
-      let ctmContent = "Árbol de Causas (CTM):\n";
+      let ctmContent = "\n\nDETALLES DEL ÁRBOL DE CAUSAS (CTM):\n";
       const formatCTMLevel = (items: any[], prefix = "", levelName: string): string => {
         let content = "";
         items.forEach((item, index) => {
@@ -222,11 +228,14 @@ export default function RCAHomePage() {
         return content;
       };
       ctmContent += formatCTMLevel(ctmData, "", "Modo de Falla");
-      analysisPayload += `\n\nDETALLES DEL ÁRBOL DE CAUSAS (CTM):\n${ctmContent.trim() ? ctmContent : '(No se definieron elementos para el Árbol de Causas)'}`;
+      analysisPayload += (ctmContent.trim().endsWith("(CTM):") ? '(No se definieron elementos para el Árbol de Causas)' : ctmContent);
     }
-    else if (analysisTechniqueNotes.trim()) { // For generic notes if no specific technique OR for WhyWhy/CTM if they use the notes field
-      analysisPayload += `\n\nNOTAS SOBRE LA TÉCNICA (${analysisTechnique || 'General'}):\n${analysisTechniqueNotes}`;
+    
+    // Include generic notes if analysisTechniqueNotes has content, regardless of specific technique
+    if (analysisTechniqueNotes.trim()) {
+      analysisPayload += `\n\nNOTAS ADICIONALES DEL ANÁLISIS (${analysisTechnique || 'General'}):\n${analysisTechniqueNotes}`;
     }
+
 
     const factsForAI = `${eventData.focusEventDescription || 'Evento no descrito.'}\n\nDESCRIPCIÓN DEL FENÓMENO (Hechos Observados):\n${constructedDetailedFactsString || 'Hechos no detallados.'}`;
     
@@ -283,9 +292,18 @@ export default function RCAHomePage() {
     const nonPrintableElements = document.querySelectorAll('.no-print');
     nonPrintableElements.forEach(el => el.classList.add('hidden'));
     
+    // Ensure the report area is styled for printing
+    const reportArea = document.getElementById('printable-report-area');
+    if (reportArea) {
+      // Temporarily adjust styles for printing if needed
+    }
+
     window.print();
 
     nonPrintableElements.forEach(el => el.classList.remove('hidden'));
+     if (reportArea) {
+      // Revert temporary styles if any
+    }
   };
 
   useEffect(() => {
@@ -375,14 +393,21 @@ export default function RCAHomePage() {
       {step === 5 && (
         <Step5Results
           eventId={eventData.id}
-          validations={validations}
+          eventData={eventData}
+          detailedFacts={detailedFacts}
+          analysisDetails={analysisDetails}
+          analysisTechnique={analysisTechnique}
+          analysisTechniqueNotes={analysisTechniqueNotes}
+          ishikawaData={ishikawaData}
+          fiveWhysData={fiveWhysData}
+          ctmData={ctmData}
+          aiInsights={aiInsights}
+          plannedActions={plannedActions}
           finalComments={finalComments}
           onFinalCommentsChange={setFinalComments}
           onPrintReport={handlePrintReport}
-          onPrevious={handlePreviousStep}
         />
       )}
     </div>
   );
 }
-

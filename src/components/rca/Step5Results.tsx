@@ -1,118 +1,256 @@
+
 'use client';
 import type { FC, ChangeEvent } from 'react';
-import type { Validation } from '@/types/rca';
+import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, AIInsights, PlannedAction } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Printer, BarChart3 } from 'lucide-react';
-import dynamic from 'next/dynamic';
-
-const ResponsiveContainer = dynamic(() => import('recharts').then(mod => mod.ResponsiveContainer), { ssr: false });
-const PieChart = dynamic(() => import('recharts').then(mod => mod.PieChart), { ssr: false });
-const Pie = dynamic(() => import('recharts').then(mod => mod.Pie), { ssr: false });
-const Cell = dynamic(() => import('recharts').then(mod => mod.Cell), { ssr: false });
-const Tooltip = dynamic(() => import('recharts').then(mod => mod.Tooltip), { ssr: false });
-const Legend = dynamic(() => import('recharts').then(mod => mod.Legend), { ssr: false });
-
+import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Users, CalendarDays, AlertTriangle, Target, Settings, Zap } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
 
 interface Step5ResultsProps {
   eventId: string;
-  validations: Validation[];
-  finalComments: string;
+  eventData: RCAEventData;
+  detailedFacts: DetailedFacts;
+  analysisDetails: string;
+  analysisTechnique: AnalysisTechnique;
+  analysisTechniqueNotes: string;
+  ishikawaData: IshikawaData;
+  fiveWhysData: FiveWhysData;
+  ctmData: CTMData;
+  aiInsights: AIInsights | null;
+  plannedActions: PlannedAction[];
+  finalComments: string; // Used for "Introducción"
   onFinalCommentsChange: (value: string) => void;
   onPrintReport: () => void;
-  onPrevious: () => void;
+  // onPrevious is removed as per mockup
 }
+
+const SectionTitle: FC<{ icon?: React.ElementType; title: string; className?: string }> = ({ icon: Icon, title, className }) => (
+  <h3 className={cn("text-xl font-semibold font-headline text-primary flex items-center mb-2", className)}>
+    {Icon && <Icon className="mr-2 h-5 w-5" />}
+    {title}
+  </h3>
+);
+
+const SectionContent: FC<{ children: React.ReactNode; className?: string }> = ({ children, className }) => (
+  <div className={cn("text-sm text-foreground pl-1 mb-4 break-words", className)}>
+    {children}
+  </div>
+);
+
 
 export const Step5Results: FC<Step5ResultsProps> = ({
   eventId,
-  validations,
+  eventData,
+  detailedFacts,
+  analysisDetails,
+  analysisTechnique,
+  analysisTechniqueNotes,
+  ishikawaData,
+  fiveWhysData,
+  ctmData,
+  aiInsights,
+  plannedActions,
   finalComments,
   onFinalCommentsChange,
   onPrintReport,
-  onPrevious,
 }) => {
-  const prepareChartData = () => {
-    const counts = validations.reduce((acc, v) => {
-      acc[v.status] = (acc[v.status] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+  const { toast } = useToast();
 
-    return [
-        { name: 'Validadas', value: counts['validated'] || 0 },
-        { name: 'Pendientes', value: counts['pending'] || 0 },
-    ].filter(item => item.value > 0);
+  const formatDetailedFacts = () => {
+    return `Un evento, identificado como "${detailedFacts.que || 'QUÉ (no especificado)'}", tuvo lugar en "${detailedFacts.donde || 'DÓNDE (no especificado)'}" el "${detailedFacts.cuando || 'CUÁNDO (no especificado)'}". La desviación ocurrió de la siguiente manera: "${detailedFacts.como || 'CÓMO (no especificado)'}". El impacto o tendencia fue: "${detailedFacts.cualCuanto || 'CUÁL/CUÁNTO (no especificado)'}". Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no especificado)'}".`;
   };
 
-  const chartData = prepareChartData();
-  const COLORS = ['hsl(var(--chart-2))', 'hsl(var(--chart-1))']; // Accent (green for validated), Primary (blue for pending)
+  const formatIshikawaForReport = () => {
+    let content = "";
+    ishikawaData.forEach(category => {
+      content += `\nCategoría ${category.name}:\n`;
+      if (category.causes.length > 0) {
+        category.causes.forEach((cause, index) => {
+          if (cause.description.trim()) content += `  - Causa ${index + 1}: ${cause.description.trim()}\n`;
+        });
+      } else {
+        content += "  (Sin causas identificadas para esta categoría)\n";
+      }
+    });
+    return content;
+  };
+
+  const formatFiveWhysForReport = () => {
+    let content = "";
+    fiveWhysData.forEach((entry, index) => {
+      if (entry.why.trim() || entry.because.trim()) {
+        content += `\nNivel ${index + 1}:\n  Por qué?: ${entry.why.trim() || '(No especificado)'}\n  Porque: ${entry.because.trim() || '(No especificado)'}\n`;
+      }
+    });
+    return content;
+  };
+
+  const formatCTMForReport = () => {
+    const formatLevel = (items: any[], prefix = "", levelName: string): string => {
+      let content = "";
+      items.forEach((item, idx) => {
+        if (item.description.trim()) {
+          content += `${prefix}- ${levelName} ${idx + 1}: ${item.description.trim()}\n`;
+          if (item.hypotheses?.length) content += formatLevel(item.hypotheses, prefix + "  ", "Hipótesis");
+          else if (item.physicalCauses?.length) content += formatLevel(item.physicalCauses, prefix + "  ", "Causa Física");
+          else if (item.humanCauses?.length) content += formatLevel(item.humanCauses, prefix + "  ", "Causa Humana");
+          else if (item.latentCauses?.length) content += formatLevel(item.latentCauses, prefix + "  ", "Causa Latente");
+        }
+      });
+      return content;
+    };
+    const ctmTree = formatLevel(ctmData, "", "Modo de Falla");
+    return ctmTree.trim() ? ctmTree : "(No se definieron elementos para el Árbol de Causas)";
+  };
+  
+  const handleSendEmail = () => {
+    toast({ title: "Función no implementada", description: "La opción 'Enviar por correo' aún no está disponible.", variant: "default"});
+  };
+  
+  const handleFinalize = () => {
+     toast({ title: "Proceso Finalizado", description: `El análisis RCA para el evento ${eventId || 'actual'} ha sido marcado como finalizado.`, className: "bg-primary text-primary-foreground"});
+    // Potentially navigate to home or reset form in a real scenario
+  };
+
 
   return (
     <Card id="printable-report-area">
-      <CardHeader>
-        <CardTitle className="font-headline">Paso 5: Resultados y Reporte Final</CardTitle>
-        <CardDescription>Resumen de validaciones, comentarios finales y opción de imprimir el reporte. Evento ID: <span className="font-semibold text-primary">{eventId || "No generado"}</span></CardDescription>
+      <CardHeader className="text-center">
+        <CardTitle className="text-2xl sm:text-3xl font-bold font-headline text-primary">
+          | Paso 5: Presentación de Resultados |
+        </CardTitle>
+        <CardDescription>Informe Final del Análisis de Causa Raíz. Evento ID: <span className="font-semibold text-primary">{eventId || "No generado"}</span></CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div>
-          <h3 className="text-lg font-semibold font-headline flex items-center"><BarChart3 className="mr-2 h-5 w-5 text-primary" />Resumen de Validaciones</h3>
-          {chartData.length > 0 && PieChart ? (
-            <div className="w-full h-72 md:h-80 mt-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={chartData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
-                        const RADIAN = Math.PI / 180;
-                        const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-                        const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                        const y = cy + radius * Math.sin(-midAngle * RADIAN);
-                        return (
-                          <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize="12px">
-                            {`${(percent * 100).toFixed(0)}%`}
-                          </text>
-                        );
-                    }}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <p className="text-muted-foreground mt-2">No hay datos de validación para mostrar. Complete acciones y valídelas.</p>
-          )}
-        </div>
+      <CardContent className="space-y-6 px-4 md:px-6 py-6">
+        
+        <section>
+          <SectionTitle title={`Título: Análisis del Incidente "${eventData.focusEventDescription || 'No Especificado'}"`} icon={FileText}/>
+          <Separator className="my-2" />
+        </section>
 
-        <div className="space-y-2">
-          <Label htmlFor="finalComments">Comentarios Finales / Resumen del RCA</Label>
+        <section>
+          <SectionTitle title="Introducción" icon={BarChart3}/>
           <Textarea
             id="finalComments"
             value={finalComments}
             onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onFinalCommentsChange(e.target.value)}
-            placeholder="Añada cualquier comentario, lección aprendida o resumen final del proceso de RCA..."
+            placeholder="Escriba aquí la introducción, resumen ejecutivo o comentarios finales del análisis..."
             rows={5}
-            className="focus:border-primary"
+            className="text-sm"
           />
-        </div>
+        </section>
+        <Separator className="my-4" />
+
+        <section>
+          <SectionTitle title="Hechos" icon={Search}/>
+          <SectionContent>
+            <p className="font-medium mb-1">Evento Foco:</p>
+            <p className="pl-2 mb-2">{eventData.focusEventDescription || "No definido."}</p>
+            <p className="font-medium mb-1">Descripción Detallada del Fenómeno:</p>
+            <p className="pl-2 whitespace-pre-line">{formatDetailedFacts()}</p>
+          </SectionContent>
+        </section>
+        <Separator className="my-4" />
+        
+        <section>
+          <SectionTitle title="Análisis" icon={Settings}/>
+          <SectionContent>
+            <p className="font-medium mb-1">Análisis Preliminar Realizado:</p>
+            <p className="pl-2 mb-2 whitespace-pre-line">{analysisDetails || "No se proporcionaron detalles del análisis preliminar."}</p>
+            
+            <p className="font-medium mb-1">Técnica de Análisis Principal Utilizada:</p>
+            <p className="pl-2 mb-2 font-semibold">{analysisTechnique || "No seleccionada"}</p>
+
+            {analysisTechnique === 'Ishikawa' && (
+              <>
+                <p className="font-medium mt-2 mb-1">Detalles del Diagrama de Ishikawa:</p>
+                <pre className="pl-2 whitespace-pre-wrap text-xs bg-secondary/30 p-2 rounded-md">{formatIshikawaForReport()}</pre>
+              </>
+            )}
+            {analysisTechnique === 'WhyWhy' && (
+              <>
+                <p className="font-medium mt-2 mb-1">Detalles del Análisis de los 5 Porqués:</p>
+                <pre className="pl-2 whitespace-pre-wrap text-xs bg-secondary/30 p-2 rounded-md">{formatFiveWhysForReport()}</pre>
+              </>
+            )}
+            {analysisTechnique === 'CTM' && (
+              <>
+                <p className="font-medium mt-2 mb-1">Detalles del Árbol de Causas (CTM):</p>
+                <pre className="pl-2 whitespace-pre-wrap text-xs bg-secondary/30 p-2 rounded-md">{formatCTMForReport()}</pre>
+              </>
+            )}
+            {analysisTechniqueNotes.trim() && (
+                 <>
+                <p className="font-medium mt-2 mb-1">Notas Adicionales del Análisis ({analysisTechnique || 'General'}):</p>
+                <p className="pl-2 whitespace-pre-line">{analysisTechniqueNotes}</p>
+              </>
+            )}
+            {aiInsights?.summary && (
+              <>
+                <p className="font-medium mt-3 mb-1">Resumen del Evento (Generado por IA):</p>
+                <p className="pl-2 italic">{aiInsights.summary}</p>
+              </>
+            )}
+          </SectionContent>
+        </section>
+        <Separator className="my-4" />
+
+        <section>
+          <SectionTitle title="Causas Raíz" icon={Zap}/>
+          <SectionContent>
+            {aiInsights?.potentialRootCauses ? (
+              <pre className="whitespace-pre-wrap text-sm bg-accent/10 p-3 rounded-md">{aiInsights.potentialRootCauses}</pre>
+            ) : (
+              <p>No se han identificado causas raíz mediante IA, o la función no se ha ejecutado. Puede detallarlas en la introducción o análisis.</p>
+            )}
+          </SectionContent>
+        </section>
+        <Separator className="my-4" />
+
+        <section>
+          <SectionTitle title="Acciones Recomendadas" icon={Target}/>
+          <SectionContent>
+            {plannedActions.length > 0 && (
+              <>
+                <p className="font-medium mb-1">Plan de Acción Definido:</p>
+                <ul className="list-disc pl-6 space-y-1">
+                  {plannedActions.map(action => (
+                    <li key={action.id}>
+                      {action.description} (Responsable: {action.responsible || 'N/A'}, Fecha Límite: {action.dueDate || 'N/A'})
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {aiInsights?.recommendations && (
+              <>
+                <p className="font-medium mt-3 mb-1">Recomendaciones Adicionales (Generadas por IA):</p>
+                <pre className="whitespace-pre-wrap text-sm italic bg-accent/10 p-3 rounded-md">{aiInsights.recommendations}</pre>
+              </>
+            )}
+            {plannedActions.length === 0 && !aiInsights?.recommendations && (
+                <p>No se han definido acciones recomendadas.</p>
+            )}
+          </SectionContent>
+        </section>
+
       </CardContent>
-      <CardFooter className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <Button onClick={onPrevious} variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105">Anterior</Button>
-        <Button onClick={onPrintReport} className="w-full sm:w-auto transition-transform hover:scale-105">
-          <Printer className="mr-2 h-4 w-4" /> Imprimir Informe
+      <CardFooter className="flex flex-col sm:flex-row justify-center items-center gap-3 mt-6 pt-4 border-t no-print">
+        <Button onClick={onPrintReport} variant="default" className="w-full sm:w-auto">
+          <Printer className="mr-2 h-4 w-4" /> Exportar a PDF
+        </Button>
+        <Button onClick={handleSendEmail} variant="outline" className="w-full sm:w-auto">
+          <Send className="mr-2 h-4 w-4" /> Enviar por correo
+        </Button>
+        <Button onClick={handleFinalize} variant="secondary" className="w-full sm:w-auto">
+          <CheckCircle className="mr-2 h-4 w-4" /> Finalizar
         </Button>
       </CardFooter>
     </Card>
   );
 };
+
