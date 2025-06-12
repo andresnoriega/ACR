@@ -1,7 +1,7 @@
 
 'use client';
 import type { FC } from 'react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react'; // Added useState
 import type { PlannedAction, Validation, FullUserProfile, Evidence } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +14,7 @@ import {
  AccordionItem,
 } from "@/components/ui/accordion";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
-import { ChevronDown, CheckCircle2, Circle, UserCog, Eye, FileText, ImageIcon, Paperclip } from 'lucide-react';
+import { ChevronDown, CheckCircle2, Circle, UserCog, Eye, FileText, ImageIcon, Paperclip, Loader2, Save } from 'lucide-react'; // Added Loader2, Save
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 
@@ -23,11 +23,13 @@ interface Step4ValidationProps {
   validations: Validation[];
   onToggleValidation: (actionId: string) => void;
   projectLeader: string;
-  availableUserProfiles: FullUserProfile[]; // Prop name matches parent
+  availableUserProfiles: FullUserProfile[]; 
   currentSimulatedUser: string | null;
   onSetCurrentSimulatedUser: (userName: string | null) => void;
   onPrevious: () => void;
   onNext: () => void;
+  onSaveAnalysis: (showToast?: boolean) => Promise<void>; // New prop for saving
+  isSaving: boolean;
 }
 
 const NONE_USER_VALUE = "--NONE--";
@@ -47,13 +49,16 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   validations,
   onToggleValidation,
   projectLeader,
-  availableUserProfiles, // Use the passed prop name
+  availableUserProfiles, 
   currentSimulatedUser,
   onSetCurrentSimulatedUser,
   onPrevious,
   onNext,
+  onSaveAnalysis,
+  isSaving,
 }) => {
   const { toast } = useToast();
+  const [isSavingLocally, setIsSavingLocally] = useState(false); // Local saving state for this step's button
 
   const getValidationStatus = (actionId: string) => {
     const validation = validations.find(v => v.actionId === actionId);
@@ -73,7 +78,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
     return isLeader || isAdminWithTotalEdit;
   }, [currentSimulatedUser, availableUserProfiles, projectLeader]);
 
-  const handleValidationToggleAttempt = (actionId: string) => {
+  const handleValidationToggleAttempt = async (actionId: string) => {
     if (!currentSimulatedUser) {
       toast({
         title: "Usuario no seleccionado",
@@ -92,7 +97,8 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
     }
 
     if (hasPermission) {
-      onToggleValidation(actionId);
+      onToggleValidation(actionId); // This updates local state
+      // onSaveAnalysis(false); // Then save the change to Firestore silently
     } else {
       toast({
         title: "Permiso Denegado",
@@ -101,6 +107,21 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
       });
     }
   };
+
+  const handleSaveProgressLocal = async () => {
+    setIsSavingLocally(true);
+    await onSaveAnalysis(); // Call parent save function which handles Firestore
+    setIsSavingLocally(false);
+  };
+
+  const handleNextLocal = async () => {
+    setIsSavingLocally(true);
+    await onSaveAnalysis(false); // Save silently before moving to next step
+    setIsSavingLocally(false);
+    onNext();
+  };
+
+  const isStepSaving = isSaving || isSavingLocally;
 
   return (
     <Card>
@@ -163,7 +184,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                               checked={status === 'validated'}
                               onCheckedChange={() => handleValidationToggleAttempt(action.id)}
                               className="mr-2"
-                              disabled={!canSimulatedUserValidateActions}
+                              disabled={!canSimulatedUserValidateActions || isStepSaving}
                             />
                             {status === 'validated' ? (
                               <span className="text-accent font-medium flex items-center"><CheckCircle2 className="mr-1 h-5 w-5" /> Validado</span>
@@ -213,9 +234,18 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
           )}
         </div>
       </CardContent>
-      <CardFooter className="flex justify-between">
-        <Button onClick={onPrevious} variant="outline" className="transition-transform hover:scale-105">Anterior</Button>
-        <Button onClick={onNext} className="transition-transform hover:scale-105">Siguiente</Button>
+      <CardFooter className="flex flex-col sm:flex-row justify-between gap-2 pt-4 border-t">
+        <Button onClick={onPrevious} variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isStepSaving}>Anterior</Button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button onClick={handleSaveProgressLocal} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isStepSaving}>
+              {isStepSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Save className="mr-2 h-4 w-4" /> Guardar Avance
+          </Button>
+          <Button onClick={handleNextLocal} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isStepSaving}>
+              {isStepSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Siguiente
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   );

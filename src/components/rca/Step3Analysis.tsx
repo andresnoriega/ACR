@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2, Save, Send } from 'lucide-react';
+import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2, Save, Send, Loader2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
 import { FiveWhysInteractive } from './FiveWhysInteractive';
@@ -41,6 +41,8 @@ interface Step3AnalysisProps {
   availableUsers: FullUserProfile[];
   onPrevious: () => void;
   onNext: () => void;
+  onSaveAnalysis: (showToast?: boolean) => Promise<void>; // New prop for saving
+  isSaving: boolean;
 }
 
 export const Step3Analysis: FC<Step3AnalysisProps> = ({
@@ -68,6 +70,8 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   availableUsers,
   onPrevious,
   onNext,
+  onSaveAnalysis,
+  isSaving,
 }) => {
   const { toast } = useToast();
 
@@ -108,7 +112,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   };
   const minDateForPlannedActions = getTodayDateString();
 
-  const validateStepContinue = (): boolean => {
+  const validateFieldsForNext = (): boolean => {
     if (identifiedRootCauses.length === 0) {
       toast({
         title: "Campo Obligatorio Faltante",
@@ -170,7 +174,14 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     return true;
   }
 
-  const handleSaveProgress = () => {
+ const initialFiveWhysWhyText = (focusEventDesc: string): string => {
+    if (focusEventDesc) {
+      return `¿Por qué ocurrió: "${focusEventDesc.substring(0,70)}${focusEventDesc.length > 70 ? "..." : ""}"?`;
+    }
+    return '';
+  };
+
+  const handleSaveProgressLocal = async () => {
     const isTechniqueSelected = analysisTechnique !== '';
     const hasNotes = analysisTechniqueNotes.trim() !== '';
     const hasRootCauses = identifiedRootCauses.length > 0;
@@ -178,7 +189,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
 
     const isIshikawaEdited = ishikawaData.some(cat => cat.causes.some(c => c.description.trim() !== ''));
     const isFiveWhysEdited = fiveWhysData.length > 1 || 
-                             (fiveWhysData.length === 1 && (fiveWhysData[0].because.trim() !== '' || fiveWhysData[0].why.trim() !== initialFiveWhysWhy(eventData.focusEventDescription).trim() ));
+                             (fiveWhysData.length === 1 && (fiveWhysData[0].because.trim() !== '' || (eventData.focusEventDescription && fiveWhysData[0].why.trim() !== initialFiveWhysWhyText(eventData.focusEventDescription).trim() )));
     const isCtmEdited = ctmData.length > 0 && ctmData.some(fm => 
         fm.description.trim() !== '' || 
         fm.hypotheses.some(h => h.description.trim() !== '' || 
@@ -206,39 +217,11 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
       });
       return;
     }
-
-    const undescribedRootCauses = identifiedRootCauses.filter(rc => !rc.description.trim());
-    if (hasRootCauses && undescribedRootCauses.length === identifiedRootCauses.length && undescribedRootCauses.length > 0) {
-         toast({
-            title: "Progreso Guardado (Advertencia)",
-            description: "El avance se guardó (simulación), pero todas las causas raíz identificadas aún necesitan descripción.",
-            variant: "default",
-            duration: 5000,
-        });
-    } else if (undescribedRootCauses.length > 0) {
-      toast({
-        title: "Progreso Guardado (con Advertencias)",
-        description: `El avance se guardó (simulación). ${undescribedRootCauses.length} causa(s) raíz aún necesitan descripción.`,
-        variant: "default",
-        duration: 5000,
-      });
-    } else {
-      toast({
-        title: "Progreso Guardado",
-        description: "El estado actual del análisis ha sido guardado (simulación).",
-      });
-    }
-  };
-
-  const initialFiveWhysWhy = (focusEventDesc: string): string => {
-    if (focusEventDesc) {
-      return `¿Por qué ocurrió: "${focusEventDesc.substring(0,70)}${focusEventDesc.length > 70 ? "..." : ""}"?`;
-    }
-    return '';
+    await onSaveAnalysis(); 
   };
 
 
-  const handleSendTasks = async () => {
+  const handleSendTasksLocal = async () => {
     if (plannedActions.length === 0) {
       toast({
         title: "Sin Tareas para Enviar",
@@ -247,6 +230,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
       });
       return;
     }
+    await onSaveAnalysis(false); // Save before sending tasks
 
     let tasksSentCount = 0;
     let tasksFailedCount = 0;
@@ -267,52 +251,32 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
 
           if(result.success) {
             tasksSentCount++;
-            toast({
-              title: "Notificación de Tarea (Simulación)",
-              description: `Tarea enviada a ${responsibleUser.name} (${responsibleUser.email}): "${action.description.substring(0, 40)}...".`,
-              duration: 4000,
-            });
           } else {
             tasksFailedCount++;
-            toast({
-              title: "Error al Enviar Tarea (Simulación)",
-              description: `Fallo al enviar tarea a ${responsibleUser.name}. Consulte consola del servidor.`,
-              variant: "destructive",
-              duration: 4000,
-            });
           }
         } else {
-           tasksFailedCount++; // or treat as incomplete if email not found
-           toast({
-            title: "Error al Enviar Tarea",
-            description: `No se pudo encontrar el correo para el responsable '${action.responsible}' de la tarea: "${action.description.substring(0, 40)}...".`,
-            variant: "destructive",
-            duration: 4000,
-          });
+           tasksFailedCount++;
         }
       } else {
         tasksIncompleteCount++;
       }
     }
 
-    if (tasksSentCount > 0) {
+    if (tasksSentCount > 0 || tasksFailedCount > 0 || tasksIncompleteCount > 0) {
          toast({
-            title: "Envío de Tareas Procesado",
-            description: `${tasksSentCount} tarea(s) fueron "enviadas". ${tasksFailedCount > 0 ? `${tasksFailedCount} fallaron.` : ''} ${tasksIncompleteCount > 0 ? `${tasksIncompleteCount} estaban incompletas.` : ''}`,
-        });
-    } else if (tasksIncompleteCount > 0 || tasksFailedCount > 0) {
-        toast({
-            title: "Tareas No Enviadas Completamente",
-            description: `Algunas tareas no pudieron ser enviadas: ${tasksFailedCount} fallos, ${tasksIncompleteCount} incompletas. Verifique los datos y responsables.`,
-            variant: tasksFailedCount > 0 ? "destructive" : "default",
+            title: "Envío de Tareas Procesado (Simulación)",
+            description: `${tasksSentCount} enviada(s). ${tasksFailedCount > 0 ? `${tasksFailedCount} fallaron.` : ''} ${tasksIncompleteCount > 0 ? `${tasksIncompleteCount} incompletas.` : ''}`,
+            variant: tasksFailedCount > 0 || tasksIncompleteCount > 0 ? "destructive" : "default",
         });
     }
   };
 
-  const handleContinue = () => {
-    if (!validateStepContinue()) {
+  const handleContinueLocal = async () => {
+    if (!validateFieldsForNext()) {
       return;
     }
+    await onSaveAnalysis(false); // Save silently before continuing
+
     if (plannedActions.length === 0 && identifiedRootCauses.length > 0 && identifiedRootCauses.every(rc => rc.description.trim())) {
         toast({
             title: "Advertencia: Sin Plan de Acción",
@@ -475,9 +439,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                       ))}
                     </SelectContent>
                   </Select>
-                   <p className="text-xs text-muted-foreground">
-                    Nota: Lista de usuarios de ejemplo. Usuarios reales deben cargarse desde Configuración.
-                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor={`pa-date-${index}`}>Fecha Límite <span className="text-destructive">*</span></Label>
@@ -498,15 +459,20 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
         </div>
       </CardContent>
       <CardFooter className="flex flex-col sm:flex-row justify-between gap-2 pt-4 border-t">
-        <Button onClick={onPrevious} variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105">Anterior</Button>
+        <Button onClick={onPrevious} variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>Anterior</Button>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Button onClick={handleSaveProgress} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105">
+            <Button onClick={handleSaveProgressLocal} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Save className="mr-2 h-4 w-4" /> Guardar Avance
             </Button>
-            <Button onClick={handleSendTasks} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105">
+            <Button onClick={handleSendTasksLocal} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || plannedActions.length === 0}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Send className="mr-2 h-4 w-4" /> Enviar Tareas
             </Button>
-            <Button onClick={handleContinue} className="w-full sm:w-auto transition-transform hover:scale-105">Continuar</Button>
+            <Button onClick={handleContinueLocal} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
+                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                 Continuar
+            </Button>
         </div>
       </CardFooter>
     </Card>

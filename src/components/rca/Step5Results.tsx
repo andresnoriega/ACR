@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2 } from 'lucide-react';
+import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save } from 'lucide-react'; // Added Loader2, Save
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
@@ -34,7 +34,9 @@ interface Step5ResultsProps {
   onPrintReport: () => void;
   availableUsers: FullUserProfile[]; 
   isFinalized: boolean;
-  onMarkAsFinalized: () => void;
+  onMarkAsFinalized: () => Promise<void>; // Changed to Promise for async save
+  onSaveAnalysis: (showToast?: boolean) => Promise<void>; 
+  isSaving: boolean;
 }
 
 const SectionTitle: FC<{ icon?: React.ElementType; title: string; className?: string }> = ({ icon: Icon, title, className }) => (
@@ -69,11 +71,15 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   availableUsers,
   isFinalized,
   onMarkAsFinalized,
+  onSaveAnalysis,
+  isSaving,
 }) => {
   const { toast } = useToast();
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [selectedUserEmails, setSelectedUserEmails] = useState<string[]>([]);
   const [emailSearchTerm, setEmailSearchTerm] = useState('');
+  const [isSendingEmails, setIsSendingEmails] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
 
   const formatDetailedFacts = () => {
     return `Un evento, identificado como "${detailedFacts.que || 'QUÉ (no especificado)'}", tuvo lugar en "${detailedFacts.donde || 'DÓNDE (no especificado)'}" el "${detailedFacts.cuando || 'CUÁNDO (no especificado)'}". La desviación ocurrió de la siguiente manera: "${detailedFacts.como || 'CÓMO (no especificado)'}". El impacto o tendencia fue: "${detailedFacts.cualCuanto || 'CUÁL/CUÁNTO (no especificado)'}". Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no especificado)'}".`;
@@ -171,8 +177,10 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   };
 
   const handleConfirmSendEmail = async () => {
+    setIsSendingEmails(true);
     if (selectedUserEmails.length === 0) {
       toast({ title: "No se seleccionaron destinatarios", description: "Por favor, seleccione al menos un destinatario.", variant: "destructive" });
+      setIsSendingEmails(false);
       return;
     }
 
@@ -193,6 +201,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
         title: "Envío de Informes (Simulación)", 
         description: `${emailsSentCount} de ${selectedUserEmails.length} correos fueron procesados "exitosamente". Verifique la consola del servidor.`
     });
+    setIsSendingEmails(false);
     setIsEmailDialogOpen(false);
   };
   
@@ -226,6 +235,17 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     return filteredUsers.every(user => selectedUserEmails.includes(user.email));
   }, [filteredUsers, selectedUserEmails]);
 
+  const handleFinalize = async () => {
+    setIsFinalizing(true);
+    await onMarkAsFinalized(); // This now handles saving isFinalized and updating ReportedEvent
+    setIsFinalizing(false);
+  };
+
+  const handleSaveFinalComments = async () => {
+    await onSaveAnalysis(); // This will save all current data including finalComments
+  };
+
+  const isBusy = isSaving || isSendingEmails || isFinalizing;
 
   return (
     <>
@@ -244,7 +264,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           </section>
 
           <section>
-            <SectionTitle title="Introducción" icon={BarChart3}/>
+            <SectionTitle title="Introducción / Comentarios Finales" icon={BarChart3}/>
             <Textarea
               id="finalComments"
               value={finalComments}
@@ -252,7 +272,14 @@ export const Step5Results: FC<Step5ResultsProps> = ({
               placeholder="Escriba aquí la introducción, resumen ejecutivo o comentarios finales del análisis..."
               rows={5}
               className="text-sm"
+              disabled={isFinalized || isBusy}
             />
+            {!isFinalized && (
+                <Button onClick={handleSaveFinalComments} size="sm" variant="outline" className="mt-2" disabled={isBusy}>
+                    {isSaving && finalComments !== (eventData as any).finalComments /* crude check */ && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <Save className="mr-2 h-4 w-4" /> Guardar Comentarios
+                </Button>
+            )}
           </section>
           <Separator className="my-4" />
 
@@ -355,19 +382,19 @@ export const Step5Results: FC<Step5ResultsProps> = ({
 
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row justify-center items-center gap-3 mt-6 pt-4 border-t no-print">
-          <Button onClick={onPrintReport} variant="default" className="w-full sm:w-auto">
+          <Button onClick={onPrintReport} variant="default" className="w-full sm:w-auto" disabled={isBusy}>
             <Printer className="mr-2 h-4 w-4" /> Exportar a PDF
           </Button>
-          <Button onClick={handleOpenEmailDialog} variant="outline" className="w-full sm:w-auto">
+          <Button onClick={handleOpenEmailDialog} variant="outline" className="w-full sm:w-auto" disabled={isBusy}>
             <Send className="mr-2 h-4 w-4" /> Enviar por correo
           </Button>
           <Button 
-            onClick={onMarkAsFinalized} 
+            onClick={handleFinalize} 
             variant="secondary" 
             className="w-full sm:w-auto"
-            disabled={isFinalized}
+            disabled={isFinalized || isBusy}
           >
-            <CheckCircle className="mr-2 h-4 w-4" /> 
+            {isFinalizing || (isSaving && isFinalized) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
             {isFinalized ? "Análisis Finalizado" : "Finalizar"}
           </Button>
         </CardFooter>
@@ -387,8 +414,9 @@ export const Step5Results: FC<Step5ResultsProps> = ({
             <div className="flex items-center space-x-2">
               <Checkbox 
                 id="select-all-emails" 
-                checked={areAllFilteredUsersSelected}
+                checked={areAllFilteredUsersSelected && filteredUsers.length > 0}
                 onCheckedChange={(checked) => handleSelectAllUsers(checked as boolean)} 
+                disabled={filteredUsers.length === 0}
               />
               <Label htmlFor="select-all-emails" className="text-sm font-medium">
                 Seleccionar Todos ({filteredUsers.length}) / Deseleccionar Todos
@@ -422,9 +450,12 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           </div>
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="outline">Cancelar</Button>
+              <Button type="button" variant="outline" disabled={isSendingEmails}>Cancelar</Button>
             </DialogClose>
-            <Button type="button" onClick={handleConfirmSendEmail}>Enviar (Simulación)</Button>
+            <Button type="button" onClick={handleConfirmSendEmail} disabled={isSendingEmails}>
+              {isSendingEmails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Enviar (Simulación)
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

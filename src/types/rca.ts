@@ -143,7 +143,6 @@ export interface FullUserProfile {
   email: string;
   role: 'Admin' | 'Analista' | 'Revisor' | '';
   permissionLevel: 'Total' | 'Lectura' | 'Limitado' | '';
-  // Optional fields from UserConfigProfile, if needed globally, otherwise handle in component
   assignedSites?: string;
   emailNotifications?: boolean; 
 }
@@ -156,19 +155,47 @@ export interface ReportedEvent {
   id: string;
   title: string;
   site: string;
-  date: string; // Store as YYYY-MM-DD for sorting/filtering, format for display
+  date: string; 
   type: ReportedEventType;
-  priority: PriorityType; // Reuse PriorityType
+  priority: PriorityType; 
   status: ReportedEventStatus;
   description?: string;
 }
 
-// Global Site type definition
 export interface Site {
-  id: string; // Firestore document ID
+  id: string; 
   name: string;
   address: string;
   zone: string;
   coordinator?: string;
   description?: string;
+}
+
+// Document structure for an RCA Analysis in Firestore
+export interface RCAAnalysisDocument {
+  // From Step 1
+  eventData: RCAEventData;
+  immediateActions: ImmediateAction[];
+  // From Step 2
+  projectLeader: string;
+  detailedFacts: DetailedFacts;
+  analysisDetails: string;
+  preservedFacts: PreservedFact[];
+  // From Step 3
+  analysisTechnique: AnalysisTechnique;
+  analysisTechniqueNotes: string;
+  ishikawaData: IshikawaData;
+  fiveWhysData: FiveWhysData;
+  ctmData: CTMData;
+  identifiedRootCauses: IdentifiedRootCause[];
+  plannedActions: PlannedAction[];
+  // From Step 4
+  validations: Validation[];
+  // From Step 5
+  finalComments: string;
+  isFinalized: boolean;
+  // Metadata
+  createdAt: string; // ISO string
+  updatedAt: string; // ISO string
+  createdBy?: string; // User ID or name
 }

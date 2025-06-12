@@ -2,7 +2,7 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect, useMemo } from 'react';
-import type { DetailedFacts, PreservedFact, PreservedFactCategory, FullUserProfile } from '@/types/rca'; // Added FullUserProfile
+import type { DetailedFacts, PreservedFact, PreservedFactCategory, FullUserProfile } from '@/types/rca'; 
 import { PRESERVED_FACT_CATEGORIES } from '@/types/rca';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
-import { Calendar as CalendarIcon, PlusCircle, Trash2, FileText, Paperclip, UserCircle, Save } from 'lucide-react';
+import { Calendar as CalendarIcon, PlusCircle, Trash2, FileText, Paperclip, UserCircle, Save, Loader2 } from 'lucide-react';
 import { format, parse, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
@@ -22,7 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 interface Step2FactsProps {
   projectLeader: string;
   onProjectLeaderChange: (value: string) => void;
-  availableUsers: FullUserProfile[]; // Changed from Array<{ id: string; name: string; }>
+  availableUsers: FullUserProfile[]; 
   detailedFacts: DetailedFacts;
   onDetailedFactChange: (field: keyof DetailedFacts, value: string) => void;
   analysisDetails: string;
@@ -32,6 +32,8 @@ interface Step2FactsProps {
   onRemovePreservedFact: (id: string) => void;
   onPrevious: () => void;
   onNext: () => void;
+  onSaveAnalysis: (showToast?: boolean) => Promise<void>; // New prop for saving
+  isSaving: boolean;
 }
 
 const PreservedFactDialog: FC<{
@@ -44,6 +46,7 @@ const PreservedFactDialog: FC<{
   const [description, setDescription] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const { toast } = useToast();
+  const [isSubmittingFact, setIsSubmittingFact] = useState(false);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
@@ -62,7 +65,7 @@ const PreservedFactDialog: FC<{
       toast({ title: "Error", description: "La categoría es obligatoria.", variant: "destructive" });
       return;
     }
-
+    setIsSubmittingFact(true);
     onSave({
       userGivenName,
       category,
@@ -78,11 +81,12 @@ const PreservedFactDialog: FC<{
     if (document.getElementById('pf-file')) {
       (document.getElementById('pf-file') as HTMLInputElement).value = '';
     }
+    setIsSubmittingFact(false);
     onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(isOpen) => { if(!isSubmittingFact) onOpenChange(isOpen); }}>
       <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
           <DialogTitle className="flex items-center"><Paperclip className="mr-2 h-5 w-5" />Añadir Hecho Preservado</DialogTitle>
@@ -121,9 +125,12 @@ const PreservedFactDialog: FC<{
         </div>
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="outline">Cancelar</Button>
+            <Button type="button" variant="outline" disabled={isSubmittingFact}>Cancelar</Button>
           </DialogClose>
-          <Button type="button" onClick={handleSubmit}>Guardar Hecho</Button>
+          <Button type="button" onClick={handleSubmit} disabled={isSubmittingFact}>
+            {isSubmittingFact && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Guardar Hecho
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -144,6 +151,8 @@ export const Step2Facts: FC<Step2FactsProps> = ({
   onRemovePreservedFact,
   onPrevious,
   onNext,
+  onSaveAnalysis,
+  isSaving,
 }) => {
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | undefined>();
   const [isAddFactDialogOpen, setIsAddFactDialogOpen] = useState(false);
@@ -256,7 +265,7 @@ Sucedió el: "${detailedFacts.cuando || 'CUÁNDO (no especificado)'}".
 El impacto o tendencia fue: "${detailedFacts.cualCuanto || 'CUÁL/CUÁNTO (no especificado)'}".
 Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no especificado)'}".`;
 
-  const handleNextWithValidation = () => {
+  const validateFieldsForNext = (): boolean => {
     const missingFields = [];
     if (!projectLeader) missingFields.push("Líder del Proyecto");
     if (!detailedFacts.como.trim()) missingFields.push("CÓMO (ocurrió la desviación)");
@@ -269,33 +278,39 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     if (missingFields.length > 0) {
       toast({
         title: "Campos Obligatorios Faltantes",
-        description: `Por favor, complete los siguientes campos: ${missingFields.join(', ')}.`,
+        description: `Por favor, complete los siguientes campos antes de continuar: ${missingFields.join(', ')}.`,
         variant: "destructive",
       });
-      return;
+      return false;
     }
-    onNext();
+    return true;
   };
 
-  const handleSaveProgress = () => {
+  const handleSaveProgressLocal = async () => {
     const hasLeader = !!projectLeader;
-    const hasAnyDetailedFact = Object.values(detailedFacts).some(value => value.trim() !== '');
-    const hasAnalysisDetails = analysisDetails.trim() !== '';
-    const hasPreservedFacts = preservedFacts.length > 0;
+    const hasAnyDetailedFact = Object.values(detailedFacts).some(value => typeof value === 'string' && value.trim() !== '');
+    const hasAnalysisDetailsText = analysisDetails.trim() !== '';
+    const hasAnyPreservedFacts = preservedFacts.length > 0;
 
-    if (hasLeader || hasAnyDetailedFact || hasAnalysisDetails || hasPreservedFacts) {
-      toast({
-        title: "Progreso Guardado",
-        description: "El estado actual del análisis (Paso 2) ha sido guardado (simulación).",
-      });
-    } else {
+    if (!hasLeader && !hasAnyDetailedFact && !hasAnalysisDetailsText && !hasAnyPreservedFacts) {
       toast({
         title: "Nada que guardar",
         description: "No se ha ingresado información nueva o modificado datos existentes en este paso.",
         variant: "default",
       });
+      return;
     }
+    await onSaveAnalysis(); // Call the main save function from parent
   };
+
+  const handleNextWithSave = async () => {
+    if (!validateFieldsForNext()) {
+      return;
+    }
+    await onSaveAnalysis(false); // Save silently before moving
+    onNext();
+  };
+
 
   return (
     <Card>
@@ -442,16 +457,18 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
 
       </CardContent>
       <CardFooter className="flex flex-col sm:flex-row justify-between gap-2 pt-4 border-t">
-        <Button onClick={onPrevious} variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105">Anterior</Button>
+        <Button onClick={onPrevious} variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>Anterior</Button>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Button onClick={handleSaveProgress} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105">
+            <Button onClick={handleSaveProgressLocal} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Save className="mr-2 h-4 w-4" /> Guardar Avance
             </Button>
-            <Button onClick={handleNextWithValidation} className="w-full sm:w-auto transition-transform hover:scale-105">Siguiente</Button>
+            <Button onClick={handleNextWithSave} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
+                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Siguiente
+            </Button>
         </div>
       </CardFooter>
     </Card>
   );
 };
-
-    

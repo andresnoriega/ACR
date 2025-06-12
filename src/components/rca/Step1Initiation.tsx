@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Trash2, Save, Send, Mail } from 'lucide-react';
+import { PlusCircle, Trash2, Save, Send, Mail, Loader2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { sendEmailAction } from '@/app/actions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -26,7 +26,9 @@ interface Step1InitiationProps {
   availableSites: Site[];
   availableUsers: FullUserProfile[];
   onContinue: () => void;
-  onForceEnsureEventId: () => string;
+  onForceEnsureEventId: () => string; // Renamed, as it might also save initial doc
+  onSaveAnalysis: (showToast?: boolean) => Promise<void>; // New prop for saving
+  isSaving: boolean;
 }
 
 const EVENT_TYPES: EventType[] = ['Incidente', 'Accidente', 'Falla', 'No Conformidad'];
@@ -54,6 +56,7 @@ const NotifyEventCreationDialog: FC<NotifyEventCreationDialogProps> = ({
   const [selectedUserEmails, setSelectedUserEmails] = useState<string[]>([]);
   const [emailSearchTerm, setEmailSearchTerm] = useState('');
   const [notifyAllUsers, setNotifyAllUsers] = useState(false);
+  const [isSendingEmails, setIsSendingEmails] = useState(false);
 
   const filteredUsers = useMemo(() => {
     if (!availableUsers || !Array.isArray(availableUsers)) return [];
@@ -86,6 +89,7 @@ const NotifyEventCreationDialog: FC<NotifyEventCreationDialogProps> = ({
 
 
   const handleConfirmSendNotifications = async () => {
+    setIsSendingEmails(true);
     let finalRecipients: string[] = [];
     if (notifyAllUsers) {
       finalRecipients = availableUsers.map(u => u.email).filter(email => !!email);
@@ -95,6 +99,7 @@ const NotifyEventCreationDialog: FC<NotifyEventCreationDialogProps> = ({
 
     if (finalRecipients.length === 0) {
       toast({ title: "No se seleccionaron destinatarios", description: "Por favor, seleccione al menos un destinatario o marque 'Notificar a todos'.", variant: "destructive" });
+      setIsSendingEmails(false);
       return;
     }
 
@@ -115,7 +120,8 @@ const NotifyEventCreationDialog: FC<NotifyEventCreationDialogProps> = ({
       title: "Notificaciones de Evento (Simulación)", 
       description: `${emailsSentCount} de ${finalRecipients.length} correos fueron procesados "exitosamente". Verifique la consola del servidor.`
     });
-    onOpenChange(false); // Close dialog after sending
+    setIsSendingEmails(false);
+    onOpenChange(false); 
     setSelectedUserEmails([]);
     setEmailSearchTerm('');
     setNotifyAllUsers(false);
@@ -137,7 +143,7 @@ const NotifyEventCreationDialog: FC<NotifyEventCreationDialogProps> = ({
               checked={notifyAllUsers} 
               onCheckedChange={(checked) => {
                 setNotifyAllUsers(checked as boolean);
-                if(checked) setSelectedUserEmails([]); // Clear individual selections if "all" is checked
+                if(checked) setSelectedUserEmails([]); 
               }}
             />
             <Label htmlFor="notify-all-users" className="text-sm font-medium">Notificar a todos los usuarios ({availableUsers.length})</Label>
@@ -193,9 +199,12 @@ const NotifyEventCreationDialog: FC<NotifyEventCreationDialogProps> = ({
         </div>
         <DialogFooter>
           <DialogClose asChild>
-            <Button type="button" variant="outline" onClick={()=> { setEmailSearchTerm(''); setSelectedUserEmails([]); setNotifyAllUsers(false);}}>Cancelar</Button>
+            <Button type="button" variant="outline" onClick={()=> { setEmailSearchTerm(''); setSelectedUserEmails([]); setNotifyAllUsers(false);}} disabled={isSendingEmails}>Cancelar</Button>
           </DialogClose>
-          <Button type="button" onClick={handleConfirmSendNotifications}>Enviar Notificaciones</Button>
+          <Button type="button" onClick={handleConfirmSendNotifications} disabled={isSendingEmails}>
+            {isSendingEmails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Enviar Notificaciones
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -215,6 +224,8 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   availableUsers,
   onContinue,
   onForceEnsureEventId,
+  onSaveAnalysis,
+  isSaving,
 }) => {
   const { toast } = useToast();
   const [clientSideMaxDate, setClientSideMaxDate] = useState<string | undefined>(undefined);
@@ -273,21 +284,18 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     return true;
   };
 
-  const handleSaveEvent = async () => {
+  const handleSaveAndNotify = async () => {
     if (!validateFields()) {
       return;
     }
-
     const currentEventId = onForceEnsureEventId(); 
+    await onSaveAnalysis(false); // Save data to Firestore, no separate toast here
     
-    // Logic for sending emails for immediate actions is removed as per new requirement.
-
-    toast({
+    toast({ // Toast for initiating notification dialog
       title: "Evento Guardado",
       description: `Los detalles del evento ${currentEventId} han sido guardados. Puede notificar a los interesados.`,
     });
 
-    // Prepare details for notification dialog and open it
     setEventDetailsForNotification({
         id: currentEventId,
         description: eventData.focusEventDescription,
@@ -300,9 +308,9 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     if (!validateFields()) {
       return;
     }
-    // Ensure ID exists if user tries to continue without saving first
     if (!eventData.id) { 
-      onForceEnsureEventId();
+      onForceEnsureEventId(); // Ensure ID exists, which might trigger initial save if not done
+      onSaveAnalysis(false); // Save silently if ID was just created
     }
     onContinue();
   };
@@ -416,10 +424,14 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
           </div>
         </CardContent>
         <CardFooter className="flex justify-end space-x-2">
-          <Button onClick={handleSaveEvent} variant="outline" className="transition-transform hover:scale-105">
-            <Save className="mr-2 h-4 w-4" /> Guardar Evento
+          <Button onClick={handleSaveAndNotify} variant="outline" className="transition-transform hover:scale-105" disabled={isSaving}>
+            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Save className="mr-2 h-4 w-4" /> Guardar Evento y Notificar
           </Button>
-          <Button onClick={handleContinueToNextStep} className="transition-transform hover:scale-105">Continuar</Button>
+          <Button onClick={handleContinueToNextStep} className="transition-transform hover:scale-105" disabled={isSaving}>
+            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Continuar
+          </Button>
         </CardFooter>
       </Card>
 
@@ -436,5 +448,3 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     </>
   );
 };
-
-    
