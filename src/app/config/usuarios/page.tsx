@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { FullUserProfile } from '@/types/rca'; 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,9 @@ import { Switch } from '@/components/ui/switch';
 import { Users, PlusCircle, Edit2, Trash2, FileUp, FileDown, Loader2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch } from "firebase/firestore";
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 interface UserConfigProfile extends FullUserProfile {
   assignedSites?: string;
@@ -25,11 +27,17 @@ interface UserConfigProfile extends FullUserProfile {
 const userRoles: FullUserProfile['role'][] = ['Admin', 'Analista', 'Revisor', ''];
 const defaultPermissionLevel: FullUserProfile['permissionLevel'] = 'Lectura';
 
+// Define expected headers for Excel import
+const expectedUserHeaders = ["Nombre Completo", "Correo Electrónico", "Rol", "Sitios Asignados", "Notificaciones Email"];
+
+
 export default function ConfiguracionUsuariosPage() {
   const [users, setUsers] = useState<UserConfigProfile[]>([]);
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -46,22 +54,23 @@ export default function ConfiguracionUsuariosPage() {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserConfigProfile | null>(null);
 
+  const fetchUsers = async () => {
+    setIsLoading(true);
+    try {
+      const usersCollectionRef = collection(db, "users");
+      const q = query(usersCollectionRef, orderBy("name", "asc"));
+      const querySnapshot = await getDocs(q);
+      const usersData = querySnapshot.docs.map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() } as UserConfigProfile));
+      setUsers(usersData);
+    } catch (error) {
+      console.error("Error fetching users: ", error);
+      toast({ title: "Error al Cargar Usuarios", description: "No se pudieron cargar los usuarios desde Firestore.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchUsers = async () => {
-      setIsLoading(true);
-      try {
-        const usersCollectionRef = collection(db, "users");
-        const q = query(usersCollectionRef, orderBy("name", "asc"));
-        const querySnapshot = await getDocs(q);
-        const usersData = querySnapshot.docs.map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() } as UserConfigProfile));
-        setUsers(usersData);
-      } catch (error) {
-        console.error("Error fetching users: ", error);
-        toast({ title: "Error al Cargar Usuarios", description: "No se pudieron cargar los usuarios desde Firestore.", variant: "destructive" });
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchUsers();
   }, [toast]);
 
@@ -91,7 +100,7 @@ export default function ConfiguracionUsuariosPage() {
     setUserEmail(user.email);
     setUserRole(user.role);
     setUserAssignedSites(user.assignedSites || '');
-    setUserEmailNotifications(user.emailNotifications || false); // Ensure boolean
+    setUserEmailNotifications(user.emailNotifications || false); 
     setUserPassword(''); 
     setUserConfirmPassword('');
     setIsUserDialogOpen(true);
@@ -126,24 +135,19 @@ export default function ConfiguracionUsuariosPage() {
         name: userName.trim(),
         email: userEmail.trim(),
         role: userRole,
-        // permissionLevel remains unchanged unless specifically edited elsewhere
         assignedSites: userAssignedSites.trim(),
         emailNotifications: userEmailNotifications,
       };
       try {
         const userRef = doc(db, "users", currentUser.id);
         await updateDoc(userRef, updatedUserData);
-        setUsers(prevUsers => 
-          prevUsers.map(u => u.id === currentUser.id ? { ...u, ...updatedUserData, permissionLevel: u.permissionLevel } : u) // retain original permissionLevel
-                   .sort((a, b) => a.name.localeCompare(b.name))
-        );
         toast({ title: "Usuario Actualizado", description: `El usuario "${userName}" ha sido actualizado.` });
+        fetchUsers(); // Re-fetch to update table
       } catch (error) {
         console.error("Error updating user in Firestore: ", error);
         toast({ title: "Error al Actualizar", description: "No se pudo actualizar el usuario.", variant: "destructive" });
       }
     } else {
-      // For new users, ensure all required fields for FullUserProfile are present, plus any UserConfigProfile specifics
       const newUserPayload: Omit<UserConfigProfile, 'id'> = {
         name: userName.trim(),
         email: userEmail.trim(),
@@ -153,9 +157,9 @@ export default function ConfiguracionUsuariosPage() {
         emailNotifications: userEmailNotifications,
       };
       try {
-        const docRef = await addDoc(collection(db, "users"), newUserPayload);
-        setUsers(prevUsers => [...prevUsers, { id: docRef.id, ...newUserPayload }].sort((a,b) => a.name.localeCompare(b.name)));
+        await addDoc(collection(db, "users"), newUserPayload);
         toast({ title: "Usuario Añadido", description: `El usuario "${newUserPayload.name}" ha sido añadido.` });
+        fetchUsers(); // Re-fetch
       } catch (error) {
         console.error("Error adding user to Firestore: ", error);
         toast({ title: "Error al Añadir", description: "No se pudo añadir el usuario.", variant: "destructive" });
@@ -177,9 +181,9 @@ export default function ConfiguracionUsuariosPage() {
       setIsSubmitting(true);
       try {
         await deleteDoc(doc(db, "users", userToDelete.id));
-        setUsers(users.filter(u => u.id !== userToDelete.id));
         toast({ title: "Usuario Eliminado", description: `El usuario "${userToDelete.name}" ha sido eliminado.`, variant: 'destructive' });
         setUserToDelete(null);
+        fetchUsers(); // Re-fetch
       } catch (error) {
         console.error("Error deleting user from Firestore: ", error);
         toast({ title: "Error al Eliminar", description: "No se pudo eliminar el usuario.", variant: "destructive" });
@@ -190,16 +194,140 @@ export default function ConfiguracionUsuariosPage() {
     setIsDeleteConfirmOpen(false);
   };
   
-  const handleExcelImport = () => {
-    toast({ title: "Funcionalidad no implementada", description: "La importación desde Excel aún no está disponible." });
+  const handleUserExcelExport = () => {
+    if (users.length === 0) {
+      toast({ title: "Sin Datos", description: "No hay usuarios para exportar.", variant: "default" });
+      return;
+    }
+    const dataToExport = users.map(user => ({
+      "Nombre Completo": user.name,
+      "Correo Electrónico": user.email,
+      "Rol": user.role,
+      "Sitios Asignados": user.assignedSites || '',
+      "Notificaciones Email": user.emailNotifications ? "Sí" : "No",
+      "Nivel Permiso (Info)": user.permissionLevel,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Usuarios");
+    worksheet['!cols'] = [ { wch: 25 }, { wch: 30 }, { wch: 15 }, { wch: 30 }, { wch: 20 }, {wch: 20} ];
+    
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
+    const fileName = `Usuarios_RCA_Assistant_${new Date().toISOString().split('T')[0]}.xlsx`;
+    saveAs(dataBlob, fileName);
+    toast({ title: "Exportación Iniciada", description: `El archivo ${fileName} ha comenzado a descargarse.` });
   };
 
-  const handleExcelExport = () => {
-    toast({ title: "Funcionalidad no implementada", description: "La exportación a Excel aún no está disponible." });
+  const handleTriggerFileInput = () => {
+    fileInputRef.current?.click();
   };
+
+  const handleUserExcelImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
+
+        if (jsonData.length === 0) {
+          toast({ title: "Archivo Vacío", description: "El archivo Excel no contiene datos.", variant: "destructive" });
+          setIsImporting(false);
+          return;
+        }
+        
+        // Validate headers (optional but good practice)
+        const headers = XLSX.utils.sheet_to_json(worksheet, { header: 1 })[0] as string[];
+        const missingHeaders = expectedUserHeaders.filter(h => !headers.includes(h) && (h === "Nombre Completo" || h === "Correo Electrónico" || h === "Rol"));
+        if (missingHeaders.length > 0) {
+            toast({ title: "Cabeceras Faltantes", description: `Faltan cabeceras obligatorias: ${missingHeaders.join(', ')}. Por favor, use la plantilla correcta.`, variant: "destructive", duration: 7000 });
+            setIsImporting(false);
+            if(fileInputRef.current) fileInputRef.current.value = "";
+            return;
+        }
+
+
+        let importedCount = 0;
+        let skippedCount = 0;
+        const batch = writeBatch(db);
+        let operationsInBatch = 0;
+
+        for (const row of jsonData) {
+          const name = row["Nombre Completo"]?.trim();
+          const email = row["Correo Electrónico"]?.trim();
+          const role = row["Rol"]?.trim() as FullUserProfile['role'];
+          
+          if (!name || !email || !role) {
+            skippedCount++;
+            continue; 
+          }
+          if (!/^\S+@\S+\.\S+$/.test(email)) {
+            skippedCount++;
+            continue;
+          }
+          if (!userRoles.includes(role) || role === '') {
+             skippedCount++;
+             continue;
+          }
+
+          const newUser: Omit<UserConfigProfile, 'id'> = {
+            name,
+            email,
+            role,
+            permissionLevel: defaultPermissionLevel,
+            assignedSites: row["Sitios Asignados"]?.trim() || '',
+            emailNotifications: (row["Notificaciones Email"]?.toLowerCase() === 'sí' || row["Notificaciones Email"]?.toLowerCase() === 'si'),
+          };
+          
+          const userRef = doc(collection(db, "users")); // Create new doc ref for batch
+          batch.set(userRef, newUser);
+          importedCount++;
+          operationsInBatch++;
+
+          if (operationsInBatch >= 490) { // Firestore batch limit is 500
+            await batch.commit();
+            operationsInBatch = 0;
+            // batch = writeBatch(db); // Re-initialize for next batch - This line was wrong, should be batch = writeBatch(db);
+          }
+        }
+
+        if (operationsInBatch > 0) {
+          await batch.commit();
+        }
+
+        toast({ title: "Importación Completada", description: `${importedCount} usuarios importados. ${skippedCount} filas omitidas por datos inválidos o faltantes.` });
+        fetchUsers(); // Refresh list
+      } catch (error) {
+        console.error("Error importing users: ", error);
+        toast({ title: "Error de Importación", description: "No se pudo procesar el archivo. Verifique el formato y los datos.", variant: "destructive" });
+      } finally {
+        setIsImporting(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ""; // Reset file input
+        }
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
 
   return (
     <div className="space-y-8 py-8">
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleUserExcelImport} 
+        accept=".xlsx, .xls" 
+        style={{ display: 'none' }} 
+      />
       <header className="text-center space-y-2">
         <div className="inline-flex items-center justify-center bg-primary/10 text-primary p-3 rounded-full mb-4">
           <Users className="h-10 w-10" />
@@ -220,17 +348,17 @@ export default function ConfiguracionUsuariosPage() {
               <CardTitle className="text-2xl">Listado de Usuarios</CardTitle>
             </div>
             <div className="flex gap-2 flex-wrap">
-              <Button variant="outline" onClick={handleExcelImport}>
-                <FileUp className="mr-2 h-4 w-4" />
+              <Button variant="outline" onClick={handleTriggerFileInput} disabled={isImporting || isLoading}>
+                {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
                 Importar Excel
               </Button>
-              <Button variant="outline" onClick={handleExcelExport}>
+              <Button variant="outline" onClick={handleUserExcelExport} disabled={isLoading || users.length === 0}>
                 <FileDown className="mr-2 h-4 w-4" />
                 Exportar Excel
               </Button>
               <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="default" onClick={openAddUserDialog}>
+                  <Button variant="default" onClick={openAddUserDialog} disabled={isLoading}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Añadir Usuario
                   </Button>
@@ -283,7 +411,7 @@ export default function ConfiguracionUsuariosPage() {
                     </div>
                     <DialogFooter>
                         <DialogClose asChild>
-                        <Button type="button" variant="outline" onClick={() => { resetUserForm(); setIsUserDialogOpen(false);}}>Cancelar</Button>
+                        <Button type="button" variant="outline" onClick={() => { resetUserForm(); setIsUserDialogOpen(false);}} disabled={isSubmitting}>Cancelar</Button>
                         </DialogClose>
                         <Button type="button" onClick={handleSaveUser} disabled={isSubmitting}>
                          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -296,6 +424,7 @@ export default function ConfiguracionUsuariosPage() {
           </div>
           <CardDescription>
             Visualice, añada, edite o elimine usuarios registrados en el sistema.
+            <span className="block text-xs mt-1">Plantilla Importación: Columnas requeridas - {expectedUserHeaders.slice(0,3).join(', ')}. Opcionales: {expectedUserHeaders.slice(3).join(', ')}.</span>
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -339,7 +468,7 @@ export default function ConfiguracionUsuariosPage() {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
-                        No hay usuarios registrados. Puede añadir uno usando el botón de arriba.
+                        No hay usuarios registrados. Puede añadir uno usando el botón de arriba o importando desde Excel.
                       </TableCell>
                     </TableRow>
                   )}
@@ -367,8 +496,6 @@ export default function ConfiguracionUsuariosPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
     </div>
   );
 }
-

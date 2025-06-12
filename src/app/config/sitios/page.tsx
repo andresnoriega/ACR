@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -14,16 +14,22 @@ import { Textarea } from '@/components/ui/textarea';
 import { Globe, PlusCircle, Edit2, Trash2, FileUp, FileDown, MapPin, Loader2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase'; 
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy } from "firebase/firestore";
-import type { Site } from '@/types/rca'; // Import global Site type
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch } from "firebase/firestore";
+import type { Site } from '@/types/rca';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
-const geographicalZones = ['Norte', 'Sur', 'Este', 'Oeste', 'Centro', 'Noreste', 'Noroeste', 'Sureste', 'Suroeste'];
+const geographicalZones = ['Norte', 'Sur', 'Este', 'Oeste', 'Centro', 'Noreste', 'Noroeste', 'Sureste', 'Suroeste', ''];
+const expectedSiteHeaders = ["Nombre del Sitio", "Dirección", "Zona Geográfica", "Coordinador del Sitio", "Descripción Adicional"];
+
 
 export default function ConfiguracionSitiosPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false); 
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isAddSiteDialogOpen, setIsAddSiteDialogOpen] = useState(false);
   const [newSiteName, setNewSiteName] = useState('');
@@ -43,22 +49,23 @@ export default function ConfiguracionSitiosPage() {
   const [isDeleteSiteConfirmOpen, setIsDeleteSiteConfirmOpen] = useState(false);
   const [siteToDelete, setSiteToDelete] = useState<Site | null>(null);
 
+  const fetchSites = async () => {
+    setIsLoading(true);
+    try {
+      const sitesCollectionRef = collection(db, "sites");
+      const q = query(sitesCollectionRef, orderBy("name", "asc"));
+      const querySnapshot = await getDocs(q);
+      const sitesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
+      setSites(sitesData);
+    } catch (error) {
+      console.error("Error fetching sites: ", error);
+      toast({ title: "Error al Cargar Sitios", description: "No se pudieron cargar los sitios desde Firestore.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchSites = async () => {
-      setIsLoading(true);
-      try {
-        const sitesCollectionRef = collection(db, "sites");
-        const q = query(sitesCollectionRef, orderBy("name", "asc"));
-        const querySnapshot = await getDocs(q);
-        const sitesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
-        setSites(sitesData);
-      } catch (error) {
-        console.error("Error fetching sites: ", error);
-        toast({ title: "Error al Cargar Sitios", description: "No se pudieron cargar los sitios desde Firestore. Verifique la consola para más detalles.", variant: "destructive" });
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchSites();
   }, [toast]);
 
@@ -93,14 +100,14 @@ export default function ConfiguracionSitiosPage() {
       description: newSiteDescription.trim(),
     };
     try {
-      const docRef = await addDoc(collection(db, "sites"), newSiteData);
-      setSites(prevSites => [...prevSites, { id: docRef.id, ...newSiteData }].sort((a, b) => a.name.localeCompare(b.name)));
+      await addDoc(collection(db, "sites"), newSiteData);
       toast({ title: "Sitio Añadido", description: `El sitio "${newSiteData.name}" ha sido añadido con éxito.` });
       resetNewSiteForm();
       setIsAddSiteDialogOpen(false);
+      fetchSites(); // Re-fetch
     } catch (error) {
       console.error("Error adding site to Firestore: ", error);
-      toast({ title: "Error al Añadir Sitio", description: "No se pudo añadir el sitio. Verifique la consola del navegador para más detalles.", variant: "destructive" });
+      toast({ title: "Error al Añadir Sitio", description: "No se pudo añadir el sitio.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -133,13 +140,13 @@ export default function ConfiguracionSitiosPage() {
     try {
       const siteRef = doc(db, "sites", currentSiteToEdit.id);
       await updateDoc(siteRef, updatedSiteData);
-      setSites(sites.map(s => s.id === currentSiteToEdit.id ? { ...s, ...updatedSiteData } : s).sort((a,b) => a.name.localeCompare(b.name)));
       toast({ title: "Sitio Actualizado", description: `El sitio "${updatedSiteData.name}" ha sido actualizado.` });
       resetEditSiteForm();
       setIsEditSiteDialogOpen(false);
+      fetchSites(); // Re-fetch
     } catch (error) {
       console.error("Error updating site in Firestore: ", error);
-      toast({ title: "Error al Actualizar", description: "No se pudo actualizar el sitio. Verifique la consola del navegador para más detalles.", variant: "destructive" });
+      toast({ title: "Error al Actualizar", description: "No se pudo actualizar el sitio.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -155,12 +162,12 @@ export default function ConfiguracionSitiosPage() {
       setIsSubmitting(true); 
       try {
         await deleteDoc(doc(db, "sites", siteToDelete.id));
-        setSites(sites.filter(s => s.id !== siteToDelete.id));
         toast({ title: "Sitio Eliminado", description: `El sitio "${siteToDelete.name}" ha sido eliminado.`, variant: 'destructive' });
         setSiteToDelete(null);
+        fetchSites(); // Re-fetch
       } catch (error) {
         console.error("Error deleting site from Firestore: ", error);
-        toast({ title: "Error al Eliminar", description: "No se pudo eliminar el sitio. Verifique la consola del navegador para más detalles.", variant: "destructive" });
+        toast({ title: "Error al Eliminar", description: "No se pudo eliminar el sitio.", variant: "destructive" });
       } finally {
         setIsSubmitting(false);
       }
@@ -168,12 +175,119 @@ export default function ConfiguracionSitiosPage() {
     setIsDeleteSiteConfirmOpen(false);
   };
 
-  const handleSiteExcelImport = () => {
-    toast({ title: "Funcionalidad no implementada", description: "La importación desde Excel aún no está disponible." });
+  const handleSiteExcelExport = () => {
+    if (sites.length === 0) {
+      toast({ title: "Sin Datos", description: "No hay sitios para exportar.", variant: "default" });
+      return;
+    }
+    const dataToExport = sites.map(site => ({
+      "Nombre del Sitio": site.name,
+      "Dirección": site.address,
+      "Zona Geográfica": site.zone,
+      "Coordinador del Sitio": site.coordinator || '',
+      "Descripción Adicional": site.description || '',
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sitios");
+    worksheet['!cols'] = [ { wch: 30 }, { wch: 40 }, { wch: 20 }, { wch: 25 }, { wch: 40 } ];
+    
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
+    const fileName = `Sitios_RCA_Assistant_${new Date().toISOString().split('T')[0]}.xlsx`;
+    saveAs(dataBlob, fileName);
+    toast({ title: "Exportación Iniciada", description: `El archivo ${fileName} ha comenzado a descargarse.` });
   };
 
-  const handleSiteExcelExport = () => {
-    toast({ title: "Funcionalidad no implementada", description: "La exportación a Excel aún no está disponible." });
+  const handleTriggerSiteFileInput = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleSiteExcelImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
+
+        if (jsonData.length === 0) {
+          toast({ title: "Archivo Vacío", description: "El archivo Excel no contiene datos.", variant: "destructive" });
+          setIsImporting(false);
+          return;
+        }
+
+        const headers = XLSX.utils.sheet_to_json(worksheet, { header: 1 })[0] as string[];
+        if (!headers.includes("Nombre del Sitio")) {
+            toast({ title: "Cabecera Faltante", description: `Falta la cabecera obligatoria: "Nombre del Sitio". Por favor, use la plantilla correcta.`, variant: "destructive", duration: 7000 });
+            setIsImporting(false);
+            if(fileInputRef.current) fileInputRef.current.value = "";
+            return;
+        }
+
+        let importedCount = 0;
+        let skippedCount = 0;
+        const batch = writeBatch(db);
+        let operationsInBatch = 0;
+
+        for (const row of jsonData) {
+          const name = row["Nombre del Sitio"]?.trim();
+          if (!name) {
+            skippedCount++;
+            continue;
+          }
+          
+          const zone = row["Zona Geográfica"]?.trim() || '';
+          if (zone && !geographicalZones.includes(zone)) {
+            skippedCount++;
+            toast({ title: "Zona Inválida", description: `La zona "${zone}" para el sitio "${name}" no es válida. Fila omitida.`, variant: "destructive", duration: 5000 });
+            continue;
+          }
+
+          const newSite: Omit<Site, 'id'> = {
+            name,
+            address: row["Dirección"]?.trim() || '',
+            zone: zone,
+            coordinator: row["Coordinador del Sitio"]?.trim() || '',
+            description: row["Descripción Adicional"]?.trim() || '',
+          };
+          
+          const siteRef = doc(collection(db, "sites"));
+          batch.set(siteRef, newSite);
+          importedCount++;
+          operationsInBatch++;
+
+          if (operationsInBatch >= 490) {
+            await batch.commit();
+            operationsInBatch = 0;
+            // batch = writeBatch(db); // Re-initialize
+          }
+        }
+
+        if (operationsInBatch > 0) {
+          await batch.commit();
+        }
+        
+        toast({ title: "Importación Completada", description: `${importedCount} sitios importados. ${skippedCount} filas omitidas.` });
+        fetchSites(); // Refresh
+      } catch (error) {
+        console.error("Error importing sites: ", error);
+        toast({ title: "Error de Importación", description: "No se pudo procesar el archivo. Verifique el formato y los datos.", variant: "destructive" });
+      } finally {
+        setIsImporting(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      }
+    };
+    reader.readAsArrayBuffer(file);
   };
 
   const getGoogleMapsLink = (address: string) => {
@@ -182,6 +296,13 @@ export default function ConfiguracionSitiosPage() {
 
   return (
     <div className="space-y-8 py-8">
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleSiteExcelImport} 
+        accept=".xlsx, .xls" 
+        style={{ display: 'none' }} 
+      />
       <header className="text-center space-y-2">
         <div className="inline-flex items-center justify-center bg-primary/10 text-primary p-3 rounded-full mb-4">
           <Globe className="h-10 w-10" />
@@ -202,17 +323,17 @@ export default function ConfiguracionSitiosPage() {
               <CardTitle className="text-2xl">Listado de Sitios</CardTitle>
             </div>
             <div className="flex gap-2 flex-wrap">
-                <Button variant="outline" onClick={handleSiteExcelImport}>
-                    <FileUp className="mr-2 h-4 w-4" />
+                <Button variant="outline" onClick={handleTriggerSiteFileInput} disabled={isImporting || isLoading}>
+                    {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
                     Importar Excel
                 </Button>
-                <Button variant="outline" onClick={handleSiteExcelExport}>
+                <Button variant="outline" onClick={handleSiteExcelExport} disabled={isLoading || sites.length === 0}>
                     <FileDown className="mr-2 h-4 w-4" />
                     Exportar Excel
                 </Button>
                 <Dialog open={isAddSiteDialogOpen} onOpenChange={setIsAddSiteDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button variant="default" onClick={() => { resetNewSiteForm(); setIsAddSiteDialogOpen(true); }}>
+                    <Button variant="default" onClick={() => { resetNewSiteForm(); setIsAddSiteDialogOpen(true); }} disabled={isLoading}>
                       <PlusCircle className="mr-2 h-4 w-4" />
                       Añadir Nuevo Sitio
                     </Button>
@@ -237,7 +358,7 @@ export default function ConfiguracionSitiosPage() {
                             <SelectValue placeholder="-- Seleccione una zona --" />
                           </SelectTrigger>
                           <SelectContent>
-                            {geographicalZones.map(zone => (
+                            {geographicalZones.filter(z => z !== '').map(zone => (
                               <SelectItem key={zone} value={zone}>{zone}</SelectItem>
                             ))}
                           </SelectContent>
@@ -254,7 +375,7 @@ export default function ConfiguracionSitiosPage() {
                     </div>
                     <DialogFooter>
                       <DialogClose asChild>
-                        <Button type="button" variant="outline" onClick={() => setIsAddSiteDialogOpen(false)}>Cancelar</Button>
+                        <Button type="button" variant="outline" onClick={() => setIsAddSiteDialogOpen(false)} disabled={isSubmitting}>Cancelar</Button>
                       </DialogClose>
                       <Button type="button" onClick={handleAddSite} disabled={isSubmitting}>
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -266,7 +387,8 @@ export default function ConfiguracionSitiosPage() {
             </div>
           </div>
           <CardDescription>
-            Visualice, añada, edite o elimine sitios registrados en el sistema. Los datos se almacenan en Firestore.
+            Visualice, añada, edite o elimine sitios registrados en el sistema.
+            <span className="block text-xs mt-1">Plantilla Importación: Columna requerida - {expectedSiteHeaders[0]}. Opcionales: {expectedSiteHeaders.slice(1).join(', ')}.</span>
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -306,7 +428,7 @@ export default function ConfiguracionSitiosPage() {
                             '-'
                           )}
                         </TableCell>
-                        <TableCell>{site.zone}</TableCell>
+                        <TableCell>{site.zone || '-'}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" className="mr-2 hover:text-primary" onClick={() => openEditSiteDialog(site)} disabled={isSubmitting}>
                             <Edit2 className="h-4 w-4" />
@@ -322,7 +444,7 @@ export default function ConfiguracionSitiosPage() {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={4} className="text-center text-muted-foreground h-24">
-                        No hay sitios registrados. Puede añadir uno usando el botón de arriba.
+                        No hay sitios registrados. Puede añadir uno usando el botón de arriba o importando desde Excel.
                       </TableCell>
                     </TableRow>
                   )}
@@ -334,7 +456,7 @@ export default function ConfiguracionSitiosPage() {
          {sites.length > 0 && !isLoading && ( 
           <CardFooter>
             <p className="text-xs text-muted-foreground">
-              Actualmente gestionando {sites.length} sitio(s) desde Firestore. La importación/exportación no está implementada.
+              Actualmente gestionando {sites.length} sitio(s) desde Firestore.
             </p>
           </CardFooter>
         )}
@@ -361,7 +483,7 @@ export default function ConfiguracionSitiosPage() {
                   <SelectValue placeholder="-- Seleccione una zona --" />
                 </SelectTrigger>
                 <SelectContent>
-                  {geographicalZones.map(zone => (
+                  {geographicalZones.filter(z => z !== '').map(zone => (
                     <SelectItem key={zone} value={zone}>{zone}</SelectItem>
                   ))}
                 </SelectContent>
@@ -378,7 +500,7 @@ export default function ConfiguracionSitiosPage() {
           </div>
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="outline" onClick={() => { resetEditSiteForm(); setIsEditSiteDialogOpen(false); }}>Cancelar</Button>
+              <Button type="button" variant="outline" onClick={() => { resetEditSiteForm(); setIsEditSiteDialogOpen(false); }} disabled={isSubmitting}>Cancelar</Button>
             </DialogClose>
             <Button type="button" onClick={handleUpdateSite} disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -405,8 +527,6 @@ export default function ConfiguracionSitiosPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
     </div>
   );
 }
-    
