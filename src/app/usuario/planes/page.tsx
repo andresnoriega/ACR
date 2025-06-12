@@ -97,38 +97,45 @@ export default function UserActionPlansPage() {
       return [];
     }
     const plans: ActionPlan[] = [];
+    const uniqueTracker = new Set<string>(); // To track unique rcaId-actionId pairs
+
     allRcaDocuments.forEach(rcaDoc => {
       if (rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
         rcaDoc.plannedActions.forEach(pa => {
           if (pa.responsible === selectedSimulatedUserName) {
-            let estado: ActionPlan['estado'] = 'Pendiente';
-            const validation = rcaDoc.validations?.find(v => v.actionId === pa.id);
-            if (validation?.status === 'validated') {
-              estado = 'Completado';
-            } else if (pa.userComments || (pa.evidencias && pa.evidencias.length > 0)) {
-              estado = 'En proceso';
-            }
-
-            plans.push({
-              id: pa.id,
-              _originalRcaDocId: rcaDoc.eventData.id, // This is the ID of the RCA document itself
-              _originalActionId: pa.id,
-              accionResumen: pa.description.substring(0, 50) + (pa.description.length > 50 ? "..." : ""),
-              estado,
-              plazoLimite: pa.dueDate && isValidDate(parseISO(pa.dueDate)) ? format(parseISO(pa.dueDate), 'dd/MM/yyyy', { locale: es }) : 'N/A',
-              asignadoPor: rcaDoc.projectLeader || 'Sistema',
-              tituloDetalle: rcaDoc.eventData.focusEventDescription || 'Sin título',
-              descripcionDetallada: pa.description,
-              responsableDetalle: pa.responsible,
-              codigoRCA: rcaDoc.eventData.id,
-              evidencias: pa.evidencias || [],
-              userComments: pa.userComments || '',
-              ultimaActualizacion: {
-                usuario: 'Sistema', 
-                mensaje: 'Actualizado',
-                fechaRelativa: rcaDoc.updatedAt && isValidDate(parseISO(rcaDoc.updatedAt)) ? format(parseISO(rcaDoc.updatedAt), 'dd/MM/yyyy HH:mm', { locale: es }) : 'N/A',
+            const uniqueKey = `${rcaDoc.eventData.id}-${pa.id}`;
+            if (!uniqueTracker.has(uniqueKey)) {
+              uniqueTracker.add(uniqueKey);
+            
+              let estado: ActionPlan['estado'] = 'Pendiente';
+              const validation = rcaDoc.validations?.find(v => v.actionId === pa.id);
+              if (validation?.status === 'validated') {
+                estado = 'Completado';
+              } else if (pa.userComments || (pa.evidencias && pa.evidencias.length > 0)) {
+                estado = 'En proceso';
               }
-            });
+
+              plans.push({
+                id: pa.id,
+                _originalRcaDocId: rcaDoc.eventData.id, 
+                _originalActionId: pa.id,
+                accionResumen: pa.description.substring(0, 50) + (pa.description.length > 50 ? "..." : ""),
+                estado,
+                plazoLimite: pa.dueDate && isValidDate(parseISO(pa.dueDate)) ? format(parseISO(pa.dueDate), 'dd/MM/yyyy', { locale: es }) : 'N/A',
+                asignadoPor: rcaDoc.projectLeader || 'Sistema',
+                tituloDetalle: rcaDoc.eventData.focusEventDescription || 'Sin título',
+                descripcionDetallada: pa.description,
+                responsableDetalle: pa.responsible,
+                codigoRCA: rcaDoc.eventData.id,
+                evidencias: pa.evidencias || [],
+                userComments: pa.userComments || '',
+                ultimaActualizacion: {
+                  usuario: 'Sistema', 
+                  mensaje: 'Actualizado',
+                  fechaRelativa: rcaDoc.updatedAt && isValidDate(parseISO(rcaDoc.updatedAt)) ? format(parseISO(rcaDoc.updatedAt), 'dd/MM/yyyy HH:mm', { locale: es }) : 'N/A',
+                }
+              });
+            }
           }
         });
       }
@@ -556,4 +563,3 @@ export default function UserActionPlansPage() {
     </div>
   );
 }
-
