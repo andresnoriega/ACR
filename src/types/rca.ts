@@ -27,8 +27,9 @@ export interface IdentifiedRootCause {
 // Definición del tipo Evidence
 export interface Evidence {
   id: string;
-  nombre: string; 
+  nombre: string;
   tipo: 'pdf' | 'jpg' | 'jpeg' | 'png' | 'doc' | 'docx' | 'other'; // Added 'jpeg', 'png', 'doc'
+  comment?: string; // Nuevo campo para comentario de evidencia
 }
 
 export interface PlannedAction {
@@ -38,10 +39,10 @@ export interface PlannedAction {
   responsible: string;
   dueDate: string;
   relatedRootCauseIds?: string[];
-  evidencias?: Evidence[]; 
-  userComments?: string; 
-  isNotificationSent?: boolean; // Added field
-  markedAsReadyAt?: string; // Nuevo campo: Fecha en que el usuario marcó como lista
+  evidencias?: Evidence[];
+  userComments?: string;
+  isNotificationSent?: boolean;
+  markedAsReadyAt?: string;
 }
 
 export interface Validation {
@@ -147,7 +148,7 @@ export interface FullUserProfile {
   role: 'Admin' | 'Analista' | 'Revisor' | '';
   permissionLevel: 'Total' | 'Lectura' | 'Limitado' | '';
   assignedSites?: string;
-  emailNotifications?: boolean; 
+  emailNotifications?: boolean;
 }
 
 // Types for Eventos Reportados page
@@ -158,9 +159,9 @@ export interface ReportedEvent {
   id: string;
   title: string;
   site: string;
-  date: string; 
+  date: string;
   type: ReportedEventType;
-  priority: PriorityType; 
+  priority: PriorityType;
   status: ReportedEventStatus;
   description?: string;
   createdAt?: string; // ISO string
@@ -168,7 +169,7 @@ export interface ReportedEvent {
 }
 
 export interface Site {
-  id: string; 
+  id: string;
   name: string;
   address: string;
   zone: string;
