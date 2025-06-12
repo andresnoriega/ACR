@@ -1,18 +1,28 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
-import { PieChart, ClipboardList, ListChecks, History, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter } from 'lucide-react';
-import type { ReportedEvent, RCAAnalysisDocument, PlannedAction, Validation } from '@/types/rca';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar'; // Renamed to avoid conflict
+import { PieChart, ClipboardList, ListChecks, History, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, CalendarDays, Flame, Search, RefreshCcw } from 'lucide-react';
+import type { ReportedEvent, RCAAnalysisDocument, PlannedAction, Validation, Site, ReportedEventType, PriorityType, ReportedEventStatus } from '@/types/rca';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, Timestamp, where, orderBy, limit } from "firebase/firestore";
+import { collection, getDocs, query, Timestamp, where, orderBy, limit, QueryConstraint } from "firebase/firestore";
 import { format, parseISO, isValid, formatDistanceToNowStrict } from "date-fns";
 import { es } from 'date-fns/locale';
+import { useToast } from "@/hooks/use-toast";
+
+const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Fallo', 'Accidente', 'No Conformidad'];
+const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
+const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'Finalizado'];
+const ALL_FILTER_VALUE = "__ALL__";
 
 interface ActionStatsData {
   totalAcciones: number;
@@ -28,7 +38,7 @@ interface AnalisisEnCursoItem {
 }
 
 interface PlanAccionPendienteItem {
-  actionId: string; // Renombrado de id a actionId para claridad
+  actionId: string;
   accion: string;
   responsable: string;
   fechaLimite: string;
@@ -45,20 +55,33 @@ interface ActividadRecienteItem {
   originalTimestamp: string; 
 }
 
+interface DashboardFilters {
+  site: string;
+  date: Date | undefined;
+  type: ReportedEventType;
+  priority: PriorityType;
+  status: ReportedEventStatus;
+}
 
 export default function DashboardRCAPage() {
+  const { toast } = useToast();
+
   const [actionStatsData, setActionStatsData] = useState<ActionStatsData | null>(null);
-  const [isLoadingActionStats, setIsLoadingActionStats] = useState(true);
-  
   const [analisisEnCurso, setAnalisisEnCurso] = useState<AnalisisEnCursoItem[]>([]);
-  const [isLoadingAnalisisEnCurso, setIsLoadingAnalisisEnCurso] = useState(true);
-
   const [planesAccionPendientes, setPlanesAccionPendientes] = useState<PlanAccionPendienteItem[]>([]);
-  const [isLoadingPlanesAccion, setIsLoadingPlanesAccion] = useState(true);
-
   const [actividadReciente, setActividadReciente] = useState<ActividadRecienteItem[]>([]);
-  const [isLoadingActividadReciente, setIsLoadingActividadReciente] = useState(true);
+  
+  const [availableSites, setAvailableSites] = useState<Site[]>([]);
+  const [isLoadingSites, setIsLoadingSites] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
+  const [filters, setFilters] = useState<DashboardFilters>({
+    site: '',
+    date: undefined,
+    type: '',
+    priority: '',
+    status: '',
+  });
 
   const formatRelativeTime = (isoDateString?: string): string => {
     if (!isoDateString) return 'Fecha desconocida';
@@ -71,98 +94,124 @@ export default function DashboardRCAPage() {
     }
   };
 
-  useEffect(() => {
-    const fetchActionStats = async () => {
-      setIsLoadingActionStats(true);
-      try {
-        const rcaAnalysesRef = collection(db, "rcaAnalyses");
-        const querySnapshot = await getDocs(rcaAnalysesRef);
-        
-        let totalAcciones = 0;
-        let accionesPendientes = 0;
-        let accionesValidadas = 0;
-
-        querySnapshot.forEach(docSnap => {
-          const rcaDoc = docSnap.data() as RCAAnalysisDocument;
-          if (rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
-            rcaDoc.plannedActions.forEach(action => {
-              totalAcciones++;
-              const validation = rcaDoc.validations?.find(v => v.actionId === action.id);
-              if (validation && validation.status === 'validated') {
-                accionesValidadas++;
-              } else {
-                accionesPendientes++;
-              }
-            });
-          }
-        });
-        
-        setActionStatsData({
-          totalAcciones,
-          accionesPendientes,
-          accionesValidadas,
-        });
-      } catch (error) {
-        console.error("Error fetching action stats for dashboard: ", error);
-        setActionStatsData({ totalAcciones: 0, accionesPendientes: 0, accionesValidadas: 0 }); 
-      } finally {
-        setIsLoadingActionStats(false);
+  const fetchAllDashboardData = useCallback(async (currentFilters: DashboardFilters) => {
+    setIsLoadingData(true);
+    
+    const baseQueryConstraints: QueryConstraint[] = [];
+    if (currentFilters.site) {
+      baseQueryConstraints.push(where("eventData.site", "==", currentFilters.site));
+    }
+    if (currentFilters.date) {
+      baseQueryConstraints.push(where("eventData.date", "==", format(currentFilters.date, "yyyy-MM-dd")));
+    }
+    if (currentFilters.type) {
+      baseQueryConstraints.push(where("eventData.eventType", "==", currentFilters.type));
+    }
+    if (currentFilters.priority) {
+      baseQueryConstraints.push(where("eventData.priority", "==", currentFilters.priority));
+    }
+    if (currentFilters.status) {
+      if (currentFilters.status === 'Finalizado') {
+        baseQueryConstraints.push(where("isFinalized", "==", true));
+      } else { // Pendiente o En análisis
+        baseQueryConstraints.push(where("isFinalized", "==", false));
       }
-    };
+    }
 
-    const fetchAnalisisEnCurso = async () => {
-      setIsLoadingAnalisisEnCurso(true);
-      try {
+    // Fetch Action Stats
+    try {
+      const rcaAnalysesRef = collection(db, "rcaAnalyses");
+      const actionStatsQuery = query(rcaAnalysesRef, ...baseQueryConstraints);
+      const querySnapshot = await getDocs(actionStatsQuery);
+      
+      let totalAcciones = 0;
+      let accionesPendientes = 0;
+      let accionesValidadas = 0;
+
+      querySnapshot.forEach(docSnap => {
+        const rcaDoc = docSnap.data() as RCAAnalysisDocument;
+        if (rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
+          rcaDoc.plannedActions.forEach(action => {
+            totalAcciones++;
+            const validation = rcaDoc.validations?.find(v => v.actionId === action.id);
+            if (validation && validation.status === 'validated') {
+              accionesValidadas++;
+            } else {
+              accionesPendientes++;
+            }
+          });
+        }
+      });
+      setActionStatsData({ totalAcciones, accionesPendientes, accionesValidadas });
+    } catch (error) {
+      console.error("Error fetching action stats for dashboard: ", error);
+      setActionStatsData({ totalAcciones: 0, accionesPendientes: 0, accionesValidadas: 0 }); 
+      toast({ title: "Error al Cargar Estadísticas de Acciones", description: (error as Error).message, variant: "destructive" });
+    }
+
+    // Fetch Analisis En Curso
+    try {
+      const analisisQueryConstraints = [...baseQueryConstraints];
+      // If status filter is "Finalizado", this section should be empty.
+      // If status is "Pendiente" or "En Analisis", isFinalized == false is already applied or will be.
+      // If no status filter, we still only want non-finalized ones for "En Curso"
+      if (currentFilters.status !== 'Finalizado') {
+         const isFinalizedFalseAlreadyPresent = analisisQueryConstraints.some(
+            (c: any) => c._field === 'isFinalized' && c._op === '==' && c._value === false
+        );
+        if (!isFinalizedFalseAlreadyPresent) {
+            analisisQueryConstraints.push(where("isFinalized", "==", false));
+        }
+      } else {
+        // If filter is "Finalizado", "Análisis en Curso" should be empty
+        setAnalisisEnCurso([]);
+      }
+
+      if (currentFilters.status !== 'Finalizado') {
+        analisisQueryConstraints.push(orderBy("updatedAt", "desc"));
         const rcaAnalysesRef = collection(db, "rcaAnalyses");
-        const q = query(rcaAnalysesRef, where("isFinalized", "==", false), orderBy("updatedAt", "desc"));
+        const q = query(rcaAnalysesRef, ...analisisQueryConstraints);
         const querySnapshot = await getDocs(q);
-        console.log(`[fetchAnalisisEnCurso] Found ${querySnapshot.docs.length} documents with isFinalized: false.`);
         
         const analysesData = querySnapshot.docs.map(docSnap => {
           const doc = docSnap.data() as RCAAnalysisDocument;
           const id = docSnap.id;
           let proyecto = doc.eventData?.focusEventDescription || `Análisis ID: ${id.substring(0,8)}...`;
           let currentStep = 1;
-
-          if (doc.finalComments && doc.finalComments.trim() !== '') {
-            currentStep = 5;
-          } else if (doc.validations && doc.validations.length > 0 && doc.plannedActions && doc.plannedActions.length > 0) {
-            currentStep = 4;
-          } else if (
-            doc.analysisTechnique || 
-            (doc.analysisTechniqueNotes && doc.analysisTechniqueNotes.trim() !== '') ||
-            (doc.identifiedRootCauses && doc.identifiedRootCauses.length > 0) ||
-            (doc.plannedActions && doc.plannedActions.length > 0)
-          ) {
-            currentStep = 3;
-          } else if (
-            doc.projectLeader ||
-            (doc.detailedFacts && Object.values(doc.detailedFacts).some(v => !!v)) ||
-            (doc.analysisDetails && doc.analysisDetails.trim() !== '') ||
-            (doc.preservedFacts && doc.preservedFacts.length > 0)
-          ) {
-            currentStep = 2;
-          }
-          
+          if (doc.finalComments && doc.finalComments.trim() !== '') currentStep = 5;
+          else if (doc.validations && doc.validations.length > 0 && doc.plannedActions && doc.plannedActions.length > 0) currentStep = 4;
+          else if (doc.analysisTechnique || (doc.analysisTechniqueNotes && doc.analysisTechniqueNotes.trim() !== '') || (doc.identifiedRootCauses && doc.identifiedRootCauses.length > 0) || (doc.plannedActions && doc.plannedActions.length > 0)) currentStep = 3;
+          else if (doc.projectLeader || (doc.detailedFacts && Object.values(doc.detailedFacts).some(v => !!v)) || (doc.analysisDetails && doc.analysisDetails.trim() !== '') || (doc.preservedFacts && doc.preservedFacts.length > 0)) currentStep = 2;
           const progreso = Math.round((currentStep / 5) * 100);
-          
           return { id, proyecto, currentStep, progreso };
         });
         setAnalisisEnCurso(analysesData);
-      } catch (error) {
-        console.error("Error fetching analisis en curso: ", error);
-        setAnalisisEnCurso([]);
-      } finally {
-        setIsLoadingAnalisisEnCurso(false);
       }
-    };
+    } catch (error) {
+      console.error("Error fetching analisis en curso: ", error);
+      setAnalisisEnCurso([]);
+      toast({ title: "Error al Cargar Análisis en Curso", description: (error as Error).message, variant: "destructive" });
+    }
 
-    const fetchPlanesAccion = async () => {
-      setIsLoadingPlanesAccion(true);
-      const planes: PlanAccionPendienteItem[] = [];
-      try {
+    // Fetch Planes de Acción Activos
+    const planes: PlanAccionPendienteItem[] = [];
+    try {
+      const planesQueryConstraints = [...baseQueryConstraints];
+      if (currentFilters.status !== 'Finalizado') {
+        const isFinalizedFalseAlreadyPresent = planesQueryConstraints.some(
+            (c: any) => c._field === 'isFinalized' && c._op === '==' && c._value === false
+        );
+        if (!isFinalizedFalseAlreadyPresent) {
+            planesQueryConstraints.push(where("isFinalized", "==", false));
+        }
+      } else {
+        setPlanesAccionPendientes([]); // No actions if filtering by "Finalizado" status
+      }
+      
+      if (currentFilters.status !== 'Finalizado') {
+        planesQueryConstraints.push(orderBy("updatedAt", "desc"));
         const rcaAnalysesRef = collection(db, "rcaAnalyses");
-        const q = query(rcaAnalysesRef, where("isFinalized", "==", false), orderBy("updatedAt", "desc"));
+        const q = query(rcaAnalysesRef, ...planesQueryConstraints);
         const querySnapshot = await getDocs(q);
 
         querySnapshot.forEach(docSnap => {
@@ -182,32 +231,57 @@ export default function DashboardRCAPage() {
             }
           });
         });
-        
         setPlanesAccionPendientes(planes.sort((a,b) => {
             try {
                 const dateAStr = a.fechaLimite.split('/').reverse().join('-');
                 const dateBStr = b.fechaLimite.split('/').reverse().join('-');
                 const dateA = a.fechaLimite !== 'N/A' ? parseISO(dateAStr) : null;
                 const dateB = b.fechaLimite !== 'N/A' ? parseISO(dateBStr) : null;
-
                 if (dateA && isValid(dateA) && dateB && isValid(dateB)) return dateA.getTime() - dateB.getTime();
                 if (dateA && isValid(dateA)) return -1; 
                 if (dateB && isValid(dateB)) return 1;  
-            } catch (e) { /* Silently ignore parsing errors for sorting */ }
+            } catch (e) { /* Silently ignore */ }
             return 0; 
-        }).slice(0, 5)); 
+        }).slice(0, 5));
+      }
+    } catch (error) {
+      console.error("Error fetching planes de acción: ", error);
+      setPlanesAccionPendientes([]);
+      toast({ title: "Error al Cargar Planes de Acción", description: (error as Error).message, variant: "destructive" });
+    }
+    setIsLoadingData(false);
+  }, [toast]);
+
+  // Fetch initial data and sites
+  useEffect(() => {
+    fetchAllDashboardData(filters); // Initial fetch with empty filters
+    const fetchSitesData = async () => {
+      setIsLoadingSites(true);
+      try {
+        const sitesCollectionRef = collection(db, "sites");
+        const q = query(sitesCollectionRef, orderBy("name", "asc"));
+        const querySnapshot = await getDocs(q);
+        const sitesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
+        setAvailableSites(sitesData);
       } catch (error) {
-        console.error("Error fetching planes de acción: ", error);
-        setPlanesAccionPendientes([]);
+        console.error("Error fetching sites: ", error);
+        toast({ title: "Error al Cargar Sitios", description: "No se pudieron cargar los sitios para el filtro.", variant: "destructive" });
       } finally {
-        setIsLoadingPlanesAccion(false);
+        setIsLoadingSites(false);
       }
     };
+    fetchSitesData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Initial fetch for all data and sites (filters are empty initially)
 
+  // Fetch Actividad Reciente (currently not affected by filters other than implicitly by what's in DB)
+  useEffect(() => {
     const fetchActividadReciente = async () => {
-      setIsLoadingActividadReciente(true);
+      // setIsLoadingActividadReciente(true); // This state was removed, use setIsLoadingData
       const actividades: ActividadRecienteItem[] = [];
       try {
+        // Note: This part is not using the main filters for simplicity. 
+        // Could be enhanced to filter by date range if filters.date has a range.
         const eventsRef = collection(db, "reportedEvents");
         const eventsQuery = query(eventsRef, orderBy("updatedAt", "desc"), limit(3));
         const eventsSnapshot = await getDocs(eventsQuery);
@@ -215,19 +289,10 @@ export default function DashboardRCAPage() {
           const event = docSnap.data() as ReportedEvent;
           const timestamp = event.updatedAt || event.createdAt || new Date().toISOString();
           let desc = `Evento '${event.title || 'Sin Título'}'`;
-          const isNew = !event.updatedAt || !event.createdAt || (new Date(event.createdAt).getTime() === new Date(event.updatedAt).getTime());
-          if (isNew) { 
-            desc += ` registrado.`;
-          } else {
-             desc += ` actualizado (Estado: ${event.status}).`;
-          }
-          actividades.push({
-            id: `evt-${docSnap.id}`,
-            descripcion: desc,
-            tiempo: formatRelativeTime(timestamp),
-            tipoIcono: event.status === 'Finalizado' ? 'finalizado' : 'evento',
-            originalTimestamp: timestamp
-          });
+          const isNew = !event.updatedAt || !event.createdAt || (new Date(event.createdAt!).getTime() === new Date(event.updatedAt!).getTime());
+          if (isNew) desc += ` registrado.`;
+          else desc += ` actualizado (Estado: ${event.status}).`;
+          actividades.push({ id: `evt-${docSnap.id}`, descripcion: desc, tiempo: formatRelativeTime(timestamp), tipoIcono: event.status === 'Finalizado' ? 'finalizado' : 'evento', originalTimestamp: timestamp });
         });
 
         const analysesRef = collection(db, "rcaAnalyses");
@@ -236,31 +301,40 @@ export default function DashboardRCAPage() {
         analysesSnapshot.forEach(docSnap => {
           const analysis = docSnap.data() as RCAAnalysisDocument;
           const timestamp = analysis.updatedAt || analysis.createdAt || new Date().toISOString();
-           actividades.push({
-            id: `rca-${docSnap.id}`,
-            descripcion: `Análisis '${analysis.eventData?.focusEventDescription || `ID ${docSnap.id.substring(0,8)}...`}' actualizado.`,
-            tiempo: formatRelativeTime(timestamp),
-            tipoIcono: analysis.isFinalized ? 'finalizado' : 'analisis',
-            originalTimestamp: timestamp
-          });
+           actividades.push({ id: `rca-${docSnap.id}`, descripcion: `Análisis '${analysis.eventData?.focusEventDescription || `ID ${docSnap.id.substring(0,8)}...`}' actualizado.`, tiempo: formatRelativeTime(timestamp), tipoIcono: analysis.isFinalized ? 'finalizado' : 'analisis', originalTimestamp: timestamp });
         });
-        
         actividades.sort((a, b) => parseISO(b.originalTimestamp).getTime() - parseISO(a.originalTimestamp).getTime());
         setActividadReciente(actividades.slice(0, 5));
-
       } catch (error) {
         console.error("Error fetching actividad reciente: ", error);
         setActividadReciente([]);
-      } finally {
-        setIsLoadingActividadReciente(false);
+        toast({ title: "Error al Cargar Actividad Reciente", description: (error as Error).message, variant: "destructive" });
       }
+      // setIsLoadingActividadReciente(false);
     };
-
-    fetchActionStats();
-    fetchAnalisisEnCurso();
-    fetchPlanesAccion();
     fetchActividadReciente();
-  }, []);
+  }, [toast]);
+
+
+  const handleFilterChange = (field: keyof DashboardFilters, value: any) => {
+    setFilters(prev => ({ ...prev, [field]: value === ALL_FILTER_VALUE ? '' : value }));
+  };
+  
+  const handleDateChange = (date: Date | undefined) => {
+    handleFilterChange('date', date);
+  };
+
+  const applyFilters = () => {
+    toast({ title: "Aplicando Filtros...", description: "Recargando datos del dashboard." });
+    fetchAllDashboardData(filters);
+  };
+
+  const clearFilters = () => {
+    const emptyFilters = { site: '', date: undefined, type: '' as ReportedEventType, priority: '' as PriorityType, status: '' as ReportedEventStatus };
+    setFilters(emptyFilters);
+    toast({ title: "Filtros Limpiados", description: "Recargando todos los datos del dashboard." });
+    fetchAllDashboardData(emptyFilters);
+  };
 
   const renderActividadIcon = (tipo: ActividadRecienteItem['tipoIcono']) => {
     switch (tipo) {
@@ -270,6 +344,8 @@ export default function DashboardRCAPage() {
       default: return <Bell className="text-muted-foreground" />;
     }
   };
+  
+  const isLoading = isLoadingData || isLoadingSites;
 
   return (
     <div className="space-y-6 py-8">
@@ -285,6 +361,90 @@ export default function DashboardRCAPage() {
         </p>
       </header>
 
+      <Card className="shadow-lg">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <FilterIcon className="h-6 w-6 text-primary" />
+            <CardTitle className="text-2xl">Filtros de Búsqueda</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+          <div>
+            <Label htmlFor="filter-site" className="flex items-center mb-1"><Globe className="mr-1.5 h-4 w-4 text-muted-foreground"/>Sitio/Planta</Label>
+            <Select
+              value={filters.site || ALL_FILTER_VALUE}
+              onValueChange={(val) => handleFilterChange('site', val)}
+              disabled={isLoadingSites}
+            >
+              <SelectTrigger id="filter-site"><SelectValue placeholder="Todos los sitios" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_FILTER_VALUE}>Todos los sitios</SelectItem>
+                {availableSites.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                 {availableSites.length === 0 && <SelectItem value="" disabled>No hay sitios configurados</SelectItem>}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="filter-date" className="flex items-center mb-1"><CalendarDays className="mr-1.5 h-4 w-4 text-muted-foreground"/>Fecha del Evento</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button id="filter-date" variant="outline" className="w-full justify-start text-left font-normal" disabled={isLoading}>
+                  {filters.date ? format(filters.date, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <CalendarComponent mode="single" selected={filters.date} onSelect={handleDateChange} initialFocus locale={es} />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div>
+            <Label htmlFor="filter-type" className="flex items-center mb-1"><AlertTriangle className="mr-1.5 h-4 w-4 text-muted-foreground"/>Tipo de Evento</Label>
+            <Select
+              value={filters.type || ALL_FILTER_VALUE}
+              onValueChange={(val) => handleFilterChange('type', val as ReportedEventType | typeof ALL_FILTER_VALUE)}
+              disabled={isLoading}
+            >
+              <SelectTrigger id="filter-type"><SelectValue placeholder="Todos los tipos" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_FILTER_VALUE}>Todos los tipos</SelectItem>
+                {eventTypeOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="filter-priority" className="flex items-center mb-1"><Flame className="mr-1.5 h-4 w-4 text-muted-foreground"/>Prioridad</Label>
+            <Select
+              value={filters.priority || ALL_FILTER_VALUE}
+              onValueChange={(val) => handleFilterChange('priority', val as PriorityType | typeof ALL_FILTER_VALUE)}
+              disabled={isLoading}
+            >
+              <SelectTrigger id="filter-priority"><SelectValue placeholder="Todas las prioridades" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_FILTER_VALUE}>Todas las prioridades</SelectItem>
+                {priorityOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="filter-status" className="flex items-center mb-1"><Activity className="mr-1.5 h-4 w-4 text-muted-foreground"/>Estado</Label>
+            <Select
+              value={filters.status || ALL_FILTER_VALUE}
+              onValueChange={(val) => handleFilterChange('status', val as ReportedEventStatus | typeof ALL_FILTER_VALUE)}
+              disabled={isLoading}
+            >
+              <SelectTrigger id="filter-status"><SelectValue placeholder="Todos los estados" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_FILTER_VALUE}>Todos los estados</SelectItem>
+                {statusOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+        <CardFooter className="flex justify-start gap-3 pt-4 border-t">
+          <Button onClick={applyFilters} disabled={isLoading}><Search className="mr-2"/>Aplicar Filtros</Button>
+          <Button onClick={clearFilters} variant="outline" disabled={isLoading}><RefreshCcw className="mr-2"/>Limpiar Filtros</Button>
+        </CardFooter>
+      </Card>
       
       <Card className="shadow-lg">
         <CardHeader>
@@ -294,7 +454,7 @@ export default function DashboardRCAPage() {
           </div>
         </CardHeader>
         <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
-          {isLoadingActionStats ? (
+          {isLoadingData ? (
             <>
               {[...Array(3)].map((_, i) => (
                 <div key={i} className="p-4 bg-secondary/30 rounded-lg flex flex-col items-center justify-center h-24">
@@ -325,7 +485,6 @@ export default function DashboardRCAPage() {
         </CardContent>
       </Card>
 
-      
       <Card className="shadow-lg">
         <CardHeader>
            <div className="flex items-center gap-3">
@@ -335,7 +494,7 @@ export default function DashboardRCAPage() {
            <CardDescription>Lista de análisis RCA que están actualmente en progreso, obtenidos de Firestore.</CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoadingAnalisisEnCurso ? (
+          {isLoadingData ? (
             <div className="flex justify-center items-center h-24">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="ml-2 text-muted-foreground">Cargando análisis en curso...</p>
@@ -364,7 +523,7 @@ export default function DashboardRCAPage() {
                 )) : (
                   <TableRow>
                     <TableCell colSpan={3} className="text-center text-muted-foreground h-24">
-                      No hay análisis actualmente en curso o no se pudieron cargar.
+                      No hay análisis en curso que coincidan con los filtros o no se pudieron cargar.
                     </TableCell>
                   </TableRow>
                 )}
@@ -373,7 +532,6 @@ export default function DashboardRCAPage() {
           )}
         </CardContent>
       </Card>
-
       
       <Card className="shadow-lg">
         <CardHeader>
@@ -384,7 +542,7 @@ export default function DashboardRCAPage() {
           <CardDescription>Acciones de análisis no finalizados que aún no han sido validadas (máx. 5).</CardDescription>
         </CardHeader>
         <CardContent>
-         {isLoadingPlanesAccion ? (
+         {isLoadingData ? (
             <div className="flex justify-center items-center h-24">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="ml-2 text-muted-foreground">Cargando planes de acción...</p>
@@ -421,7 +579,7 @@ export default function DashboardRCAPage() {
                 )) : (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
-                      No hay planes de acción activos para mostrar.
+                       No hay planes de acción activos que coincidan con los filtros o no se pudieron cargar.
                     </TableCell>
                   </TableRow>
                 )}
@@ -439,7 +597,6 @@ export default function DashboardRCAPage() {
         </CardFooter>
       </Card>
       
-      
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -449,7 +606,7 @@ export default function DashboardRCAPage() {
           <CardDescription>Últimas acciones y actualizaciones importantes en eventos y análisis (máx. 5).</CardDescription>
         </CardHeader>
         <CardContent>
-        {isLoadingActividadReciente ? (
+        {isLoadingData ? ( // Assuming actividadReciente is also covered by general isLoadingData
             <div className="flex justify-center items-center h-24">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="ml-2 text-muted-foreground">Cargando actividad reciente...</p>
