@@ -25,19 +25,23 @@ export function TopNavigation() {
           <div className="flex space-x-1 sm:space-x-2 md:space-x-4">
             {mainMenuItems.map((item) => {
               let isActive = false;
-              if (item.href === '/inicio') {
-                isActive = (pathname === item.href || pathname === '/');
-              } else if (item.href === '/config' || item.href === '/eventos' || item.href === '/analisis' || item.href === '/informes') {
-                isActive = pathname.startsWith(item.href); 
-              } else if (item.href === '/usuario/planes') {
-                isActive = pathname.startsWith('/usuario');
-              }
-               else {
-                if (item.href && item.href !== '/') {
-                   isActive = pathname.startsWith(item.href);
-                }
-              }
               
+              // Lógica específica para "Inicio": activo en "/" o cualquier ruta que comience con "/inicio"
+              if (item.href === '/inicio') {
+                isActive = pathname === '/' || pathname.startsWith('/inicio');
+              } 
+              // Lógica específica para "Mis Tareas": activo para cualquier ruta que comience con "/usuario"
+              else if (item.href === '/usuario/planes') {
+                isActive = pathname.startsWith('/usuario');
+              } 
+              // Lógica genérica para otros ítems: activo si el pathname comienza con el href del ítem
+              // (asegurándose de que href no sea solo "/" para evitar conflictos si "/" se manejara de forma diferente)
+              else if (item.href && item.href !== '/') { 
+                isActive = pathname.startsWith(item.href);
+              }
+              // Si item.href es solo "/", normalmente sería manejado por la lógica de /inicio debido a la redirección,
+              // o necesitaría su propia verificación específica si fuera una página distinta.
+
               return (
                 <Link
                   key={item.href}
