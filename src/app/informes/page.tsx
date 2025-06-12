@@ -59,14 +59,6 @@ interface PlanAccionPendienteItem {
   rcaTitle: string;
 }
 
-interface ActividadRecienteItem {
-  id: string;
-  descripcion: string;
-  tiempo: string;
-  tipoIcono: 'evento' | 'analisis' | 'finalizado';
-  originalTimestamp: string;
-}
-
 interface DashboardFilters {
   site: string;
   type: ReportedEventType;
@@ -80,7 +72,6 @@ export default function DashboardRCAPage() {
   const [rcaSummaryData, setRcaSummaryData] = useState<RCASummaryData | null>(null);
   const [analisisEnCurso, setAnalisisEnCurso] = useState<AnalisisEnCursoItem[]>([]);
   const [planesAccionPendientes, setPlanesAccionPendientes] = useState<PlanAccionPendienteItem[]>([]);
-  const [actividadReciente, setActividadReciente] = useState<ActividadRecienteItem[]>([]);
 
   const [availableSites, setAvailableSites] = useState<Site[]>([]);
   const [isLoadingSites, setIsLoadingSites] = useState(true);
@@ -91,17 +82,6 @@ export default function DashboardRCAPage() {
     type: '' as ReportedEventType,
     priority: '' as PriorityType,
   });
-
-  const formatRelativeTime = (isoDateString?: string): string => {
-    if (!isoDateString) return 'Fecha desconocida';
-    try {
-      const date = parseISO(isoDateString);
-      if (!isValid(date)) return 'Fecha inválida';
-      return formatDistanceToNowStrict(date, { addSuffix: true, locale: es });
-    } catch (e) {
-      return 'Error de fecha';
-    }
-  };
 
   const fetchAllDashboardData = useCallback(async (currentFilters: DashboardFilters) => {
     setIsLoadingData(true);
@@ -259,42 +239,6 @@ export default function DashboardRCAPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    const fetchActividadReciente = async () => {
-      const actividades: ActividadRecienteItem[] = [];
-      try {
-        const eventsRef = collection(db, "reportedEvents");
-        const eventsQuery = query(eventsRef, orderBy("updatedAt", "desc"), limit(3));
-        const eventsSnapshot = await getDocs(eventsQuery);
-        eventsSnapshot.forEach(docSnap => {
-          const event = docSnap.data() as ReportedEvent;
-          const timestamp = event.updatedAt || event.createdAt || new Date().toISOString();
-          let desc = `Evento '${event.title || 'Sin Título'}'`;
-          const isNew = !event.updatedAt || !event.createdAt || (new Date(event.createdAt!).getTime() === new Date(event.updatedAt!).getTime());
-          if (isNew) desc += ` registrado.`;
-          else desc += ` actualizado (Estado: ${event.status}).`;
-          actividades.push({ id: `evt-${docSnap.id}`, descripcion: desc, tiempo: formatRelativeTime(timestamp), tipoIcono: event.status === 'Finalizado' ? 'finalizado' : 'evento', originalTimestamp: timestamp });
-        });
-
-        const analysesRef = collection(db, "rcaAnalyses");
-        const analysesQuery = query(analysesRef, orderBy("updatedAt", "desc"), limit(3));
-        const analysesSnapshot = await getDocs(analysesQuery);
-        analysesSnapshot.forEach(docSnap => {
-          const analysis = docSnap.data() as RCAAnalysisDocument;
-          const timestamp = analysis.updatedAt || analysis.createdAt || new Date().toISOString();
-           actividades.push({ id: `rca-${docSnap.id}`, descripcion: `Análisis '${analysis.eventData?.focusEventDescription || `ID ${docSnap.id.substring(0,8)}...`}' actualizado.`, tiempo: formatRelativeTime(timestamp), tipoIcono: analysis.isFinalized ? 'finalizado' : 'analisis', originalTimestamp: timestamp });
-        });
-        actividades.sort((a, b) => parseISO(b.originalTimestamp).getTime() - parseISO(a.originalTimestamp).getTime());
-        setActividadReciente(actividades.slice(0, 5));
-      } catch (error) {
-        console.error("Error fetching actividad reciente: ", error);
-        setActividadReciente([]);
-        toast({ title: "Error al Cargar Actividad Reciente", description: (error as Error).message, variant: "destructive" });
-      }
-    };
-    fetchActividadReciente();
-  }, [toast]);
-
 
   const handleFilterChange = (field: keyof DashboardFilters, value: any) => {
     setFilters(prev => ({ ...prev, [field]: value === ALL_FILTER_VALUE ? '' : value }));
@@ -316,15 +260,6 @@ export default function DashboardRCAPage() {
     fetchAllDashboardData(emptyFilters);
   };
 
-  const renderActividadIcon = (tipo: ActividadRecienteItem['tipoIcono']) => {
-    switch (tipo) {
-      case 'evento': return <ListChecks className="text-muted-foreground" />;
-      case 'analisis': return <Activity className="text-blue-500" />;
-      case 'finalizado': return <CheckSquare className="text-green-500" />;
-      default: return <Bell className="text-muted-foreground" />;
-    }
-  };
-
   const isLoading = isLoadingData || isLoadingSites;
   const validSites = useMemo(() => availableSites.filter(s => s.name && s.name.trim() !== ""), [availableSites]);
 
@@ -343,8 +278,8 @@ export default function DashboardRCAPage() {
       return [];
     }
     return [
-      { name: 'RCA Pendientes', value: rcaSummaryData.rcaPendientes, color: 'hsl(var(--chart-5))' }, // Orange/Red
-      { name: 'RCA Finalizados', value: rcaSummaryData.rcaFinalizados, color: 'hsl(var(--chart-2))' }, // Green
+      { name: 'RCA Pendientes', value: rcaSummaryData.rcaPendientes, color: 'hsl(var(--chart-5))' }, 
+      { name: 'RCA Finalizados', value: rcaSummaryData.rcaFinalizados, color: 'hsl(var(--chart-2))' }, 
     ].filter(item => item.value > 0);
   }, [rcaSummaryData]);
 
@@ -757,39 +692,6 @@ export default function DashboardRCAPage() {
         </CardFooter>
       </Card>
 
-      <Card className="shadow-lg">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <History className="h-6 w-6 text-primary" />
-            <CardTitle className="text-2xl">Actividad Reciente en el Sistema</CardTitle>
-          </div>
-          <CardDescription>Últimas acciones y actualizaciones importantes en eventos y análisis (máx. 5).</CardDescription>
-        </CardHeader>
-        <CardContent>
-        {isLoadingData ? (
-            <div className="flex justify-center items-center h-24">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="ml-2 text-muted-foreground">Cargando actividad reciente...</p>
-            </div>
-        ) : (
-          <ul className="space-y-3">
-            {actividadReciente.length > 0 ? actividadReciente.map((evento) => (
-              <li key={evento.id} className="flex items-start text-sm">
-                <div className="flex-shrink-0 w-5 h-5 mt-0.5 mr-2.5">
-                  {renderActividadIcon(evento.tipoIcono)}
-                </div>
-                <div>
-                  <span className="text-foreground">{evento.descripcion}</span>
-                  <span className="text-muted-foreground text-xs ml-1">({evento.tiempo})</span>
-                </div>
-              </li>
-            )) : (
-                <p className="text-muted-foreground text-center py-4">No hay actividad reciente para mostrar.</p>
-            )}
-          </ul>
-        )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
