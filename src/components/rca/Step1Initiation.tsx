@@ -26,8 +26,8 @@ interface Step1InitiationProps {
   availableSites: Site[];
   availableUsers: FullUserProfile[];
   onContinue: () => void;
-  onForceEnsureEventId: () => string; // Renamed, as it might also save initial doc
-  onSaveAnalysis: (showToast?: boolean) => Promise<void>; // New prop for saving
+  onForceEnsureEventId: () => string; 
+  onSaveAnalysis: (showToast?: boolean) => Promise<void>; 
   isSaving: boolean;
 }
 
@@ -289,9 +289,9 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
       return;
     }
     const currentEventId = onForceEnsureEventId(); 
-    await onSaveAnalysis(false); // Save data to Firestore, no separate toast here
+    await onSaveAnalysis(false); 
     
-    toast({ // Toast for initiating notification dialog
+    toast({ 
       title: "Evento Guardado",
       description: `Los detalles del evento ${currentEventId} han sido guardados. Puede notificar a los interesados.`,
     });
@@ -304,13 +304,13 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     setIsNotifyDialogOpen(true);
   };
   
-  const handleContinueToNextStep = () => {
+  const handleContinueToNextStep = async () => {
     if (!validateFields()) {
       return;
     }
     if (!eventData.id) { 
-      onForceEnsureEventId(); // Ensure ID exists, which might trigger initial save if not done
-      onSaveAnalysis(false); // Save silently if ID was just created
+      onForceEnsureEventId(); 
+      await onSaveAnalysis(false); 
     }
     onContinue();
   };
@@ -330,9 +330,13 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
                 <SelectValue placeholder="-- Seleccione un lugar --" />
               </SelectTrigger>
               <SelectContent>
-                {availableSites.length > 0 ? availableSites.map(site => (
-                  <SelectItem key={site.id} value={site.name}>{site.name}</SelectItem>
-                )) : <SelectItem value="" disabled>No hay sitios configurados</SelectItem>}
+                {availableSites.length > 0 ? (
+                  availableSites.map(site => (
+                    <SelectItem key={site.id} value={site.name}>{site.name}</SelectItem>
+                  ))
+                ) : (
+                  <div className="p-2 text-sm text-muted-foreground text-center">No hay sitios configurados</div>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -399,9 +403,13 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
                         <SelectValue placeholder="-- Seleccione un responsable --" />
                       </SelectTrigger>
                       <SelectContent>
-                        {availableUsers.length > 0 ? availableUsers.map(user => (
-                          <SelectItem key={user.id} value={user.name}>{user.name} ({user.email})</SelectItem>
-                        )) : <SelectItem value="" disabled>No hay usuarios configurados</SelectItem>}
+                        {availableUsers.length > 0 ? (
+                          availableUsers.map(user => (
+                            <SelectItem key={user.id} value={user.name}>{user.name} ({user.email})</SelectItem>
+                          ))
+                        ) : (
+                          <div className="p-2 text-sm text-muted-foreground text-center">No hay usuarios configurados</div>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
