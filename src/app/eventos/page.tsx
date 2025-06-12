@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,13 +10,15 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox'; // Import Checkbox
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { ReportedEvent, ReportedEventType, ReportedEventStatus, PriorityType } from '@/types/rca';
-import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, Eye, PlayCircle, CheckSquare } from 'lucide-react';
+import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, Eye, PlayCircle, CheckSquare, Info } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 // Sample data - in a real app, this would come from a backend/state management
 const sampleSites: Array<{ id: string; name: string }> = [
@@ -26,19 +29,19 @@ const sampleSites: Array<{ id: string; name: string }> = [
 ];
 
 const initialReportedEvents: ReportedEvent[] = [
-  { id: 'E-001', title: 'Fuga en válvula X', site: 'Planta Norte', date: '2025-06-10', type: 'Incidente', priority: 'Alta', status: 'Pendiente' },
-  { id: 'E-003', title: 'Caída de operario', site: 'Centro', date: '2025-06-08', type: 'Accidente', priority: 'Alta', status: 'Pendiente' },
-  { id: 'E-005', title: 'Error eléctrico en línea 3', site: 'Planta Sur', date: '2025-06-05', type: 'Fallo', priority: 'Media', status: 'En análisis' },
-  { id: 'E-007', title: 'Sobrecalentamiento motor', site: 'Planta Norte', date: '2025-06-02', type: 'Incidente', priority: 'Baja', status: 'Finalizado' },
-  { id: 'E-008', title: 'Derrame químico menor', site: 'Planta Sur', date: '2025-05-28', type: 'Incidente', priority: 'Media', status: 'Pendiente' },
-  { id: 'E-009', title: 'Falla en sensor de presión', site: 'Centro', date: '2025-05-25', type: 'Fallo', priority: 'Alta', status: 'En análisis' },
+  { id: 'E-001', title: 'Fuga en válvula X', site: 'Planta Norte', date: '2025-06-10', type: 'Incidente', priority: 'Alta', status: 'Pendiente', description: 'Se detectó una fuga considerable en la válvula de control principal del sector A. Requiere atención inmediata.' },
+  { id: 'E-003', title: 'Caída de operario', site: 'Centro', date: '2025-06-08', type: 'Accidente', priority: 'Alta', status: 'Pendiente', description: 'Un operario sufrió una caída desde una altura de 2 metros mientras realizaba mantenimiento en la plataforma 3. Se aplicaron primeros auxilios.' },
+  { id: 'E-005', title: 'Error eléctrico en línea 3', site: 'Planta Sur', date: '2025-06-05', type: 'Fallo', priority: 'Media', status: 'En análisis', description: 'La línea de producción 3 experimentó un fallo eléctrico intermitente, causando paradas no programadas.' },
+  { id: 'E-007', title: 'Sobrecalentamiento motor', site: 'Planta Norte', date: '2025-06-02', type: 'Incidente', priority: 'Baja', status: 'Finalizado', description: 'El motor de la bomba B-102 mostró signos de sobrecalentamiento. Se realizó mantenimiento y ya está operativo.' },
+  { id: 'E-008', title: 'Derrame químico menor', site: 'Planta Sur', date: '2025-05-28', type: 'Incidente', priority: 'Media', status: 'Pendiente', description: 'Pequeño derrame de sustancia X en el almacén de químicos. Área contenida.' },
+  { id: 'E-009', title: 'Falla en sensor de presión', site: 'Centro', date: '2025-05-25', type: 'Fallo', priority: 'Alta', status: 'En análisis', description: 'El sensor de presión PT-501 de la caldera principal está arrojando lecturas erráticas.' },
 ];
 
 const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Fallo', 'Accidente', 'No Conformidad'];
 const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
 const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'Finalizado'];
 
-const ALL_FILTER_VALUE = "__ALL__"; // Constant for "All" option value
+const ALL_FILTER_VALUE = "__ALL__"; 
 
 interface Filters {
   site: string;
@@ -50,8 +53,12 @@ interface Filters {
 
 export default function EventosReportadosPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [allEvents, setAllEvents] = useState<ReportedEvent[]>(initialReportedEvents);
   const [filteredEvents, setFilteredEvents] = useState<ReportedEvent[]>(initialReportedEvents);
+  const [selectedEvent, setSelectedEvent] = useState<ReportedEvent | null>(null);
+  const [isDetailsCardVisible, setIsDetailsCardVisible] = useState(false);
+  
   const [filters, setFilters] = useState<Filters>({
     site: '',
     date: undefined,
@@ -68,8 +75,6 @@ export default function EventosReportadosPage() {
   }), [allEvents]);
 
   const handleFilterChange = (field: keyof Filters, value: any) => {
-    // If the selected value is ALL_FILTER_VALUE, set the filter state to empty string
-    // otherwise, use the actual value.
     setFilters(prev => ({ ...prev, [field]: value === ALL_FILTER_VALUE ? '' : value }));
   };
   
@@ -96,12 +101,16 @@ export default function EventosReportadosPage() {
       events = events.filter(e => e.status === filters.status);
     }
     setFilteredEvents(events);
+    setSelectedEvent(null); // Deseleccionar evento al aplicar filtros
+    setIsDetailsCardVisible(false);
     toast({ title: "Filtros Aplicados", description: `${events.length} eventos encontrados.` });
   }, [filters, allEvents, toast]);
 
   const clearFilters = () => {
     setFilters({ site: '', date: undefined, type: '', priority: '', status: '' });
     setFilteredEvents(allEvents);
+    setSelectedEvent(null); // Deseleccionar evento al limpiar filtros
+    setIsDetailsCardVisible(false);
     toast({ title: "Filtros Limpiados" });
   };
 
@@ -127,6 +136,36 @@ export default function EventosReportadosPage() {
     return dateString; 
   };
 
+  const handleSelectEvent = (event: ReportedEvent) => {
+    if (selectedEvent?.id === event.id) {
+      // Si se hace clic en el evento ya seleccionado, se deselecciona
+      setSelectedEvent(null);
+      setIsDetailsCardVisible(false);
+    } else {
+      setSelectedEvent(event);
+      setIsDetailsCardVisible(true);
+    }
+  };
+
+  const handleViewDetails = () => {
+    if (selectedEvent) {
+      setIsDetailsCardVisible(true);
+      toast({ title: "Detalles Mostrados", description: `Mostrando detalles para el evento ${selectedEvent.title}.`});
+    } else {
+      toast({ title: "Ningún Evento Seleccionado", description: "Por favor, seleccione un evento de la lista para ver sus detalles.", variant: "destructive" });
+    }
+  };
+
+  const handleStartRCA = () => {
+    if (selectedEvent && selectedEvent.status === 'Pendiente') {
+      toast({ title: "Iniciando Análisis RCA", description: `Navegando a análisis para el evento ${selectedEvent.title}.`});
+      router.push('/analisis'); 
+    } else if (selectedEvent) {
+        toast({ title: "Acción no permitida", description: `El evento "${selectedEvent.title}" no está pendiente. Su estado es: ${selectedEvent.status}.`, variant: "destructive"});
+    } else {
+      toast({ title: "Ningún Evento Seleccionado", description: "Por favor, seleccione un evento pendiente para iniciar el análisis.", variant: "destructive" });
+    }
+  };
 
   return (
     <div className="space-y-8 py-8">
@@ -180,7 +219,7 @@ export default function EventosReportadosPage() {
           <div>
             <Label htmlFor="filter-site" className="flex items-center mb-1"><Globe className="mr-1.5 h-4 w-4 text-muted-foreground"/>Sitio/Planta</Label>
             <Select
-              value={filters.site || ALL_FILTER_VALUE} // Use ALL_FILTER_VALUE if filter is empty
+              value={filters.site || ALL_FILTER_VALUE}
               onValueChange={(val) => handleFilterChange('site', val)}
             >
               <SelectTrigger id="filter-site"><SelectValue placeholder="Todos los sitios" /></SelectTrigger>
@@ -257,10 +296,11 @@ export default function EventosReportadosPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[5%]"></TableHead> {/* Column for Checkbox */}
                 <TableHead className="w-[10%]">ID</TableHead>
                 <TableHead className="w-[25%]">Título</TableHead>
                 <TableHead className="w-[15%]">Sitio</TableHead>
-                <TableHead className="w-[15%]">Fecha</TableHead>
+                <TableHead className="w-[10%]">Fecha</TableHead>
                 <TableHead className="w-[10%]">Tipo</TableHead>
                 <TableHead className="w-[10%]">Prioridad</TableHead>
                 <TableHead className="w-[15%]">Estado</TableHead>
@@ -269,7 +309,24 @@ export default function EventosReportadosPage() {
             <TableBody>
               {filteredEvents.length > 0 ? (
                 filteredEvents.map((event) => (
-                  <TableRow key={event.id}>
+                  <TableRow 
+                    key={event.id}
+                    onClick={() => handleSelectEvent(event)}
+                    className={cn(
+                      "cursor-pointer",
+                      selectedEvent?.id === event.id
+                        ? "bg-accent/40 hover:bg-accent/50"
+                        : "hover:bg-muted/50"
+                    )}
+                  >
+                    <TableCell onClick={(e) => e.stopPropagation()} className="p-2">
+                      <Checkbox
+                        id={`select-event-${event.id}`}
+                        checked={selectedEvent?.id === event.id}
+                        onCheckedChange={() => handleSelectEvent(event)}
+                        aria-label={`Seleccionar evento ${event.title}`}
+                      />
+                    </TableCell>
                     <TableCell className="font-mono text-xs">{event.id}</TableCell>
                     <TableCell className="font-medium">{event.title}</TableCell>
                     <TableCell>{event.site}</TableCell>
@@ -281,7 +338,7 @@ export default function EventosReportadosPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground h-24">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground h-24">
                     No hay eventos que coincidan con los filtros seleccionados.
                   </TableCell>
                 </TableRow>
@@ -290,19 +347,50 @@ export default function EventosReportadosPage() {
           </Table>
         </CardContent>
         <CardFooter className="flex justify-start gap-2 pt-4 border-t">
-            <Button variant="outline" size="sm" onClick={() => toast({title: "Simulación", description: "Mostrar detalles del evento seleccionado."})}>
+            <Button variant="outline" size="sm" onClick={handleViewDetails} disabled={!selectedEvent}>
                 <Eye className="mr-2"/> Ver Detalles
             </Button>
-             <Button variant="default" size="sm" onClick={() => toast({title: "Simulación", description: "Iniciar análisis RCA para el evento seleccionado."})}>
+             <Button 
+                variant="default" 
+                size="sm" 
+                onClick={handleStartRCA} 
+                disabled={!selectedEvent || selectedEvent.status !== 'Pendiente'}
+             >
                 <PlayCircle className="mr-2"/> Iniciar Análisis RCA
             </Button>
-             <Button variant="secondary" size="sm" onClick={() => toast({title: "Simulación", description: "Marcar evento como revisado."})}>
+             <Button variant="secondary" size="sm" onClick={() => toast({title: "Simulación", description: "Marcar evento como revisado."})} disabled={!selectedEvent}>
                 <CheckSquare className="mr-2"/> Marcar como Revisado
             </Button>
         </CardFooter>
       </Card>
+
+      {isDetailsCardVisible && selectedEvent && (
+        <Card className="shadow-lg mt-6 animate-in fade-in-50 duration-300">
+          <CardHeader>
+            <CardTitle className="text-xl flex items-center gap-2">
+              <Info className="text-primary" />
+              Detalles del Evento Seleccionado: {selectedEvent.title}
+            </CardTitle>
+            <CardDescription>ID: {selectedEvent.id}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div><strong>Sitio:</strong> {selectedEvent.site}</div>
+            <div><strong>Fecha:</strong> {formatDateForDisplay(selectedEvent.date)}</div>
+            <div><strong>Tipo:</strong> {selectedEvent.type}</div>
+            <div><strong>Prioridad:</strong> {selectedEvent.priority}</div>
+            <div><strong>Estado:</strong> <Badge variant={getStatusBadgeVariant(selectedEvent.status)}>{selectedEvent.status}</Badge></div>
+            <div>
+              <strong>Descripción Inicial:</strong>
+              <p className="mt-1 text-sm text-muted-foreground p-2 border rounded-md bg-secondary/30">
+                {selectedEvent.description || "No hay descripción detallada disponible."}
+              </p>
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button variant="outline" onClick={() => { setSelectedEvent(null); setIsDetailsCardVisible(false); }}>Cerrar Detalles</Button>
+          </CardFooter>
+        </Card>
+      )}
     </div>
   );
 }
-
-    
