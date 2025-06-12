@@ -35,6 +35,20 @@ interface Filters {
   status: ReportedEventStatus;
 }
 
+// Helper function to update event status in Firestore
+async function updateEventStatusInFirestore(eventId: string, newStatus: ReportedEventStatus, toastInstance: ReturnType<typeof useToast>['toast']) {
+  const eventRef = doc(db, "reportedEvents", eventId);
+  try {
+    await updateDoc(eventRef, { status: newStatus });
+    return true;
+  } catch (error) {
+    console.error("Error updating event status in Firestore: ", error);
+    toastInstance({ title: "Error al Actualizar Estado", description: "No se pudo actualizar el estado del evento en Firestore.", variant: "destructive" });
+    return false;
+  }
+}
+
+
 export default function EventosReportadosPage() {
   const { toast } = useToast();
   const router = useRouter();
@@ -45,6 +59,8 @@ export default function EventosReportadosPage() {
   
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
   const [isLoadingSites, setIsLoadingSites] = useState(true);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
 
   const [selectedEvent, setSelectedEvent] = useState<ReportedEvent | null>(null);
   const [isDetailsCardVisible, setIsDetailsCardVisible] = useState(false);
@@ -185,20 +201,30 @@ export default function EventosReportadosPage() {
     }
   };
 
-  // Para eventos "Pendientes": Navega al análisis. El cambio de estado a "En análisis" 
-  // ocurrirá cuando se guarde el progreso en el Paso 2 del módulo de análisis.
   const handleStartRCA = async () => {
     if (selectedEvent && selectedEvent.status === 'Pendiente') {
-      // No se cambia el estado aquí. Solo se navega.
-      router.push(`/analisis?id=${selectedEvent.id}`); 
+      setIsUpdatingStatus(true);
+      const success = await updateEventStatusInFirestore(selectedEvent.id, "En análisis", toast);
+      
+      if (success) {
+        const updatedEvent = { ...selectedEvent, status: "En análisis" as ReportedEventStatus };
+        // Update local state to reflect the change immediately
+        setAllEvents(prev => prev.map(e => e.id === selectedEvent.id ? updatedEvent : e));
+        setFilteredEvents(prev => prev.map(e => e.id === selectedEvent.id ? updatedEvent : e));
+        setSelectedEvent(updatedEvent); // Update selected event as well
+
+        // toast({ title: "Investigación Iniciada", description: `El evento "${selectedEvent.title}" ahora está "En análisis".` }); // Toast de que se cargó se mostrará en página de análisis
+        router.push(`/analisis?id=${selectedEvent.id}`);
+      }
+      setIsUpdatingStatus(false);
     } else if (selectedEvent) {
+        // This case should not happen if button logic is correct, but good for safety
         toast({ title: "Acción no permitida", description: `El evento "${selectedEvent.title}" no está pendiente. Su estado es: ${selectedEvent.status}.`, variant: "destructive"});
     } else {
       toast({ title: "Ningún Evento Seleccionado", description: "Por favor, seleccione un evento pendiente para iniciar el análisis.", variant: "destructive" });
     }
   };
   
-  // Para eventos "En análisis" o "Finalizado": Solo navega al análisis.
   const handleViewAnalysis = () => {
     if (selectedEvent) {
         router.push(`/analisis?id=${selectedEvent.id}`);
@@ -401,28 +427,30 @@ export default function EventosReportadosPage() {
         <CardFooter className="flex justify-start gap-2 pt-4 border-t">
           {selectedEvent ? (() => {
             let buttonText = "";
-            let buttonIcon = PlayCircle;
+            let ButtonIcon = PlayCircle; // Default icon
             let buttonVariant: "default" | "outline" = "default";
             let buttonOnClick = () => {};
+            let isDisabled = isUpdatingStatus; // Disable if updating status
 
             if (selectedEvent.status === 'Pendiente') {
-              buttonText = "Continuar Investigación"; // Texto se mantiene
-              buttonIcon = PlayCircle;
-              buttonOnClick = handleStartRCA; // Esta función ahora solo navega
+              buttonText = "Continuar Investigación";
+              ButtonIcon = PlayCircle;
+              buttonOnClick = handleStartRCA;
             } else if (selectedEvent.status === 'En análisis') {
               buttonText = "Continuar Investigación";
-              buttonIcon = PlayCircle;
+              ButtonIcon = PlayCircle;
               buttonOnClick = handleViewAnalysis;
             } else if (selectedEvent.status === 'Finalizado') {
               buttonText = "Revisar Investigación";
-              buttonIcon = Eye;
+              ButtonIcon = Eye;
               buttonVariant = "outline";
               buttonOnClick = handleViewAnalysis;
             }
-            const IconComponent = buttonIcon;
+            
             return (
-              <Button variant={buttonVariant} size="sm" onClick={buttonOnClick}>
-                <IconComponent className="mr-2 h-4 w-4" /> {buttonText}
+              <Button variant={buttonVariant} size="sm" onClick={buttonOnClick} disabled={isDisabled}>
+                {isUpdatingStatus && selectedEvent.status === 'Pendiente' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <ButtonIcon className="mr-2 h-4 w-4" /> {buttonText}
               </Button>
             );
           })() : (
@@ -463,3 +491,4 @@ export default function EventosReportadosPage() {
     </div>
   );
 }
+
