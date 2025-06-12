@@ -1,7 +1,6 @@
-
 'use client';
 import type { FC, ChangeEvent } from 'react';
-import { useState, useMemo, useCallback } from 'react'; // Added useCallback
+import { useState, useMemo, useCallback, useEffect } from 'react'; // Added useCallback & useEffect
 import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhysData, RCAEventData, CTMData, IdentifiedRootCause, FullUserProfile } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -356,13 +355,18 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     await onSaveAnalysis(false); // Save current state before opening dialog
 
     const actionsToNotify = plannedActions.filter(
-      action => action.responsible && action.description.trim() && action.dueDate && !action.isNotificationSent
+      action =>
+        action && // Ensure action object exists
+        action.responsible &&
+        typeof action.description === 'string' && action.description.trim() && // Check type then trim
+        action.dueDate &&
+        !action.isNotificationSent
     );
 
     if (actionsToNotify.length === 0) {
       toast({
         title: "Sin Tareas para Notificar",
-        description: "Todas las tareas elegibles ya han sido notificadas o no cumplen los criterios.",
+        description: "Todas las tareas elegibles ya han sido notificadas o no cumplen los criterios (responsable, descripción, fecha límite).",
         variant: "default"
       });
       return;
@@ -374,41 +378,48 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const handleConfirmSendNotificationsInDialog = async (selectedActionIds: string[]) => {
     let tasksSentCount = 0;
     let tasksFailedCount = 0;
-    let tasksIncompleteCount = 0; // Already handled by filter, but good for robustness
+    let tasksIncompleteCount = 0; 
 
     for (const actionId of selectedActionIds) {
       const actionIndex = plannedActions.findIndex(a => a.id === actionId);
-      if (actionIndex === -1) continue;
+      if (actionIndex === -1) {
+          console.warn(`Action with ID ${actionId} not found in plannedActions.`);
+          tasksFailedCount++; 
+          continue;
+      }
       
       const action = plannedActions[actionIndex];
 
-      if (action.responsible && action.description.trim() && action.dueDate) {
-        const responsibleUser = availableUsers.find(user => user.name === action.responsible);
-        if (responsibleUser && responsibleUser.email) {
-          const emailSubject = `Tarea Asignada (RCA ${eventData.id || 'Evento Actual'}): ${action.description.substring(0,30)}...`;
-          const emailBody = `Estimado/a ${responsibleUser.name},\n\nSe le ha asignado la siguiente tarea como parte del análisis de causa raíz para el evento "${eventData.focusEventDescription || 'No especificado'}":\n\nTarea: ${action.description}\nFecha Límite: ${action.dueDate}\nCausas Raíz Relacionadas: ${(action.relatedRootCauseIds && action.relatedRootCauseIds.length > 0) ? action.relatedRootCauseIds.map(rcId => identifiedRootCauses.find(rc => rc.id === rcId)?.description || rcId).join(', ') : 'N/A'}\n\nPor favor, acceda al sistema RCA Assistant para más detalles y para actualizar el estado de esta tarea.\n\nSaludos,\nSistema RCA Assistant`;
-          
-          const result = await sendEmailAction({
-            to: responsibleUser.email,
-            subject: emailSubject,
-            body: emailBody,
-          });
+      if (!action || !(typeof action.description === 'string' && action.description.trim()) || !action.responsible || !action.dueDate) {
+          console.warn(`Action ${actionId} is missing required fields for notification.`);
+          tasksIncompleteCount++;
+          continue;
+      }
+      
+      const responsibleUser = availableUsers.find(user => user.name === action.responsible);
+      if (!responsibleUser || !responsibleUser.email) {
+          console.warn(`Responsible user or email not found for action ${actionId}, responsible: ${action.responsible}`);
+          tasksFailedCount++;
+          continue;
+      }
 
-          if(result.success) {
-            tasksSentCount++;
-            onUpdatePlannedAction(actionIndex, 'isNotificationSent', true);
-          } else {
-            tasksFailedCount++;
-          }
-        } else {
-           tasksFailedCount++; // User or email not found
-        }
+      const emailSubject = `Tarea Asignada (RCA ${eventData.id || 'Evento Actual'}): ${action.description.substring(0,30)}...`;
+      const emailBody = `Estimado/a ${responsibleUser.name},\n\nSe le ha asignado la siguiente tarea como parte del análisis de causa raíz para el evento "${eventData.focusEventDescription || 'No especificado'}":\n\nTarea: ${action.description}\nFecha Límite: ${action.dueDate}\nCausas Raíz Relacionadas: ${(action.relatedRootCauseIds && action.relatedRootCauseIds.length > 0) ? action.relatedRootCauseIds.map(rcId => identifiedRootCauses.find(rc => rc.id === rcId)?.description || rcId).join(', ') : 'N/A'}\n\nPor favor, acceda al sistema RCA Assistant para más detalles y para actualizar el estado de esta tarea.\n\nSaludos,\nSistema RCA Assistant`;
+      
+      const result = await sendEmailAction({
+        to: responsibleUser.email,
+        subject: emailSubject,
+        body: emailBody,
+      });
+
+      if(result.success) {
+        tasksSentCount++;
+        onUpdatePlannedAction(actionIndex, 'isNotificationSent', true);
       } else {
-        tasksIncompleteCount++; // Should not happen if filter is correct
+        tasksFailedCount++;
       }
     }
     
-    // Save changes to isNotificationSent flags
     if (tasksSentCount > 0) {
         await onSaveAnalysis(false); 
     }
