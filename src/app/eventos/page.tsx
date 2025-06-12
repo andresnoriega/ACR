@@ -84,7 +84,7 @@ export default function EventosReportadosPage() {
   }, [toast]);
 
   useEffect(() => {
-    const fetchSites = async () => {
+    const fetchSitesData = async () => {
       setIsLoadingSites(true);
       try {
         const sitesCollectionRef = collection(db, "sites");
@@ -102,7 +102,7 @@ export default function EventosReportadosPage() {
     };
 
     fetchEvents();
-    fetchSites();
+    fetchSitesData();
   }, [fetchEvents, toast]);
 
 
@@ -167,7 +167,7 @@ export default function EventosReportadosPage() {
     try {
       const dateObj = parseISO(dateString); 
       if (isValidDate(dateObj)) {
-        return format(dateObj, 'dd/MM/yyyy');
+        return format(dateObj, 'dd/MM/yyyy', { locale: es });
       }
     } catch (error) {
       // If parsing fails, try to return original or a fallback
@@ -191,14 +191,15 @@ export default function EventosReportadosPage() {
         const eventRef = doc(db, "reportedEvents", selectedEvent.id);
         await updateDoc(eventRef, { status: "En análisis" });
         
-        // Update local state to reflect change immediately
+        const updatedSelectedEvent = { ...selectedEvent, status: "En análisis" as ReportedEventStatus };
+        
         setAllEvents(prevEvents => prevEvents.map(ev => 
-          ev.id === selectedEvent.id ? { ...ev, status: "En análisis" } : ev
+          ev.id === selectedEvent.id ? updatedSelectedEvent : ev
         ));
         setFilteredEvents(prevFiltered => prevFiltered.map(ev => 
-          ev.id === selectedEvent.id ? { ...ev, status: "En análisis" } : ev
+          ev.id === selectedEvent.id ? updatedSelectedEvent : ev
         ));
-        setSelectedEvent(prevSelected => prevSelected ? { ...prevSelected, status: "En análisis"} : null);
+        setSelectedEvent(updatedSelectedEvent);
 
         toast({ title: "Investigación Iniciada", description: `El evento ${selectedEvent.title} ahora está "En análisis".`});
         router.push(`/analisis?id=${selectedEvent.id}`); 
@@ -414,45 +415,37 @@ export default function EventosReportadosPage() {
           </div>
         </CardContent>
         <CardFooter className="flex justify-start gap-2 pt-4 border-t">
-            {selectedEvent ? (
-                <>
-                    {selectedEvent.status === 'Pendiente' && (
-                        <Button 
-                            variant="default" 
-                            size="sm" 
-                            onClick={handleStartRCA} 
-                        >
-                            <PlayCircle className="mr-2"/> Continuar Investigación
-                        </Button>
-                    )}
-                    {selectedEvent.status === 'En análisis' && (
-                        <Button 
-                            variant="default" 
-                            size="sm" 
-                            onClick={handleViewAnalysis}
-                        >
-                            <PlayCircle className="mr-2"/> Continuar Investigación
-                        </Button>
-                    )}
-                    {selectedEvent.status === 'Finalizado' && (
-                        <Button 
-                            variant="outline"
-                            size="sm" 
-                            onClick={handleViewAnalysis}
-                        >
-                            <Eye className="mr-2"/> Revisar Investigación
-                        </Button>
-                    )}
-                </>
-            ) : (
-                <Button 
-                    variant="default" 
-                    size="sm" 
-                    disabled
-                >
-                    <PlayCircle className="mr-2"/> Seleccione un evento
-                </Button>
-            )}
+          {selectedEvent ? (() => {
+            let buttonText = "";
+            let buttonIcon = PlayCircle;
+            let buttonVariant: "default" | "outline" = "default";
+            let buttonOnClick = () => {};
+
+            if (selectedEvent.status === 'Pendiente') {
+              buttonText = "Continuar Investigación";
+              buttonIcon = PlayCircle;
+              buttonOnClick = handleStartRCA;
+            } else if (selectedEvent.status === 'En análisis') {
+              buttonText = "Continuar Investigación";
+              buttonIcon = PlayCircle;
+              buttonOnClick = handleViewAnalysis;
+            } else if (selectedEvent.status === 'Finalizado') {
+              buttonText = "Revisar Investigación";
+              buttonIcon = Eye;
+              buttonVariant = "outline";
+              buttonOnClick = handleViewAnalysis;
+            }
+            const IconComponent = buttonIcon;
+            return (
+              <Button variant={buttonVariant} size="sm" onClick={buttonOnClick}>
+                <IconComponent className="mr-2" /> {buttonText}
+              </Button>
+            );
+          })() : (
+            <Button variant="default" size="sm" disabled>
+              <PlayCircle className="mr-2" /> Seleccione un evento
+            </Button>
+          )}
         </CardFooter>
       </Card>
 
