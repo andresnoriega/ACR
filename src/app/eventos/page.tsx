@@ -314,7 +314,14 @@ export default function EventosReportadosPage() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
-                <Calendar mode="single" selected={filters.date} onSelect={handleDateChange} initialFocus locale={es} />
+                <Calendar 
+                  mode="single" 
+                  selected={filters.date} 
+                  onSelect={handleDateChange} 
+                  initialFocus 
+                  locale={es}
+                  disabled={{ after: new Date() }} 
+                />
               </PopoverContent>
             </Popover>
           </div>

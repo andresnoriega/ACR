@@ -452,7 +452,14 @@ export default function DashboardRCAPage() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
-                <CalendarComponent mode="single" selected={filters.dateFrom} onSelect={handleDateFromChange} initialFocus locale={es} />
+                <CalendarComponent 
+                  mode="single" 
+                  selected={filters.dateFrom} 
+                  onSelect={handleDateFromChange} 
+                  initialFocus 
+                  locale={es}
+                  disabled={{ after: new Date() }} 
+                />
               </PopoverContent>
             </Popover>
           </div>
@@ -467,7 +474,14 @@ export default function DashboardRCAPage() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
-                <CalendarComponent mode="single" selected={filters.dateTo} onSelect={handleDateToChange} initialFocus locale={es} />
+                <CalendarComponent 
+                  mode="single" 
+                  selected={filters.dateTo} 
+                  onSelect={handleDateToChange} 
+                  initialFocus 
+                  locale={es} 
+                  disabled={{ after: new Date() }}
+                />
               </PopoverContent>
             </Popover>
           </div>
