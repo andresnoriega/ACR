@@ -11,12 +11,20 @@ export interface ImmediateAction {
   eventId: string;
   description: string;
   responsible: string;
-  dueDate: string; 
+  dueDate: string;
 }
 
 export interface IdentifiedRootCause {
   id: string;
   description: string;
+}
+
+// Definición del tipo Evidence
+export interface Evidence {
+  id: string;
+  nombre: string; // Corresponde a userGivenName o fileName
+  tipo: 'pdf' | 'jpg' | 'docx' | 'other';
+  // No necesitamos link o acciónLabel para la visualización en Paso 4, solo para simular "Ver/Descargar"
 }
 
 export interface PlannedAction {
@@ -25,34 +33,36 @@ export interface PlannedAction {
   description: string;
   responsible: string;
   dueDate: string;
-  relatedRootCauseIds?: string[]; 
+  relatedRootCauseIds?: string[];
+  evidencias?: Evidence[]; // Nuevo campo
+  userComments?: string; // Nuevo campo
 }
 
 export interface Validation {
-  actionId: string; 
-  eventId: string; 
+  actionId: string;
+  eventId: string;
   status: 'pending' | 'validated';
 }
 
 export type AnalysisTechnique = '' | 'WhyWhy' | 'Ishikawa' | 'CTM';
 
 export interface IshikawaCause {
-  id: string; 
+  id: string;
   description: string;
 }
 
 export interface IshikawaCategory {
-  id: string; 
-  name: string; 
+  id: string;
+  name: string;
   causes: IshikawaCause[];
 }
 
 export type IshikawaData = IshikawaCategory[];
 
 export interface FiveWhyEntry {
-  id: string; 
-  why: string; 
-  because: string; 
+  id: string;
+  why: string;
+  because: string;
 }
 
 export type FiveWhysData = FiveWhyEntry[];
@@ -104,7 +114,7 @@ export const PRESERVED_FACT_CATEGORIES = [
   "Registro mantenimientos y pruebas realizadas",
   "Procedimientos",
   "Entrevistas",
-  "PT, AST, OT", 
+  "PT, AST, OT",
   "Charlas",
   "Manuales, planos, P&ID, catálogos, Normativa asociada, entre otras."
 ] as const;
@@ -123,7 +133,6 @@ export interface PreservedFact {
   uploadDate: string;
 }
 
-// Interface para perfiles de usuario con roles y permisos simulados
 export interface FullUserProfile {
   id: string;
   name: string;

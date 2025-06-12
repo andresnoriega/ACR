@@ -1,7 +1,7 @@
 
 'use client';
 import type { FC, ChangeEvent } from 'react';
-import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhysData, RCAEventData, CTMData, IdentifiedRootCause, FullUserProfile } from '@/types/rca'; // Added FullUserProfile
+import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhysData, RCAEventData, CTMData, IdentifiedRootCause, FullUserProfile } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
 import { FiveWhysInteractive } from './FiveWhysInteractive';
 import { CTMInteractive } from './CTMInteractive';
-import { useToast } from "@/hooks/use-toast"; // Import useToast
+import { useToast } from "@/hooks/use-toast";
 
 interface Step3AnalysisProps {
   eventData: RCAEventData;
@@ -37,7 +37,7 @@ interface Step3AnalysisProps {
   onAddPlannedAction: () => void;
   onUpdatePlannedAction: (index: number, field: keyof Omit<PlannedAction, 'eventId' | 'id'>, value: string | string[]) => void;
   onRemovePlannedAction: (index: number) => void;
-  availableUsers: FullUserProfile[]; 
+  availableUsers: FullUserProfile[];
   onPrevious: () => void;
   onNext: () => void;
 }
@@ -64,11 +64,11 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   onAddPlannedAction,
   onUpdatePlannedAction,
   onRemovePlannedAction,
-  availableUsers, 
+  availableUsers,
   onPrevious,
   onNext,
 }) => {
-  const { toast } = useToast(); // Initialize useToast
+  const { toast } = useToast();
 
   const handleActionChange = (index: number, field: keyof Omit<PlannedAction, 'eventId' | 'id'>, value: string) => {
     onUpdatePlannedAction(index, field, value);
@@ -101,14 +101,13 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const getTodayDateString = () => {
     const today = new Date();
     const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+    const month = String(today.getMonth() + 1).padStart(2, '0');
     const day = String(today.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
   const minDateForPlannedActions = getTodayDateString();
 
   const handleNextWithValidation = () => {
-    // Validate Identified Root Causes
     if (identifiedRootCauses.length === 0) {
       toast({
         title: "Campo Obligatorio Faltante",
@@ -128,7 +127,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
       }
     }
 
-    // Validate Planned Actions
     if (plannedActions.length > 0) {
       for (let i = 0; i < plannedActions.length; i++) {
         const action = plannedActions[i];
@@ -168,6 +166,19 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
         }
       }
     }
+    // If all validations pass for planned actions (or if there are no planned actions and root causes are fine)
+    if (plannedActions.length === 0 && identifiedRootCauses.length > 0 && identifiedRootCauses.every(rc => rc.description.trim())) {
+        toast({
+            title: "Advertencia: Sin Plan de Acción",
+            description: "Ha identificado causas raíz pero no ha definido un plan de acción. ¿Desea continuar?",
+            action: (
+                <Button onClick={onNext} size="sm">Sí, continuar</Button>
+            ),
+            duration: 8000,
+        });
+        return; // Prevent automatic next step if there are no planned actions. User must click "Sí, continuar"
+    }
+
     onNext();
   };
 
@@ -325,10 +336,10 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor={`pa-date-${index}`}>Fecha Límite <span className="text-destructive">*</span></Label>
-                  <Input 
-                    id={`pa-date-${index}`} 
-                    type="date" 
-                    value={action.dueDate} 
+                  <Input
+                    id={`pa-date-${index}`}
+                    type="date"
+                    value={action.dueDate}
                     onChange={(e) => handleActionChange(index, 'dueDate', e.target.value)}
                     min={minDateForPlannedActions}
                   />
@@ -348,4 +359,3 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     </Card>
   );
 };
-
