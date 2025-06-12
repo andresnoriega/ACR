@@ -43,9 +43,6 @@ export default function ConfiguracionUsuariosPage() {
   const [userAssignedSites, setUserAssignedSites] = useState('');
   const [userEmailNotifications, setUserEmailNotifications] = useState(false);
   
-  // Permission level is not directly edited here but is part of FullUserProfile
-  // It will be managed by /config/permisos or set to default for new users
-
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserConfigProfile | null>(null);
 
@@ -56,7 +53,7 @@ export default function ConfiguracionUsuariosPage() {
         const usersCollectionRef = collection(db, "users");
         const q = query(usersCollectionRef, orderBy("name", "asc"));
         const querySnapshot = await getDocs(q);
-        const usersData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserConfigProfile));
+        const usersData = querySnapshot.docs.map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() } as UserConfigProfile));
         setUsers(usersData);
       } catch (error) {
         console.error("Error fetching users: ", error);
@@ -94,7 +91,7 @@ export default function ConfiguracionUsuariosPage() {
     setUserEmail(user.email);
     setUserRole(user.role);
     setUserAssignedSites(user.assignedSites || '');
-    setUserEmailNotifications(user.emailNotifications);
+    setUserEmailNotifications(user.emailNotifications || false); // Ensure boolean
     setUserPassword(''); 
     setUserConfirmPassword('');
     setIsUserDialogOpen(true);
@@ -129,16 +126,15 @@ export default function ConfiguracionUsuariosPage() {
         name: userName.trim(),
         email: userEmail.trim(),
         role: userRole,
+        // permissionLevel remains unchanged unless specifically edited elsewhere
         assignedSites: userAssignedSites.trim(),
         emailNotifications: userEmailNotifications,
-        // permissionLevel is not directly updated here, it's managed by /config/permisos
-        // or retains its existing value from Firestore.
       };
       try {
         const userRef = doc(db, "users", currentUser.id);
         await updateDoc(userRef, updatedUserData);
         setUsers(prevUsers => 
-          prevUsers.map(u => u.id === currentUser.id ? { ...u, ...updatedUserData } : u)
+          prevUsers.map(u => u.id === currentUser.id ? { ...u, ...updatedUserData, permissionLevel: u.permissionLevel } : u) // retain original permissionLevel
                    .sort((a, b) => a.name.localeCompare(b.name))
         );
         toast({ title: "Usuario Actualizado", description: `El usuario "${userName}" ha sido actualizado.` });
@@ -147,16 +143,15 @@ export default function ConfiguracionUsuariosPage() {
         toast({ title: "Error al Actualizar", description: "No se pudo actualizar el usuario.", variant: "destructive" });
       }
     } else {
+      // For new users, ensure all required fields for FullUserProfile are present, plus any UserConfigProfile specifics
       const newUserPayload: Omit<UserConfigProfile, 'id'> = {
         name: userName.trim(),
         email: userEmail.trim(),
         role: userRole,
-        permissionLevel: defaultPermissionLevel, // Assign default permission level for new users
+        permissionLevel: defaultPermissionLevel, 
         assignedSites: userAssignedSites.trim(),
         emailNotifications: userEmailNotifications,
       };
-      // Note: Password is not stored in Firestore user document for this example.
-      // Real auth would handle passwords separately (e.g., Firebase Auth).
       try {
         const docRef = await addDoc(collection(db, "users"), newUserPayload);
         setUsers(prevUsers => [...prevUsers, { id: docRef.id, ...newUserPayload }].sort((a,b) => a.name.localeCompare(b.name)));
