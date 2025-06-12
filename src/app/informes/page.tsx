@@ -28,7 +28,7 @@ interface AnalisisEnCursoItem {
 }
 
 interface PlanAccionPendienteItem {
-  id: string;
+  actionId: string; // Renombrado de id a actionId para claridad
   accion: string;
   responsable: string;
   fechaLimite: string;
@@ -42,6 +42,7 @@ interface ActividadRecienteItem {
   descripcion: string;
   tiempo: string; 
   tipoIcono: 'evento' | 'analisis' | 'finalizado';
+  originalTimestamp: string; 
 }
 
 
@@ -161,8 +162,6 @@ export default function DashboardRCAPage() {
       const planes: PlanAccionPendienteItem[] = [];
       try {
         const rcaAnalysesRef = collection(db, "rcaAnalyses");
-        // Consider if isFinalized filter is needed here or if we want to show actions from finalized ones too
-        // For "Planes de Acción Activos", usually it's from non-finalized.
         const q = query(rcaAnalysesRef, where("isFinalized", "==", false), orderBy("updatedAt", "desc"));
         const querySnapshot = await getDocs(q);
 
@@ -172,13 +171,13 @@ export default function DashboardRCAPage() {
             const validation = rcaDoc.validations?.find(v => v.actionId === action.id);
             if (!validation || validation.status === 'pending') {
               planes.push({
-                id: action.id,
+                actionId: action.id,
                 accion: action.description,
                 responsable: action.responsible,
                 fechaLimite: action.dueDate && isValid(parseISO(action.dueDate)) ? format(parseISO(action.dueDate), 'dd/MM/yyyy', { locale: es }) : 'N/A',
                 estado: 'Activa',
                 rcaId: docSnap.id,
-                rcaTitle: rcaDoc.eventData?.focusEventDescription || `Análisis ID ${docSnap.id.substring(0,5)}...`
+                rcaTitle: rcaDoc.eventData?.focusEventDescription || `Análisis ID ${docSnap.id.substring(0,8)}...`
               });
             }
           });
@@ -186,9 +185,10 @@ export default function DashboardRCAPage() {
         
         setPlanesAccionPendientes(planes.sort((a,b) => {
             try {
-                // Ensure fechaLimite is valid before parsing
-                const dateA = a.fechaLimite !== 'N/A' ? parseISO(a.fechaLimite.split('/').reverse().join('-')) : null;
-                const dateB = b.fechaLimite !== 'N/A' ? parseISO(b.fechaLimite.split('/').reverse().join('-')) : null;
+                const dateAStr = a.fechaLimite.split('/').reverse().join('-');
+                const dateBStr = b.fechaLimite.split('/').reverse().join('-');
+                const dateA = a.fechaLimite !== 'N/A' ? parseISO(dateAStr) : null;
+                const dateB = b.fechaLimite !== 'N/A' ? parseISO(dateBStr) : null;
 
                 if (dateA && isValid(dateA) && dateB && isValid(dateB)) return dateA.getTime() - dateB.getTime();
                 if (dateA && isValid(dateA)) return -1; 
@@ -208,14 +208,13 @@ export default function DashboardRCAPage() {
       setIsLoadingActividadReciente(true);
       const actividades: ActividadRecienteItem[] = [];
       try {
-        // Fetch recent reported events
         const eventsRef = collection(db, "reportedEvents");
         const eventsQuery = query(eventsRef, orderBy("updatedAt", "desc"), limit(3));
         const eventsSnapshot = await getDocs(eventsQuery);
         eventsSnapshot.forEach(docSnap => {
           const event = docSnap.data() as ReportedEvent;
+          const timestamp = event.updatedAt || event.createdAt || new Date().toISOString();
           let desc = `Evento '${event.title || 'Sin Título'}'`;
-          // Check if createdAt and updatedAt are the same (or very close) to determine if it's new or updated
           const isNew = !event.updatedAt || !event.createdAt || (new Date(event.createdAt).getTime() === new Date(event.updatedAt).getTime());
           if (isNew) { 
             desc += ` registrado.`;
@@ -225,35 +224,28 @@ export default function DashboardRCAPage() {
           actividades.push({
             id: `evt-${docSnap.id}`,
             descripcion: desc,
-            tiempo: formatRelativeTime(event.updatedAt || event.createdAt), // Fallback to createdAt
-            tipoIcono: event.status === 'Finalizado' ? 'finalizado' : 'evento'
+            tiempo: formatRelativeTime(timestamp),
+            tipoIcono: event.status === 'Finalizado' ? 'finalizado' : 'evento',
+            originalTimestamp: timestamp
           });
         });
 
-        // Fetch recent RCA analyses
         const analysesRef = collection(db, "rcaAnalyses");
         const analysesQuery = query(analysesRef, orderBy("updatedAt", "desc"), limit(3));
         const analysesSnapshot = await getDocs(analysesQuery);
         analysesSnapshot.forEach(docSnap => {
           const analysis = docSnap.data() as RCAAnalysisDocument;
+          const timestamp = analysis.updatedAt || analysis.createdAt || new Date().toISOString();
            actividades.push({
             id: `rca-${docSnap.id}`,
-            descripcion: `Análisis '${analysis.eventData?.focusEventDescription || `ID ${docSnap.id.substring(0,5)}...`}' actualizado.`,
-            tiempo: formatRelativeTime(analysis.updatedAt),
-            tipoIcono: analysis.isFinalized ? 'finalizado' : 'analisis'
+            descripcion: `Análisis '${analysis.eventData?.focusEventDescription || `ID ${docSnap.id.substring(0,8)}...`}' actualizado.`,
+            tiempo: formatRelativeTime(timestamp),
+            tipoIcono: analysis.isFinalized ? 'finalizado' : 'analisis',
+            originalTimestamp: timestamp
           });
         });
         
-        // Sort all activities by their actual date derived from 'tiempo' (this is tricky, better to sort by original date before formatting)
-        // For simplicity here, we'll assume updatedAt from Firestore gives a good enough order for recent items
-        // A more robust sort would convert 'tiempo' back to a date or use the original date fields
-        actividades.sort((a, b) => {
-            // This sort is imperfect as it relies on parsing relative time string.
-            // A better approach would be to store the original timestamp with each activity item.
-            // For now, we rely on Firestore's ordering + slicing.
-            // If original timestamps were available: return parseISO(b.originalTimestamp).getTime() - parseISO(a.originalTimestamp).getTime();
-            return 0; // Placeholder if not sorting rigorously after merge
-        });
+        actividades.sort((a, b) => parseISO(b.originalTimestamp).getTime() - parseISO(a.originalTimestamp).getTime());
         setActividadReciente(actividades.slice(0, 5));
 
       } catch (error) {
@@ -401,21 +393,25 @@ export default function DashboardRCAPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[35%]">Acción (Análisis: <span className="italic text-xs">Título del RCA</span>)</TableHead>
-                  <TableHead className="w-[20%]">Responsable</TableHead>
-                  <TableHead className="w-[20%]">Fecha Límite</TableHead>
-                  <TableHead className="w-[20%]">Estado Acción</TableHead>
+                  <TableHead className="w-[15%] text-xs">ID Evento</TableHead>
+                  <TableHead className="w-[15%] text-xs">ID Acción</TableHead>
+                  <TableHead className="w-[25%]">Acción (Análisis: <span className="italic text-xs">Título RCA</span>)</TableHead>
+                  <TableHead className="w-[15%]">Responsable</TableHead>
+                  <TableHead className="w-[15%]">Fecha Límite</TableHead>
+                  <TableHead className="w-[15%]">Estado Acción</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {planesAccionPendientes.length > 0 ? planesAccionPendientes.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">
+                  <TableRow key={item.actionId}>
+                    <TableCell className="font-mono text-xs">{item.rcaId.substring(0, 8)}...</TableCell>
+                    <TableCell className="font-mono text-xs">{item.actionId.substring(0, 8)}...</TableCell>
+                    <TableCell className="font-medium text-sm">
                       {item.accion}
                       <p className="text-xs text-muted-foreground italic mt-0.5">Del Análisis: {item.rcaTitle}</p>
                     </TableCell>
-                    <TableCell>{item.responsable}</TableCell>
-                    <TableCell>{item.fechaLimite}</TableCell>
+                    <TableCell className="text-sm">{item.responsable}</TableCell>
+                    <TableCell className="text-sm">{item.fechaLimite}</TableCell>
                     <TableCell>
                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">
                         {item.estado}
@@ -424,7 +420,7 @@ export default function DashboardRCAPage() {
                   </TableRow>
                 )) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground h-24">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
                       No hay planes de acción activos para mostrar.
                     </TableCell>
                   </TableRow>
