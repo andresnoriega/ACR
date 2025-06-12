@@ -11,9 +11,9 @@ import { getFirestore } from "firebase/firestore";
 const firebaseConfig = {
   apiKey: "AIzaSyA3a8UytRbwFKWT9ISF10lYaizC37b3rZQ",
   authDomain: "rca-assistant-jk3ja.firebaseapp.com",
-  projectId: "rca-assistant-jk3ja", // Corregido
-  storageBucket: "rca-assistant-jk3ja.appspot.com", // Corregido
-  messagingSenderId: "1044963774198", // Corregido
+  projectId: "Yrca-assistant-jk3ja",
+  storageBucket: "Yrca-assistant-jk3ja.firebasestorage.app",
+  messagingSenderId: "Y1044963774198",
   appId: "1:1044963774198:web:4ae00d1ee674f1864ea6d7",
   measurementId: "YOUR_MEASUREMENT_ID" // Opcional: si usas Google Analytics
 };
