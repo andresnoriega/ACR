@@ -8,6 +8,51 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ShieldCheck, DatabaseZap, AlertTriangle, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { db } from '@/lib/firebase';
+import { collection, getDocs, deleteDoc, doc, WriteBatch, writeBatch } from "firebase/firestore";
+
+async function deleteAllDocsInCollection(collectionName: string): Promise<{ success: boolean, docsDeleted: number, error?: any }> {
+  try {
+    const collectionRef = collection(db, collectionName);
+    const querySnapshot = await getDocs(collectionRef);
+    let docsDeleted = 0;
+
+    if (querySnapshot.empty) {
+      return { success: true, docsDeleted: 0 };
+    }
+
+    // Firestore permite hasta 500 operaciones en un batch.
+    // Dividiremos las eliminaciones en múltiples batches si es necesario.
+    const batches: WriteBatch[] = [];
+    let currentBatch = writeBatch(db);
+    let operationsInCurrentBatch = 0;
+
+    querySnapshot.forEach((documentSnapshot) => {
+      currentBatch.delete(doc(db, collectionName, documentSnapshot.id));
+      operationsInCurrentBatch++;
+      docsDeleted++;
+      if (operationsInCurrentBatch === 499) { // Dejar un pequeño margen por si acaso
+        batches.push(currentBatch);
+        currentBatch = writeBatch(db);
+        operationsInCurrentBatch = 0;
+      }
+    });
+
+    if (operationsInCurrentBatch > 0) {
+      batches.push(currentBatch);
+    }
+
+    for (const batch of batches) {
+      await batch.commit();
+    }
+    
+    return { success: true, docsDeleted };
+  } catch (error) {
+    console.error(`Error deleting collection ${collectionName}:`, error);
+    return { success: false, docsDeleted: 0, error };
+  }
+}
+
 
 export default function ConfiguracionPrivacidadPage() {
   const { toast } = useToast();
@@ -15,18 +60,70 @@ export default function ConfiguracionPrivacidadPage() {
   
   const handleResetData = async (dataType: string) => {
     setIsResetting(true);
-    // Simulación de reseteo
-    await new Promise(resolve => setTimeout(resolve, 1500)); 
     
-    // Aquí iría la lógica real para resetear datos en Firestore
-    // Por ejemplo, eliminar documentos de una colección específica.
+    if (dataType === "TODOS los Datos RCA") {
+      let rcaAnalysesDeleted = 0;
+      let reportedEventsDeleted = 0;
+      let success = true;
 
-    toast({
-      title: `Reseteo Simulado: ${dataType}`,
-      description: `Los datos de "${dataType}" han sido reseteados (simulación). En una aplicación real, esto sería una operación destructiva.`,
-      variant: "destructive",
-      duration: 5000,
-    });
+      toast({
+        title: "Reseteo en Progreso...",
+        description: "Eliminando análisis RCA y eventos reportados. Esto puede tardar unos momentos.",
+        duration: 7000,
+      });
+
+      const analysesResult = await deleteAllDocsInCollection('rcaAnalyses');
+      if (analysesResult.success) {
+        rcaAnalysesDeleted = analysesResult.docsDeleted;
+      } else {
+        success = false;
+        toast({
+          title: "Error al Resetear Análisis",
+          description: `No se pudieron eliminar los análisis RCA. Error: ${analysesResult.error?.message || 'Desconocido'}`,
+          variant: "destructive",
+        });
+      }
+
+      if (success) { // Solo proceder si la eliminación anterior fue exitosa
+        const eventsResult = await deleteAllDocsInCollection('reportedEvents');
+        if (eventsResult.success) {
+          reportedEventsDeleted = eventsResult.docsDeleted;
+        } else {
+          success = false;
+          toast({
+            title: "Error al Resetear Eventos Reportados",
+            description: `No se pudieron eliminar los eventos reportados. Error: ${eventsResult.error?.message || 'Desconocido'}`,
+            variant: "destructive",
+          });
+        }
+      }
+
+      if (success) {
+        toast({
+          title: "Reseteo Completado",
+          description: `Se eliminaron ${rcaAnalysesDeleted} análisis y ${reportedEventsDeleted} eventos reportados.`,
+          variant: "destructive", 
+          duration: 5000,
+        });
+      } else {
+         toast({
+          title: "Reseteo Parcial o Fallido",
+          description: "Algunos datos podrían no haber sido eliminados. Revise la consola para más detalles.",
+          variant: "destructive",
+        });
+      }
+
+    } else {
+      // Simulación para otros tipos de datos (si los hubiera)
+      await new Promise(resolve => setTimeout(resolve, 1500)); 
+      toast({
+        title: `Reseteo Simulado: ${dataType}`,
+        description: `Los datos de "${dataType}" han sido reseteados (simulación).`,
+        variant: "destructive",
+        duration: 5000,
+      });
+    }
+    
     setIsResetting(false);
   };
 
@@ -79,7 +176,7 @@ export default function ConfiguracionPrivacidadPage() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>¿CONFIRMAR RESETEO TOTAL?</AlertDialogTitle>
                   <AlertDialogDescription>
-                   ¡ADVERTENCIA! Esta acción eliminará TODOS los eventos y análisis RCA del sistema (Pendientes, En Análisis y Finalizados). Esta acción es IRREVERSIBLE.
+                   ¡ADVERTENCIA! Esta acción eliminará TODOS los eventos y análisis RCA del sistema (colecciones 'reportedEvents' y 'rcaAnalyses'). Esta acción es IRREVERSIBLE y no se puede deshacer.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -102,3 +199,4 @@ export default function ConfiguracionPrivacidadPage() {
     </div>
   );
 }
+    
