@@ -8,9 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { PieChart, ClipboardList, ListChecks, History, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter } from 'lucide-react';
-import type { ReportedEvent } from '@/types/rca';
+import type { ReportedEvent, RCAAnalysisDocument } from '@/types/rca';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, Timestamp } from "firebase/firestore";
+import { collection, getDocs, query, Timestamp, where } from "firebase/firestore";
 import { format } from "date-fns";
 
 interface StatsData {
@@ -20,13 +20,14 @@ interface StatsData {
   finalizados: number;
 }
 
-// Datos estáticos para otras secciones, no modificados en esta iteración
-const staticAnalisisEnCurso = [
-  { id: '1', proyecto: 'Incidente Válvula X', estado: 'En Análisis', progreso: 60 },
-  { id: '2', proyecto: 'Caída de operario Y', estado: 'Iniciado', progreso: 20 },
-  { id: '3', proyecto: 'Error eléctrico Z', estado: 'En Validación', progreso: 80 },
-];
+interface AnalisisEnCursoItem {
+  id: string;
+  proyecto: string;
+  estado: string;
+  progreso: number;
+}
 
+// Datos estáticos para otras secciones, no modificados en esta iteración
 const staticPlanesAccion = [
   { id: 'pa1', accion: 'Implementar mantenimiento preventivo', responsable: 'Luis T.', fechaLimite: '15/06/2025', estado: 'En proceso' },
   { id: 'pa2', accion: 'Capacitación del equipo', responsable: 'Ana L.', fechaLimite: '10/06/2025', estado: 'Pendiente' },
@@ -41,6 +42,8 @@ const staticUltimosEventos = [
 export default function DashboardRCAPage() {
   const [statsData, setStatsData] = useState<StatsData | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [analisisEnCurso, setAnalisisEnCurso] = useState<AnalisisEnCursoItem[]>([]);
+  const [isLoadingAnalisisEnCurso, setIsLoadingAnalisisEnCurso] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -50,11 +53,10 @@ export default function DashboardRCAPage() {
         const querySnapshot = await getDocs(eventsCollectionRef);
         const events = querySnapshot.docs.map(doc => {
             const data = doc.data();
-            let eventDateStr = data.date; // Assume it's a string 'yyyy-MM-dd' or Firestore Timestamp
-            if (data.date && typeof data.date.toDate === 'function') { // Firestore Timestamp
+            let eventDateStr = data.date; 
+            if (data.date && typeof data.date.toDate === 'function') { 
                 eventDateStr = format(data.date.toDate(), 'yyyy-MM-dd');
             }
-            // If data.date is already a 'yyyy-MM-dd' string, it will be used as is.
             return { ...data, date: eventDateStr } as ReportedEvent;
         });
         
@@ -68,13 +70,68 @@ export default function DashboardRCAPage() {
         setStatsData(newStats);
       } catch (error) {
         console.error("Error fetching stats for dashboard: ", error);
-        setStatsData({ totalEventos: 0, pendientes: 0, enAnalisis: 0, finalizados: 0 }); // Default on error
+        setStatsData({ totalEventos: 0, pendientes: 0, enAnalisis: 0, finalizados: 0 }); 
       } finally {
         setIsLoadingStats(false);
       }
     };
 
+    const fetchAnalisisEnCurso = async () => {
+      setIsLoadingAnalisisEnCurso(true);
+      try {
+        const rcaAnalysesRef = collection(db, "rcaAnalyses");
+        const q = query(rcaAnalysesRef, where("isFinalized", "==", false));
+        const querySnapshot = await getDocs(q);
+        const analysesData = querySnapshot.docs.map(docSnap => {
+          const doc = docSnap.data() as RCAAnalysisDocument;
+          const id = docSnap.id;
+          let proyecto = doc.eventData?.focusEventDescription || `Análisis ID: ${id.substring(0,8)}...`;
+          let estado = "Iniciado";
+          let progreso = 10;
+
+          if (doc.projectLeader || Object.values(doc.detailedFacts || {}).some(v => !!v)) {
+            estado = "Recopilando Hechos";
+            progreso = 30;
+          }
+          if (doc.analysisTechnique || (doc.analysisTechniqueNotes && doc.analysisTechniqueNotes.trim() !== '')) {
+            estado = "Analizando (Técnica Aplicada)";
+            progreso = 50;
+          }
+          if (doc.identifiedRootCauses && doc.identifiedRootCauses.length > 0 && doc.identifiedRootCauses.every(rc => rc.description.trim() !== '')) {
+            estado = "Causas Raíz Identificadas";
+            progreso = 60;
+          }
+          if (doc.plannedActions && doc.plannedActions.length > 0 && doc.plannedActions.some(pa => pa.description && pa.responsible && pa.dueDate)) {
+            estado = "Plan de Acción Definido";
+            progreso = 75;
+          }
+           // Validations relate to planned actions, so this implicitly means PA step is done.
+          if (doc.validations && doc.validations.length > 0 && doc.plannedActions && doc.plannedActions.length > 0 && doc.validations.length >= doc.plannedActions.length) {
+             // Check if at least one validation matches a planned action
+            const someValidationExistsForPlannedActions = doc.plannedActions.some(pa => doc.validations.find(v => v.actionId === pa.id));
+            if(someValidationExistsForPlannedActions){
+                estado = "Validando Acciones";
+                progreso = 85;
+            }
+          }
+          if (doc.finalComments && doc.finalComments.trim() !== '') {
+            estado = "Redactando Conclusiones";
+            progreso = 95;
+          }
+          
+          return { id, proyecto, estado, progreso };
+        });
+        setAnalisisEnCurso(analysesData);
+      } catch (error) {
+        console.error("Error fetching analisis en curso: ", error);
+        setAnalisisEnCurso([]);
+      } finally {
+        setIsLoadingAnalisisEnCurso(false);
+      }
+    };
+
     fetchStats();
+    fetchAnalisisEnCurso();
   }, []);
 
   return (
@@ -142,39 +199,45 @@ export default function DashboardRCAPage() {
             <Activity className="h-6 w-6 text-primary" />
             <CardTitle className="text-2xl">Análisis en Curso</CardTitle>
           </div>
-           <CardDescription>Lista de análisis RCA que están actualmente en progreso (datos de ejemplo).</CardDescription>
+           <CardDescription>Lista de análisis RCA que están actualmente en progreso, obtenidos de Firestore.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[40%]">Proyecto/Evento</TableHead>
-                <TableHead className="w-[30%]">Estado Actual</TableHead>
-                <TableHead className="w-[30%]">Progreso Estimado</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {staticAnalisisEnCurso.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="font-medium">{item.proyecto}</TableCell>
-                  <TableCell>{item.estado}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Progress value={item.progreso} className="h-2.5" />
-                      <span className="text-xs text-muted-foreground">{item.progreso}%</span>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {staticAnalisisEnCurso.length === 0 && (
+          {isLoadingAnalisisEnCurso ? (
+            <div className="flex justify-center items-center h-24">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="ml-2 text-muted-foreground">Cargando análisis en curso...</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center text-muted-foreground h-24">
-                    No hay análisis en curso (datos de ejemplo).
-                  </TableCell>
+                  <TableHead className="w-[40%]">Proyecto/Evento</TableHead>
+                  <TableHead className="w-[30%]">Estado Actual</TableHead>
+                  <TableHead className="w-[30%]">Progreso Estimado</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {analisisEnCurso.length > 0 ? analisisEnCurso.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-medium">{item.proyecto}</TableCell>
+                    <TableCell>{item.estado}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Progress value={item.progreso} className="h-2.5" />
+                        <span className="text-xs text-muted-foreground">{item.progreso}%</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center text-muted-foreground h-24">
+                      No hay análisis actualmente en curso o no se pudieron cargar.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -261,3 +324,4 @@ export default function DashboardRCAPage() {
     </div>
   );
 }
+
