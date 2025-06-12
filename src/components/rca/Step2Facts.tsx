@@ -28,7 +28,7 @@ interface Step2FactsProps {
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
   preservedFacts: PreservedFact[];
-  onAddPreservedFact: (fact: Omit<PreservedFact, 'id' | 'uploadDate'>) => void;
+  onAddPreservedFact: (fact: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId'>) => void;
   onRemovePreservedFact: (id: string) => void;
   onPrevious: () => void;
   onNext: () => void;
@@ -37,7 +37,7 @@ interface Step2FactsProps {
 const PreservedFactDialog: FC<{
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (factData: Omit<PreservedFact, 'id' | 'uploadDate' | 'uploadDate'>) => void;
+  onSave: (factData: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId'>) => void;
 }> = ({ open, onOpenChange, onSave }) => {
   const [userGivenName, setUserGivenName] = useState('');
   const [category, setCategory] = useState<PreservedFactCategory | ''>('');
@@ -87,11 +87,11 @@ const PreservedFactDialog: FC<{
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="pf-name" className="text-right">Nombre</Label>
+            <Label htmlFor="pf-name" className="text-right">Nombre <span className="text-destructive">*</span></Label>
             <Input id="pf-name" value={userGivenName} onChange={(e) => setUserGivenName(e.target.value)} className="col-span-3" placeholder="Ej: Informe Técnico Bomba X" />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="pf-category" className="text-right">Categoría</Label>
+            <Label htmlFor="pf-category" className="text-right">Categoría <span className="text-destructive">*</span></Label>
             <Select value={category} onValueChange={(value) => setCategory(value as PreservedFactCategory)}>
               <SelectTrigger className="col-span-3">
                 <SelectValue placeholder="-- Seleccione una categoría --" />
@@ -145,6 +145,7 @@ export const Step2Facts: FC<Step2FactsProps> = ({
 }) => {
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | undefined>();
   const [isAddFactDialogOpen, setIsAddFactDialogOpen] = useState(false);
+  const { toast } = useToast();
 
   const { derivedDate, derivedTime } = useMemo(() => {
     const text = detailedFacts.cuando;
@@ -253,6 +254,26 @@ Sucedió el: "${detailedFacts.cuando || 'CUÁNDO (no especificado)'}".
 El impacto o tendencia fue: "${detailedFacts.cualCuanto || 'CUÁL/CUÁNTO (no especificado)'}".
 Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no especificado)'}".`;
 
+  const handleNextWithValidation = () => {
+    const missingFields = [];
+    if (!projectLeader) missingFields.push("Líder del Proyecto");
+    if (!detailedFacts.como.trim()) missingFields.push("CÓMO (ocurrió la desviación)");
+    if (!detailedFacts.que.trim()) missingFields.push("QUÉ (ocurrió)");
+    if (!detailedFacts.donde.trim()) missingFields.push("DÓNDE (ocurrió)");
+    if (!detailedFacts.cuando.trim()) missingFields.push("CUÁNDO (Fecha y Hora)");
+    if (!detailedFacts.cualCuanto.trim()) missingFields.push("CUÁL/CUÁNTO (tendencia e impacto)");
+    if (!detailedFacts.quien.trim()) missingFields.push("QUIÉN");
+
+    if (missingFields.length > 0) {
+      toast({
+        title: "Campos Obligatorios Faltantes",
+        description: `Por favor, complete los siguientes campos: ${missingFields.join(', ')}.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    onNext();
+  };
 
   return (
     <Card>
@@ -264,7 +285,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
         <div className="space-y-2">
           <Label htmlFor="projectLeader" className="flex items-center">
             <UserCircle className="mr-2 h-4 w-4 text-primary" />
-            Líder del Proyecto
+            Líder del Proyecto <span className="text-destructive">*</span>
           </Label>
           <Select value={projectLeader} onValueChange={onProjectLeaderChange}>
             <SelectTrigger id="projectLeader">
@@ -283,20 +304,20 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="como">CÓMO (ocurrió la desviación)</Label>
+            <Label htmlFor="como">CÓMO (ocurrió la desviación) <span className="text-destructive">*</span></Label>
             <Input id="como" value={detailedFacts.como} onChange={(e) => handleInputChange(e, 'como')} placeholder="Ej: Durante operación normal" />
           </div>
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="que">QUÉ (ocurrió)</Label>
+            <Label htmlFor="que">QUÉ (ocurrió) <span className="text-destructive">*</span></Label>
             <Textarea id="que" value={detailedFacts.que} onChange={(e) => handleInputChange(e, 'que')} placeholder="Ej: Trip por alta Temperatura Descanso 1" rows={2} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="donde">DÓNDE (ocurrió)</Label>
+            <Label htmlFor="donde">DÓNDE (ocurrió) <span className="text-destructive">*</span></Label>
             <Input id="donde" value={detailedFacts.donde} onChange={(e) => handleInputChange(e, 'donde')} placeholder="Ej: Planta Teno, Sistema Calcinación, Horno" />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="cuando-input">CUÁNDO (Fecha y Hora)</Label>
+            <Label htmlFor="cuando-input">CUÁNDO (Fecha y Hora) <span className="text-destructive">*</span></Label>
             <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
                 <Input 
                     id="cuando-input" 
@@ -336,11 +357,11 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="cualCuanto">CUÁL/CUÁNTO (tendencia e impacto)</Label>
+            <Label htmlFor="cualCuanto">CUÁL/CUÁNTO (tendencia e impacto) <span className="text-destructive">*</span></Label>
             <Input id="cualCuanto" value={detailedFacts.cualCuanto} onChange={(e) => handleInputChange(e, 'cualCuanto')} placeholder="Ej: Evento único / 2 Días de detención" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="quien">QUIÉN</Label>
+            <Label htmlFor="quien">QUIÉN <span className="text-destructive">*</span></Label>
             <Input id="quien" value={detailedFacts.quien} onChange={(e) => handleInputChange(e, 'quien')} placeholder="Personas o equipos implicados (Ej: N/A, Operador Turno A)" />
           </div>
         </div>
@@ -403,8 +424,11 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
       </CardContent>
       <CardFooter className="flex justify-between">
         <Button onClick={onPrevious} variant="outline" className="transition-transform hover:scale-105">Anterior</Button>
-        <Button onClick={onNext} className="transition-transform hover:scale-105">Siguiente</Button>
+        <Button onClick={handleNextWithValidation} className="transition-transform hover:scale-105">Siguiente</Button>
       </CardFooter>
     </Card>
   );
 };
+
+
+    
