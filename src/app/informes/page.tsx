@@ -8,8 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PieChart as PieChartIcon, ListChecks, History, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, Flame, Search, RefreshCcw } from 'lucide-react'; // Removed CalendarDays
-import type { ReportedEvent, RCAAnalysisDocument, PlannedAction, Validation, Site, ReportedEventType, PriorityType } from '@/types/rca'; // Removed ReportedEventStatus
+import { PieChart as PieChartIcon, ListChecks, History, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, Flame, Search, RefreshCcw, Percent } from 'lucide-react';
+import type { ReportedEvent, RCAAnalysisDocument, PlannedAction, Validation, Site, ReportedEventType, PriorityType } from '@/types/rca';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, Timestamp, where, orderBy, limit, QueryConstraint } from "firebase/firestore";
 import { format, parseISO, isValid, formatDistanceToNowStrict } from "date-fns";
@@ -26,7 +26,6 @@ import {
 
 const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Fallo', 'Accidente', 'No Conformidad'];
 const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
-// const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'Finalizado']; // Removed
 const ALL_FILTER_VALUE = "__ALL__";
 const NO_SITES_PLACEHOLDER_VALUE = "__NO_SITES_PLACEHOLDER__";
 
@@ -150,7 +149,6 @@ export default function DashboardRCAPage() {
       const rcaAnalysesRef = collection(db, "rcaAnalyses");
       const q = query(rcaAnalysesRef, ...orderedAnalisisQueryConstraints);
       const querySnapshot = await getDocs(q);
-      console.log(`[fetchAnalisisEnCurso] Found ${querySnapshot.docs.length} documents with isFinalized: false.`);
       
       const analysesData = querySnapshot.docs.map(docSnap => {
         const doc = docSnap.data() as RCAAnalysisDocument;
@@ -298,7 +296,7 @@ export default function DashboardRCAPage() {
 
   const renderActividadIcon = (tipo: ActividadRecienteItem['tipoIcono']) => {
     switch (tipo) {
-      case 'evento': return <ListChecks className="text-muted-foreground" />; // Changed icon
+      case 'evento': return <ListChecks className="text-muted-foreground" />;
       case 'analisis': return <Activity className="text-blue-500" />;
       case 'finalizado': return <CheckSquare className="text-green-500" />;
       default: return <Bell className="text-muted-foreground" />;
@@ -316,6 +314,13 @@ export default function DashboardRCAPage() {
       { name: 'Pendientes', value: actionStatsData.accionesPendientes, color: 'hsl(var(--chart-4))' }, 
       { name: 'Validadas', value: actionStatsData.accionesValidadas, color: 'hsl(var(--chart-2))' },   
     ].filter(item => item.value > 0); 
+  }, [actionStatsData]);
+
+  const cumplimientoPorcentaje = useMemo(() => {
+    if (!actionStatsData || actionStatsData.totalAcciones === 0) {
+      return 0;
+    }
+    return (actionStatsData.accionesValidadas / actionStatsData.totalAcciones) * 100;
   }, [actionStatsData]);
 
 
@@ -340,7 +345,7 @@ export default function DashboardRCAPage() {
             <CardTitle className="text-2xl">Filtros de Búsqueda</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
           <div>
             <Label htmlFor="filter-site" className="flex items-center mb-1"><Globe className="mr-1.5 h-4 w-4 text-muted-foreground"/>Sitio/Planta</Label>
             <Select
@@ -403,10 +408,10 @@ export default function DashboardRCAPage() {
             <CardTitle className="text-2xl">Resumen de Acciones Correctivas</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-center">
           {isLoadingData ? (
             <>
-              {[...Array(3)].map((_, i) => (
+              {[...Array(4)].map((_, i) => (
                 <div key={i} className="p-4 bg-secondary/30 rounded-lg flex flex-col items-center justify-center h-24">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 </div>
@@ -425,6 +430,10 @@ export default function DashboardRCAPage() {
               <div className="p-4 bg-green-400/20 rounded-lg">
                 <p className="text-3xl font-bold text-green-600">{actionStatsData.accionesValidadas}</p>
                 <p className="text-sm text-muted-foreground">Acciones Validadas</p>
+              </div>
+              <div className="p-4 bg-blue-400/20 rounded-lg">
+                <p className="text-3xl font-bold text-blue-600">{cumplimientoPorcentaje.toFixed(1)}%</p>
+                <p className="text-sm text-muted-foreground">Cumplimiento</p>
               </div>
             </>
           ) : (
@@ -655,3 +664,4 @@ export default function DashboardRCAPage() {
     </div>
   );
 }
+
