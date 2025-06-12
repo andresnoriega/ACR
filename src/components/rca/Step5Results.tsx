@@ -2,7 +2,7 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo } from 'react';
-import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, PlannedAction, IdentifiedRootCause } from '@/types/rca';
+import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -15,6 +15,7 @@ import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap,
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
+import { sendEmailAction } from '@/app/actions';
 
 interface Step5ResultsProps {
   eventId: string;
@@ -31,7 +32,7 @@ interface Step5ResultsProps {
   finalComments: string; 
   onFinalCommentsChange: (value: string) => void;
   onPrintReport: () => void;
-  availableUsers: Array<{ id: string; name: string; email: string; }>;
+  availableUsers: Array<{ id: string; name: string; email: string; }>; // Expects FullUserProfile structure now
   isFinalized: boolean;
   onMarkAsFinalized: () => void;
 }
@@ -120,6 +121,48 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     const ctmTree = formatLevel(ctmData, "", "Modo de Falla");
     return ctmTree.trim() ? ctmTree : "(No se definieron elementos para el Árbol de Causas)";
   };
+
+  const generateReportText = (): string => {
+    let report = `INFORME FINAL DE ANÁLISIS DE CAUSA RAÍZ\n`;
+    report += `Evento ID: ${eventId || "No generado"}\n`;
+    report += `Título: Análisis del Incidente "${eventData.focusEventDescription || 'No Especificado'}"\n\n`;
+    report += `INTRODUCCIÓN / COMENTARIOS FINALES:\n${finalComments || "No proporcionados."}\n\n`;
+    report += `HECHOS:\n`;
+    report += `  Evento Foco: ${eventData.focusEventDescription || "No definido."}\n`;
+    report += `  Descripción Detallada del Fenómeno:\n  ${formatDetailedFacts().replace(/\n/g, '\n  ')}\n\n`;
+    report += `ANÁLISIS:\n`;
+    report += `  Análisis Preliminar Realizado:\n  ${analysisDetails || "No se proporcionaron detalles."}\n`;
+    report += `  Técnica de Análisis Principal Utilizada: ${analysisTechnique || "No seleccionada"}\n`;
+    if (analysisTechnique === 'Ishikawa') report += `  Detalles del Diagrama de Ishikawa:\n${formatIshikawaForReport().replace(/\n/g, '\n  ')}\n`;
+    if (analysisTechnique === 'WhyWhy') report += `  Detalles del Análisis de los 5 Porqués:\n${formatFiveWhysForReport().replace(/\n/g, '\n  ')}\n`;
+    if (analysisTechnique === 'CTM') report += `  Detalles del Árbol de Causas (CTM):\n${formatCTMForReport().replace(/\n/g, '\n  ')}\n`;
+    if (analysisTechniqueNotes.trim()) report += `  Notas Adicionales del Análisis (${analysisTechnique || 'General'}):\n  ${analysisTechniqueNotes.replace(/\n/g, '\n  ')}\n`;
+    report += `\nCAUSAS RAÍZ IDENTIFICADAS:\n`;
+    if (identifiedRootCauses.length > 0 && identifiedRootCauses.some(rc => rc.description.trim())) {
+      identifiedRootCauses.forEach((rc, index) => {
+        if (rc.description.trim()) report += `  - Causa Raíz #${index + 1}: ${rc.description}\n`;
+      });
+    } else {
+      report += `  No se han definido causas raíz específicas.\n`;
+    }
+    report += `\nACCIONES RECOMENDADAS (PLAN DE ACCIÓN):\n`;
+    if (plannedActions.length > 0) {
+      plannedActions.forEach(action => {
+        report += `  - Acción: ${action.description}\n`;
+        report += `    Responsable: ${action.responsible || 'N/A'} | Fecha Límite: ${action.dueDate || 'N/A'}\n`;
+        if (action.relatedRootCauseIds && action.relatedRootCauseIds.length > 0) {
+          report += `    Aborda Causas Raíz:\n`;
+          action.relatedRootCauseIds.forEach(rcId => {
+            const cause = identifiedRootCauses.find(c => c.id === rcId);
+            report += `      * ${cause ? cause.description : `ID: ${rcId} (no encontrada)`}\n`;
+          });
+        }
+      });
+    } else {
+      report += `  No se han definido acciones planificadas.\n`;
+    }
+    return report;
+  };
   
   const handleOpenEmailDialog = () => {
     setSelectedUserEmails([]);
@@ -127,14 +170,30 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     setIsEmailDialogOpen(true);
   };
 
-  const handleConfirmSendEmail = () => {
+  const handleConfirmSendEmail = async () => {
     if (selectedUserEmails.length === 0) {
       toast({ title: "No se seleccionaron destinatarios", description: "Por favor, seleccione al menos un destinatario.", variant: "destructive" });
       return;
     }
-    const selectedUsersData = availableUsers.filter(u => selectedUserEmails.includes(u.email));
-    const recipientNames = selectedUsersData.map(u => u.name).join(', ');
-    toast({ title: "Simulación de Envío de Correo", description: `Correo "enviado" a: ${recipientNames || 'seleccionados'}. Destinatarios: ${selectedUserEmails.join(', ')}`});
+
+    const reportText = generateReportText();
+    const emailSubject = `Informe RCA: ${eventData.focusEventDescription || `Evento ID ${eventId}`}`;
+    let emailsSentCount = 0;
+
+    for (const email of selectedUserEmails) {
+      const result = await sendEmailAction({
+        to: email,
+        subject: emailSubject,
+        body: `Estimado/a,\n\nAdjunto (simulado) encontrará el informe de Análisis de Causa Raíz para el evento: "${eventData.focusEventDescription || eventId}".\n\n--- INICIO DEL INFORME ---\n${reportText}\n--- FIN DEL INFORME ---\n\nSaludos,\nSistema RCA Assistant`,
+        // htmlBody: `<h1>Informe RCA: ${eventData.focusEventDescription || `Evento ID ${eventId}`}</h1><pre>${reportText}</pre>` // Optional HTML body
+      });
+      if(result.success) emailsSentCount++;
+    }
+    
+    toast({ 
+        title: "Envío de Informes (Simulación)", 
+        description: `${emailsSentCount} de ${selectedUserEmails.length} correos fueron procesados "exitosamente". Verifique la consola del servidor.`
+    });
     setIsEmailDialogOpen(false);
   };
   
@@ -254,6 +313,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                   {identifiedRootCauses.map((rc, index) => (
                     rc.description.trim() && <li key={rc.id}><strong>Causa Raíz #{index + 1}:</strong> {rc.description}</li>
                   ))}
+                   {identifiedRootCauses.every(rc => !rc.description.trim()) && <p>Se han añadido entradas de causa raíz pero ninguna tiene descripción.</p>}
                 </ul>
               ) : (
                 <p>No se han definido causas raíz específicas.</p>
@@ -370,4 +430,3 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     </>
   );
 };
-

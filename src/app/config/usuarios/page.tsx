@@ -2,56 +2,39 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { FullUserProfile } from '@/types/rca'; // Import FullUserProfile
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import type { FullUserProfile } from '@/types/rca'; 
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Users, PlusCircle, Edit2, Trash2, FileUp, FileDown } from 'lucide-react';
+import { Users, PlusCircle, Edit2, Trash2, FileUp, FileDown, Loader2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { db } from '@/lib/firebase';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy } from "firebase/firestore";
 
-// Define a local interface extending FullUserProfile for fields specific to this page
 interface UserConfigProfile extends FullUserProfile {
   assignedSites?: string;
   emailNotifications: boolean;
-  // Password is not stored in state but used for forms
 }
 
-// Base user data, aligned with FullUserProfile structure from /config/permisos
-const masterInitialUserProfiles: Omit<FullUserProfile, 'permissionLevel'>[] = [
-  { id: 'u1', name: 'Carlos Ruiz', email: 'carlos.ruiz@example.com', role: 'Admin' },
-  { id: 'u2', name: 'Ana López', email: 'ana.lopez@example.com', role: 'Analista' },
-  { id: 'u3', name: 'Luis Torres', email: 'luis.torres@example.com', role: 'Revisor' },
-  { id: 'u4', name: 'Maria Solano', email: 'maria.solano@example.com', role: 'Analista'},
-  { id: 'u5', name: 'Pedro Gómez', email: 'pedro.gomez@example.com', role: 'Analista'},
-];
-
-// Initial data for this page, extending the master list
-const initialUserProfilesData: UserConfigProfile[] = masterInitialUserProfiles.map((user, index) => ({
-  ...user,
-  permissionLevel: user.role === 'Admin' ? 'Total' : (index % 2 === 0 ? 'Lectura' : 'Limitado'), // Assign permissionLevel
-  emailNotifications: index % 2 === 0,
-  assignedSites: user.role === 'Admin' ? 'Planta Industrial, Centro Logístico' : (index === 1 ? 'Planta Industrial' : (index === 2 ? 'Centro Logístico' : `Planta Ejemplo ${index + 1}`)),
-}));
-
-
 const userRoles: FullUserProfile['role'][] = ['Admin', 'Analista', 'Revisor', ''];
+const defaultPermissionLevel: FullUserProfile['permissionLevel'] = 'Lectura';
 
 export default function ConfiguracionUsuariosPage() {
-  const [users, setUsers] = useState<UserConfigProfile[]>(initialUserProfilesData);
+  const [users, setUsers] = useState<UserConfigProfile[]>([]);
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // State for Add/Edit Dialog
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserConfigProfile | null>(null);
 
-  // Form state for new/edit user
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userPassword, setUserPassword] = useState('');
@@ -59,11 +42,31 @@ export default function ConfiguracionUsuariosPage() {
   const [userRole, setUserRole] = useState<FullUserProfile['role']>('');
   const [userAssignedSites, setUserAssignedSites] = useState('');
   const [userEmailNotifications, setUserEmailNotifications] = useState(false);
+  
+  // Permission level is not directly edited here but is part of FullUserProfile
+  // It will be managed by /config/permisos or set to default for new users
 
-  // State for Delete Confirmation Dialog
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserConfigProfile | null>(null);
 
+  useEffect(() => {
+    const fetchUsers = async () => {
+      setIsLoading(true);
+      try {
+        const usersCollectionRef = collection(db, "users");
+        const q = query(usersCollectionRef, orderBy("name", "asc"));
+        const querySnapshot = await getDocs(q);
+        const usersData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserConfigProfile));
+        setUsers(usersData);
+      } catch (error) {
+        console.error("Error fetching users: ", error);
+        toast({ title: "Error al Cargar Usuarios", description: "No se pudieron cargar los usuarios desde Firestore.", variant: "destructive" });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchUsers();
+  }, [toast]);
 
   const resetUserForm = () => {
     setUserName('');
@@ -97,7 +100,7 @@ export default function ConfiguracionUsuariosPage() {
     setIsUserDialogOpen(true);
   };
 
-  const handleSaveUser = () => {
+  const handleSaveUser = async () => {
     if (!userName.trim()) {
       toast({ title: "Error", description: "El nombre completo es obligatorio.", variant: "destructive" });
       return;
@@ -119,29 +122,52 @@ export default function ConfiguracionUsuariosPage() {
       return;
     }
 
+    setIsSubmitting(true);
+
     if (isEditing && currentUser) {
-      setUsers(users.map(u => u.id === currentUser.id ? {
-        ...u, // Spread existing fields like permissionLevel
-        name: userName,
-        email: userEmail,
+      const updatedUserData: Partial<UserConfigProfile> = {
+        name: userName.trim(),
+        email: userEmail.trim(),
         role: userRole,
-        assignedSites: userAssignedSites,
+        assignedSites: userAssignedSites.trim(),
         emailNotifications: userEmailNotifications,
-      } : u));
-      toast({ title: "Usuario Actualizado", description: `El usuario "${userName}" ha sido actualizado.` });
+        // permissionLevel is not directly updated here, it's managed by /config/permisos
+        // or retains its existing value from Firestore.
+      };
+      try {
+        const userRef = doc(db, "users", currentUser.id);
+        await updateDoc(userRef, updatedUserData);
+        setUsers(prevUsers => 
+          prevUsers.map(u => u.id === currentUser.id ? { ...u, ...updatedUserData } : u)
+                   .sort((a, b) => a.name.localeCompare(b.name))
+        );
+        toast({ title: "Usuario Actualizado", description: `El usuario "${userName}" ha sido actualizado.` });
+      } catch (error) {
+        console.error("Error updating user in Firestore: ", error);
+        toast({ title: "Error al Actualizar", description: "No se pudo actualizar el usuario.", variant: "destructive" });
+      }
     } else {
-      const newUser: UserConfigProfile = {
-        id: `u-${Date.now()}`, 
-        name: userName,
-        email: userEmail,
+      const newUserPayload: Omit<UserConfigProfile, 'id'> = {
+        name: userName.trim(),
+        email: userEmail.trim(),
         role: userRole,
-        permissionLevel: 'Lectura', // Default permission level for new users
-        assignedSites: userAssignedSites,
+        permissionLevel: defaultPermissionLevel, // Assign default permission level for new users
+        assignedSites: userAssignedSites.trim(),
         emailNotifications: userEmailNotifications,
       };
-      setUsers([...users, newUser]);
-      toast({ title: "Usuario Añadido", description: `El usuario "${newUser.name}" ha sido añadido.` });
+      // Note: Password is not stored in Firestore user document for this example.
+      // Real auth would handle passwords separately (e.g., Firebase Auth).
+      try {
+        const docRef = await addDoc(collection(db, "users"), newUserPayload);
+        setUsers(prevUsers => [...prevUsers, { id: docRef.id, ...newUserPayload }].sort((a,b) => a.name.localeCompare(b.name)));
+        toast({ title: "Usuario Añadido", description: `El usuario "${newUserPayload.name}" ha sido añadido.` });
+      } catch (error) {
+        console.error("Error adding user to Firestore: ", error);
+        toast({ title: "Error al Añadir", description: "No se pudo añadir el usuario.", variant: "destructive" });
+      }
     }
+    
+    setIsSubmitting(false);
     resetUserForm();
     setIsUserDialogOpen(false);
   };
@@ -151,11 +177,20 @@ export default function ConfiguracionUsuariosPage() {
     setIsDeleteConfirmOpen(true);
   };
 
-  const handleDeleteUser = () => {
+  const handleDeleteUser = async () => {
     if (userToDelete) {
-      setUsers(users.filter(u => u.id !== userToDelete.id));
-      toast({ title: "Usuario Eliminado", description: `El usuario "${userToDelete.name}" ha sido eliminado.`, variant: 'destructive' });
-      setUserToDelete(null);
+      setIsSubmitting(true);
+      try {
+        await deleteDoc(doc(db, "users", userToDelete.id));
+        setUsers(users.filter(u => u.id !== userToDelete.id));
+        toast({ title: "Usuario Eliminado", description: `El usuario "${userToDelete.name}" ha sido eliminado.`, variant: 'destructive' });
+        setUserToDelete(null);
+      } catch (error) {
+        console.error("Error deleting user from Firestore: ", error);
+        toast({ title: "Error al Eliminar", description: "No se pudo eliminar el usuario.", variant: "destructive" });
+      } finally {
+        setIsSubmitting(false);
+      }
     }
     setIsDeleteConfirmOpen(false);
   };
@@ -168,7 +203,6 @@ export default function ConfiguracionUsuariosPage() {
     toast({ title: "Funcionalidad no implementada", description: "La exportación a Excel aún no está disponible." });
   };
 
-
   return (
     <div className="space-y-8 py-8">
       <header className="text-center space-y-2">
@@ -179,7 +213,7 @@ export default function ConfiguracionUsuariosPage() {
           Configuración de Usuarios
         </h1>
         <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-          Administre los usuarios del sistema, sus roles y permisos.
+          Administre los usuarios del sistema, sus roles y permisos. Los datos se almacenan en Firestore.
         </p>
       </header>
 
@@ -199,10 +233,70 @@ export default function ConfiguracionUsuariosPage() {
                 <FileDown className="mr-2 h-4 w-4" />
                 Exportar Excel
               </Button>
-              <Button variant="default" onClick={openAddUserDialog}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Añadir Usuario
-              </Button>
+              <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="default" onClick={openAddUserDialog}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Añadir Usuario
+                  </Button>
+                </DialogTrigger>
+                 <DialogContent className="sm:max-w-[525px]">
+                    <DialogHeader>
+                        <DialogTitle>{isEditing ? 'Editar Usuario' : 'Añadir Nuevo Usuario'}</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="user-name" className="text-right">Nombre <span className="text-destructive">*</span></Label>
+                        <Input id="user-name" value={userName} onChange={(e) => setUserName(e.target.value)} className="col-span-3" placeholder="Ej: Juan Pérez" />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="user-email" className="text-right">Correo <span className="text-destructive">*</span></Label>
+                        <Input id="user-email" type="email" value={userEmail} onChange={(e) => setUserEmail(e.target.value)} className="col-span-3" placeholder="Ej: juan.perez@example.com" />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="user-password" className="text-right">Contraseña {isEditing ? '(Nueva)' : <span className="text-destructive">*</span>}</Label>
+                        <Input id="user-password" type="password" value={userPassword} onChange={(e) => setUserPassword(e.target.value)} className="col-span-3" placeholder={isEditing ? 'Dejar en blanco para no cambiar' : ''} />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="user-confirm-password" className="text-right">Confirmar {isEditing ? 'Nueva ' : ''}Contra. {isEditing ? '' : <span className="text-destructive">*</span>}</Label>
+                        <Input id="user-confirm-password" type="password" value={userConfirmPassword} onChange={(e) => setUserConfirmPassword(e.target.value)} className="col-span-3" />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="user-role" className="text-right">Rol <span className="text-destructive">*</span></Label>
+                        <Select value={userRole} onValueChange={(value) => setUserRole(value as FullUserProfile['role'])}>
+                            <SelectTrigger className="col-span-3">
+                            <SelectValue placeholder="-- Seleccione un rol --" />
+                            </SelectTrigger>
+                            <SelectContent>
+                            {userRoles.filter(r => r !== '').map(role => (
+                                <SelectItem key={role} value={role}>{role}</SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="user-sites" className="text-right">Sitio(s)</Label>
+                        <Input id="user-sites" value={userAssignedSites} onChange={(e) => setUserAssignedSites(e.target.value)} className="col-span-3" placeholder="Ej: Planta A, Bodega Central" />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="user-notifications" className="text-right">Notificación</Label>
+                        <div className="col-span-3 flex items-center space-x-2">
+                            <Switch id="user-notifications" checked={userEmailNotifications} onCheckedChange={setUserEmailNotifications} />
+                            <Label htmlFor="user-notifications">{userEmailNotifications ? 'Sí' : 'No'}</Label>
+                        </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <DialogClose asChild>
+                        <Button type="button" variant="outline" onClick={() => { resetUserForm(); setIsUserDialogOpen(false);}}>Cancelar</Button>
+                        </DialogClose>
+                        <Button type="button" onClick={handleSaveUser} disabled={isSubmitting}>
+                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                         {isEditing ? 'Guardar Cambios' : 'Crear Usuario'}
+                        </Button>
+                    </DialogFooter>
+                 </DialogContent>
+              </Dialog>
             </div>
           </div>
           <CardDescription>
@@ -210,106 +304,57 @@ export default function ConfiguracionUsuariosPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[30%]">Nombre</TableHead>
-                  <TableHead className="w-[30%]">Correo Electrónico</TableHead>
-                  <TableHead className="w-[20%]">Rol</TableHead>
-                  <TableHead className="w-[20%] text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.length > 0 ? (
-                  users.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.name}</TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>{user.role}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" className="mr-2 hover:text-primary" onClick={() => openEditUserDialog(user)}>
-                          <Edit2 className="h-4 w-4" />
-                          <span className="sr-only">Editar</span>
-                        </Button>
-                        <Button variant="ghost" size="icon" className="hover:text-destructive" onClick={() => openDeleteDialog(user)}>
-                          <Trash2 className="h-4 w-4" />
-                           <span className="sr-only">Eliminar</span>
-                        </Button>
+          {isLoading ? (
+            <div className="flex justify-center items-center h-24">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="ml-2 text-muted-foreground">Cargando usuarios...</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[30%]">Nombre</TableHead>
+                    <TableHead className="w-[30%]">Correo Electrónico</TableHead>
+                    <TableHead className="w-[15%]">Rol</TableHead>
+                    <TableHead className="w-[15%]">Notif. Email</TableHead>
+                    <TableHead className="w-[10%] text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.length > 0 ? (
+                    users.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell className="font-medium">{user.name}</TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>{user.role || 'N/A'}</TableCell>
+                        <TableCell>{user.emailNotifications ? 'Sí' : 'No'}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" className="mr-2 hover:text-primary" onClick={() => openEditUserDialog(user)} disabled={isSubmitting}>
+                            <Edit2 className="h-4 w-4" />
+                            <span className="sr-only">Editar</span>
+                          </Button>
+                          <Button variant="ghost" size="icon" className="hover:text-destructive" onClick={() => openDeleteDialog(user)} disabled={isSubmitting}>
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Eliminar</span>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
+                        No hay usuarios registrados. Puede añadir uno usando el botón de arriba.
                       </TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground h-24">
-                      No hay usuarios registrados.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Add/Edit User Dialog */}
-      <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
-        <DialogContent className="sm:max-w-[525px]">
-          <DialogHeader>
-            <DialogTitle>{isEditing ? 'Editar Usuario' : 'Añadir Nuevo Usuario'}</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="user-name" className="text-right">Nombre <span className="text-destructive">*</span></Label>
-              <Input id="user-name" value={userName} onChange={(e) => setUserName(e.target.value)} className="col-span-3" placeholder="Ej: Juan Pérez" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="user-email" className="text-right">Correo <span className="text-destructive">*</span></Label>
-              <Input id="user-email" type="email" value={userEmail} onChange={(e) => setUserEmail(e.target.value)} className="col-span-3" placeholder="Ej: juan.perez@example.com" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="user-password" className="text-right">Contraseña {isEditing ? '(Nueva)' : <span className="text-destructive">*</span>}</Label>
-              <Input id="user-password" type="password" value={userPassword} onChange={(e) => setUserPassword(e.target.value)} className="col-span-3" placeholder={isEditing ? 'Dejar en blanco para no cambiar' : ''} />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="user-confirm-password" className="text-right">Confirmar {isEditing ? 'Nueva ' : ''}Contra. {isEditing ? '' : <span className="text-destructive">*</span>}</Label>
-              <Input id="user-confirm-password" type="password" value={userConfirmPassword} onChange={(e) => setUserConfirmPassword(e.target.value)} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="user-role" className="text-right">Rol <span className="text-destructive">*</span></Label>
-              <Select value={userRole} onValueChange={(value) => setUserRole(value as FullUserProfile['role'])}>
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="-- Seleccione un rol --" />
-                </SelectTrigger>
-                <SelectContent>
-                  {userRoles.filter(r => r !== '').map(role => (
-                    <SelectItem key={role} value={role}>{role}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="user-sites" className="text-right">Sitio(s)</Label>
-              <Input id="user-sites" value={userAssignedSites} onChange={(e) => setUserAssignedSites(e.target.value)} className="col-span-3" placeholder="Ej: Planta A, Bodega Central" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="user-notifications" className="text-right">Notificación</Label>
-              <div className="col-span-3 flex items-center space-x-2">
-                <Switch id="user-notifications" checked={userEmailNotifications} onCheckedChange={setUserEmailNotifications} />
-                <Label htmlFor="user-notifications">{userEmailNotifications ? 'Sí' : 'No'}</Label>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="outline" onClick={() => { resetUserForm(); setIsUserDialogOpen(false);}}>Cancelar</Button>
-            </DialogClose>
-            <Button type="button" onClick={handleSaveUser}>Guardar Usuario</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -319,8 +364,11 @@ export default function ConfiguracionUsuariosPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setUserToDelete(null)}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteUser} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Eliminar</AlertDialogAction>
+            <AlertDialogCancel onClick={() => setUserToDelete(null)} disabled={isSubmitting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUser} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Eliminar
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

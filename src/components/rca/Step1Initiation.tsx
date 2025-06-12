@@ -9,8 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Trash2, Save } from 'lucide-react'; // Added Save icon
+import { PlusCircle, Trash2, Save } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { sendEmailAction } from '@/app/actions';
 
 interface Step1InitiationProps {
   eventData: RCAEventData;
@@ -20,9 +21,9 @@ interface Step1InitiationProps {
   onUpdateImmediateAction: (index: number, field: keyof Omit<ImmediateAction, 'eventId' | 'id'>, value: string) => void;
   onRemoveImmediateAction: (index: number) => void;
   availableSites: Array<{ id: string; name: string; }>;
-  availableUsers: FullUserProfile[]; // Changed to FullUserProfile for email access
-  onContinue: () => void; // Renamed from onNext
-  onForceEnsureEventId: () => string; // New prop
+  availableUsers: FullUserProfile[];
+  onContinue: () => void;
+  onForceEnsureEventId: () => string;
 }
 
 const EVENT_TYPES: EventType[] = ['Incidente', 'Accidente', 'Falla', 'No Conformidad'];
@@ -95,25 +96,36 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     return true;
   };
 
-  const handleSaveEvent = () => {
+  const handleSaveEvent = async () => {
     if (!validateFields()) {
       return;
     }
 
-    const currentEventId = onForceEnsureEventId(); // Genera o confirma el ID
+    const currentEventId = onForceEnsureEventId(); 
 
-    immediateActions.forEach(action => {
+    for (const action of immediateActions) {
       if (action.responsible) {
         const responsibleUser = availableUsers.find(user => user.name === action.responsible);
         if (responsibleUser && responsibleUser.email) {
+          const emailSubject = `Acción Inmediata Asignada: ${action.description.substring(0,30)}... (Evento: ${currentEventId})`;
+          const emailBody = `Estimado/a ${responsibleUser.name},\n\nSe le ha asignado la siguiente acción inmediata relacionada con el evento ${currentEventId} ("${eventData.focusEventDescription.substring(0,50)}..."):\n\nTarea: ${action.description}\nFecha Límite: ${action.dueDate || 'No especificada'}\n\nPor favor, proceda según corresponda.\n\nSaludos,\nSistema RCA Assistant`;
+          
+          const result = await sendEmailAction({
+            to: responsibleUser.email,
+            subject: emailSubject,
+            body: emailBody,
+          });
           toast({
-            title: "Simulación de Envío de Correo (Acción Inmediata)",
-            description: `Correo enviado a ${responsibleUser.name} (${responsibleUser.email}) sobre la acción inmediata: "${action.description.substring(0, 50)}${action.description.length > 50 ? "..." : ""}".`,
+            title: result.success ? "Notificación de Acción Inmediata (Simulación)" : "Error en Notificación (Simulación)",
+            description: result.success 
+              ? `Notificación enviada a ${responsibleUser.name} (${responsibleUser.email}) sobre: "${action.description.substring(0, 40)}...".`
+              : `Fallo al notificar a ${responsibleUser.name} sobre: "${action.description.substring(0, 40)}...". Consulte la consola del servidor.`,
+            variant: result.success ? "default" : "destructive",
             duration: 5000,
           });
         }
       }
-    });
+    }
 
     toast({
       title: "Evento Guardado",
@@ -125,6 +137,10 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     if (!validateFields()) {
       return;
     }
+    // Ensure ID is generated if user clicks "Continue" without "Save" first
+    if (!eventData.id) {
+      onForceEnsureEventId();
+    }
     onContinue();
   };
 
@@ -132,7 +148,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     <Card>
       <CardHeader>
         <CardTitle className="font-headline">Paso 1: Iniciación</CardTitle>
-        <CardDescription>Información básica del evento y acciones inmediatas. ID Evento: <span className="font-semibold text-primary">{eventData.id || "Pendiente"}</span></CardDescription>
+        <CardDescription>Información básica del evento y acciones inmediatas. ID Evento: <span className="font-semibold text-primary">{eventData.id || "Pendiente (se generará al guardar o continuar)"}</span></CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
@@ -220,7 +236,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    Nota: Lista de usuarios de ejemplo.
+                    Nota: Lista de usuarios de ejemplo. Los usuarios reales deben cargarse desde Configuración.
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -250,4 +266,3 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     </Card>
   );
 };
-

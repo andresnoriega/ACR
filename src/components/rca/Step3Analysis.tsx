@@ -14,6 +14,7 @@ import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
 import { FiveWhysInteractive } from './FiveWhysInteractive';
 import { CTMInteractive } from './CTMInteractive';
 import { useToast } from "@/hooks/use-toast";
+import { sendEmailAction } from '@/app/actions';
 
 interface Step3AnalysisProps {
   eventData: RCAEventData;
@@ -176,9 +177,8 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     const hasPlannedActions = plannedActions.length > 0;
 
     const isIshikawaEdited = ishikawaData.some(cat => cat.causes.some(c => c.description.trim() !== ''));
-    // Check if 5 Whys has edits beyond the potentially pre-filled first "why"
     const isFiveWhysEdited = fiveWhysData.length > 1 || 
-                             (fiveWhysData.length === 1 && fiveWhysData[0].because.trim() !== '');
+                             (fiveWhysData.length === 1 && (fiveWhysData[0].because.trim() !== '' || fiveWhysData[0].why.trim() !== initialFiveWhysWhy(eventData.focusEventDescription).trim() ));
     const isCtmEdited = ctmData.length > 0 && ctmData.some(fm => 
         fm.description.trim() !== '' || 
         fm.hypotheses.some(h => h.description.trim() !== '' || 
@@ -230,7 +230,15 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     }
   };
 
-  const handleSendTasks = () => {
+  const initialFiveWhysWhy = (focusEventDesc: string): string => {
+    if (focusEventDesc) {
+      return `¿Por qué ocurrió: "${focusEventDesc.substring(0,70)}${focusEventDesc.length > 70 ? "..." : ""}"?`;
+    }
+    return '';
+  };
+
+
+  const handleSendTasks = async () => {
     if (plannedActions.length === 0) {
       toast({
         title: "Sin Tareas para Enviar",
@@ -241,44 +249,62 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     }
 
     let tasksSentCount = 0;
-    plannedActions.forEach(action => {
+    let tasksFailedCount = 0;
+    let tasksIncompleteCount = 0;
+
+    for (const action of plannedActions) {
       if (action.responsible && action.description.trim() && action.dueDate) {
         const responsibleUser = availableUsers.find(user => user.name === action.responsible);
         if (responsibleUser && responsibleUser.email) {
-          toast({
-            title: "Simulación de Envío de Correo (Tarea)",
-            description: `Tarea enviada a ${responsibleUser.name} (${responsibleUser.email}): "${action.description.substring(0, 50)}${action.description.length > 50 ? "..." : ""}".`,
-            duration: 4000,
+          const emailSubject = `Tarea Asignada (RCA ${eventData.id || 'Evento Actual'}): ${action.description.substring(0,30)}...`;
+          const emailBody = `Estimado/a ${responsibleUser.name},\n\nSe le ha asignado la siguiente tarea como parte del análisis de causa raíz para el evento "${eventData.focusEventDescription || 'No especificado'}":\n\nTarea: ${action.description}\nFecha Límite: ${action.dueDate}\nCausas Raíz Relacionadas: ${(action.relatedRootCauseIds && action.relatedRootCauseIds.length > 0) ? action.relatedRootCauseIds.map(rcId => identifiedRootCauses.find(rc => rc.id === rcId)?.description || rcId).join(', ') : 'N/A'}\n\nPor favor, acceda al sistema RCA Assistant para más detalles y para actualizar el estado de esta tarea.\n\nSaludos,\nSistema RCA Assistant`;
+          
+          const result = await sendEmailAction({
+            to: responsibleUser.email,
+            subject: emailSubject,
+            body: emailBody,
           });
-          tasksSentCount++;
+
+          if(result.success) {
+            tasksSentCount++;
+            toast({
+              title: "Notificación de Tarea (Simulación)",
+              description: `Tarea enviada a ${responsibleUser.name} (${responsibleUser.email}): "${action.description.substring(0, 40)}...".`,
+              duration: 4000,
+            });
+          } else {
+            tasksFailedCount++;
+            toast({
+              title: "Error al Enviar Tarea (Simulación)",
+              description: `Fallo al enviar tarea a ${responsibleUser.name}. Consulte consola del servidor.`,
+              variant: "destructive",
+              duration: 4000,
+            });
+          }
         } else {
+           tasksFailedCount++; // or treat as incomplete if email not found
            toast({
             title: "Error al Enviar Tarea",
-            description: `No se pudo encontrar el correo para el responsable de la tarea: "${action.description.substring(0, 50)}...".`,
+            description: `No se pudo encontrar el correo para el responsable '${action.responsible}' de la tarea: "${action.description.substring(0, 40)}...".`,
             variant: "destructive",
             duration: 4000,
           });
         }
-      } else if (action.responsible) { 
-         toast({
-            title: "Tarea Incompleta",
-            description: `La tarea para ${action.responsible} no se puede enviar porque falta descripción o fecha límite.`,
-            variant: "destructive",
-            duration: 4000,
-          });
+      } else {
+        tasksIncompleteCount++;
       }
-    });
+    }
 
-    if (tasksSentCount === 0 && plannedActions.some(pa => !pa.responsible && pa.description.trim() && pa.dueDate)) {
-         toast({
-            title: "Tareas No Enviadas",
-            description: "Algunas tareas no pudieron ser enviadas porque no tienen un responsable asignado, o les falta descripción/fecha.",
-            variant: "default"
-        });
-    } else if (tasksSentCount > 0) {
+    if (tasksSentCount > 0) {
          toast({
             title: "Envío de Tareas Procesado",
-            description: `${tasksSentCount} tarea(s) fueron "enviadas".`,
+            description: `${tasksSentCount} tarea(s) fueron "enviadas". ${tasksFailedCount > 0 ? `${tasksFailedCount} fallaron.` : ''} ${tasksIncompleteCount > 0 ? `${tasksIncompleteCount} estaban incompletas.` : ''}`,
+        });
+    } else if (tasksIncompleteCount > 0 || tasksFailedCount > 0) {
+        toast({
+            title: "Tareas No Enviadas Completamente",
+            description: `Algunas tareas no pudieron ser enviadas: ${tasksFailedCount} fallos, ${tasksIncompleteCount} incompletas. Verifique los datos y responsables.`,
+            variant: tasksFailedCount > 0 ? "destructive" : "default",
         });
     }
   };
@@ -445,12 +471,12 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                     </SelectTrigger>
                     <SelectContent>
                       {availableUsers.map(user => (
-                        <SelectItem key={user.id} value={user.name}>{user.name}</SelectItem>
+                        <SelectItem key={user.id} value={user.name}>{user.name} ({user.email})</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                    <p className="text-xs text-muted-foreground">
-                    Nota: Lista de usuarios de ejemplo.
+                    Nota: Lista de usuarios de ejemplo. Usuarios reales deben cargarse desde Configuración.
                   </p>
                 </div>
                 <div className="space-y-2">
