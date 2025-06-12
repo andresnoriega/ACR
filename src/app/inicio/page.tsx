@@ -2,7 +2,7 @@
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Home, BarChart3, FileText, SettingsIcon, Zap, UserCheck } from 'lucide-react';
+import { Home, BarChart3, FileText, SettingsIcon, Zap, UserCheck, ListOrdered } from 'lucide-react';
 
 export default function InicioPage() {
   return (
@@ -19,7 +19,7 @@ export default function InicioPage() {
         </p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
           <CardHeader>
             <div className="flex items-center gap-3 mb-2">
@@ -32,6 +32,23 @@ export default function InicioPage() {
             <Link href="/analisis" passHref>
               <Button className="w-full" size="lg">
                 Ir a Análisis
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <CardHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <ListOrdered className="h-7 w-7 text-primary" />
+              <CardTitle className="text-2xl">Eventos Reportados</CardTitle>
+            </div>
+            <CardDescription>Visualice y gestione todos los eventos reportados y pendientes de análisis.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/eventos" passHref>
+              <Button className="w-full" size="lg">
+                Ver Eventos
               </Button>
             </Link>
           </CardContent>
