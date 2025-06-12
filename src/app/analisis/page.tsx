@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, FiveWhyEntry, CTMData, DetailedFacts, PreservedFact, PreservedFactCategory, IdentifiedRootCause, FullUserProfile } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, FiveWhyEntry, CTMData, DetailedFacts, PreservedFact, PreservedFactCategory, IdentifiedRootCause, FullUserProfile, EventType, PriorityType } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -62,6 +62,8 @@ export default function RCAAnalysisPage() {
     id: '', 
     place: '',
     date: '',
+    eventType: '',
+    priority: '',
     focusEventDescription: '',
   });
   const [eventCounter, setEventCounter] = useState(1); 
@@ -146,7 +148,7 @@ export default function RCAAnalysisPage() {
     setStep(newStep);
   };
   
-  const handleEventDataChange = (field: keyof RCAEventData, value: string) => {
+  const handleEventDataChange = (field: keyof RCAEventData, value: string | EventType | PriorityType) => {
     setEventData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -263,7 +265,9 @@ export default function RCAAnalysisPage() {
       description: '', 
       responsible: '', 
       dueDate: '',
-      relatedRootCauseIds: [] 
+      relatedRootCauseIds: [],
+      evidencias: [],
+      userComments: '',
     }]);
     setPlannedActionCounter(prev => prev + 1);
   };

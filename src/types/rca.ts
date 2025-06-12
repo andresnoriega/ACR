@@ -1,8 +1,13 @@
 
+export type EventType = 'Incidente' | 'Accidente' | 'Falla' | 'No Conformidad' | '';
+export type PriorityType = 'Alta' | 'Media' | 'Baja' | '';
+
 export interface RCAEventData {
   id: string;
   place: string;
   date: string;
+  eventType: EventType;
+  priority: PriorityType;
   focusEventDescription: string;
 }
 
@@ -34,8 +39,8 @@ export interface PlannedAction {
   responsible: string;
   dueDate: string;
   relatedRootCauseIds?: string[];
-  evidencias?: Evidence[]; // Nuevo campo
-  userComments?: string; // Nuevo campo
+  evidencias?: Evidence[]; 
+  userComments?: string; 
 }
 
 export interface Validation {
@@ -140,3 +145,4 @@ export interface FullUserProfile {
   role: 'Admin' | 'Analista' | 'Revisor' | '';
   permissionLevel: 'Total' | 'Lectura' | 'Limitado' | '';
 }
+

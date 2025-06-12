@@ -1,8 +1,8 @@
 
 'use client';
 import type { FC, ChangeEvent } from 'react';
-import { useState, useEffect } from 'react'; // Import useState and useEffect
-import type { RCAEventData, ImmediateAction } from '@/types/rca';
+import { useState, useEffect } from 'react'; 
+import type { RCAEventData, ImmediateAction, EventType, PriorityType } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 
 interface Step1InitiationProps {
   eventData: RCAEventData;
-  onEventDataChange: (field: keyof RCAEventData, value: string) => void;
+  onEventDataChange: (field: keyof RCAEventData, value: string | EventType | PriorityType) => void;
   immediateActions: ImmediateAction[];
   onAddImmediateAction: () => void;
   onUpdateImmediateAction: (index: number, field: keyof Omit<ImmediateAction, 'eventId' | 'id'>, value: string) => void;
@@ -23,6 +23,9 @@ interface Step1InitiationProps {
   availableUsers: Array<{ id: string; name: string; }>;
   onNext: () => void;
 }
+
+const EVENT_TYPES: EventType[] = ['Incidente', 'Accidente', 'Falla', 'No Conformidad'];
+const PRIORITIES: PriorityType[] = ['Alta', 'Media', 'Baja'];
 
 export const Step1Initiation: FC<Step1InitiationProps> = ({
   eventData,
@@ -39,7 +42,6 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   const [clientSideMaxDate, setClientSideMaxDate] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    // Calculate today's date string on the client side after mount
     const getTodayDateString = () => {
       const today = new Date();
       const year = today.getFullYear();
@@ -48,14 +50,20 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
       return `${year}-${month}-${day}`;
     };
     setClientSideMaxDate(getTodayDateString());
-  }, []); // Empty dependency array ensures this runs once on mount
+  }, []); 
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, field: keyof RCAEventData) => {
     onEventDataChange(field, e.target.value);
   };
 
-  const handleSelectChange = (value: string, field: keyof RCAEventData) => {
-    onEventDataChange(field, value);
+  const handleSelectChange = (value: string, field: keyof Pick<RCAEventData, 'place' | 'eventType' | 'priority'>) => {
+    if (field === 'eventType') {
+      onEventDataChange(field, value as EventType);
+    } else if (field === 'priority') {
+      onEventDataChange(field, value as PriorityType);
+    } else {
+      onEventDataChange(field, value);
+    }
   };
 
   const handleActionChange = (index: number, field: keyof Omit<ImmediateAction, 'eventId' | 'id'>, value: string) => {
@@ -70,6 +78,8 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     const missingFields = [];
     if (!eventData.place) missingFields.push("Lugar del Evento");
     if (!eventData.date) missingFields.push("Fecha del Evento");
+    if (!eventData.eventType) missingFields.push("Tipo de Evento");
+    if (!eventData.priority) missingFields.push("Prioridad");
     if (!eventData.focusEventDescription.trim()) missingFields.push("Descripción del Evento Foco");
 
     if (missingFields.length > 0) {
@@ -115,6 +125,32 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
             onChange={(e) => handleInputChange(e, 'date')} 
             max={clientSideMaxDate} 
           />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="eventType">Tipo de Evento <span className="text-destructive">*</span></Label>
+          <Select onValueChange={(value) => handleSelectChange(value as EventType, 'eventType')} value={eventData.eventType}>
+            <SelectTrigger id="eventType">
+              <SelectValue placeholder="-- Seleccione el tipo de evento --" />
+            </SelectTrigger>
+            <SelectContent>
+              {EVENT_TYPES.map(type => (
+                type && <SelectItem key={type} value={type}>{type}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="priority">Prioridad <span className="text-destructive">*</span></Label>
+          <Select onValueChange={(value) => handleSelectChange(value as PriorityType, 'priority')} value={eventData.priority}>
+            <SelectTrigger id="priority">
+              <SelectValue placeholder="-- Seleccione la prioridad --" />
+            </SelectTrigger>
+            <SelectContent>
+              {PRIORITIES.map(prio => (
+                prio && <SelectItem key={prio} value={prio}>{prio}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-2">
           <Label htmlFor="focusEventDescription">Descripción del Evento Foco <span className="text-destructive">*</span></Label>
@@ -176,3 +212,4 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     </Card>
   );
 };
+
