@@ -17,7 +17,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { ReportedEvent, ReportedEventType, ReportedEventStatus, PriorityType } from '@/types/rca';
-import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, Eye, PlayCircle, CheckSquare, Info } from 'lucide-react';
+import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, PlayCircle, CheckSquare, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Sample data - in a real app, this would come from a backend/state management
@@ -143,15 +143,6 @@ export default function EventosReportadosPage() {
     } else {
       setSelectedEvent(event);
       setIsDetailsCardVisible(true);
-    }
-  };
-
-  const handleViewDetails = () => {
-    if (selectedEvent) {
-      setIsDetailsCardVisible(true);
-      toast({ title: "Detalles Mostrados", description: `Mostrando detalles para el evento ${selectedEvent.title}.`});
-    } else {
-      toast({ title: "Ningún Evento Seleccionado", description: "Por favor, seleccione un evento de la lista para ver sus detalles.", variant: "destructive" });
     }
   };
 
@@ -335,9 +326,6 @@ export default function EventosReportadosPage() {
           </Table>
         </CardContent>
         <CardFooter className="flex justify-start gap-2 pt-4 border-t">
-            <Button variant="outline" size="sm" onClick={handleViewDetails} disabled={!selectedEvent}>
-                <Eye className="mr-2"/> Ver Detalles
-            </Button>
              <Button 
                 variant="default" 
                 size="sm" 
