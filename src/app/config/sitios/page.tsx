@@ -31,6 +31,7 @@ export default function ConfiguracionSitiosPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false); // For add/edit operations
 
   // State for Add Site Dialog
   const [isAddSiteDialogOpen, setIsAddSiteDialogOpen] = useState(false);
@@ -65,7 +66,7 @@ export default function ConfiguracionSitiosPage() {
         setSites(sitesData);
       } catch (error) {
         console.error("Error fetching sites: ", error);
-        toast({ title: "Error", description: "No se pudieron cargar los sitios. Verifique la consola para más detalles.", variant: "destructive" });
+        toast({ title: "Error al Cargar Sitios", description: "No se pudieron cargar los sitios desde Firestore. Verifique la consola para más detalles.", variant: "destructive" });
       } finally {
         setIsLoading(false);
       }
@@ -92,28 +93,30 @@ export default function ConfiguracionSitiosPage() {
 
   const handleAddSite = async () => {
     if (!newSiteName.trim()) {
-      toast({ title: "Error", description: "El nombre del sitio es obligatorio.", variant: "destructive" });
+      toast({ title: "Error de Validación", description: "El nombre del sitio es obligatorio.", variant: "destructive" });
       return;
     }
-    setIsLoading(true);
+    setIsSubmitting(true);
     try {
       const newSiteData = {
-        name: newSiteName,
-        address: newSiteAddress,
+        name: newSiteName.trim(),
+        address: newSiteAddress.trim(),
         zone: newSiteZone,
-        coordinator: newSiteCoordinator,
-        description: newSiteDescription,
+        coordinator: newSiteCoordinator.trim(),
+        description: newSiteDescription.trim(),
       };
       const docRef = await addDoc(collection(db, "sites"), newSiteData);
-      setSites(prevSites => [...prevSites, { id: docRef.id, ...newSiteData }]);
-      toast({ title: "Sitio Añadido", description: `El sitio "${newSiteName}" ha sido añadido.` });
+      // Optimistic update: add to local state immediately
+      // For more robust approach, refetch or use server timestamp if needed
+      setSites(prevSites => [...prevSites, { id: docRef.id, ...newSiteData }].sort((a, b) => a.name.localeCompare(b.name)));
+      toast({ title: "Sitio Añadido", description: `El sitio "${newSiteData.name}" ha sido añadido con éxito.` });
       resetNewSiteForm();
       setIsAddSiteDialogOpen(false);
     } catch (error) {
       console.error("Error adding site: ", error);
-      toast({ title: "Error", description: "No se pudo añadir el sitio.", variant: "destructive" });
+      toast({ title: "Error al Añadir Sitio", description: "No se pudo añadir el sitio a Firestore. Verifique la consola.", variant: "destructive" });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -130,29 +133,29 @@ export default function ConfiguracionSitiosPage() {
   const handleUpdateSite = async () => {
     if (!currentSiteToEdit) return;
     if (!editSiteName.trim()) {
-      toast({ title: "Error", description: "El nombre del sitio es obligatorio.", variant: "destructive" });
+      toast({ title: "Error de Validación", description: "El nombre del sitio es obligatorio.", variant: "destructive" });
       return;
     }
-    setIsLoading(true);
+    setIsSubmitting(true);
     try {
       const siteRef = doc(db, "sites", currentSiteToEdit.id);
       const updatedSiteData = {
-        name: editSiteName,
-        address: editSiteAddress,
+        name: editSiteName.trim(),
+        address: editSiteAddress.trim(),
         zone: editSiteZone,
-        coordinator: editSiteCoordinator,
-        description: editSiteDescription,
+        coordinator: editSiteCoordinator.trim(),
+        description: editSiteDescription.trim(),
       };
       await updateDoc(siteRef, updatedSiteData);
-      setSites(sites.map(s => s.id === currentSiteToEdit.id ? { ...s, ...updatedSiteData } : s));
-      toast({ title: "Sitio Actualizado", description: `El sitio "${editSiteName}" ha sido actualizado.` });
+      setSites(sites.map(s => s.id === currentSiteToEdit.id ? { ...s, ...updatedSiteData } : s).sort((a,b) => a.name.localeCompare(b.name)));
+      toast({ title: "Sitio Actualizado", description: `El sitio "${updatedSiteData.name}" ha sido actualizado.` });
       resetEditSiteForm();
       setIsEditSiteDialogOpen(false);
     } catch (error) {
       console.error("Error updating site: ", error);
-      toast({ title: "Error", description: "No se pudo actualizar el sitio.", variant: "destructive" });
+      toast({ title: "Error al Actualizar", description: "No se pudo actualizar el sitio en Firestore. Verifique la consola.", variant: "destructive" });
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -163,7 +166,7 @@ export default function ConfiguracionSitiosPage() {
 
   const confirmDeleteSite = async () => {
     if (siteToDelete) {
-      setIsLoading(true);
+      setIsSubmitting(true); // Use isSubmitting for delete too
       try {
         await deleteDoc(doc(db, "sites", siteToDelete.id));
         setSites(sites.filter(s => s.id !== siteToDelete.id));
@@ -171,9 +174,9 @@ export default function ConfiguracionSitiosPage() {
         setSiteToDelete(null);
       } catch (error) {
         console.error("Error deleting site: ", error);
-        toast({ title: "Error", description: "No se pudo eliminar el sitio.", variant: "destructive" });
+        toast({ title: "Error al Eliminar", description: "No se pudo eliminar el sitio de Firestore. Verifique la consola.", variant: "destructive" });
       } finally {
-        setIsLoading(false);
+        setIsSubmitting(false);
       }
     }
     setIsDeleteSiteConfirmOpen(false);
@@ -267,8 +270,8 @@ export default function ConfiguracionSitiosPage() {
                       <DialogClose asChild>
                         <Button type="button" variant="outline" onClick={() => setIsAddSiteDialogOpen(false)}>Cancelar</Button>
                       </DialogClose>
-                      <Button type="button" onClick={handleAddSite} disabled={isLoading}>
-                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      <Button type="button" onClick={handleAddSite} disabled={isSubmitting}>
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Guardar Sitio
                       </Button>
                     </DialogFooter>
@@ -281,7 +284,7 @@ export default function ConfiguracionSitiosPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading && sites.length === 0 ? (
+          {isLoading ? ( // Mostrar siempre el loader si isLoading es true, incluso si hay sitios
             <div className="flex justify-center items-center h-24">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <p className="ml-2 text-muted-foreground">Cargando sitios...</p>
@@ -319,11 +322,11 @@ export default function ConfiguracionSitiosPage() {
                         </TableCell>
                         <TableCell>{site.zone}</TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" className="mr-2 hover:text-primary" onClick={() => openEditSiteDialog(site)} disabled={isLoading}>
+                          <Button variant="ghost" size="icon" className="mr-2 hover:text-primary" onClick={() => openEditSiteDialog(site)} disabled={isSubmitting}>
                             <Edit2 className="h-4 w-4" />
                             <span className="sr-only">Editar</span>
                           </Button>
-                          <Button variant="ghost" size="icon" className="hover:text-destructive" onClick={() => openDeleteSiteDialog(site)} disabled={isLoading}>
+                          <Button variant="ghost" size="icon" className="hover:text-destructive" onClick={() => openDeleteSiteDialog(site)} disabled={isSubmitting}>
                             <Trash2 className="h-4 w-4" />
                             <span className="sr-only">Eliminar</span>
                           </Button>
@@ -342,7 +345,7 @@ export default function ConfiguracionSitiosPage() {
             </div>
           )}
         </CardContent>
-         {sites.length > 0 && (
+         {sites.length > 0 && !isLoading && ( // Solo mostrar footer si hay sitios y no está cargando
           <CardFooter>
             <p className="text-xs text-muted-foreground">
               Actualmente gestionando {sites.length} sitio(s) desde Firestore. La importación/exportación no está implementada.
@@ -392,8 +395,8 @@ export default function ConfiguracionSitiosPage() {
             <DialogClose asChild>
               <Button type="button" variant="outline" onClick={() => { resetEditSiteForm(); setIsEditSiteDialogOpen(false); }}>Cancelar</Button>
             </DialogClose>
-            <Button type="button" onClick={handleUpdateSite} disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="button" onClick={handleUpdateSite} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Guardar Cambios
             </Button>
           </DialogFooter>
@@ -410,9 +413,9 @@ export default function ConfiguracionSitiosPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setSiteToDelete(null)}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteSite} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <AlertDialogCancel onClick={() => setSiteToDelete(null)} disabled={isSubmitting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteSite} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -422,4 +425,4 @@ export default function ConfiguracionSitiosPage() {
     </div>
   );
 }
-
+    

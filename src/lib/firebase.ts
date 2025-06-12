@@ -9,12 +9,12 @@ import { getFirestore } from "firebase/firestore";
 // Your web app's Firebase configuration
 // IMPORTANT: Replace these with your actual Firebase project configuration!
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: "AIzaSyA3a8UytRbwFKWT9ISF1OlYaizC37b3rZQ",
+  authDomain: "rca-assistant-jk3ja.firebaseapp.com",
+  projectId: "Yrca-assistant-jk3ja",
+  storageBucket: "Yrca-assistant-jk3ja.firebasestorage.app",
+  messagingSenderId: "Y1044963774198",
+  appId: "1:1044963774198:web:4ae00d1ee674f1864ea6d7",
   measurementId: "YOUR_MEASUREMENT_ID" // Optional: if you use Google Analytics
 };
 
