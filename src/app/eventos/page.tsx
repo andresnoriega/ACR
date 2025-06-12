@@ -16,10 +16,10 @@ import { Calendar } from '@/components/ui/calendar';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { ReportedEvent, ReportedEventType, ReportedEventStatus, PriorityType, Site } from '@/types/rca';
-import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, PlayCircle, Info, Loader2 } from 'lucide-react';
+import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, PlayCircle, Info, Loader2, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, where, Timestamp } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, where, Timestamp, doc, updateDoc } from "firebase/firestore";
 
 const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Fallo', 'Accidente', 'No Conformidad'];
 const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
@@ -57,35 +57,33 @@ export default function EventosReportadosPage() {
     status: '',
   });
 
-  useEffect(() => {
-    const fetchEvents = async () => {
-      setIsLoadingEvents(true);
-      try {
-        const eventsCollectionRef = collection(db, "reportedEvents");
-        // Podrías añadir un orderBy por defecto, ej: orderBy("date", "desc")
-        const q = query(eventsCollectionRef, orderBy("date", "desc"));
-        const querySnapshot = await getDocs(q);
-        const eventsData = querySnapshot.docs.map(doc => {
-          const data = doc.data();
-          // Convert Firestore Timestamp to string if necessary, or handle as Date object
-          let eventDate = data.date;
-          if (data.date && typeof data.date.toDate === 'function') { // Check if it's a Firestore Timestamp
-            eventDate = format(data.date.toDate(), 'yyyy-MM-dd');
-          }
-          return { id: doc.id, ...data, date: eventDate } as ReportedEvent;
-        });
-        setAllEvents(eventsData);
-        setFilteredEvents(eventsData); // Initialize filteredEvents with all events
-      } catch (error) {
-        console.error("Error fetching reported events: ", error);
-        toast({ title: "Error al Cargar Eventos", description: "No se pudieron cargar los eventos desde Firestore.", variant: "destructive" });
-        setAllEvents([]);
-        setFilteredEvents([]);
-      } finally {
-        setIsLoadingEvents(false);
-      }
-    };
+  const fetchEvents = useCallback(async () => {
+    setIsLoadingEvents(true);
+    try {
+      const eventsCollectionRef = collection(db, "reportedEvents");
+      const q = query(eventsCollectionRef, orderBy("date", "desc"));
+      const querySnapshot = await getDocs(q);
+      const eventsData = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        let eventDate = data.date;
+        if (data.date && typeof data.date.toDate === 'function') { 
+          eventDate = format(data.date.toDate(), 'yyyy-MM-dd');
+        }
+        return { id: doc.id, ...data, date: eventDate } as ReportedEvent;
+      });
+      setAllEvents(eventsData);
+      setFilteredEvents(eventsData); 
+    } catch (error) {
+      console.error("Error fetching reported events: ", error);
+      toast({ title: "Error al Cargar Eventos", description: "No se pudieron cargar los eventos desde Firestore.", variant: "destructive" });
+      setAllEvents([]);
+      setFilteredEvents([]);
+    } finally {
+      setIsLoadingEvents(false);
+    }
+  }, [toast]);
 
+  useEffect(() => {
     const fetchSites = async () => {
       setIsLoadingSites(true);
       try {
@@ -105,7 +103,7 @@ export default function EventosReportadosPage() {
 
     fetchEvents();
     fetchSites();
-  }, [toast]);
+  }, [fetchEvents, toast]);
 
 
   const summaryData = useMemo(() => ({
@@ -167,7 +165,6 @@ export default function EventosReportadosPage() {
   const formatDateForDisplay = (dateString: string) => {
     if (!dateString) return 'N/A';
     try {
-      // Assuming dateString is already 'yyyy-MM-dd' from Firestore conversion or initial data
       const dateObj = parseISO(dateString); 
       if (isValidDate(dateObj)) {
         return format(dateObj, 'dd/MM/yyyy');
@@ -188,12 +185,27 @@ export default function EventosReportadosPage() {
     }
   };
 
-  const handleStartRCA = () => {
+  const handleStartRCA = async () => {
     if (selectedEvent && selectedEvent.status === 'Pendiente') {
-      toast({ title: "Iniciando Análisis RCA", description: `Navegando a análisis para el evento ${selectedEvent.title}.`});
-      // Aquí podrías pasar el ID del evento a la página de análisis si la configuras para cargar un evento existente
-      // router.push(`/analisis?eventId=${selectedEvent.id}`);
-      router.push('/analisis'); 
+      try {
+        const eventRef = doc(db, "reportedEvents", selectedEvent.id);
+        await updateDoc(eventRef, { status: "En análisis" });
+        
+        // Update local state to reflect change immediately
+        setAllEvents(prevEvents => prevEvents.map(ev => 
+          ev.id === selectedEvent.id ? { ...ev, status: "En análisis" } : ev
+        ));
+        setFilteredEvents(prevFiltered => prevFiltered.map(ev => 
+          ev.id === selectedEvent.id ? { ...ev, status: "En análisis" } : ev
+        ));
+        setSelectedEvent(prevSelected => prevSelected ? { ...prevSelected, status: "En análisis"} : null);
+
+        toast({ title: "Investigación Iniciada", description: `El evento ${selectedEvent.title} ahora está "En análisis".`});
+        router.push(`/analisis?id=${selectedEvent.id}`); 
+      } catch (error) {
+        console.error("Error updating event status to 'En análisis':", error);
+        toast({ title: "Error", description: "No se pudo actualizar el estado del evento.", variant: "destructive" });
+      }
     } else if (selectedEvent) {
         toast({ title: "Acción no permitida", description: `El evento "${selectedEvent.title}" no está pendiente. Su estado es: ${selectedEvent.status}.`, variant: "destructive"});
     } else {
@@ -201,6 +213,15 @@ export default function EventosReportadosPage() {
     }
   };
   
+  const handleViewAnalysis = () => {
+    if (selectedEvent) {
+        toast({ title: "Navegando al Análisis", description: `Abriendo análisis para el evento ${selectedEvent.title}.`});
+        router.push(`/analisis?id=${selectedEvent.id}`);
+    } else {
+         toast({ title: "Ningún Evento Seleccionado", description: "Por favor, seleccione un evento.", variant: "destructive" });
+    }
+  };
+
   const isLoading = isLoadingEvents || isLoadingSites;
 
   if (isLoading) {
@@ -393,14 +414,45 @@ export default function EventosReportadosPage() {
           </div>
         </CardContent>
         <CardFooter className="flex justify-start gap-2 pt-4 border-t">
-             <Button 
-                variant="default" 
-                size="sm" 
-                onClick={handleStartRCA} 
-                disabled={!selectedEvent || selectedEvent.status !== 'Pendiente'}
-             >
-                <PlayCircle className="mr-2"/> Iniciar Análisis RCA
-            </Button>
+            {selectedEvent ? (
+                <>
+                    {selectedEvent.status === 'Pendiente' && (
+                        <Button 
+                            variant="default" 
+                            size="sm" 
+                            onClick={handleStartRCA} 
+                        >
+                            <PlayCircle className="mr-2"/> Continuar Investigación
+                        </Button>
+                    )}
+                    {selectedEvent.status === 'En análisis' && (
+                        <Button 
+                            variant="default" 
+                            size="sm" 
+                            onClick={handleViewAnalysis}
+                        >
+                            <PlayCircle className="mr-2"/> Continuar Investigación
+                        </Button>
+                    )}
+                    {selectedEvent.status === 'Finalizado' && (
+                        <Button 
+                            variant="outline"
+                            size="sm" 
+                            onClick={handleViewAnalysis}
+                        >
+                            <Eye className="mr-2"/> Revisar Investigación
+                        </Button>
+                    )}
+                </>
+            ) : (
+                <Button 
+                    variant="default" 
+                    size="sm" 
+                    disabled
+                >
+                    <PlayCircle className="mr-2"/> Seleccione un evento
+                </Button>
+            )}
         </CardFooter>
       </Card>
 
