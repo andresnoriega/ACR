@@ -437,7 +437,7 @@ export default function DashboardRCAPage() {
               <div className="p-4 bg-yellow-400/20 rounded-lg">
                 <div className="flex items-center justify-center mb-1"><ListTodo className="h-5 w-5 text-yellow-600 mr-1.5"/></div>
                 <p className="text-3xl font-bold text-yellow-600">{rcaSummaryData.accionesPendientesEnRCAPendientes}</p>
-                <p className="text-sm text-muted-foreground">Acciones Pendientes (RCA Pendientes)</p>
+                <p className="text-sm text-muted-foreground">RCA Pendientes</p>
               </div>
               <div className="p-4 bg-green-400/20 rounded-lg">
                 <div className="flex items-center justify-center mb-1"><CheckSquare className="h-5 w-5 text-green-600 mr-1.5"/></div>
@@ -721,4 +721,3 @@ export default function DashboardRCAPage() {
     </div>
   );
 }
-
