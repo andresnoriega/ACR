@@ -6,12 +6,11 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
-import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar'; // Renamed to avoid conflict
-import { PieChart, ClipboardList, ListChecks, History, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, CalendarDays, Flame, Search, RefreshCcw } from 'lucide-react';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { PieChart, ListChecks, History, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, CalendarDays, Flame, Search, RefreshCcw } from 'lucide-react';
 import type { ReportedEvent, RCAAnalysisDocument, PlannedAction, Validation, Site, ReportedEventType, PriorityType, ReportedEventStatus } from '@/types/rca';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, Timestamp, where, orderBy, limit, QueryConstraint } from "firebase/firestore";
@@ -24,7 +23,6 @@ const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
 const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'Finalizado'];
 const ALL_FILTER_VALUE = "__ALL__";
 const NO_SITES_PLACEHOLDER_VALUE = "__NO_SITES_PLACEHOLDER__";
-
 
 interface ActionStatsData {
   totalAcciones: number;
@@ -59,7 +57,8 @@ interface ActividadRecienteItem {
 
 interface DashboardFilters {
   site: string;
-  date: Date | undefined;
+  dateFrom: Date | undefined;
+  dateTo: Date | undefined;
   type: ReportedEventType;
   priority: PriorityType;
   status: ReportedEventStatus;
@@ -79,7 +78,8 @@ export default function DashboardRCAPage() {
 
   const [filters, setFilters] = useState<DashboardFilters>({
     site: '',
-    date: undefined,
+    dateFrom: undefined,
+    dateTo: undefined,
     type: '',
     priority: '',
     status: '',
@@ -103,8 +103,11 @@ export default function DashboardRCAPage() {
     if (currentFilters.site) {
       baseQueryConstraints.push(where("eventData.site", "==", currentFilters.site));
     }
-    if (currentFilters.date) {
-      baseQueryConstraints.push(where("eventData.date", "==", format(currentFilters.date, "yyyy-MM-dd")));
+    if (currentFilters.dateFrom) {
+      baseQueryConstraints.push(where("eventData.date", ">=", format(currentFilters.dateFrom, "yyyy-MM-dd")));
+    }
+    if (currentFilters.dateTo) {
+      baseQueryConstraints.push(where("eventData.date", "<=", format(currentFilters.dateTo, "yyyy-MM-dd")));
     }
     if (currentFilters.type) {
       baseQueryConstraints.push(where("eventData.eventType", "==", currentFilters.type));
@@ -116,9 +119,12 @@ export default function DashboardRCAPage() {
       if (currentFilters.status === 'Finalizado') {
         baseQueryConstraints.push(where("isFinalized", "==", true));
       } else { 
-        baseQueryConstraints.push(where("isFinalized", "==", false));
-         // Adicionalmente, si el status es "Pendiente" o "En análisis", podemos intentar refinarlo.
-         // Pero por ahora, isFinalized == false cubre ambos para el propósito del dashboard.
+        const isFinalizedFalseAlreadyPresent = baseQueryConstraints.some(
+            (c: any) => c._field === 'isFinalized' && c._op === '==' && c._value === false
+        );
+        if (!isFinalizedFalseAlreadyPresent) {
+            baseQueryConstraints.push(where("isFinalized", "==", false));
+        }
       }
     }
 
@@ -158,30 +164,50 @@ export default function DashboardRCAPage() {
       const analisisQueryConstraints = [...baseQueryConstraints];
       let shouldFetchAnalisis = true;
 
-      if (currentFilters.status === 'Finalizado') {
-        setAnalisisEnCurso([]);
-        shouldFetchAnalisis = false; // No hay "en curso" si el filtro es "Finalizado"
-      } else {
-         const isFinalizedFalseAlreadyPresent = analisisQueryConstraints.some(
-            (c: any) => c._field === 'isFinalized' && c._op === '==' && c._value === false
-        );
-        if (!isFinalizedFalseAlreadyPresent) {
-            analisisQueryConstraints.push(where("isFinalized", "==", false));
+      const isFinalizedFilterApplied = baseQueryConstraints.some(
+        (c: any) => c._field === 'isFinalized'
+      );
+
+      if (currentFilters.status === 'Finalizado' && isFinalizedFilterApplied) {
+         // isFinalized == true is already applied
+      } else if (currentFilters.status && currentFilters.status !== 'Finalizado' && isFinalizedFilterApplied) {
+        // isFinalized == false is already applied
+      } else if (!isFinalizedFilterApplied) {
+        // If no status filter related to finalization was applied from currentFilters.status,
+        // but we generally want "En Curso" to mean not finalized.
+        // However, if a status filter IS active (e.g. "Pendiente"), it might imply isFinalized=false already
+        // For "Análisis en Curso", we default to isFinalized == false if no other status filter implies it.
+        if (!currentFilters.status) { // Only add if no specific status implies finalization state
+             analisisQueryConstraints.push(where("isFinalized", "==", false));
         }
       }
+      
+      // If the current status filter is "Finalizado", then "Análisis en Curso" should be empty
+      if (currentFilters.status === 'Finalizado') {
+        setAnalisisEnCurso([]);
+        shouldFetchAnalisis = false;
+      }
+
 
       if (shouldFetchAnalisis) {
+        // Remove any existing orderBy('updatedAt') if we are adding one to avoid conflict
+        const existingOrderByIndex = analisisQueryConstraints.findIndex((c: any) => c._op === 'orderBy' && c._fieldPath === 'updatedAt');
+        if (existingOrderByIndex > -1) {
+            analisisQueryConstraints.splice(existingOrderByIndex, 1);
+        }
         analisisQueryConstraints.push(orderBy("updatedAt", "desc"));
+
         const rcaAnalysesRef = collection(db, "rcaAnalyses");
         const q = query(rcaAnalysesRef, ...analisisQueryConstraints);
         const querySnapshot = await getDocs(q);
-        console.log(`[fetchAnalisisEnCurso] Found ${querySnapshot.docs.length} documents with isFinalized: false (and other filters).`);
+        console.log(`[fetchAnalisisEnCurso] Query with constraints:`, analisisQueryConstraints.map(c => `${(c as any)._field || (c as any)._fieldPath?.toString()} ${(c as any)._op} ${(c as any)._value}`));
+        console.log(`[fetchAnalisisEnCurso] Found ${querySnapshot.docs.length} documents.`);
         
         const analysesData = querySnapshot.docs.map(docSnap => {
           const doc = docSnap.data() as RCAAnalysisDocument;
           const id = docSnap.id;
           let proyecto = doc.eventData?.focusEventDescription || `Análisis ID: ${id.substring(0,8)}...`;
-          let currentStep = 1; // Default to step 1 if it exists
+          let currentStep = 1; 
           if (doc.finalComments && doc.finalComments.trim() !== '') currentStep = 5;
           else if (doc.validations && doc.validations.length > 0 && doc.plannedActions && doc.plannedActions.length > 0) currentStep = 4;
           else if (doc.analysisTechnique || (doc.analysisTechniqueNotes && doc.analysisTechniqueNotes.trim() !== '') || (doc.identifiedRootCauses && doc.identifiedRootCauses.length > 0) || (doc.plannedActions && doc.plannedActions.length > 0)) currentStep = 3;
@@ -199,29 +225,41 @@ export default function DashboardRCAPage() {
     }
 
     // Fetch Planes de Acción Activos
-    const planes: PlanAccionPendienteItem[] = [];
     try {
       const planesQueryConstraints = [...baseQueryConstraints];
       let shouldFetchPlanes = true;
+      
+      const isFinalizedFilterAppliedForPlanes = planesQueryConstraints.some(
+        (c: any) => c._field === 'isFinalized'
+      );
+
+      if (currentFilters.status === 'Finalizado' && isFinalizedFilterAppliedForPlanes) {
+         // isFinalized == true is already applied
+      } else if (currentFilters.status && currentFilters.status !== 'Finalizado' && isFinalizedFilterAppliedForPlanes) {
+        // isFinalized == false is already applied
+      } else if (!isFinalizedFilterAppliedForPlanes) {
+        // For "Planes de Acción Activos", we generally want non-finalized ones.
+        if (!currentFilters.status) { // Only add if no specific status implies finalization state
+            planesQueryConstraints.push(where("isFinalized", "==", false));
+        }
+      }
 
       if (currentFilters.status === 'Finalizado') {
         setPlanesAccionPendientes([]);
         shouldFetchPlanes = false; 
-      } else {
-        const isFinalizedFalseAlreadyPresent = planesQueryConstraints.some(
-            (c: any) => c._field === 'isFinalized' && c._op === '==' && c._value === false
-        );
-        if (!isFinalizedFalseAlreadyPresent) {
-            planesQueryConstraints.push(where("isFinalized", "==", false));
-        }
       }
       
       if (shouldFetchPlanes) {
+        const existingOrderByIndex = planesQueryConstraints.findIndex((c: any) => c._op === 'orderBy' && c._fieldPath === 'updatedAt');
+        if (existingOrderByIndex > -1) {
+            planesQueryConstraints.splice(existingOrderByIndex, 1);
+        }
         planesQueryConstraints.push(orderBy("updatedAt", "desc"));
+        
         const rcaAnalysesRef = collection(db, "rcaAnalyses");
         const q = query(rcaAnalysesRef, ...planesQueryConstraints);
         const querySnapshot = await getDocs(q);
-
+        const planes: PlanAccionPendienteItem[] = [];
         querySnapshot.forEach(docSnap => {
           const rcaDoc = docSnap.data() as RCAAnalysisDocument;
           rcaDoc.plannedActions?.forEach(action => {
@@ -322,8 +360,12 @@ export default function DashboardRCAPage() {
     setFilters(prev => ({ ...prev, [field]: value === ALL_FILTER_VALUE ? '' : value }));
   };
   
-  const handleDateChange = (date: Date | undefined) => {
-    handleFilterChange('date', date);
+  const handleDateFromChange = (date: Date | undefined) => {
+    setFilters(prev => ({ ...prev, dateFrom: date }));
+  };
+
+  const handleDateToChange = (date: Date | undefined) => {
+    setFilters(prev => ({ ...prev, dateTo: date }));
   };
 
   const applyFilters = () => {
@@ -332,7 +374,14 @@ export default function DashboardRCAPage() {
   };
 
   const clearFilters = () => {
-    const emptyFilters = { site: '', date: undefined, type: '' as ReportedEventType, priority: '' as PriorityType, status: '' as ReportedEventStatus };
+    const emptyFilters: DashboardFilters = { 
+        site: '', 
+        dateFrom: undefined, 
+        dateTo: undefined, 
+        type: '' as ReportedEventType, 
+        priority: '' as PriorityType, 
+        status: '' as ReportedEventStatus 
+    };
     setFilters(emptyFilters);
     toast({ title: "Filtros Limpiados", description: "Recargando todos los datos del dashboard." });
     fetchAllDashboardData(emptyFilters);
@@ -393,15 +442,32 @@ export default function DashboardRCAPage() {
             </Select>
           </div>
           <div>
-            <Label htmlFor="filter-date" className="flex items-center mb-1"><CalendarDays className="mr-1.5 h-4 w-4 text-muted-foreground"/>Fecha del Evento</Label>
+            <Label htmlFor="filter-date-from" className="flex items-center mb-1">
+              <CalendarDays className="mr-1.5 h-4 w-4 text-muted-foreground"/>Fecha desde del Evento
+            </Label>
             <Popover>
               <PopoverTrigger asChild>
-                <Button id="filter-date" variant="outline" className="w-full justify-start text-left font-normal" disabled={isLoading}>
-                  {filters.date ? format(filters.date, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}
+                <Button id="filter-date-from" variant="outline" className="w-full justify-start text-left font-normal" disabled={isLoading}>
+                  {filters.dateFrom ? format(filters.dateFrom, "PPP", { locale: es }) : <span>Seleccione fecha desde</span>}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
-                <CalendarComponent mode="single" selected={filters.date} onSelect={handleDateChange} initialFocus locale={es} />
+                <CalendarComponent mode="single" selected={filters.dateFrom} onSelect={handleDateFromChange} initialFocus locale={es} />
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div>
+            <Label htmlFor="filter-date-to" className="flex items-center mb-1">
+              <CalendarDays className="mr-1.5 h-4 w-4 text-muted-foreground"/>Fecha hasta del Evento
+            </Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button id="filter-date-to" variant="outline" className="w-full justify-start text-left font-normal" disabled={isLoading}>
+                  {filters.dateTo ? format(filters.dateTo, "PPP", { locale: es }) : <span>Seleccione fecha hasta</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <CalendarComponent mode="single" selected={filters.dateTo} onSelect={handleDateToChange} initialFocus locale={es} />
               </PopoverContent>
             </Popover>
           </div>
