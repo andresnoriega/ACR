@@ -1,19 +1,34 @@
 
 'use client';
 
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
-import { PieChart, ClipboardList, ListChecks, History, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell } from 'lucide-react';
+import { PieChart, ClipboardList, ListChecks, History, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter } from 'lucide-react';
+import type { ReportedEvent, ReportedEventStatus } from '@/types/rca'; // Assuming ReportedEvent is defined in types
 
-const staticStats = {
-  eventosNotificados: 4, // Cambiado de proyectosActivos
-  enTratamiento: 3,    // Cambiado de finalizados
-  enValidacion: 1,
-};
+// Simulación de datos que vendrían de Firestore para la sección de "Eventos Reportados"
+// Esta es la misma data que se usa en /eventos/page.tsx para consistencia de la simulación.
+const simulatedReportedEventsData: ReportedEvent[] = [
+  { id: 'E-001', title: 'Fuga en válvula X', site: 'Planta Norte', date: '2025-06-10', type: 'Incidente', priority: 'Alta', status: 'Pendiente', description: 'Se detectó una fuga considerable en la válvula de control principal del sector A. Requiere atención inmediata.' },
+  { id: 'E-003', title: 'Caída de operario', site: 'Centro', date: '2025-06-08', type: 'Accidente', priority: 'Alta', status: 'Pendiente', description: 'Un operario sufrió una caída desde una altura de 2 metros mientras realizaba mantenimiento en la plataforma 3. Se aplicaron primeros auxilios.' },
+  { id: 'E-005', title: 'Error eléctrico en línea 3', site: 'Planta Sur', date: '2025-06-05', type: 'Fallo', priority: 'Media', status: 'En análisis', description: 'La línea de producción 3 experimentó un fallo eléctrico intermitente, causando paradas no programadas.' },
+  { id: 'E-007', title: 'Sobrecalentamiento motor', site: 'Planta Norte', date: '2025-06-02', type: 'Incidente', priority: 'Baja', status: 'Finalizado', description: 'El motor de la bomba B-102 mostró signos de sobrecalentamiento. Se realizó mantenimiento y ya está operativo.' },
+  { id: 'E-008', title: 'Derrame químico menor', site: 'Planta Sur', date: '2025-05-28', type: 'Incidente', priority: 'Media', status: 'Pendiente', description: 'Pequeño derrame de sustancia X en el almacén de químicos. Área contenida.' },
+  { id: 'E-009', title: 'Falla en sensor de presión', site: 'Centro', date: '2025-05-25', type: 'Fallo', priority: 'Alta', status: 'En análisis', description: 'El sensor de presión PT-501 de la caldera principal está arrojando lecturas erráticas.' },
+];
 
+interface StatsData {
+  totalEventos: number;
+  pendientes: number;
+  enAnalisis: number;
+  finalizados: number;
+}
+
+// Datos estáticos para otras secciones, no modificados en esta iteración
 const staticAnalisisEnCurso = [
   { id: '1', proyecto: 'Incidente Válvula X', estado: 'En Análisis', progreso: 60 },
   { id: '2', proyecto: 'Caída de operario Y', estado: 'Iniciado', progreso: 20 },
@@ -32,6 +47,37 @@ const staticUltimosEventos = [
 ];
 
 export default function DashboardRCAPage() {
+  const [statsData, setStatsData] = useState<StatsData | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+  useEffect(() => {
+    // Simulación de carga de datos desde Firestore
+    const fetchStats = async () => {
+      setIsLoadingStats(true);
+      // En una implementación real, aquí se haría la llamada a Firestore:
+      // const querySnapshot = await getDocs(collection(db, "reportedEvents"));
+      // const events = querySnapshot.docs.map(doc => doc.data() as ReportedEvent);
+      
+      // Usamos los datos simulados por ahora
+      const events: ReportedEvent[] = simulatedReportedEventsData;
+
+      const newStats: StatsData = {
+        totalEventos: events.length,
+        pendientes: events.filter(e => e.status === 'Pendiente').length,
+        enAnalisis: events.filter(e => e.status === 'En análisis').length,
+        finalizados: events.filter(e => e.status === 'Finalizado').length,
+      };
+      
+      // Simular un pequeño retraso de red
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      setStatsData(newStats);
+      setIsLoadingStats(false);
+    };
+
+    fetchStats();
+  }, []);
+
   return (
     <div className="space-y-6 py-8">
       <header className="text-center mb-8 space-y-2">
@@ -51,22 +97,42 @@ export default function DashboardRCAPage() {
         <CardHeader>
           <div className="flex items-center gap-3">
             <PieChart className="h-6 w-6 text-primary" />
-            <CardTitle className="text-2xl">Resumen Estadístico</CardTitle>
+            <CardTitle className="text-2xl">Resumen Estadístico de Eventos</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
-          <div className="p-4 bg-secondary/40 rounded-lg">
-            <p className="text-3xl font-bold text-primary">{staticStats.eventosNotificados}</p>
-            <p className="text-sm text-muted-foreground">Eventos Notificados</p> {/* Cambiado */}
-          </div>
-          <div className="p-4 bg-secondary/40 rounded-lg">
-            <p className="text-3xl font-bold text-green-600">{staticStats.enTratamiento}</p>
-            <p className="text-sm text-muted-foreground">En Tratamiento</p> {/* Cambiado */}
-          </div>
-          <div className="p-4 bg-secondary/40 rounded-lg">
-            <p className="text-3xl font-bold text-yellow-600">{staticStats.enValidacion}</p>
-            <p className="text-sm text-muted-foreground">En Validación</p>
-          </div>
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-center">
+          {isLoadingStats ? (
+            <>
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="p-4 bg-secondary/30 rounded-lg flex flex-col items-center justify-center h-24">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ))}
+            </>
+          ) : statsData ? (
+            <>
+              <div className="p-4 bg-secondary/40 rounded-lg">
+                <p className="text-3xl font-bold text-primary">{statsData.totalEventos}</p>
+                <p className="text-sm text-muted-foreground">Total de Eventos</p>
+              </div>
+              <div className="p-4 bg-destructive/10 rounded-lg">
+                <p className="text-3xl font-bold text-destructive">{statsData.pendientes}</p>
+                <p className="text-sm text-muted-foreground">Eventos Pendientes</p>
+              </div>
+              <div className="p-4 bg-yellow-400/20 rounded-lg">
+                <p className="text-3xl font-bold text-yellow-600">{statsData.enAnalisis}</p>
+                <p className="text-sm text-muted-foreground">Eventos En Análisis</p>
+              </div>
+              <div className="p-4 bg-green-400/20 rounded-lg">
+                <p className="text-3xl font-bold text-green-600">{statsData.finalizados}</p>
+                <p className="text-sm text-muted-foreground">Eventos Finalizados</p>
+              </div>
+            </>
+          ) : (
+             <div className="col-span-full p-4 bg-secondary/30 rounded-lg text-center">
+                <p className="text-muted-foreground">No se pudieron cargar las estadísticas.</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -77,14 +143,15 @@ export default function DashboardRCAPage() {
             <Activity className="h-6 w-6 text-primary" />
             <CardTitle className="text-2xl">Análisis en Curso</CardTitle>
           </div>
+           <CardDescription>Lista de análisis RCA que están actualmente en progreso (datos de ejemplo).</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[40%]">Proyecto</TableHead>
-                <TableHead className="w-[30%]">Estado</TableHead>
-                <TableHead className="w-[30%]">Progreso</TableHead>
+                <TableHead className="w-[40%]">Proyecto/Evento</TableHead>
+                <TableHead className="w-[30%]">Estado Actual</TableHead>
+                <TableHead className="w-[30%]">Progreso Estimado</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -103,7 +170,7 @@ export default function DashboardRCAPage() {
               {staticAnalisisEnCurso.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={3} className="text-center text-muted-foreground h-24">
-                    No hay análisis en curso.
+                    No hay análisis en curso (datos de ejemplo).
                   </TableCell>
                 </TableRow>
               )}
@@ -116,9 +183,10 @@ export default function DashboardRCAPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <CalendarCheck className="h-6 w-6 text-primary" />
+            <ListChecks className="h-6 w-6 text-primary" />
             <CardTitle className="text-2xl">Planes de Acción Pendientes</CardTitle>
           </div>
+          <CardDescription>Acciones correctivas y preventivas que requieren seguimiento (datos de ejemplo).</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -142,7 +210,7 @@ export default function DashboardRCAPage() {
               {staticPlanesAccion.length === 0 && (
                  <TableRow>
                   <TableCell colSpan={4} className="text-center text-muted-foreground h-24">
-                    No hay planes de acción pendientes.
+                    No hay planes de acción pendientes (datos de ejemplo).
                   </TableCell>
                 </TableRow>
               )}
@@ -163,15 +231,22 @@ export default function DashboardRCAPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <Bell className="h-6 w-6 text-primary" />
-            <CardTitle className="text-2xl">Últimos Eventos Registrados</CardTitle>
+            <History className="h-6 w-6 text-primary" />
+            <CardTitle className="text-2xl">Actividad Reciente en el Sistema</CardTitle>
           </div>
+          <CardDescription>Últimas acciones y actualizaciones importantes (datos de ejemplo).</CardDescription>
         </CardHeader>
         <CardContent>
           <ul className="space-y-3">
             {staticUltimosEventos.map((evento) => (
               <li key={evento.id} className="flex items-start text-sm">
-                <History className="h-4 w-4 text-muted-foreground mr-2.5 mt-0.5 flex-shrink-0" />
+                <div className="flex-shrink-0 w-5 h-5 mt-0.5 mr-2.5">
+                  { evento.descripcion.toLowerCase().includes("nuevo análisis") ? <ListFilter className="text-muted-foreground" /> :
+                    evento.descripcion.toLowerCase().includes("validó") ? <CheckSquare className="text-green-500" /> :
+                    evento.descripcion.toLowerCase().includes("actualizó") ? <Activity className="text-blue-500" /> :
+                    <Bell className="text-muted-foreground" />
+                  }
+                </div>
                 <div>
                   <span className="text-foreground">{evento.descripcion}</span>
                   <span className="text-muted-foreground text-xs ml-1">({evento.tiempo})</span>
@@ -179,7 +254,7 @@ export default function DashboardRCAPage() {
               </li>
             ))}
             {staticUltimosEventos.length === 0 && (
-                <p className="text-muted-foreground text-center py-4">No hay eventos recientes.</p>
+                <p className="text-muted-foreground text-center py-4">No hay eventos recientes (datos de ejemplo).</p>
             )}
           </ul>
         </CardContent>
@@ -187,3 +262,4 @@ export default function DashboardRCAPage() {
     </div>
   );
 }
+
