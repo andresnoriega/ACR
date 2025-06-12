@@ -447,7 +447,7 @@ export default function DashboardRCAPage() {
               <div className="p-4 bg-blue-400/20 rounded-lg">
                 <div className="flex items-center justify-center mb-1"><Percent className="h-5 w-5 text-blue-600 mr-1.5"/></div>
                 <p className="text-3xl font-bold text-blue-600">{cumplimientoPorcentaje.toFixed(1)}%</p>
-                <p className="text-sm text-muted-foreground">Cumplimiento (Global Acciones)</p>
+                <p className="text-sm text-muted-foreground">Cumplimiento RCA</p>
               </div>
             </>
           ) : (
