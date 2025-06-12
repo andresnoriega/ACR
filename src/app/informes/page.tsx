@@ -615,7 +615,7 @@ export default function DashboardRCAPage() {
                     if (value === 0) return null; 
                     return (
                       <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize="12px" fontWeight="bold">
-                        {`${(percent * 100).toFixed(0)}%`}
+                        {`${value} (${(percent * 100).toFixed(0)}%)`}
                       </text>
                     );
                   }}
