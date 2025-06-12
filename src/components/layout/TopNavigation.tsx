@@ -3,11 +3,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, BarChart3, FileText, SettingsIcon, UserCheck } from 'lucide-react';
+import { Home, BarChart3, FileText, SettingsIcon, UserCheck, ListOrdered } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const mainMenuItems = [
   { href: '/inicio', label: 'Inicio', icon: Home },
+  { href: '/eventos', label: 'Eventos', icon: ListOrdered },
   { href: '/analisis', label: 'Análisis', icon: BarChart3 },
   { href: '/informes', label: 'Informes', icon: FileText },
   { href: '/usuario/planes', label: 'Mis Tareas', icon: UserCheck },
@@ -26,7 +27,7 @@ export function TopNavigation() {
               let isActive = false;
               if (item.href === '/inicio') {
                 isActive = (pathname === item.href || pathname === '/');
-              } else if (item.href === '/config') {
+              } else if (item.href === '/config' || item.href === '/eventos' || item.href === '/analisis' || item.href === '/informes') {
                 isActive = pathname.startsWith(item.href); 
               } else if (item.href === '/usuario/planes') {
                 isActive = pathname.startsWith('/usuario');

@@ -27,9 +27,8 @@ export interface IdentifiedRootCause {
 // Definición del tipo Evidence
 export interface Evidence {
   id: string;
-  nombre: string; // Corresponde a userGivenName o fileName
+  nombre: string; 
   tipo: 'pdf' | 'jpg' | 'docx' | 'other';
-  // No necesitamos link o acciónLabel para la visualización en Paso 4, solo para simular "Ver/Descargar"
 }
 
 export interface PlannedAction {
@@ -146,3 +145,16 @@ export interface FullUserProfile {
   permissionLevel: 'Total' | 'Lectura' | 'Limitado' | '';
 }
 
+// Types for Eventos Reportados page
+export type ReportedEventType = 'Incidente' | 'Fallo' | 'Accidente' | 'No Conformidad' | '';
+export type ReportedEventStatus = 'Pendiente' | 'En análisis' | 'Finalizado' | '';
+
+export interface ReportedEvent {
+  id: string;
+  title: string;
+  site: string;
+  date: string; // Store as YYYY-MM-DD for sorting/filtering, format for display
+  type: ReportedEventType;
+  priority: PriorityType; // Reuse PriorityType
+  status: ReportedEventStatus;
+}
