@@ -41,6 +41,7 @@ export interface PlannedAction {
   evidencias?: Evidence[]; 
   userComments?: string; 
   isNotificationSent?: boolean; // Added field
+  markedAsReadyAt?: string; // Nuevo campo: Fecha en que el usuario marcó como lista
 }
 
 export interface Validation {

@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { ListTodo, PlusCircle, FileText, ImageIcon, Paperclip, Download, Eye, UploadCloud, CheckCircle2, Save, Info, MessageSquare, UserCog, Loader2, CalendarCheck } from 'lucide-react';
+import { ListTodo, PlusCircle, FileText, ImageIcon, Paperclip, Download, Eye, UploadCloud, CheckCircle2, Save, Info, MessageSquare, UserCog, Loader2, CalendarCheck, History } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
@@ -30,7 +30,8 @@ interface ActionPlan {
   codigoRCA: string; // Corresponds to FirestorePlannedAction.eventId
   evidencias: FirestoreEvidence[];
   userComments?: string;
-  completionDate?: string; // New field
+  userMarkedReadyDate?: string; // Fecha en que el usuario marcó como lista
+  validationDate?: string; // Fecha de validación final (si aplica)
   ultimaActualizacion: {
     usuario: string; 
     mensaje: string;
@@ -103,21 +104,29 @@ export default function UserActionPlansPage() {
       if (rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
         rcaDoc.plannedActions.forEach(pa => {
           if (pa.responsible === selectedSimulatedUserName) {
-            const uniqueKey = pa.id; 
+            const uniqueKey = pa.id;
             if (!uniqueTracker.has(uniqueKey)) {
               uniqueTracker.add(uniqueKey);
             
               let estado: ActionPlan['estado'] = 'Pendiente';
-              let completionTimestamp: string | undefined = undefined;
+              let validationTimestamp: string | undefined = undefined;
               const validation = rcaDoc.validations?.find(v => v.actionId === pa.id);
+
               if (validation?.status === 'validated') {
                 estado = 'Completado';
                 if (validation.validatedAt && isValidDate(parseISO(validation.validatedAt))) {
-                  completionTimestamp = format(parseISO(validation.validatedAt), 'dd/MM/yyyy HH:mm', { locale: es });
+                  validationTimestamp = format(parseISO(validation.validatedAt), 'dd/MM/yyyy HH:mm', { locale: es });
                 }
-              } else if ((pa.userComments && pa.userComments.trim() !== '') || (pa.evidencias && pa.evidencias.length > 0)) {
+              } else if ((pa.userComments && pa.userComments.trim() !== '') || (pa.evidencias && pa.evidencias.length > 0) || pa.markedAsReadyAt) {
+                // Consider markedAsReadyAt for 'En proceso' if not yet 'Completado'
                 estado = 'En proceso';
               }
+              
+              let userMarkedReadyTimestamp: string | undefined = undefined;
+              if (pa.markedAsReadyAt && isValidDate(parseISO(pa.markedAsReadyAt))) {
+                  userMarkedReadyTimestamp = format(parseISO(pa.markedAsReadyAt), 'dd/MM/yyyy HH:mm', { locale: es });
+              }
+
 
               plans.push({
                 id: pa.id,
@@ -133,7 +142,8 @@ export default function UserActionPlansPage() {
                 codigoRCA: rcaDoc.eventData.id,
                 evidencias: pa.evidencias || [],
                 userComments: pa.userComments || '',
-                completionDate: completionTimestamp,
+                userMarkedReadyDate: userMarkedReadyTimestamp,
+                validationDate: validationTimestamp,
                 ultimaActualizacion: {
                   usuario: 'Sistema', 
                   mensaje: 'Actualizado',
@@ -227,24 +237,34 @@ export default function UserActionPlansPage() {
       );
       
       if (selectedPlan && selectedPlan._originalRcaDocId === rcaDocId && selectedPlan._originalActionId === actionId) {
-        const newSelectedPlanData = updatedPlannedActions.find(pa => pa.id === actionId);
-        if (newSelectedPlanData) {
+        const newSelectedPlanDataFirestore = updatedPlannedActions.find(pa => pa.id === actionId);
+        if (newSelectedPlanDataFirestore) {
             let newEstado: ActionPlan['estado'] = 'Pendiente';
-            let completionTimestamp: string | undefined = undefined;
+            let validationTimestamp: string | undefined = undefined;
             const validation = rcaDocData.validations?.find(v => v.actionId === actionId);
+
             if (validation?.status === 'validated') {
                 newEstado = 'Completado';
                  if (validation.validatedAt && isValidDate(parseISO(validation.validatedAt))) {
-                  completionTimestamp = format(parseISO(validation.validatedAt), 'dd/MM/yyyy HH:mm', { locale: es });
+                  validationTimestamp = format(parseISO(validation.validatedAt), 'dd/MM/yyyy HH:mm', { locale: es });
                 }
-            } else if ((newSelectedPlanData.userComments && newSelectedPlanData.userComments.trim() !== '') || (newSelectedPlanData.evidencias && newSelectedPlanData.evidencias.length > 0)) {
+            } else if ((newSelectedPlanDataFirestore.userComments && newSelectedPlanDataFirestore.userComments.trim() !== '') || 
+                       (newSelectedPlanDataFirestore.evidencias && newSelectedPlanDataFirestore.evidencias.length > 0) ||
+                       newSelectedPlanDataFirestore.markedAsReadyAt) {
                 newEstado = 'En proceso';
             }
+            
+            let userMarkedReadyTimestamp: string | undefined = undefined;
+            if (newSelectedPlanDataFirestore.markedAsReadyAt && isValidDate(parseISO(newSelectedPlanDataFirestore.markedAsReadyAt))) {
+                userMarkedReadyTimestamp = format(parseISO(newSelectedPlanDataFirestore.markedAsReadyAt), 'dd/MM/yyyy HH:mm', { locale: es });
+            }
+
             setSelectedPlan(prev => prev ? ({ 
               ...prev, 
-              ...newSelectedPlanData, 
+              ...newSelectedPlanDataFirestore, 
               estado: newEstado,
-              completionDate: completionTimestamp,
+              userMarkedReadyDate: userMarkedReadyTimestamp,
+              validationDate: validationTimestamp,
               ultimaActualizacion: {
                 usuario: selectedSimulatedUserName || "Sistema",
                 mensaje: "Datos actualizados en Firestore.",
@@ -311,13 +331,16 @@ export default function UserActionPlansPage() {
     setIsUpdatingAction(true); 
 
     let commentsToSave = selectedPlan.userComments || "";
-    if (selectedPlan.estado === 'Pendiente' && !commentsToSave.trim() && (!selectedPlan.evidencias || selectedPlan.evidencias.length === 0)) {
+    if (selectedPlan.estado === 'Pendiente' && !commentsToSave.trim() && (!selectedPlan.evidencias || selectedPlan.evidencias.length === 0) && !selectedPlan.userMarkedReadyDate) {
         commentsToSave = (commentsToSave ? commentsToSave + "\n\n" : "") + `[Sistema] Tarea marcada como lista para validación por ${selectedSimulatedUserName || 'el responsable'} el ${new Date().toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}.`;
     }
+    
+    const updatesForAction: Partial<FirestorePlannedAction> = {
+      userComments: commentsToSave,
+      markedAsReadyAt: new Date().toISOString(), // Siempre actualiza o establece la fecha
+    };
 
-    const success = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, {
-      userComments: commentsToSave, 
-    });
+    const success = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, updatesForAction);
 
     if (success) {
       toast({ 
@@ -325,6 +348,7 @@ export default function UserActionPlansPage() {
         description: `La tarea "${selectedPlan.tituloDetalle}" se ha actualizado. El Líder del Proyecto la revisará.` 
       });
     }
+    //setIsUpdatingAction(false); // updateActionInFirestore handles this
   };
 
 
@@ -489,10 +513,17 @@ export default function UserActionPlansPage() {
             <div><Label className="font-semibold">Responsable:</Label> <p>{selectedPlan.responsableDetalle}</p></div>
             <div><Label className="font-semibold">Estado Actual:</Label> <p>{selectedPlan.estado}</p></div>
             <div><Label className="font-semibold">Plazo límite:</Label> <p>{selectedPlan.plazoLimite}</p></div>
-            {selectedPlan.estado === 'Completado' && selectedPlan.completionDate && (
+            
+            {selectedPlan.userMarkedReadyDate && (
               <div>
-                <Label className="font-semibold flex items-center"><CalendarCheck className="mr-1.5 h-4 w-4 text-green-600"/>Fecha de Finalización:</Label> 
-                <p className="text-green-700">{selectedPlan.completionDate}</p>
+                <Label className="font-semibold flex items-center"><History className="mr-1.5 h-4 w-4 text-blue-600"/>Marcado como Listo el:</Label> 
+                <p className="text-blue-700">{selectedPlan.userMarkedReadyDate}</p>
+              </div>
+            )}
+            {selectedPlan.estado === 'Completado' && selectedPlan.validationDate && (
+              <div>
+                <Label className="font-semibold flex items-center"><CalendarCheck className="mr-1.5 h-4 w-4 text-green-600"/>Fecha de Validación Final:</Label> 
+                <p className="text-green-700">{selectedPlan.validationDate}</p>
               </div>
             )}
             
@@ -583,9 +614,9 @@ export default function UserActionPlansPage() {
               <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-0.5">Nota sobre la funcionalidad</h3>
               <p className="text-xs text-blue-600 dark:text-blue-400/90">
                 Seleccione un usuario para ver sus tareas. Puede adjuntar (simulado) evidencias y añadir comentarios. 
-                Al hacer clic en "Marcar como listo para validación", si la tarea estaba 'Pendiente' y sin comentarios/evidencias, se añadirá una nota y se guardará.
+                Al hacer clic en "Marcar como listo para validación", se registrará la fecha y hora actual, y si la tarea estaba 'Pendiente' y sin otros datos, se añadirá una nota automática.
                 Estos cambios se guardarán en el documento de Análisis de Causa Raíz correspondiente en Firestore, y el estado de la tarea se reflejará como 'En proceso'.
-                La validación final para el estado 'Completado' se realiza en el Paso 4 del flujo de Análisis RCA.
+                La validación final para el estado 'Completado' (con su propia fecha de validación) se realiza en el Paso 4 del flujo de Análisis RCA.
               </p>
             </div>
           </div>
@@ -595,4 +626,3 @@ export default function UserActionPlansPage() {
     </div>
   );
 }
-
