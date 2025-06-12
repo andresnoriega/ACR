@@ -32,7 +32,7 @@ interface Step5ResultsProps {
   finalComments: string; 
   onFinalCommentsChange: (value: string) => void;
   onPrintReport: () => void;
-  availableUsers: Array<{ id: string; name: string; email: string; }>; // Expects FullUserProfile structure now
+  availableUsers: FullUserProfile[]; 
   isFinalized: boolean;
   onMarkAsFinalized: () => void;
 }
@@ -185,7 +185,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
         to: email,
         subject: emailSubject,
         body: `Estimado/a,\n\nAdjunto (simulado) encontrará el informe de Análisis de Causa Raíz para el evento: "${eventData.focusEventDescription || eventId}".\n\n--- INICIO DEL INFORME ---\n${reportText}\n--- FIN DEL INFORME ---\n\nSaludos,\nSistema RCA Assistant`,
-        // htmlBody: `<h1>Informe RCA: ${eventData.focusEventDescription || `Evento ID ${eventId}`}</h1><pre>${reportText}</pre>` // Optional HTML body
       });
       if(result.success) emailsSentCount++;
     }
@@ -396,7 +395,9 @@ export const Step5Results: FC<Step5ResultsProps> = ({
               </Label>
             </div>
             <ScrollArea className="h-[200px] w-full rounded-md border p-2">
-              {filteredUsers.length > 0 ? (
+              {availableUsers.length === 0 ? (
+                 <p className="text-sm text-muted-foreground text-center py-4">No hay usuarios configurados para enviar correos.</p>
+              ) : filteredUsers.length > 0 ? (
                 filteredUsers.map(user => (
                   <div key={user.id} className="flex items-center space-x-2 p-1.5 hover:bg-accent rounded-md">
                     <Checkbox

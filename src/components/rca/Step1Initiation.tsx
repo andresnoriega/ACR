@@ -2,14 +2,14 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect } from 'react'; 
-import type { RCAEventData, ImmediateAction, EventType, PriorityType, FullUserProfile } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, EventType, PriorityType, FullUserProfile, Site } from '@/types/rca'; // Added Site
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Trash2, Save } from 'lucide-react';
+import { PlusCircle, Trash2, Save, Send } from 'lucide-react'; // Added Send icon
 import { useToast } from "@/hooks/use-toast";
 import { sendEmailAction } from '@/app/actions';
 
@@ -20,7 +20,7 @@ interface Step1InitiationProps {
   onAddImmediateAction: () => void;
   onUpdateImmediateAction: (index: number, field: keyof Omit<ImmediateAction, 'eventId' | 'id'>, value: string) => void;
   onRemoveImmediateAction: (index: number) => void;
-  availableSites: Array<{ id: string; name: string; }>;
+  availableSites: Site[]; // Changed from Array<{ id: string; name: string; }>
   availableUsers: FullUserProfile[];
   onContinue: () => void;
   onForceEnsureEventId: () => string;
@@ -102,34 +102,52 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     }
 
     const currentEventId = onForceEnsureEventId(); 
+    let emailsProcessed = 0;
+    let emailsSuccessfullySent = 0;
 
     for (const action of immediateActions) {
-      if (action.responsible) {
+      if (action.responsible && action.description.trim() && action.dueDate) {
+        emailsProcessed++;
         const responsibleUser = availableUsers.find(user => user.name === action.responsible);
         if (responsibleUser && responsibleUser.email) {
           const emailSubject = `Acción Inmediata Asignada: ${action.description.substring(0,30)}... (Evento: ${currentEventId})`;
-          const emailBody = `Estimado/a ${responsibleUser.name},\n\nSe le ha asignado la siguiente acción inmediata relacionada con el evento ${currentEventId} ("${eventData.focusEventDescription.substring(0,50)}..."):\n\nTarea: ${action.description}\nFecha Límite: ${action.dueDate || 'No especificada'}\n\nPor favor, proceda según corresponda.\n\nSaludos,\nSistema RCA Assistant`;
+          const emailBody = `Estimado/a ${responsibleUser.name},\n\nSe le ha asignado la siguiente acción inmediata relacionada con el evento ${currentEventId} ("${eventData.focusEventDescription.substring(0,50)}..."):\n\nTarea: ${action.description}\nFecha Límite: ${action.dueDate}\n\nPor favor, proceda según corresponda.\n\nSaludos,\nSistema RCA Assistant`;
           
           const result = await sendEmailAction({
             to: responsibleUser.email,
             subject: emailSubject,
             body: emailBody,
           });
+          if (result.success) {
+            emailsSuccessfullySent++;
+          }
           toast({
             title: result.success ? "Notificación de Acción Inmediata (Simulación)" : "Error en Notificación (Simulación)",
             description: result.success 
               ? `Notificación enviada a ${responsibleUser.name} (${responsibleUser.email}) sobre: "${action.description.substring(0, 40)}...".`
               : `Fallo al notificar a ${responsibleUser.name} sobre: "${action.description.substring(0, 40)}...". Consulte la consola del servidor.`,
             variant: result.success ? "default" : "destructive",
+            duration: result.success ? 3000: 5000,
+          });
+        } else {
+           toast({
+            title: "Error en Notificación",
+            description: `No se pudo encontrar el correo para el responsable '${action.responsible}' de la acción: "${action.description.substring(0, 40)}...".`,
+            variant: "destructive",
             duration: 5000,
           });
         }
       }
     }
 
+    let saveMessage = `Los detalles del evento ${currentEventId} han sido guardados.`;
+    if (emailsProcessed > 0) {
+      saveMessage += ` Se procesaron ${emailsSuccessfullySent} de ${emailsProcessed} notificaciones por correo para acciones inmediatas.`;
+    }
+
     toast({
       title: "Evento Guardado",
-      description: `Los detalles del evento ${currentEventId} han sido guardados.`,
+      description: saveMessage,
     });
   };
   
@@ -137,7 +155,6 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     if (!validateFields()) {
       return;
     }
-    // Ensure ID is generated if user clicks "Continue" without "Save" first
     if (!eventData.id) {
       onForceEnsureEventId();
     }
@@ -158,14 +175,11 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
               <SelectValue placeholder="-- Seleccione un lugar --" />
             </SelectTrigger>
             <SelectContent>
-              {availableSites.map(site => (
+              {availableSites.length > 0 ? availableSites.map(site => (
                 <SelectItem key={site.id} value={site.name}>{site.name}</SelectItem>
-              ))}
+              )) : <SelectItem value="" disabled>No hay sitios configurados</SelectItem>}
             </SelectContent>
           </Select>
-          <p className="text-xs text-muted-foreground">
-            Nota: En una aplicación completa, esta lista se cargaría dinámicamente desde la configuración de sitios.
-          </p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="date">Fecha del Evento <span className="text-destructive">*</span></Label>
@@ -219,34 +233,31 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
                 </Button>
               </div>
               <div className="space-y-2">
-                <Label htmlFor={`ia-desc-${index}`}>Tarea</Label>
+                <Label htmlFor={`ia-desc-${index}`}>Tarea <span className="text-destructive">*</span></Label>
                 <Input id={`ia-desc-${index}`} value={action.description} onChange={(e) => handleActionChange(index, 'description', e.target.value)} placeholder="Descripción de la tarea" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor={`ia-resp-${index}`}>Responsable</Label>
+                  <Label htmlFor={`ia-resp-${index}`}>Responsable <span className="text-destructive">*</span></Label>
                    <Select value={action.responsible} onValueChange={(value) => handleActionResponsibleChange(index, value)}>
                     <SelectTrigger id={`ia-resp-${index}`}>
                       <SelectValue placeholder="-- Seleccione un responsable --" />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableUsers.map(user => (
-                        <SelectItem key={user.id} value={user.name}>{user.name}</SelectItem>
-                      ))}
+                      {availableUsers.length > 0 ? availableUsers.map(user => (
+                        <SelectItem key={user.id} value={user.name}>{user.name} ({user.email})</SelectItem>
+                      )) : <SelectItem value="" disabled>No hay usuarios configurados</SelectItem>}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Nota: Lista de usuarios de ejemplo. Los usuarios reales deben cargarse desde Configuración.
-                  </p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor={`ia-date-${index}`}>Fecha</Label>
+                  <Label htmlFor={`ia-date-${index}`}>Fecha <span className="text-destructive">*</span></Label>
                   <Input 
                     id={`ia-date-${index}`} 
                     type="date" 
                     value={action.dueDate} 
                     onChange={(e) => handleActionChange(index, 'dueDate', e.target.value)}
-                    max={clientSideMaxDate}
+                    min={clientSideMaxDate} // Use min instead of max for future dates
                   />
                 </div>
               </div>

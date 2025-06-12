@@ -13,17 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Globe, PlusCircle, Edit2, Trash2, FileUp, FileDown, MapPin, Loader2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-import { db } from '@/lib/firebase'; // Import Firestore instance
+import { db } from '@/lib/firebase'; 
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy } from "firebase/firestore";
-
-interface Site {
-  id: string; // Firestore document ID
-  name: string;
-  address: string;
-  zone: string;
-  coordinator?: string;
-  description?: string;
-}
+import type { Site } from '@/types/rca'; // Import global Site type
 
 const geographicalZones = ['Norte', 'Sur', 'Este', 'Oeste', 'Centro', 'Noreste', 'Noroeste', 'Sureste', 'Suroeste'];
 
@@ -31,9 +23,8 @@ export default function ConfiguracionSitiosPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false); // For add/edit/delete operations
+  const [isSubmitting, setIsSubmitting] = useState(false); 
 
-  // State for Add Site Dialog
   const [isAddSiteDialogOpen, setIsAddSiteDialogOpen] = useState(false);
   const [newSiteName, setNewSiteName] = useState('');
   const [newSiteAddress, setNewSiteAddress] = useState('');
@@ -41,7 +32,6 @@ export default function ConfiguracionSitiosPage() {
   const [newSiteCoordinator, setNewSiteCoordinator] = useState('');
   const [newSiteDescription, setNewSiteDescription] = useState('');
 
-  // State for Edit Site Dialog
   const [isEditSiteDialogOpen, setIsEditSiteDialogOpen] = useState(false);
   const [currentSiteToEdit, setCurrentSiteToEdit] = useState<Site | null>(null);
   const [editSiteName, setEditSiteName] = useState('');
@@ -50,11 +40,9 @@ export default function ConfiguracionSitiosPage() {
   const [editSiteCoordinator, setEditSiteCoordinator] = useState('');
   const [editSiteDescription, setEditSiteDescription] = useState('');
 
-  // State for Delete Confirmation Dialog
   const [isDeleteSiteConfirmOpen, setIsDeleteSiteConfirmOpen] = useState(false);
   const [siteToDelete, setSiteToDelete] = useState<Site | null>(null);
 
-  // Fetch sites from Firestore
   useEffect(() => {
     const fetchSites = async () => {
       setIsLoading(true);
@@ -104,7 +92,6 @@ export default function ConfiguracionSitiosPage() {
       coordinator: newSiteCoordinator.trim(),
       description: newSiteDescription.trim(),
     };
-    console.log('Attempting to add site to Firestore:', newSiteData);
     try {
       const docRef = await addDoc(collection(db, "sites"), newSiteData);
       setSites(prevSites => [...prevSites, { id: docRef.id, ...newSiteData }].sort((a, b) => a.name.localeCompare(b.name)));
@@ -143,7 +130,6 @@ export default function ConfiguracionSitiosPage() {
       coordinator: editSiteCoordinator.trim(),
       description: editSiteDescription.trim(),
     };
-    console.log('Attempting to update site in Firestore:', currentSiteToEdit.id, updatedSiteData);
     try {
       const siteRef = doc(db, "sites", currentSiteToEdit.id);
       await updateDoc(siteRef, updatedSiteData);
@@ -167,7 +153,6 @@ export default function ConfiguracionSitiosPage() {
   const confirmDeleteSite = async () => {
     if (siteToDelete) {
       setIsSubmitting(true); 
-      console.log('Attempting to delete site from Firestore:', siteToDelete.id);
       try {
         await deleteDoc(doc(db, "sites", siteToDelete.id));
         setSites(sites.filter(s => s.id !== siteToDelete.id));
@@ -355,7 +340,6 @@ export default function ConfiguracionSitiosPage() {
         )}
       </Card>
 
-      {/* Edit Site Dialog */}
       <Dialog open={isEditSiteDialogOpen} onOpenChange={setIsEditSiteDialogOpen}>
         <DialogContent className="sm:max-w-[525px]">
           <DialogHeader>
@@ -404,7 +388,6 @@ export default function ConfiguracionSitiosPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Site Confirmation Dialog */}
       <AlertDialog open={isDeleteSiteConfirmOpen} onOpenChange={setIsDeleteSiteConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

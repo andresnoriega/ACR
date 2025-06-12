@@ -1,39 +1,52 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ListChecks, Users, Edit3, KeyRound, ShieldOff, History, Edit2 } from 'lucide-react';
+import { ListChecks, Users, Edit2, KeyRound, ShieldOff, History, Loader2 } from 'lucide-react';
 import type { FullUserProfile } from '@/types/rca'; 
 import { useToast } from "@/hooks/use-toast";
-
-// This initial data should ideally be consistent with /config/usuarios page's initial data
-const initialUserProfilesData: FullUserProfile[] = [
-  { id: 'u1', name: 'Carlos Ruiz', email: 'carlos.ruiz@example.com', role: 'Admin', permissionLevel: 'Total' },
-  { id: 'u2', name: 'Ana López', email: 'ana.lopez@example.com', role: 'Analista', permissionLevel: 'Lectura' },
-  { id: 'u3', name: 'Luis Torres', email: 'luis.torres@example.com', role: 'Revisor', permissionLevel: 'Limitado' },
-  { id: 'u4', name: 'Maria Solano', email: 'maria.solano@example.com', role: 'Analista', permissionLevel: 'Lectura'},
-  { id: 'u5', name: 'Pedro Gómez', email: 'pedro.gomez@example.com', role: 'Analista', permissionLevel: 'Lectura'},
-];
+import { db } from '@/lib/firebase';
+import { collection, getDocs, doc, updateDoc, query, orderBy } from "firebase/firestore";
 
 const availableRoles: FullUserProfile['role'][] = ['Admin', 'Analista', 'Revisor', ''];
 const availablePermissionLevels: FullUserProfile['permissionLevel'][] = ['Total', 'Lectura', 'Limitado', ''];
 
-
 export default function ConfiguracionPermisosPage() {
-  const [userProfiles, setUserProfiles] = useState<FullUserProfile[]>(initialUserProfilesData);
+  const [userProfiles, setUserProfiles] = useState<FullUserProfile[]>([]);
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [currentUserToEdit, setCurrentUserToEdit] = useState<FullUserProfile | null>(null);
   
   const [editRole, setEditRole] = useState<FullUserProfile['role']>('');
   const [editPermissionLevel, setEditPermissionLevel] = useState<FullUserProfile['permissionLevel']>('');
+
+  useEffect(() => {
+    const fetchUserProfiles = async () => {
+      setIsLoading(true);
+      try {
+        const usersCollectionRef = collection(db, "users");
+        const q = query(usersCollectionRef, orderBy("name", "asc"));
+        const querySnapshot = await getDocs(q);
+        const profilesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FullUserProfile));
+        setUserProfiles(profilesData);
+      } catch (error) {
+        console.error("Error fetching user profiles: ", error);
+        toast({ title: "Error al Cargar Perfiles", description: "No se pudieron cargar los perfiles de usuario desde Firestore.", variant: "destructive" });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchUserProfiles();
+  }, [toast]);
 
   const openEditDialog = (user: FullUserProfile) => {
     setCurrentUserToEdit(user);
@@ -42,22 +55,36 @@ export default function ConfiguracionPermisosPage() {
     setIsEditDialogOpen(true);
   };
 
-  const handleSaveChanges = () => {
+  const handleSaveChanges = async () => {
     if (!currentUserToEdit) return;
+    setIsSubmitting(true);
 
-    setUserProfiles(prevProfiles =>
-      prevProfiles.map(profile =>
-        profile.id === currentUserToEdit.id
-          ? { ...profile, role: editRole, permissionLevel: editPermissionLevel }
-          : profile
-      )
-    );
-    toast({
-      title: "Permisos Actualizados",
-      description: `Se actualizaron los permisos para ${currentUserToEdit.name}.`,
-    });
-    setIsEditDialogOpen(false);
-    setCurrentUserToEdit(null);
+    try {
+      const userRef = doc(db, "users", currentUserToEdit.id);
+      await updateDoc(userRef, {
+        role: editRole,
+        permissionLevel: editPermissionLevel,
+      });
+
+      setUserProfiles(prevProfiles =>
+        prevProfiles.map(profile =>
+          profile.id === currentUserToEdit.id
+            ? { ...profile, role: editRole, permissionLevel: editPermissionLevel }
+            : profile
+        ).sort((a,b) => a.name.localeCompare(b.name))
+      );
+      toast({
+        title: "Permisos Actualizados",
+        description: `Se actualizaron los permisos para ${currentUserToEdit.name}.`,
+      });
+      setIsEditDialogOpen(false);
+      setCurrentUserToEdit(null);
+    } catch (error) {
+      console.error("Error updating permissions in Firestore: ", error);
+      toast({ title: "Error al Actualizar", description: "No se pudieron actualizar los permisos.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getProjectAccessDisplay = (role: FullUserProfile['role']): string => {
@@ -77,7 +104,6 @@ export default function ConfiguracionPermisosPage() {
       default: return 'No Definido';
     }
   };
-
 
   return (
     <div className="space-y-8 py-8">
@@ -100,48 +126,54 @@ export default function ConfiguracionPermisosPage() {
             <CardTitle className="text-2xl">Permisos de Usuario</CardTitle>
           </div>
           <CardDescription>
-            Visualice y edite los permisos asignados a cada usuario del sistema. La lista de usuarios se inicializa de forma consistente con la página de gestión de usuarios.
+            Visualice y edite los permisos asignados a cada usuario del sistema. Los datos se obtienen desde Firestore.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[30%]">Usuario</TableHead>
-                  <TableHead className="w-[30%]">Rol (Acceso)</TableHead>
-                  <TableHead className="w-[30%]">Nivel de Permiso (Edición)</TableHead>
-                  <TableHead className="w-[10%] text-right">Acción</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {userProfiles.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.name}</TableCell>
-                    <TableCell>{getProjectAccessDisplay(user.role)}</TableCell>
-                    <TableCell>{getEditionDisplay(user.permissionLevel)}</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => openEditDialog(user)} className="hover:text-primary">
-                        <Edit2 className="h-4 w-4" />
-                        <span className="sr-only">Editar Permisos</span>
-                      </Button>
-                    </TableCell>
+          {isLoading ? (
+            <div className="flex justify-center items-center h-24">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="ml-2 text-muted-foreground">Cargando perfiles de usuario...</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[30%]">Usuario</TableHead>
+                    <TableHead className="w-[30%]">Rol (Acceso)</TableHead>
+                    <TableHead className="w-[30%]">Nivel de Permiso (Edición)</TableHead>
+                    <TableHead className="w-[10%] text-right">Acción</TableHead>
                   </TableRow>
-                ))}
-                 {userProfiles.length === 0 && (
-                    <TableRow>
-                        <TableCell colSpan={4} className="text-center text-muted-foreground h-24">
-                        No hay usuarios para mostrar.
-                        </TableCell>
+                </TableHeader>
+                <TableBody>
+                  {userProfiles.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell className="font-medium">{user.name}</TableCell>
+                      <TableCell>{getProjectAccessDisplay(user.role)}</TableCell>
+                      <TableCell>{getEditionDisplay(user.permissionLevel)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(user)} className="hover:text-primary" disabled={isSubmitting}>
+                          <Edit2 className="h-4 w-4" />
+                          <span className="sr-only">Editar Permisos</span>
+                        </Button>
+                      </TableCell>
                     </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  ))}
+                  {userProfiles.length === 0 && !isLoading && (
+                      <TableRow>
+                          <TableCell colSpan={4} className="text-center text-muted-foreground h-24">
+                          No hay usuarios para mostrar. Verifique la sección de 'Configuración de Usuarios'.
+                          </TableCell>
+                      </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Edit Permissions Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -181,9 +213,12 @@ export default function ConfiguracionPermisosPage() {
           </div>
           <DialogFooter>
             <DialogClose asChild>
-              <Button variant="outline" onClick={() => { setIsEditDialogOpen(false); setCurrentUserToEdit(null);}}>Cancelar</Button>
+              <Button variant="outline" onClick={() => { setIsEditDialogOpen(false); setCurrentUserToEdit(null);}} disabled={isSubmitting}>Cancelar</Button>
             </DialogClose>
-            <Button onClick={handleSaveChanges}>Guardar Cambios</Button>
+            <Button onClick={handleSaveChanges} disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Guardar Cambios
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -223,4 +258,3 @@ export default function ConfiguracionPermisosPage() {
     </div>
   );
 }
-

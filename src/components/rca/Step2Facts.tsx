@@ -2,7 +2,7 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect, useMemo } from 'react';
-import type { DetailedFacts, PreservedFact, PreservedFactCategory } from '@/types/rca';
+import type { DetailedFacts, PreservedFact, PreservedFactCategory, FullUserProfile } from '@/types/rca'; // Added FullUserProfile
 import { PRESERVED_FACT_CATEGORIES } from '@/types/rca';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -22,7 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 interface Step2FactsProps {
   projectLeader: string;
   onProjectLeaderChange: (value: string) => void;
-  availableUsers: Array<{ id: string; name: string; }>;
+  availableUsers: FullUserProfile[]; // Changed from Array<{ id: string; name: string; }>
   detailedFacts: DetailedFacts;
   onDetailedFactChange: (field: keyof DetailedFacts, value: string) => void;
   analysisDetails: string;
@@ -71,11 +71,13 @@ const PreservedFactDialog: FC<{
       fileType: selectedFile?.type || null,
       fileSize: selectedFile?.size || null,
     });
-    // Reset form and close dialog
     setUserGivenName('');
     setCategory('');
     setDescription('');
     setSelectedFile(null);
+    if (document.getElementById('pf-file')) {
+      (document.getElementById('pf-file') as HTMLInputElement).value = '';
+    }
     onOpenChange(false);
   };
 
@@ -292,14 +294,11 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
               <SelectValue placeholder="-- Seleccione un líder --" />
             </SelectTrigger>
             <SelectContent>
-              {availableUsers.map(user => (
-                <SelectItem key={user.id} value={user.name}>{user.name}</SelectItem>
-              ))}
+              {availableUsers.length > 0 ? availableUsers.map(user => (
+                <SelectItem key={user.id} value={user.name}>{user.name} ({user.role})</SelectItem>
+              )) : <SelectItem value="" disabled>No hay usuarios configurados</SelectItem>}
             </SelectContent>
           </Select>
-          <p className="text-xs text-muted-foreground">
-            Nota: Lista de usuarios de ejemplo. En una aplicación real, esta lista se cargaría dinámicamente.
-          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
@@ -429,6 +428,3 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     </Card>
   );
 };
-
-
-    

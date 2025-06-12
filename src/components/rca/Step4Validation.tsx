@@ -9,12 +9,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
- Accordion, // Keep this for the main Accordion root
+ Accordion,
  AccordionContent,
  AccordionItem,
 } from "@/components/ui/accordion";
-import * as AccordionPrimitive from "@radix-ui/react-accordion"; // Import primitive
-import { ChevronDown, CheckCircle2, Circle, UserCog, Eye, FileText, ImageIcon, Paperclip } from 'lucide-react'; // Added ChevronDown
+import * as AccordionPrimitive from "@radix-ui/react-accordion";
+import { ChevronDown, CheckCircle2, Circle, UserCog, Eye, FileText, ImageIcon, Paperclip } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 
@@ -23,7 +23,7 @@ interface Step4ValidationProps {
   validations: Validation[];
   onToggleValidation: (actionId: string) => void;
   projectLeader: string;
-  availableUserProfiles: FullUserProfile[];
+  availableUserProfiles: FullUserProfile[]; // Prop name matches parent
   currentSimulatedUser: string | null;
   onSetCurrentSimulatedUser: (userName: string | null) => void;
   onPrevious: () => void;
@@ -47,7 +47,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   validations,
   onToggleValidation,
   projectLeader,
-  availableUserProfiles,
+  availableUserProfiles, // Use the passed prop name
   currentSimulatedUser,
   onSetCurrentSimulatedUser,
   onPrevious,
@@ -125,11 +125,11 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={NONE_USER_VALUE}>-- Ninguno --</SelectItem>
-              {availableUserProfiles.map(user => (
+              {availableUserProfiles.length > 0 ? availableUserProfiles.map(user => (
                 <SelectItem key={user.id} value={user.name}>
                   {user.name} ({user.role} - Edición: {user.permissionLevel})
                 </SelectItem>
-              ))}
+              )) : <SelectItem value="" disabled>No hay usuarios configurados</SelectItem>}
             </SelectContent>
           </Select>
            <p className="text-xs text-muted-foreground">

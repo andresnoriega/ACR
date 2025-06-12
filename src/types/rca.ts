@@ -143,6 +143,9 @@ export interface FullUserProfile {
   email: string;
   role: 'Admin' | 'Analista' | 'Revisor' | '';
   permissionLevel: 'Total' | 'Lectura' | 'Limitado' | '';
+  // Optional fields from UserConfigProfile, if needed globally, otherwise handle in component
+  assignedSites?: string;
+  emailNotifications?: boolean; 
 }
 
 // Types for Eventos Reportados page
@@ -157,4 +160,15 @@ export interface ReportedEvent {
   type: ReportedEventType;
   priority: PriorityType; // Reuse PriorityType
   status: ReportedEventStatus;
+  description?: string;
+}
+
+// Global Site type definition
+export interface Site {
+  id: string; // Firestore document ID
+  name: string;
+  address: string;
+  zone: string;
+  coordinator?: string;
+  description?: string;
 }

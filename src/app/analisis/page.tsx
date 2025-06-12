@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, FiveWhyEntry, CTMData, DetailedFacts, PreservedFact, PreservedFactCategory, IdentifiedRootCause, FullUserProfile, EventType, PriorityType } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, EventType, PriorityType, Site } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -11,6 +11,9 @@ import { Step5Results } from '@/components/rca/Step5Results';
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { Loader2 } from 'lucide-react';
 
 const initialIshikawaData: IshikawaData = [
   { id: 'manpower', name: 'Mano de Obra', causes: [] },
@@ -36,27 +39,14 @@ const initialDetailedFacts: DetailedFacts = {
   como: '',
 };
 
-const sampleAvailableSites: Array<{ id: string; name: string }> = [
-  { id: '1', name: 'Planta Industrial' },
-  { id: '2', name: 'Centro Logístico' },
-  { id: '3', name: 'Oficina Central' },
-  { id: '4', name: 'Almacén Regional Norte' },
-];
-
-// Consistent initial user profiles, also used as base for config pages
-const sampleUserProfiles: FullUserProfile[] = [
-  { id: 'u1', name: 'Carlos Ruiz', email: 'carlos.ruiz@example.com', role: 'Admin', permissionLevel: 'Total' },
-  { id: 'u2', name: 'Ana López', email: 'ana.lopez@example.com', role: 'Analista', permissionLevel: 'Lectura' },
-  { id: 'u3', name: 'Luis Torres', email: 'luis.torres@example.com', role: 'Revisor', permissionLevel: 'Limitado' },
-  { id: 'u4', name: 'Maria Solano', email: 'maria.solano@example.com', role: 'Analista', permissionLevel: 'Lectura'},
-  { id: 'u5', name: 'Pedro Gómez', email: 'pedro.gomez@example.com', role: 'Analista', permissionLevel: 'Lectura'},
-];
-
-
 export default function RCAAnalysisPage() {
   const [step, setStep] = useState(1);
   const [maxCompletedStep, setMaxCompletedStep] = useState(0);
   const { toast } = useToast();
+
+  const [isLoadingConfig, setIsLoadingConfig] = useState(true);
+  const [availableSitesFromDB, setAvailableSitesFromDB] = useState<Site[]>([]);
+  const [availableUsersFromDB, setAvailableUsersFromDB] = useState<FullUserProfile[]>([]);
 
   const [eventData, setEventData] = useState<RCAEventData>({
     id: '', 
@@ -90,13 +80,38 @@ export default function RCAAnalysisPage() {
   const [finalComments, setFinalComments] = useState(''); 
   const [isFinalized, setIsFinalized] = useState(false);
 
+  useEffect(() => {
+    const fetchConfigData = async () => {
+      setIsLoadingConfig(true);
+      try {
+        const sitesCollectionRef = collection(db, "sites");
+        const sitesQuery = query(sitesCollectionRef, orderBy("name", "asc"));
+        const sitesSnapshot = await getDocs(sitesQuery);
+        const sitesData = sitesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
+        setAvailableSitesFromDB(sitesData);
+
+        const usersCollectionRef = collection(db, "users");
+        const usersQuery = query(usersCollectionRef, orderBy("name", "asc"));
+        const usersSnapshot = await getDocs(usersQuery);
+        const usersData = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FullUserProfile));
+        setAvailableUsersFromDB(usersData);
+
+      } catch (error) {
+        console.error("Error fetching config data for RCA Analysis: ", error);
+        toast({ title: "Error al Cargar Configuración", description: "No se pudieron cargar los sitios o usuarios desde Firestore.", variant: "destructive" });
+      } finally {
+        setIsLoadingConfig(false);
+      }
+    };
+    fetchConfigData();
+  }, [toast]);
+
 
   const ensureEventId = useCallback(() => {
     if (!eventData.id) {
       const newEventID = `E-${String(eventCounter).padStart(5, '0')}`;
       setEventData(prev => ({ ...prev, id: newEventID }));
       setEventCounter(prev => prev + 1);
-      // toast({ title: "ID de Evento Generado", description: `Nuevo ID de evento: ${newEventID}` }); // Toast moved to save action
       return newEventID;
     }
     return eventData.id;
@@ -121,10 +136,6 @@ export default function RCAAnalysisPage() {
 
   const handleNextStep = () => {
     ensureEventId(); 
-
-    // Removed email sending logic for planned actions from here, as it's now in Step3Analysis component.
-    // if (step === 3) { /* ... email sending logic was here ... */ }
-
     const newStep = Math.min(step + 1, 5);
     const newMaxCompletedStep = Math.max(maxCompletedStep, step);
     setStep(newStep);
@@ -302,6 +313,14 @@ export default function RCAAnalysisPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
 
+  if (isLoadingConfig) {
+    return (
+      <div className="flex flex-col justify-center items-center min-h-[calc(100vh-10rem)] text-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-lg text-muted-foreground">Cargando configuración para análisis RCA...</p>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -324,8 +343,8 @@ export default function RCAAnalysisPage() {
             onAddImmediateAction={handleAddImmediateAction}
             onUpdateImmediateAction={handleUpdateImmediateAction}
             onRemoveImmediateAction={handleRemoveImmediateAction}
-            availableSites={sampleAvailableSites}
-            availableUsers={sampleUserProfiles} 
+            availableSites={availableSitesFromDB}
+            availableUsers={availableUsersFromDB} 
             onContinue={handleNextStep}
             onForceEnsureEventId={ensureEventId} 
           />
@@ -336,7 +355,7 @@ export default function RCAAnalysisPage() {
         <Step2Facts
           projectLeader={projectLeader}
           onProjectLeaderChange={handleProjectLeaderChange}
-          availableUsers={sampleUserProfiles.map(u => ({id: u.id, name: u.name}))} 
+          availableUsers={availableUsersFromDB} 
           detailedFacts={detailedFacts}
           onDetailedFactChange={handleDetailedFactChange}
           analysisDetails={analysisDetails}
@@ -373,7 +392,7 @@ export default function RCAAnalysisPage() {
           onAddPlannedAction={handleAddPlannedAction}
           onUpdatePlannedAction={handleUpdatePlannedAction}
           onRemovePlannedAction={handleRemovePlannedAction}
-          availableUsers={sampleUserProfiles} 
+          availableUsers={availableUsersFromDB} 
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
         />
@@ -386,7 +405,7 @@ export default function RCAAnalysisPage() {
           validations={validations}
           onToggleValidation={handleToggleValidation}
           projectLeader={projectLeader}
-          availableUserProfiles={sampleUserProfiles} 
+          availableUserProfiles={availableUsersFromDB} 
           currentSimulatedUser={currentSimulatedUser}
           onSetCurrentSimulatedUser={setCurrentSimulatedUser}
           onPrevious={handlePreviousStep}
@@ -410,7 +429,7 @@ export default function RCAAnalysisPage() {
           finalComments={finalComments}
           onFinalCommentsChange={setFinalComments}
           onPrintReport={handlePrintReport}
-          availableUsers={sampleUserProfiles} 
+          availableUsers={availableUsersFromDB} 
           isFinalized={isFinalized}
           onMarkAsFinalized={handleMarkAsFinalized}
         />
@@ -418,5 +437,3 @@ export default function RCAAnalysisPage() {
     </>
   );
 }
-
-    
