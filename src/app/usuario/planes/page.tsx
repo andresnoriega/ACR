@@ -272,7 +272,7 @@ export default function UserActionPlansPage() {
     }
     
     // If the user tries to set to 'Pendiente' or 'En proceso', we can allow it.
-    // This typically means they are just working on it.
+    // This typically means they are working on it.
     // The actual saving of this conceptual "status" (other than 'Completado')
     // happens when comments or evidence are saved.
     // For this demo, we update locally.
@@ -348,13 +348,15 @@ export default function UserActionPlansPage() {
                   <SelectItem value={NONE_USER_VALUE}>-- Ninguno --</SelectItem>
                   {validUsersForSelect.length > 0 
                       ? validUsersForSelect.map(user => (
-                          <SelectItem key={user.id} value={user.name}>
-                              {user.name} ({user.email})
-                          </SelectItem>
+                          user.name && user.name.trim() !== "" && (
+                            <SelectItem key={user.id} value={user.name}>
+                                {user.name} ({user.email})
+                            </SelectItem>
+                          )
                       )) 
                       : (
                           <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">
-                              {availableUsers.length === 0 ? "No hay usuarios configurados" : "No hay usuarios con nombres válidos"}
+                               {availableUsers.length === 0 ? "No hay usuarios configurados" : "No hay usuarios con nombres válidos"}
                           </div>
                       )
                   }
@@ -414,11 +416,11 @@ export default function UserActionPlansPage() {
                 <TableBody>
                   {currentUserActionPlans.map((plan) => (
                     <TableRow 
-                      key={plan.id} 
+                      key={`${plan._originalRcaDocId}-${plan.id}`} 
                       onClick={() => handleSelectPlan(plan)}
                       className={cn(
                           "cursor-pointer hover:bg-muted/50",
-                          selectedPlan?.id === plan.id && "bg-accent/50 hover:bg-accent/60"
+                          selectedPlan?.id === plan.id && selectedPlan?._originalRcaDocId === plan._originalRcaDocId && "bg-accent/50 hover:bg-accent/60"
                       )}
                     >
                       <TableCell className="font-medium">{plan.accionResumen}</TableCell>
