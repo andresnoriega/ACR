@@ -1,6 +1,7 @@
 
 'use client';
 import type { FC, ChangeEvent } from 'react';
+import { useState, useEffect } from 'react'; // Import useState and useEffect
 import type { RCAEventData, ImmediateAction } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,14 +10,14 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PlusCircle, Trash2 } from 'lucide-react';
-import { useToast } from "@/hooks/use-toast"; // Import useToast
+import { useToast } from "@/hooks/use-toast";
 
 interface Step1InitiationProps {
   eventData: RCAEventData;
   onEventDataChange: (field: keyof RCAEventData, value: string) => void;
   immediateActions: ImmediateAction[];
   onAddImmediateAction: () => void;
-  onUpdateImmediateAction: (index: number, field: keyof ImmediateAction, value: string) => void;
+  onUpdateImmediateAction: (index: number, field: keyof Omit<ImmediateAction, 'eventId' | 'id'>, value: string) => void;
   onRemoveImmediateAction: (index: number) => void;
   availableSites: Array<{ id: string; name: string; }>;
   availableUsers: Array<{ id: string; name: string; }>;
@@ -34,7 +35,20 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   availableUsers,
   onNext,
 }) => {
-  const { toast } = useToast(); // Initialize useToast
+  const { toast } = useToast();
+  const [clientSideMaxDate, setClientSideMaxDate] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    // Calculate today's date string on the client side after mount
+    const getTodayDateString = () => {
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    setClientSideMaxDate(getTodayDateString());
+  }, []); // Empty dependency array ensures this runs once on mount
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, field: keyof RCAEventData) => {
     onEventDataChange(field, e.target.value);
@@ -44,22 +58,13 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     onEventDataChange(field, value);
   };
 
-  const handleActionChange = (index: number, field: keyof ImmediateAction, value: string) => {
+  const handleActionChange = (index: number, field: keyof Omit<ImmediateAction, 'eventId' | 'id'>, value: string) => {
     onUpdateImmediateAction(index, field, value);
   };
 
   const handleActionResponsibleChange = (index: number, value: string) => {
     onUpdateImmediateAction(index, 'responsible', value);
   };
-
-  const getTodayDateString = () => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-  const maxDate = getTodayDateString();
 
   const handleNextWithValidation = () => {
     const missingFields = [];
@@ -75,7 +80,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
       });
       return;
     }
-    onNext(); // Proceed if all validations pass
+    onNext();
   };
 
   return (
@@ -108,7 +113,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
             type="date" 
             value={eventData.date} 
             onChange={(e) => handleInputChange(e, 'date')} 
-            max={maxDate} 
+            max={clientSideMaxDate} 
           />
         </div>
         <div className="space-y-2">
@@ -154,7 +159,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
                     type="date" 
                     value={action.dueDate} 
                     onChange={(e) => handleActionChange(index, 'dueDate', e.target.value)}
-                    max={maxDate}
+                    max={clientSideMaxDate}
                   />
                 </div>
               </div>
