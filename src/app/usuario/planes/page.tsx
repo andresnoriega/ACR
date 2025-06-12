@@ -31,11 +31,10 @@ interface ActionPlan {
   evidencias: FirestoreEvidence[];
   userComments?: string;
   ultimaActualizacion: {
-    usuario: string; // For display, might be 'Sistema' or based on RCA updatedAt
+    usuario: string; 
     mensaje: string;
     fechaRelativa: string; 
   };
-  // Internal fields to help with updates
   _originalRcaDocId: string;
   _originalActionId: string;
 }
@@ -50,7 +49,7 @@ export default function UserActionPlansPage() {
   const [allRcaDocuments, setAllRcaDocuments] = useState<RCAAnalysisDocument[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [isLoadingActions, setIsLoadingActions] = useState(true);
-  const [isUpdatingAction, setIsUpdatingAction] = useState(false); // Specific for action updates
+  const [isUpdatingAction, setIsUpdatingAction] = useState(false);
 
   const [selectedPlan, setSelectedPlan] = useState<ActionPlan | null>(null);
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
@@ -162,7 +161,7 @@ export default function UserActionPlansPage() {
 
   const handleSelectPlan = (plan: ActionPlan) => {
     setSelectedPlan(plan);
-    setFileToUpload(null); // Reset file input when selecting a new plan
+    setFileToUpload(null); 
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -181,8 +180,6 @@ export default function UserActionPlansPage() {
     setIsUpdatingAction(true);
     try {
       const rcaDocRef = doc(db, "rcaAnalyses", rcaDocId);
-      
-      // Find the document in the local state to avoid an extra read if possible
       const rcaDocData = allRcaDocuments.find(d => d.eventData.id === rcaDocId); 
       if (!rcaDocData) {
         toast({ title: "Error", description: "No se encontró el documento RCA para actualizar.", variant: "destructive" });
@@ -202,7 +199,6 @@ export default function UserActionPlansPage() {
         updatedAt: new Date().toISOString()
       });
 
-      // Update local state for allRcaDocuments to trigger re-render and useMemo recalculations
       setAllRcaDocuments(prevDocs => 
         prevDocs.map(d => 
           d.eventData.id === rcaDocId 
@@ -211,7 +207,6 @@ export default function UserActionPlansPage() {
         )
       );
       
-      // If a plan is selected, update its view too immediately from the successful update
       if (selectedPlan && selectedPlan._originalRcaDocId === rcaDocId && selectedPlan._originalActionId === actionId) {
         const newSelectedPlanData = updatedPlannedActions.find(pa => pa.id === actionId);
         if (newSelectedPlanData) {
@@ -224,7 +219,7 @@ export default function UserActionPlansPage() {
             }
             setSelectedPlan(prev => prev ? ({ 
               ...prev, 
-              ...newSelectedPlanData, // Update with all fields from Firestore action
+              ...newSelectedPlanData, 
               estado: newEstado,
               ultimaActualizacion: {
                 usuario: selectedSimulatedUserName || "Sistema",
@@ -250,12 +245,11 @@ export default function UserActionPlansPage() {
       toast({ title: "Error", description: "Seleccione un plan y un archivo.", variant: "destructive" });
       return;
     }
-    setIsUpdatingAction(true); // Use the specific flag
-
+    
     const newEvidence: FirestoreEvidence = {
         id: `ev-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         nombre: fileToUpload.name,
-        // @ts-ignore - fileType will be inferred, or use a more robust method for MIME types
+        // @ts-ignore 
         tipo: fileToUpload.name.split('.').pop()?.toLowerCase() as Evidence['tipo'] || 'other',
     };
 
@@ -270,13 +264,11 @@ export default function UserActionPlansPage() {
       const fileInput = document.getElementById('evidence-file-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
     }
-    // setIsUpdatingAction(false); is handled by updateActionInFirestore's finally block
   };
   
 
   const handleUserCommentsChangeAndSave = async (comments: string) => {
     if (!selectedPlan) return;
-    // Optimistically update local selectedPlan's comments for responsiveness
     setSelectedPlan(prev => prev ? {...prev, userComments: comments} : null);
 
     const success = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, {
@@ -295,8 +287,6 @@ export default function UserActionPlansPage() {
         return;
     }
 
-    setIsUpdatingAction(true);
-
     let commentsToSave = selectedPlan.userComments || "";
     if (selectedPlan.estado === 'Pendiente' && !commentsToSave.trim() && (!selectedPlan.evidencias || selectedPlan.evidencias.length === 0)) {
         commentsToSave = (commentsToSave ? commentsToSave + "\n\n" : "") + `[Sistema] Tarea marcada como lista para validación por ${selectedSimulatedUserName || 'el responsable'} el ${new Date().toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}.`;
@@ -305,12 +295,8 @@ export default function UserActionPlansPage() {
     const success = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, {
       userComments: commentsToSave,
     });
-    // No need to call setIsUpdatingAction(false) here, updateActionInFirestore handles it.
 
     if (success) {
-      // Local state of selectedPlan will be updated via the callback in updateActionInFirestore
-      // when allRcaDocuments is updated. For immediate UI feedback on the button itself, it's tricky
-      // but the Loader icon tied to isUpdatingAction should cover it.
       toast({ 
         title: "Tarea Lista para Validación", 
         description: `La tarea "${selectedPlan.tituloDetalle}" se ha actualizado. El Líder del Proyecto la revisará.` 
@@ -580,5 +566,3 @@ export default function UserActionPlansPage() {
     </div>
   );
 }
-
-    
