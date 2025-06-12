@@ -97,22 +97,23 @@ export default function ConfiguracionSitiosPage() {
       return;
     }
     setIsSubmitting(true);
+    const newSiteData = {
+      name: newSiteName.trim(),
+      address: newSiteAddress.trim(),
+      zone: newSiteZone,
+      coordinator: newSiteCoordinator.trim(),
+      description: newSiteDescription.trim(),
+    };
+    console.log('Attempting to add site to Firestore:', newSiteData);
     try {
-      const newSiteData = {
-        name: newSiteName.trim(),
-        address: newSiteAddress.trim(),
-        zone: newSiteZone,
-        coordinator: newSiteCoordinator.trim(),
-        description: newSiteDescription.trim(),
-      };
       const docRef = await addDoc(collection(db, "sites"), newSiteData);
       setSites(prevSites => [...prevSites, { id: docRef.id, ...newSiteData }].sort((a, b) => a.name.localeCompare(b.name)));
       toast({ title: "Sitio Añadido", description: `El sitio "${newSiteData.name}" ha sido añadido con éxito.` });
       resetNewSiteForm();
       setIsAddSiteDialogOpen(false);
     } catch (error) {
-      console.error("Error adding site: ", error);
-      toast({ title: "Error al Añadir Sitio", description: "No se pudo añadir el sitio. Verifique la consola.", variant: "destructive" });
+      console.error("Error adding site to Firestore: ", error);
+      toast({ title: "Error al Añadir Sitio", description: "No se pudo añadir el sitio. Verifique la consola del navegador para más detalles.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -135,23 +136,24 @@ export default function ConfiguracionSitiosPage() {
       return;
     }
     setIsSubmitting(true);
+    const updatedSiteData = {
+      name: editSiteName.trim(),
+      address: editSiteAddress.trim(),
+      zone: editSiteZone,
+      coordinator: editSiteCoordinator.trim(),
+      description: editSiteDescription.trim(),
+    };
+    console.log('Attempting to update site in Firestore:', currentSiteToEdit.id, updatedSiteData);
     try {
       const siteRef = doc(db, "sites", currentSiteToEdit.id);
-      const updatedSiteData = {
-        name: editSiteName.trim(),
-        address: editSiteAddress.trim(),
-        zone: editSiteZone,
-        coordinator: editSiteCoordinator.trim(),
-        description: editSiteDescription.trim(),
-      };
       await updateDoc(siteRef, updatedSiteData);
       setSites(sites.map(s => s.id === currentSiteToEdit.id ? { ...s, ...updatedSiteData } : s).sort((a,b) => a.name.localeCompare(b.name)));
       toast({ title: "Sitio Actualizado", description: `El sitio "${updatedSiteData.name}" ha sido actualizado.` });
       resetEditSiteForm();
       setIsEditSiteDialogOpen(false);
     } catch (error) {
-      console.error("Error updating site: ", error);
-      toast({ title: "Error al Actualizar", description: "No se pudo actualizar el sitio. Verifique la consola.", variant: "destructive" });
+      console.error("Error updating site in Firestore: ", error);
+      toast({ title: "Error al Actualizar", description: "No se pudo actualizar el sitio. Verifique la consola del navegador para más detalles.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -165,14 +167,15 @@ export default function ConfiguracionSitiosPage() {
   const confirmDeleteSite = async () => {
     if (siteToDelete) {
       setIsSubmitting(true); 
+      console.log('Attempting to delete site from Firestore:', siteToDelete.id);
       try {
         await deleteDoc(doc(db, "sites", siteToDelete.id));
         setSites(sites.filter(s => s.id !== siteToDelete.id));
         toast({ title: "Sitio Eliminado", description: `El sitio "${siteToDelete.name}" ha sido eliminado.`, variant: 'destructive' });
         setSiteToDelete(null);
       } catch (error) {
-        console.error("Error deleting site: ", error);
-        toast({ title: "Error al Eliminar", description: "No se pudo eliminar el sitio. Verifique la consola.", variant: "destructive" });
+        console.error("Error deleting site from Firestore: ", error);
+        toast({ title: "Error al Eliminar", description: "No se pudo eliminar el sitio. Verifique la consola del navegador para más detalles.", variant: "destructive" });
       } finally {
         setIsSubmitting(false);
       }
@@ -235,17 +238,17 @@ export default function ConfiguracionSitiosPage() {
                     </DialogHeader>
                     <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
                       <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="site-name" className="text-right">Nombre <span className="text-destructive">*</span></Label>
-                        <Input id="site-name" value={newSiteName} onChange={(e) => setNewSiteName(e.target.value)} className="col-span-3" placeholder="Ej: Planta Principal" />
+                        <Label htmlFor="add-site-name" className="text-right">Nombre <span className="text-destructive">*</span></Label>
+                        <Input id="add-site-name" value={newSiteName} onChange={(e) => setNewSiteName(e.target.value)} className="col-span-3" placeholder="Ej: Planta Principal" />
                       </div>
                       <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="site-address" className="text-right">Dirección</Label>
-                        <Input id="site-address" value={newSiteAddress} onChange={(e) => setNewSiteAddress(e.target.value)} className="col-span-3" placeholder="Ej: Calle Falsa 123, Ciudad" />
+                        <Label htmlFor="add-site-address" className="text-right">Dirección</Label>
+                        <Input id="add-site-address" value={newSiteAddress} onChange={(e) => setNewSiteAddress(e.target.value)} className="col-span-3" placeholder="Ej: Calle Falsa 123, Ciudad" />
                       </div>
                       <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="add-site-zone-trigger" className="text-right">Zona</Label>
+                        <Label htmlFor="add-site-zone-select" className="text-right">Zona</Label>
                         <Select value={newSiteZone} onValueChange={setNewSiteZone}>
-                          <SelectTrigger id="add-site-zone-trigger" className="col-span-3">
+                          <SelectTrigger id="add-site-zone-select" className="col-span-3">
                             <SelectValue placeholder="-- Seleccione una zona --" />
                           </SelectTrigger>
                           <SelectContent>
@@ -256,12 +259,12 @@ export default function ConfiguracionSitiosPage() {
                         </Select>
                       </div>
                       <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="site-coordinator" className="text-right">Coordinador</Label>
-                        <Input id="site-coordinator" value={newSiteCoordinator} onChange={(e) => setNewSiteCoordinator(e.target.value)} className="col-span-3" placeholder="Nombre del coordinador" />
+                        <Label htmlFor="add-site-coordinator" className="text-right">Coordinador</Label>
+                        <Input id="add-site-coordinator" value={newSiteCoordinator} onChange={(e) => setNewSiteCoordinator(e.target.value)} className="col-span-3" placeholder="Nombre del coordinador" />
                       </div>
                       <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="site-description" className="text-right">Descripción</Label>
-                        <Textarea id="site-description" value={newSiteDescription} onChange={(e) => setNewSiteDescription(e.target.value)} className="col-span-3" placeholder="Notas adicionales (opcional)" />
+                        <Label htmlFor="add-site-description" className="text-right">Descripción</Label>
+                        <Textarea id="add-site-description" value={newSiteDescription} onChange={(e) => setNewSiteDescription(e.target.value)} className="col-span-3" placeholder="Notas adicionales (opcional)" />
                       </div>
                     </div>
                     <DialogFooter>
@@ -368,9 +371,9 @@ export default function ConfiguracionSitiosPage() {
               <Input id="edit-site-address" value={editSiteAddress} onChange={(e) => setEditSiteAddress(e.target.value)} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-site-zone-trigger" className="text-right">Zona</Label>
+              <Label htmlFor="edit-site-zone-select" className="text-right">Zona</Label>
               <Select value={editSiteZone} onValueChange={setEditSiteZone}>
-                <SelectTrigger id="edit-site-zone-trigger" className="col-span-3">
+                <SelectTrigger id="edit-site-zone-select" className="col-span-3">
                   <SelectValue placeholder="-- Seleccione una zona --" />
                 </SelectTrigger>
                 <SelectContent>
