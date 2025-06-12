@@ -35,7 +35,7 @@ interface Filters {
   status: ReportedEventStatus;
 }
 
-// Helper function to update event status in Firestore - REMAINS as it might be used elsewhere or by analysis page.
+// Helper function to update event status in Firestore
 async function updateEventStatusInFirestore(eventId: string, newStatus: ReportedEventStatus, toastInstance: ReturnType<typeof useToast>['toast']) {
   const eventRef = doc(db, "reportedEvents", eventId);
   try {
@@ -59,7 +59,7 @@ export default function EventosReportadosPage() {
   
   const [isLoadingEvents, setIsLoadingEvents] = useState(true);
   const [isLoadingSites, setIsLoadingSites] = useState(true);
-  // isUpdatingStatus is removed as it's no longer used in this page's logic for button actions
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
 
   const [selectedEvent, setSelectedEvent] = useState<ReportedEvent | null>(null);
@@ -201,20 +201,24 @@ export default function EventosReportadosPage() {
     }
   };
 
-  // This function is called when "Continuar Investigación" is clicked for a "Pendiente" event.
-  // It will now ONLY navigate. The status change to "En análisis" happens in Step 2 of /analisis.
-  const handleStartRCA = () => {
-    if (selectedEvent && selectedEvent.status === 'Pendiente') {
-      router.push(`/analisis?id=${selectedEvent.id}`);
-    } else if (selectedEvent) { 
-      // Should not happen if button logic is correct, but as fallback for other states if `handleStartRCA` was mis-assigned.
-      router.push(`/analisis?id=${selectedEvent.id}`);
-    } else {
-      toast({ title: "Ningún Evento Seleccionado", description: "Por favor, seleccione un evento.", variant: "destructive" });
+  const handleStartRCA = async () => {
+    if (!selectedEvent || selectedEvent.status !== 'Pendiente') {
+      toast({ title: "Acción no Válida", description: "Esta acción solo es para eventos pendientes.", variant: "destructive" });
+      return;
     }
+
+    setIsUpdatingStatus(true);
+    const success = await updateEventStatusInFirestore(selectedEvent.id, "En análisis", toast);
+    if (success) {
+      const updatedEvent = { ...selectedEvent, status: "En análisis" as ReportedEventStatus };
+      setAllEvents(prevEvents => prevEvents.map(e => e.id === selectedEvent.id ? updatedEvent : e));
+      setFilteredEvents(prevEvents => prevEvents.map(e => e.id === selectedEvent.id ? updatedEvent : e));
+      setSelectedEvent(updatedEvent); 
+      router.push(`/analisis?id=${selectedEvent.id}`);
+    }
+    setIsUpdatingStatus(false);
   };
   
-  // This function is used for "En análisis" and "Finalizado" events.
   const handleViewAnalysis = () => {
     if (selectedEvent) {
         router.push(`/analisis?id=${selectedEvent.id}`);
@@ -415,18 +419,22 @@ export default function EventosReportadosPage() {
           </div>
         </CardContent>
         <CardFooter className="flex justify-start gap-2 pt-4 border-t">
-          {selectedEvent ? (() => {
+          {(() => {
+            if (!selectedEvent) {
+              return <Button variant="default" size="sm" disabled><PlayCircle className="mr-2 h-4 w-4" /> Seleccione un evento</Button>;
+            }
+
             let buttonText = "";
             let ButtonIcon = PlayCircle; 
             let buttonVariant: "default" | "outline" = "default";
             let buttonOnClick = () => {};
-            // isDisabled is removed as we removed isUpdatingStatus from this page
-            // If there was another reason for disabling, it would go here.
+            let isDisabled = false;
 
             if (selectedEvent.status === 'Pendiente') {
               buttonText = "Continuar Investigación";
               ButtonIcon = PlayCircle;
-              buttonOnClick = handleStartRCA; // This will now ONLY navigate
+              buttonOnClick = handleStartRCA;
+              isDisabled = isUpdatingStatus;
             } else if (selectedEvent.status === 'En análisis') {
               buttonText = "Continuar Investigación";
               ButtonIcon = PlayCircle;
@@ -439,16 +447,12 @@ export default function EventosReportadosPage() {
             }
             
             return (
-              <Button variant={buttonVariant} size="sm" onClick={buttonOnClick}>
-                {/* Loader logic removed as isUpdatingStatus is removed */}
-                <ButtonIcon className="mr-2 h-4 w-4" /> {buttonText}
+              <Button variant={buttonVariant} size="sm" onClick={buttonOnClick} disabled={isDisabled}>
+                {isDisabled && selectedEvent.status === 'Pendiente' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ButtonIcon className="mr-2 h-4 w-4" />}
+                {buttonText}
               </Button>
             );
-          })() : (
-            <Button variant="default" size="sm" disabled>
-              <PlayCircle className="mr-2 h-4 w-4" /> Seleccione un evento
-            </Button>
-          )}
+          })()}
         </CardFooter>
       </Card>
 
