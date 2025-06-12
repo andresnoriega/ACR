@@ -37,7 +37,7 @@ interface ActionStatsData {
 
 interface RCASummaryData {
   totalRCAs: number;
-  accionesPendientesEnRCAPendientes: number;
+  rcaPendientes: number;
   accionesValidadasEnRCAFinalizados: number;
 }
 
@@ -126,7 +126,7 @@ export default function DashboardRCAPage() {
       let accionesValidadasGlobal = 0;
 
       let totalRCAs = querySnapshot.size;
-      let accionesPendientesEnRCAPendientes = 0;
+      let rcaPendientesCount = 0;
       let accionesValidadasEnRCAFinalizados = 0;
 
       const currentAnalysesInProgress: AnalisisEnCursoItem[] = [];
@@ -135,6 +135,10 @@ export default function DashboardRCAPage() {
       querySnapshot.forEach(docSnap => {
         const rcaDoc = docSnap.data() as RCAAnalysisDocument;
         const rcaId = docSnap.id;
+
+        if (!rcaDoc.isFinalized) {
+            rcaPendientesCount++;
+        }
 
         // Calculations for Resumen de Acciones Correctivas & Cumplimiento
         if (rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
@@ -150,9 +154,6 @@ export default function DashboardRCAPage() {
             }
 
             // Calculations for Resumen de Análisis de Causa Raíz
-            if (!rcaDoc.isFinalized && !isActionValidated) {
-              accionesPendientesEnRCAPendientes++;
-            }
             if (rcaDoc.isFinalized && isActionValidated) {
               accionesValidadasEnRCAFinalizados++;
             }
@@ -187,7 +188,7 @@ export default function DashboardRCAPage() {
       });
 
       setActionStatsData({ totalAcciones, accionesPendientes: accionesPendientesGlobal, accionesValidadas: accionesValidadasGlobal });
-      setRcaSummaryData({ totalRCAs, accionesPendientesEnRCAPendientes, accionesValidadasEnRCAFinalizados });
+      setRcaSummaryData({ totalRCAs, rcaPendientes: rcaPendientesCount, accionesValidadasEnRCAFinalizados });
       
       // Sort and limit "Análisis en Curso"
       currentAnalysesInProgress.sort((a,b) => {
@@ -218,7 +219,7 @@ export default function DashboardRCAPage() {
     } catch (error) {
       console.error("Error fetching dashboard data: ", error);
       setActionStatsData({ totalAcciones: 0, accionesPendientes: 0, accionesValidadas: 0 }); 
-      setRcaSummaryData({ totalRCAs: 0, accionesPendientesEnRCAPendientes: 0, accionesValidadasEnRCAFinalizados: 0 });
+      setRcaSummaryData({ totalRCAs: 0, rcaPendientes: 0, accionesValidadasEnRCAFinalizados: 0 });
       setAnalisisEnCurso([]);
       setPlanesAccionPendientes([]);
       toast({ title: "Error al Cargar Datos del Dashboard", description: (error as Error).message, variant: "destructive" });
@@ -436,7 +437,7 @@ export default function DashboardRCAPage() {
               </div>
               <div className="p-4 bg-yellow-400/20 rounded-lg">
                 <div className="flex items-center justify-center mb-1"><ListTodo className="h-5 w-5 text-yellow-600 mr-1.5"/></div>
-                <p className="text-3xl font-bold text-yellow-600">{rcaSummaryData.accionesPendientesEnRCAPendientes}</p>
+                <p className="text-3xl font-bold text-yellow-600">{rcaSummaryData.rcaPendientes}</p>
                 <p className="text-sm text-muted-foreground">RCA Pendientes</p>
               </div>
               <div className="p-4 bg-green-400/20 rounded-lg">
@@ -649,7 +650,7 @@ export default function DashboardRCAPage() {
               </TableHeader>
               <TableBody>
                 {planesAccionPendientes.length > 0 ? planesAccionPendientes.map((item) => (
-                  <TableRow key={item.actionId}>
+                  <TableRow key={`${item.rcaId}-${item.actionId}`}>
                     <TableCell className="font-mono text-xs">{item.rcaId.substring(0, 8)}...</TableCell>
                     <TableCell className="font-mono text-xs">{item.actionId.substring(0, 8)}...</TableCell>
                     <TableCell className="font-medium text-sm">
