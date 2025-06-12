@@ -123,6 +123,17 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
 
   const isStepSaving = isSaving || isSavingLocally;
 
+  const uniquePlannedActions = useMemo(() => {
+    const seenIds = new Set<string>();
+    return plannedActions.filter(action => {
+      if (seenIds.has(action.id)) {
+        return false;
+      }
+      seenIds.add(action.id);
+      return true;
+    });
+  }, [plannedActions]);
+
   return (
     <Card>
       <CardHeader>
@@ -159,11 +170,11 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
         </div>
 
         <div className="space-y-2 pt-4 border-t">
-          {plannedActions.length === 0 ? (
+          {uniquePlannedActions.length === 0 ? (
             <p className="text-muted-foreground">No hay acciones planificadas para validar. Por favor, agréguelas en el Paso 3.</p>
           ) : (
             <Accordion type="multiple" className="w-full">
-              {plannedActions.map((action) => {
+              {uniquePlannedActions.map((action) => {
                 const status = getValidationStatus(action.id);
                 return (
                   <AccordionItem value={action.id} key={action.id} className="border-b">
