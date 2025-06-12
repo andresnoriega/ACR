@@ -126,12 +126,19 @@ export default function RCAAnalysisPage() {
         setFinalComments(data.finalComments || '');
         setIsFinalized(data.isFinalized || false);
         setAnalysisDocumentId(id);
-        setMaxCompletedStep(4); 
+        setMaxCompletedStep(4); // Assume if loading, all steps are potentially accessible up to review
         toast({ title: "Análisis Cargado", description: `Se cargó el análisis ID: ${id}` });
       } else {
         toast({ title: "Análisis No Encontrado", description: `No se encontró un análisis con ID: ${id}. Iniciando nuevo análisis.`, variant: "destructive" });
+        // Reset all state for a new analysis
+        setEventData(initialRCAAnalysisState.eventData);
+        setImmediateActions(initialRCAAnalysisState.immediateActions);
+        setProjectLeader(initialRCAAnalysisState.projectLeader);
+        setDetailedFacts(initialRCAAnalysisState.detailedFacts);
+        // ... reset all other states similarly
         setAnalysisDocumentId(null);
-        setEventData(prev => ({ ...prev, id: ''})); // Clear eventData.id if analysis not found
+        setIsFinalized(false);
+        setMaxCompletedStep(0);
       }
     } catch (error) {
       console.error("Error loading RCA analysis: ", error);
@@ -146,14 +153,29 @@ export default function RCAAnalysisPage() {
     if (analysisIdFromParams) {
       loadAnalysisData(analysisIdFromParams);
     } else {
-      if (eventData.id) { // If navigating back to /analisis without id, but there was a previous id
-         setEventData(initialRCAAnalysisState.eventData); // Reset if no id, start fresh
-      }
-      setAnalysisDocumentId(null); // Ensure no old ID persists for new analysis
-      setIsLoadingPage(false);
+      // Reset all state for a new analysis if no ID is provided
+        setEventData(initialRCAAnalysisState.eventData);
+        setImmediateActions(initialRCAAnalysisState.immediateActions);
+        setProjectLeader(initialRCAAnalysisState.projectLeader);
+        setDetailedFacts(initialRCAAnalysisState.detailedFacts);
+        setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
+        setPreservedFacts(initialRCAAnalysisState.preservedFacts);
+        setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
+        setAnalysisTechniqueNotes(initialRCAAnalysisState.analysisTechniqueNotes);
+        setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
+        setFiveWhysData(JSON.parse(JSON.stringify(initialFiveWhysData)));
+        setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
+        setIdentifiedRootCauses(initialRCAAnalysisState.identifiedRootCauses);
+        setPlannedActions(initialRCAAnalysisState.plannedActions);
+        setValidations(initialRCAAnalysisState.validations);
+        setFinalComments(initialRCAAnalysisState.finalComments);
+        setIsFinalized(initialRCAAnalysisState.isFinalized);
+        setAnalysisDocumentId(null);
+        setMaxCompletedStep(0);
+        setIsLoadingPage(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]); 
+  }, [searchParams, loadAnalysisData]); // Added loadAnalysisData to dependencies
 
   useEffect(() => {
     const fetchConfigData = async () => {
@@ -209,6 +231,7 @@ export default function RCAAnalysisPage() {
     };
 
     try {
+      // Save RCAAnalysisDocument
       const rcaDocRef = doc(db, "rcaAnalyses", currentId);
       const rcaDocSnap = await getDoc(rcaDocRef);
       
@@ -223,27 +246,32 @@ export default function RCAAnalysisPage() {
       const reportedEventRef = doc(db, "reportedEvents", currentId);
       const reportedEventSnap = await getDoc(reportedEventRef);
 
+      let eventStatus: ReportedEvent['status'] = "Pendiente"; // Default for new event
+      if (reportedEventSnap.exists()) {
+        eventStatus = reportedEventSnap.data().status; // Preserve existing status
+      }
+
       const reportedEventPayload: ReportedEvent = {
         id: currentId,
         title: eventData.focusEventDescription || "Evento sin título asignado",
         site: eventData.place || "Sin sitio especificado",
-        date: eventData.date || new Date().toISOString().split('T')[0], // Default to today if not set
+        date: eventData.date || new Date().toISOString().split('T')[0],
         type: eventData.eventType || '',
         priority: eventData.priority || '',
-        status: reportedEventSnap.exists() ? reportedEventSnap.data().status : "En análisis",
+        status: eventStatus, // Use determined status
         description: eventData.focusEventDescription || "Sin descripción detallada.",
       };
       
       if (!reportedEventSnap.exists()) {
         await setDoc(reportedEventRef, reportedEventPayload);
       } else {
-        // Only update descriptive fields, do not change status here
-        const { status, ...updateData } = reportedEventPayload; // Exclude status from direct update
+        // Only update descriptive fields, do not change status here unless specifically intended
+        const { status, ...updateData } = reportedEventPayload; 
         await updateDoc(reportedEventRef, updateData);
       }
 
       if (showToast) {
-        toast({ title: "Progreso Guardado", description: `Análisis ${currentId} guardado y evento reportado actualizado.` });
+        toast({ title: "Progreso Guardado", description: `Análisis ${currentId} guardado. Evento reportado actualizado.` });
       }
     } catch (error) {
       console.error("Error saving data to Firestore: ", error);
@@ -252,6 +280,32 @@ export default function RCAAnalysisPage() {
       }
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Specific save function for Step 2 to handle status change
+  const handleSaveFromStep2 = async (showToast: boolean = true) => {
+    await handleSaveAnalysisData(showToast); // Save all data first
+
+    if (analysisDocumentId) {
+      setIsSaving(true);
+      try {
+        const reportedEventRef = doc(db, "reportedEvents", analysisDocumentId);
+        const reportedEventSnap = await getDoc(reportedEventRef);
+        if (reportedEventSnap.exists() && reportedEventSnap.data().status === "Pendiente") {
+          await updateDoc(reportedEventRef, { status: "En análisis" });
+          if (showToast) {
+            toast({ title: "Estado Actualizado", description: `El evento ${analysisDocumentId} ahora está "En análisis".` });
+          }
+        }
+      } catch (error) {
+        console.error("Error updating ReportedEvent status from Step 2: ", error);
+        if (showToast) {
+          toast({ title: "Error al Actualizar Estado", description: "No se pudo actualizar el estado del evento reportado.", variant: "destructive" });
+        }
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
   
@@ -270,12 +324,18 @@ export default function RCAAnalysisPage() {
 
   const handleNextStep = async () => {
     const currentId = analysisDocumentId || ensureEventId(); 
-    if (!currentId && step >= 1) { // Allow step 1 to proceed to generate ID
+    if (!currentId && step >= 1) { 
         toast({ title: "Error de Sincronización", description: "Por favor, complete el Paso 1 para generar un ID antes de continuar.", variant: "destructive"});
         setStep(1);
         return;
     }
-    await handleSaveAnalysisData(false); // Save silently before moving
+    // Determine which save function to call based on the current step
+    if (step === 2) {
+      await handleSaveFromStep2(false); // Save silently & update status if needed
+    } else {
+      await handleSaveAnalysisData(false); // General save for other steps
+    }
+    
     const newStep = Math.min(step + 1, 5);
     const newMaxCompletedStep = Math.max(maxCompletedStep, step);
     setStep(newStep);
@@ -440,36 +500,33 @@ export default function RCAAnalysisPage() {
   };
 
   const handleMarkAsFinalized = async () => {
-    setIsSaving(true); // Indicate saving for this specific action
-    setIsFinalized(true); // Optimistically update UI
-    
-    // Ensure all data including isFinalized=true is saved for the RCAAnalysisDocument
-    // Create a temporary analysisDoc with the finalized state to pass to handleSaveAnalysisData
-     const analysisDoc: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedAt'> & Partial<Pick<RCAAnalysisDocument, 'createdAt'>> = {
+    setIsSaving(true); 
+    const currentId = analysisDocumentId || ensureEventId();
+    if (!currentId) {
+        toast({ title: "Error", description: "No se pudo obtener el ID del análisis para finalizar.", variant: "destructive" });
+        setIsSaving(false);
+        return;
+    }
+
+    // Prepare the RCAAnalysisDocument payload with isFinalized = true
+    const analysisDocPayload: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedAt'> & Partial<Pick<RCAAnalysisDocument, 'createdAt'>> = {
       eventData, immediateActions, projectLeader, detailedFacts, analysisDetails,
       preservedFacts, analysisTechnique, analysisTechniqueNotes, ishikawaData,
       fiveWhysData, ctmData, identifiedRootCauses, plannedActions,
       validations, finalComments, isFinalized: true // Explicitly set to true here
     };
 
-    const currentId = analysisDocumentId || ensureEventId();
-    if (!currentId) {
-        toast({ title: "Error", description: "No se pudo obtener el ID del análisis para finalizar.", variant: "destructive" });
-        setIsSaving(false);
-        setIsFinalized(false); // Revert optimistic update
-        return;
-    }
-
     try {
       // Save the RCAAnalysisDocument with isFinalized = true
       const rcaDocRef = doc(db, "rcaAnalyses", currentId);
       const rcaDocSnap = await getDoc(rcaDocRef);
       const dataToSave: RCAAnalysisDocument = {
-        ...analysisDoc, // This now contains all current states + isFinalized: true
+        ...analysisDocPayload, 
         updatedAt: new Date().toISOString(),
         createdAt: rcaDocSnap.exists() ? rcaDocSnap.data().createdAt : new Date().toISOString(),
       };
       await setDoc(rcaDocRef, dataToSave, { merge: true });
+      setIsFinalized(true); // Update local state after successful save
       
       // Update ReportedEvent status
       const reportedEventRef = doc(db, "reportedEvents", currentId);
@@ -479,7 +536,6 @@ export default function RCAAnalysisPage() {
     } catch (error) {
       console.error("Error finalizing RCA or updating reported event: ", error);
       toast({ title: "Error al Finalizar", description: `No se pudo finalizar el análisis ${currentId}.`, variant:"destructive"});
-      setIsFinalized(false); // Revert optimistic update on error
     } finally {
       setIsSaving(false);
     }
@@ -547,7 +603,7 @@ export default function RCAAnalysisPage() {
           onRemovePreservedFact={handleRemovePreservedFact}
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
-          onSaveAnalysis={handleSaveAnalysisData}
+          onSaveAnalysis={handleSaveFromStep2} // Use specific save for Step 2
           isSaving={isSaving}
         />
       )}

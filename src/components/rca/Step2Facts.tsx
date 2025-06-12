@@ -32,7 +32,7 @@ interface Step2FactsProps {
   onRemovePreservedFact: (id: string) => void;
   onPrevious: () => void;
   onNext: () => void;
-  onSaveAnalysis: (showToast?: boolean) => Promise<void>; // New prop for saving
+  onSaveAnalysis: (showToast?: boolean) => Promise<void>; // Changed to specific save function for Step 2
   isSaving: boolean;
 }
 
@@ -151,7 +151,7 @@ export const Step2Facts: FC<Step2FactsProps> = ({
   onRemovePreservedFact,
   onPrevious,
   onNext,
-  onSaveAnalysis,
+  onSaveAnalysis, // This prop now calls handleSaveFromStep2 from the parent
   isSaving,
 }) => {
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | undefined>();
@@ -300,14 +300,14 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
       });
       return;
     }
-    await onSaveAnalysis(); // Call the main save function from parent
+    await onSaveAnalysis(); // Calls handleSaveFromStep2 from parent
   };
 
   const handleNextWithSave = async () => {
     if (!validateFieldsForNext()) {
       return;
     }
-    await onSaveAnalysis(false); // Save silently before moving
+    await onSaveAnalysis(false); // Calls handleSaveFromStep2 from parent, save silently before moving
     onNext();
   };
 
