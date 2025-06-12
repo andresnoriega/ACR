@@ -1,7 +1,7 @@
 
 'use client';
 import type { FC, ChangeEvent } from 'react';
-import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhysData, RCAEventData, CTMData, IdentifiedRootCause } from '@/types/rca';
+import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhysData, RCAEventData, CTMData, IdentifiedRootCause, FullUserProfile } from '@/types/rca'; // Added FullUserProfile
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
 import { FiveWhysInteractive } from './FiveWhysInteractive';
 import { CTMInteractive } from './CTMInteractive';
+import { useToast } from "@/hooks/use-toast"; // Import useToast
 
 interface Step3AnalysisProps {
   eventData: RCAEventData;
@@ -36,7 +37,7 @@ interface Step3AnalysisProps {
   onAddPlannedAction: () => void;
   onUpdatePlannedAction: (index: number, field: keyof Omit<PlannedAction, 'eventId' | 'id'>, value: string | string[]) => void;
   onRemovePlannedAction: (index: number) => void;
-  availableUsers: Array<{ id: string; name: string; email: string; }>; 
+  availableUsers: FullUserProfile[]; 
   onPrevious: () => void;
   onNext: () => void;
 }
@@ -67,6 +68,8 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   onPrevious,
   onNext,
 }) => {
+  const { toast } = useToast(); // Initialize useToast
+
   const handleActionChange = (index: number, field: keyof Omit<PlannedAction, 'eventId' | 'id'>, value: string) => {
     onUpdatePlannedAction(index, field, value);
   };
@@ -103,6 +106,71 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     return `${year}-${month}-${day}`;
   };
   const minDateForPlannedActions = getTodayDateString();
+
+  const handleNextWithValidation = () => {
+    // Validate Identified Root Causes
+    if (identifiedRootCauses.length === 0) {
+      toast({
+        title: "Campo Obligatorio Faltante",
+        description: "Debe añadir al menos una Causa Raíz Identificada.",
+        variant: "destructive",
+      });
+      return;
+    }
+    for (const rc of identifiedRootCauses) {
+      if (!rc.description.trim()) {
+        toast({
+          title: "Campo Obligatorio Faltante",
+          description: `La Causa Raíz ID: ${rc.id.substring(0,7)}... debe tener una descripción.`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    // Validate Planned Actions
+    if (plannedActions.length > 0) {
+      for (let i = 0; i < plannedActions.length; i++) {
+        const action = plannedActions[i];
+        const actionLabel = action.description.trim() ? `"${action.description.substring(0,30)}..."` : `Nº ${i + 1}`;
+        
+        if (!action.description.trim()) {
+          toast({
+            title: "Campo Obligatorio Faltante",
+            description: `La Acción Planificada ${actionLabel} requiere una descripción.`,
+            variant: "destructive",
+          });
+          return;
+        }
+        if (!action.relatedRootCauseIds || action.relatedRootCauseIds.length === 0) {
+          toast({
+            title: "Campo Obligatorio Faltante",
+            description: `La Acción Planificada ${actionLabel} debe abordar al menos una Causa Raíz.`,
+            variant: "destructive",
+          });
+          return;
+        }
+        if (!action.responsible) {
+          toast({
+            title: "Campo Obligatorio Faltante",
+            description: `La Acción Planificada ${actionLabel} requiere un responsable.`,
+            variant: "destructive",
+          });
+          return;
+        }
+        if (!action.dueDate) {
+          toast({
+            title: "Campo Obligatorio Faltante",
+            description: `La Acción Planificada ${actionLabel} requiere una fecha límite.`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+    }
+    onNext();
+  };
+
 
   return (
     <Card>
@@ -169,13 +237,13 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
         <div className="space-y-4">
           <h3 className="text-lg font-semibold font-headline flex items-center">
             <MessageSquare className="mr-2 h-5 w-5 text-primary" />
-            Causas Raíz Identificadas
+            Causas Raíz Identificadas <span className="text-destructive text-xs ml-1">(Al menos una, con descripción) *</span>
           </h3>
           {identifiedRootCauses.map((rc, index) => (
             <Card key={rc.id} className="p-4 space-y-3 bg-secondary/40">
               <div className="flex justify-between items-center">
                 <Label htmlFor={`rc-desc-${rc.id}`} className="font-medium text-sm text-primary">
-                  Causa Raíz #{index + 1}
+                  Causa Raíz #{index + 1} <span className="text-destructive">*</span>
                 </Label>
                 <Button variant="ghost" size="icon" onClick={() => onRemoveIdentifiedRootCause(rc.id)} aria-label="Eliminar causa raíz">
                   <Trash2 className="h-4 w-4 text-destructive" />
@@ -206,15 +274,15 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                 </Button>
               </div>
               <div className="space-y-2">
-                <Label htmlFor={`pa-desc-${index}`}>Descripción de la Acción</Label>
+                <Label htmlFor={`pa-desc-${index}`}>Descripción de la Acción <span className="text-destructive">*</span></Label>
                 <Input id={`pa-desc-${index}`} value={action.description} onChange={(e) => handleActionChange(index, 'description', e.target.value)} placeholder="Detalle de la acción correctiva" />
               </div>
               
               <div className="space-y-2">
-                <Label className="flex items-center"><Link2 className="mr-2 h-4 w-4" />Causas Raíz Abordadas</Label>
+                <Label className="flex items-center"><Link2 className="mr-2 h-4 w-4" />Causas Raíz Abordadas <span className="text-destructive">*</span></Label>
                 <div className="space-y-1.5 max-h-32 overflow-y-auto p-2 border rounded-md bg-background/50">
                   {identifiedRootCauses.length > 0 ? (
-                    identifiedRootCauses.map(rc => (
+                    identifiedRootCauses.filter(rc => rc.description.trim() !== '').map(rc => (
                       <div key={rc.id} className="flex items-center space-x-2">
                         <Checkbox
                           id={`pa-${action.id}-rc-${rc.id}`}
@@ -230,14 +298,17 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                       </div>
                     ))
                   ) : (
-                    <p className="text-xs text-muted-foreground">No hay causas raíz identificadas para vincular.</p>
+                    <p className="text-xs text-muted-foreground">No hay causas raíz identificadas (con descripción) para vincular.</p>
+                  )}
+                   {identifiedRootCauses.length > 0 && identifiedRootCauses.every(rc => rc.description.trim() === '') && (
+                    <p className="text-xs text-muted-foreground">Añada descripciones a las causas raíz para poder vincularlas.</p>
                   )}
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor={`pa-resp-${index}`}>Responsable</Label>
+                  <Label htmlFor={`pa-resp-${index}`}>Responsable <span className="text-destructive">*</span></Label>
                   <Select value={action.responsible} onValueChange={(value) => handleActionResponsibleChange(index, value)}>
                     <SelectTrigger id={`pa-resp-${index}`}>
                       <SelectValue placeholder="-- Seleccione un responsable --" />
@@ -253,7 +324,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor={`pa-date-${index}`}>Fecha Límite</Label>
+                  <Label htmlFor={`pa-date-${index}`}>Fecha Límite <span className="text-destructive">*</span></Label>
                   <Input 
                     id={`pa-date-${index}`} 
                     type="date" 
@@ -272,7 +343,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
       </CardContent>
       <CardFooter className="flex justify-between">
         <Button onClick={onPrevious} variant="outline" className="transition-transform hover:scale-105">Anterior</Button>
-        <Button onClick={onNext} className="transition-transform hover:scale-105">Guardar y Continuar</Button>
+        <Button onClick={handleNextWithValidation} className="transition-transform hover:scale-105">Guardar y Continuar</Button>
       </CardFooter>
     </Card>
   );
