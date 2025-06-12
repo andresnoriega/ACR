@@ -8,10 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { PieChart as PieChartIcon, ListChecks, History, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, CalendarDays, Flame, Search, RefreshCcw } from 'lucide-react';
-import type { ReportedEvent, RCAAnalysisDocument, PlannedAction, Validation, Site, ReportedEventType, PriorityType, ReportedEventStatus } from '@/types/rca';
+import { PieChart as PieChartIcon, ListChecks, History, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, Flame, Search, RefreshCcw } from 'lucide-react'; // Removed CalendarDays
+import type { ReportedEvent, RCAAnalysisDocument, PlannedAction, Validation, Site, ReportedEventType, PriorityType } from '@/types/rca'; // Removed ReportedEventStatus
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, Timestamp, where, orderBy, limit, QueryConstraint } from "firebase/firestore";
 import { format, parseISO, isValid, formatDistanceToNowStrict } from "date-fns";
@@ -28,7 +26,7 @@ import {
 
 const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Fallo', 'Accidente', 'No Conformidad'];
 const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
-const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'Finalizado'];
+// const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'Finalizado']; // Removed
 const ALL_FILTER_VALUE = "__ALL__";
 const NO_SITES_PLACEHOLDER_VALUE = "__NO_SITES_PLACEHOLDER__";
 
@@ -65,11 +63,8 @@ interface ActividadRecienteItem {
 
 interface DashboardFilters {
   site: string;
-  dateFrom: Date | undefined;
-  dateTo: Date | undefined;
   type: ReportedEventType;
   priority: PriorityType;
-  status: ReportedEventStatus;
 }
 
 export default function DashboardRCAPage() {
@@ -86,11 +81,8 @@ export default function DashboardRCAPage() {
 
   const [filters, setFilters] = useState<DashboardFilters>({
     site: '',
-    dateFrom: undefined,
-    dateTo: undefined,
     type: '' as ReportedEventType,
     priority: '' as PriorityType,
-    status: '' as ReportedEventStatus,
   });
 
   const formatRelativeTime = (isoDateString?: string): string => {
@@ -111,29 +103,11 @@ export default function DashboardRCAPage() {
     if (currentFilters.site) {
       baseQueryConstraints.push(where("eventData.site", "==", currentFilters.site));
     }
-    if (currentFilters.dateFrom) {
-      baseQueryConstraints.push(where("eventData.date", ">=", format(currentFilters.dateFrom, "yyyy-MM-dd")));
-    }
-    if (currentFilters.dateTo) {
-      baseQueryConstraints.push(where("eventData.date", "<=", format(currentFilters.dateTo, "yyyy-MM-dd")));
-    }
     if (currentFilters.type) {
       baseQueryConstraints.push(where("eventData.eventType", "==", currentFilters.type));
     }
     if (currentFilters.priority) {
       baseQueryConstraints.push(where("eventData.priority", "==", currentFilters.priority));
-    }
-    if (currentFilters.status) {
-      if (currentFilters.status === 'Finalizado') {
-        baseQueryConstraints.push(where("isFinalized", "==", true));
-      } else { 
-        const isFinalizedFalseAlreadyPresent = baseQueryConstraints.some(
-            (c: any) => (c._fieldPath?.toString() === 'isFinalized' || c._field === 'isFinalized') && c._op === '==' && c._value === false
-        );
-        if (!isFinalizedFalseAlreadyPresent) {
-            baseQueryConstraints.push(where("isFinalized", "==", false));
-        }
-      }
     }
 
     // Fetch Action Stats
@@ -169,57 +143,29 @@ export default function DashboardRCAPage() {
 
     // Fetch Analisis En Curso
     try {
-      const analisisQueryConstraints = [...baseQueryConstraints];
-      let shouldFetchAnalisis = true;
-
-      const isFinalizedFilterApplied = analisisQueryConstraints.some(
-        (c: any) => (c._fieldPath?.toString() === 'isFinalized' || c._field === 'isFinalized')
-      );
-
-      if (currentFilters.status === 'Finalizado' && isFinalizedFilterApplied) {
-         // isFinalized == true is already applied by the status filter
-      } else if (currentFilters.status && currentFilters.status !== 'Finalizado' && isFinalizedFilterApplied) {
-        // isFinalized == false is already applied by the status filter
-      } else if (!isFinalizedFilterApplied) {
-         if (!currentFilters.status) { 
-             analisisQueryConstraints.push(where("isFinalized", "==", false));
-        }
-      }
+      const analisisQueryConstraints = [...baseQueryConstraints, where("isFinalized", "==", false)];
+      // Ensure orderBy is applied after all filters, especially if baseQueryConstraints changes order.
+      const orderedAnalisisQueryConstraints = [...analisisQueryConstraints.filter(c => (c as any)._op !== 'orderBy'), orderBy("updatedAt", "desc")];
       
-      if (currentFilters.status === 'Finalizado') {
-        setAnalisisEnCurso([]);
-        shouldFetchAnalisis = false;
-      }
-
-
-      if (shouldFetchAnalisis) {
-        let effectiveAnalisisQueryConstraints = [...analisisQueryConstraints];
-        const existingOrderByIndex = effectiveAnalisisQueryConstraints.findIndex((c: any) => c._op === 'orderBy' && (c._fieldPath?.toString() === 'updatedAt' || c._field === 'updatedAt'));
-        if (existingOrderByIndex > -1) {
-            effectiveAnalisisQueryConstraints.splice(existingOrderByIndex, 1);
-        }
-        effectiveAnalisisQueryConstraints.push(orderBy("updatedAt", "desc"));
+      const rcaAnalysesRef = collection(db, "rcaAnalyses");
+      const q = query(rcaAnalysesRef, ...orderedAnalisisQueryConstraints);
+      const querySnapshot = await getDocs(q);
+      console.log(`[fetchAnalisisEnCurso] Found ${querySnapshot.docs.length} documents with isFinalized: false.`);
+      
+      const analysesData = querySnapshot.docs.map(docSnap => {
+        const doc = docSnap.data() as RCAAnalysisDocument;
+        const id = docSnap.id;
+        let proyecto = doc.eventData?.focusEventDescription || `Análisis ID: ${id.substring(0,8)}...`;
+        let currentStep = 1; 
+        if (doc.finalComments && doc.finalComments.trim() !== '') currentStep = 5;
+        else if (doc.validations && doc.validations.length > 0 && doc.plannedActions && doc.plannedActions.length > 0) currentStep = 4;
+        else if (doc.analysisTechnique || (doc.analysisTechniqueNotes && doc.analysisTechniqueNotes.trim() !== '') || (doc.identifiedRootCauses && doc.identifiedRootCauses.length > 0) || (doc.plannedActions && doc.plannedActions.length > 0)) currentStep = 3;
+        else if (doc.projectLeader || (doc.detailedFacts && Object.values(doc.detailedFacts).some(v => !!v)) || (doc.analysisDetails && doc.analysisDetails.trim() !== '') || (doc.preservedFacts && doc.preservedFacts.length > 0)) currentStep = 2;
         
-        const rcaAnalysesRef = collection(db, "rcaAnalyses");
-        const q = query(rcaAnalysesRef, ...effectiveAnalisisQueryConstraints);
-        const querySnapshot = await getDocs(q);
-        console.log(`[fetchAnalisisEnCurso] Found ${querySnapshot.docs.length} documents.`);
-        
-        const analysesData = querySnapshot.docs.map(docSnap => {
-          const doc = docSnap.data() as RCAAnalysisDocument;
-          const id = docSnap.id;
-          let proyecto = doc.eventData?.focusEventDescription || `Análisis ID: ${id.substring(0,8)}...`;
-          let currentStep = 1; 
-          if (doc.finalComments && doc.finalComments.trim() !== '') currentStep = 5;
-          else if (doc.validations && doc.validations.length > 0 && doc.plannedActions && doc.plannedActions.length > 0) currentStep = 4;
-          else if (doc.analysisTechnique || (doc.analysisTechniqueNotes && doc.analysisTechniqueNotes.trim() !== '') || (doc.identifiedRootCauses && doc.identifiedRootCauses.length > 0) || (doc.plannedActions && doc.plannedActions.length > 0)) currentStep = 3;
-          else if (doc.projectLeader || (doc.detailedFacts && Object.values(doc.detailedFacts).some(v => !!v)) || (doc.analysisDetails && doc.analysisDetails.trim() !== '') || (doc.preservedFacts && doc.preservedFacts.length > 0)) currentStep = 2;
-          
-          const progreso = Math.round((currentStep / 5) * 100);
-          return { id, proyecto, currentStep, progreso };
-        });
-        setAnalisisEnCurso(analysesData);
-      }
+        const progreso = Math.round((currentStep / 5) * 100);
+        return { id, proyecto, currentStep, progreso };
+      });
+      setAnalisisEnCurso(analysesData);
     } catch (error) {
       console.error("Error fetching analisis en curso: ", error);
       setAnalisisEnCurso([]);
@@ -228,70 +174,42 @@ export default function DashboardRCAPage() {
 
     // Fetch Planes de Acción Activos
     try {
-      const planesQueryConstraints = [...baseQueryConstraints];
-      let shouldFetchPlanes = true;
-      
-      const isFinalizedFilterAppliedForPlanes = planesQueryConstraints.some(
-        (c: any) => (c._fieldPath?.toString() === 'isFinalized' || c._field === 'isFinalized')
-      );
-
-      if (currentFilters.status === 'Finalizado' && isFinalizedFilterAppliedForPlanes) {
-         // isFinalized == true is already applied
-      } else if (currentFilters.status && currentFilters.status !== 'Finalizado' && isFinalizedFilterAppliedForPlanes) {
-        // isFinalized == false is already applied
-      } else if (!isFinalizedFilterAppliedForPlanes) {
-        if (!currentFilters.status) { 
-            planesQueryConstraints.push(where("isFinalized", "==", false));
-        }
-      }
-
-      if (currentFilters.status === 'Finalizado') {
-        setPlanesAccionPendientes([]);
-        shouldFetchPlanes = false; 
-      }
-      
-      if (shouldFetchPlanes) {
-        let effectivePlanesQueryConstraints = [...planesQueryConstraints];
-        const existingOrderByIndex = effectivePlanesQueryConstraints.findIndex((c: any) => c._op === 'orderBy' && (c._fieldPath?.toString() === 'updatedAt' || c._field === 'updatedAt'));
-        if (existingOrderByIndex > -1) {
-            effectivePlanesQueryConstraints.splice(existingOrderByIndex, 1);
-        }
-        effectivePlanesQueryConstraints.push(orderBy("updatedAt", "desc"));
+      const planesQueryConstraints = [...baseQueryConstraints, where("isFinalized", "==", false)];
+      const orderedPlanesQueryConstraints = [...planesQueryConstraints.filter(c => (c as any)._op !== 'orderBy'), orderBy("updatedAt", "desc")];
         
-        const rcaAnalysesRef = collection(db, "rcaAnalyses");
-        const q = query(rcaAnalysesRef, ...effectivePlanesQueryConstraints);
-        const querySnapshot = await getDocs(q);
-        const planes: PlanAccionPendienteItem[] = [];
-        querySnapshot.forEach(docSnap => {
-          const rcaDoc = docSnap.data() as RCAAnalysisDocument;
-          rcaDoc.plannedActions?.forEach(action => {
-            const validation = rcaDoc.validations?.find(v => v.actionId === action.id);
-            if (!validation || validation.status === 'pending') {
-              planes.push({
-                actionId: action.id,
-                rcaId: docSnap.id,
-                accion: action.description,
-                responsable: action.responsible,
-                fechaLimite: action.dueDate && isValid(parseISO(action.dueDate)) ? format(parseISO(action.dueDate), 'dd/MM/yyyy', { locale: es }) : 'N/A',
-                estado: 'Activa',
-                rcaTitle: rcaDoc.eventData?.focusEventDescription || `Análisis ID ${docSnap.id.substring(0,8)}...`
-              });
-            }
-          });
+      const rcaAnalysesRef = collection(db, "rcaAnalyses");
+      const q = query(rcaAnalysesRef, ...orderedPlanesQueryConstraints);
+      const querySnapshot = await getDocs(q);
+      const planes: PlanAccionPendienteItem[] = [];
+      querySnapshot.forEach(docSnap => {
+        const rcaDoc = docSnap.data() as RCAAnalysisDocument;
+        rcaDoc.plannedActions?.forEach(action => {
+          const validation = rcaDoc.validations?.find(v => v.actionId === action.id);
+          if (!validation || validation.status === 'pending') {
+            planes.push({
+              actionId: action.id,
+              rcaId: docSnap.id,
+              accion: action.description,
+              responsable: action.responsible,
+              fechaLimite: action.dueDate && isValid(parseISO(action.dueDate)) ? format(parseISO(action.dueDate), 'dd/MM/yyyy', { locale: es }) : 'N/A',
+              estado: 'Activa',
+              rcaTitle: rcaDoc.eventData?.focusEventDescription || `Análisis ID ${docSnap.id.substring(0,8)}...`
+            });
+          }
         });
-        setPlanesAccionPendientes(planes.sort((a,b) => {
-            try {
-                const dateAStr = a.fechaLimite.split('/').reverse().join('-');
-                const dateBStr = b.fechaLimite.split('/').reverse().join('-');
-                const dateA = a.fechaLimite !== 'N/A' ? parseISO(dateAStr) : null;
-                const dateB = b.fechaLimite !== 'N/A' ? parseISO(dateBStr) : null;
-                if (dateA && isValid(dateA) && dateB && isValid(dateB)) return dateA.getTime() - dateB.getTime();
-                if (dateA && isValid(dateA)) return -1; 
-                if (dateB && isValid(dateB)) return 1;  
-            } catch (e) { /* Silently ignore */ }
-            return 0; 
-        }).slice(0, 5));
-      }
+      });
+      setPlanesAccionPendientes(planes.sort((a,b) => {
+          try {
+              const dateAStr = a.fechaLimite.split('/').reverse().join('-');
+              const dateBStr = b.fechaLimite.split('/').reverse().join('-');
+              const dateA = a.fechaLimite !== 'N/A' ? parseISO(dateAStr) : null;
+              const dateB = b.fechaLimite !== 'N/A' ? parseISO(dateBStr) : null;
+              if (dateA && isValid(dateA) && dateB && isValid(dateB)) return dateA.getTime() - dateB.getTime();
+              if (dateA && isValid(dateA)) return -1; 
+              if (dateB && isValid(dateB)) return 1;  
+          } catch (e) { /* Silently ignore */ }
+          return 0; 
+      }).slice(0, 5));
     } catch (error) {
       console.error("Error fetching planes de acción: ", error);
       setPlanesAccionPendientes([]);
@@ -362,14 +280,6 @@ export default function DashboardRCAPage() {
     setFilters(prev => ({ ...prev, [field]: value === ALL_FILTER_VALUE ? '' : value }));
   };
   
-  const handleDateFromChange = (date: Date | undefined) => {
-    setFilters(prev => ({ ...prev, dateFrom: date }));
-  };
-
-  const handleDateToChange = (date: Date | undefined) => {
-    setFilters(prev => ({ ...prev, dateTo: date }));
-  };
-
   const applyFilters = () => {
     toast({ title: "Aplicando Filtros...", description: "Recargando datos del dashboard." });
     fetchAllDashboardData(filters);
@@ -378,11 +288,8 @@ export default function DashboardRCAPage() {
   const clearFilters = () => {
     const emptyFilters: DashboardFilters = { 
         site: '', 
-        dateFrom: undefined, 
-        dateTo: undefined, 
         type: '' as ReportedEventType, 
         priority: '' as PriorityType, 
-        status: '' as ReportedEventStatus 
     };
     setFilters(emptyFilters);
     toast({ title: "Filtros Limpiados", description: "Recargando todos los datos del dashboard." });
@@ -391,7 +298,7 @@ export default function DashboardRCAPage() {
 
   const renderActividadIcon = (tipo: ActividadRecienteItem['tipoIcono']) => {
     switch (tipo) {
-      case 'evento': return <ListFilterIcon className="text-muted-foreground" />;
+      case 'evento': return <ListChecks className="text-muted-foreground" />; // Changed icon
       case 'analisis': return <Activity className="text-blue-500" />;
       case 'finalizado': return <CheckSquare className="text-green-500" />;
       default: return <Bell className="text-muted-foreground" />;
@@ -406,8 +313,8 @@ export default function DashboardRCAPage() {
       return [];
     }
     return [
-      { name: 'Pendientes', value: actionStatsData.accionesPendientes, color: 'hsl(var(--chart-4))' }, // orange-yellow
-      { name: 'Validadas', value: actionStatsData.accionesValidadas, color: 'hsl(var(--chart-2))' },   // moss green
+      { name: 'Pendientes', value: actionStatsData.accionesPendientes, color: 'hsl(var(--chart-4))' }, 
+      { name: 'Validadas', value: actionStatsData.accionesValidadas, color: 'hsl(var(--chart-2))' },   
     ].filter(item => item.value > 0); 
   }, [actionStatsData]);
 
@@ -453,50 +360,7 @@ export default function DashboardRCAPage() {
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label htmlFor="filter-date-from" className="flex items-center mb-1">
-              <CalendarDays className="mr-1.5 h-4 w-4 text-muted-foreground"/>Fecha desde del Evento
-            </Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button id="filter-date-from" variant="outline" className="w-full justify-start text-left font-normal" disabled={isLoading}>
-                  {filters.dateFrom ? format(filters.dateFrom, "PPP", { locale: es }) : <span>Seleccione fecha desde</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <CalendarComponent 
-                  mode="single" 
-                  selected={filters.dateFrom} 
-                  onSelect={handleDateFromChange} 
-                  initialFocus 
-                  locale={es}
-                  disabled={{ after: new Date() }} 
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div>
-            <Label htmlFor="filter-date-to" className="flex items-center mb-1">
-              <CalendarDays className="mr-1.5 h-4 w-4 text-muted-foreground"/>Fecha hasta del Evento
-            </Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button id="filter-date-to" variant="outline" className="w-full justify-start text-left font-normal" disabled={isLoading}>
-                  {filters.dateTo ? format(filters.dateTo, "PPP", { locale: es }) : <span>Seleccione fecha hasta</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <CalendarComponent 
-                  mode="single" 
-                  selected={filters.dateTo} 
-                  onSelect={handleDateToChange} 
-                  initialFocus 
-                  locale={es} 
-                  disabled={{ after: new Date() }}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
+          
           <div>
             <Label htmlFor="filter-type" className="flex items-center mb-1"><AlertTriangle className="mr-1.5 h-4 w-4 text-muted-foreground"/>Tipo de Evento</Label>
             <Select
@@ -522,20 +386,6 @@ export default function DashboardRCAPage() {
               <SelectContent>
                 <SelectItem value={ALL_FILTER_VALUE}>Todas las prioridades</SelectItem>
                 {priorityOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="filter-status" className="flex items-center mb-1"><Activity className="mr-1.5 h-4 w-4 text-muted-foreground"/>Estado</Label>
-            <Select
-              value={filters.status || ALL_FILTER_VALUE}
-              onValueChange={(val) => handleFilterChange('status', val as ReportedEventStatus | typeof ALL_FILTER_VALUE)}
-              disabled={isLoading}
-            >
-              <SelectTrigger id="filter-status"><SelectValue placeholder="Todos los estados" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_FILTER_VALUE}>Todos los estados</SelectItem>
-                {statusOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -805,4 +655,3 @@ export default function DashboardRCAPage() {
     </div>
   );
 }
-
