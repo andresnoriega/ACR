@@ -23,7 +23,7 @@ interface ActionStatsData {
 interface AnalisisEnCursoItem {
   id: string;
   proyecto: string;
-  estado: string;
+  currentStep: number; // Cambiado de 'estado' a 'currentStep'
   progreso: number;
 }
 
@@ -32,7 +32,7 @@ interface PlanAccionPendienteItem {
   accion: string;
   responsable: string;
   fechaLimite: string;
-  estado: 'Activa' | 'Validada'; // Simplificado
+  estado: 'Activa' | 'Validada'; 
   rcaId: string;
   rcaTitle: string;
 }
@@ -40,7 +40,7 @@ interface PlanAccionPendienteItem {
 interface ActividadRecienteItem {
   id: string;
   descripcion: string;
-  tiempo: string; // Formateado como "hace X"
+  tiempo: string; 
   tipoIcono: 'evento' | 'analisis' | 'finalizado';
 }
 
@@ -113,46 +113,40 @@ export default function DashboardRCAPage() {
       setIsLoadingAnalisisEnCurso(true);
       try {
         const rcaAnalysesRef = collection(db, "rcaAnalyses");
-        // Firestore query for documents where isFinalized is false, ordered by updatedAt
         const q = query(rcaAnalysesRef, where("isFinalized", "==", false), orderBy("updatedAt", "desc"));
         const querySnapshot = await getDocs(q);
+        
         const analysesData = querySnapshot.docs.map(docSnap => {
           const doc = docSnap.data() as RCAAnalysisDocument;
           const id = docSnap.id;
           let proyecto = doc.eventData?.focusEventDescription || `Análisis ID: ${id.substring(0,8)}...`;
-          let estado = "Iniciado";
-          let progreso = 10;
+          let currentStep = 1;
 
-          if (doc.projectLeader || Object.values(doc.detailedFacts || {}).some(v => !!v)) {
-            estado = "Recopilando Hechos";
-            progreso = 30;
-          }
-          if (doc.analysisTechnique || (doc.analysisTechniqueNotes && doc.analysisTechniqueNotes.trim() !== '')) {
-            estado = "Analizando (Técnica Aplicada)";
-            progreso = 50;
-          }
-          if (doc.identifiedRootCauses && doc.identifiedRootCauses.length > 0 && doc.identifiedRootCauses.every(rc => rc.description.trim() !== '')) {
-            estado = "Causas Raíz Identificadas";
-            progreso = 60;
-          }
-          if (doc.plannedActions && doc.plannedActions.length > 0 && doc.plannedActions.some(pa => pa.description && pa.responsible && pa.dueDate)) {
-            estado = "Plan de Acción Definido";
-            progreso = 75;
-          }
-          if (doc.validations && doc.validations.length > 0 && doc.plannedActions && doc.plannedActions.length > 0) {
-            const validatedCount = doc.validations.filter(v => v.status === 'validated').length;
-            if (validatedCount > 0) {
-                estado = "Validando Acciones";
-                progreso = 85 + Math.round((validatedCount / doc.plannedActions.length) * 10); 
-                progreso = Math.min(progreso, 95); // Cap at 95 before final comments
-            }
-          }
+          // Determine current step
           if (doc.finalComments && doc.finalComments.trim() !== '') {
-            estado = "Redactando Conclusiones";
-            progreso = 95;
+            currentStep = 5;
+          } else if (doc.validations && doc.validations.length > 0 && doc.plannedActions && doc.plannedActions.length > 0) {
+            currentStep = 4;
+          } else if (
+            doc.analysisTechnique || 
+            (doc.analysisTechniqueNotes && doc.analysisTechniqueNotes.trim() !== '') ||
+            (doc.identifiedRootCauses && doc.identifiedRootCauses.length > 0) ||
+            (doc.plannedActions && doc.plannedActions.length > 0)
+          ) {
+            currentStep = 3;
+          } else if (
+            doc.projectLeader ||
+            (doc.detailedFacts && Object.values(doc.detailedFacts).some(v => !!v)) ||
+            (doc.analysisDetails && doc.analysisDetails.trim() !== '') ||
+            (doc.preservedFacts && doc.preservedFacts.length > 0)
+          ) {
+            currentStep = 2;
           }
+          // Default is Step 1 if none of the above
+
+          const progreso = Math.round((currentStep / 5) * 100);
           
-          return { id, proyecto, estado, progreso };
+          return { id, proyecto, currentStep, progreso };
         });
         setAnalisisEnCurso(analysesData);
       } catch (error) {
@@ -193,11 +187,11 @@ export default function DashboardRCAPage() {
                 const dateA = parseISO(a.fechaLimite.split('/').reverse().join('-'));
                 const dateB = parseISO(b.fechaLimite.split('/').reverse().join('-'));
                 if (isValid(dateA) && isValid(dateB)) return dateA.getTime() - dateB.getTime();
-                if (isValid(dateA)) return -1; // a antes si b es inválida
-                if (isValid(dateB)) return 1;  // b antes si a es inválida
+                if (isValid(dateA)) return -1; 
+                if (isValid(dateB)) return 1;  
             } catch (e) { /* Silently ignore parsing errors for sorting */ }
-            return 0; // Mantener orden si hay fechas inválidas
-        }).slice(0, 5)); // Show top 5 by due date
+            return 0; 
+        }).slice(0, 5)); 
       } catch (error) {
         console.error("Error fetching planes de acción: ", error);
         setPlanesAccionPendientes([]);
@@ -216,12 +210,12 @@ export default function DashboardRCAPage() {
         eventsSnapshot.forEach(docSnap => {
           const event = docSnap.data() as ReportedEvent;
           let desc = `Evento '${event.title}'`;
-          if (event.createdAt === event.updatedAt) { // Assuming createdAt exists, might need to adjust if not always present
+          if (event.createdAt && event.updatedAt && new Date(event.createdAt).getTime() === new Date(event.updatedAt).getTime()) { 
             desc += ` registrado.`;
           } else {
              desc += ` actualizado (Estado: ${event.status}).`;
           }
-          if (event.updatedAt) { // Only add if updatedAt exists
+          if (event.updatedAt) { 
             actividades.push({
               id: `evt-${docSnap.id}`,
               descripcion: desc,
@@ -236,7 +230,7 @@ export default function DashboardRCAPage() {
         const analysesSnapshot = await getDocs(analysesQuery);
         analysesSnapshot.forEach(docSnap => {
           const analysis = docSnap.data() as RCAAnalysisDocument;
-           if (analysis.updatedAt) { // Only add if updatedAt exists
+           if (analysis.updatedAt) { 
             actividades.push({
               id: `rca-${docSnap.id}`,
               descripcion: `Análisis '${analysis.eventData.focusEventDescription}' actualizado.`,
@@ -247,12 +241,12 @@ export default function DashboardRCAPage() {
         });
         
         actividades.sort((a, b) => {
-            // This basic sort is okay for relative times like "hace X [unidad]"
-            // but would be more robust if we sorted by the original ISO date strings.
-            // For now, we assume formatRelativeTime produces comparable strings in this limited set.
-            const aTime = new Date(Date.now() - (a.tiempo.includes("segundo") ? 1000 : a.tiempo.includes("minuto") ? 60000 : a.tiempo.includes("hora") ? 3600000 : a.tiempo.includes("día") ? 86400000 : 0 ) * (parseInt(a.tiempo) || 0) ).getTime();
-            const bTime = new Date(Date.now() - (b.tiempo.includes("segundo") ? 1000 : b.tiempo.includes("minuto") ? 60000 : b.tiempo.includes("hora") ? 3600000 : b.tiempo.includes("día") ? 86400000 : 0 ) * (parseInt(b.tiempo) || 0) ).getTime();
-            return bTime - aTime; // Sort descending (most recent first)
+            try {
+                const aDate = parseISO(a.tiempo.includes("hace") ? new Date(Date.now() - (parseInt(a.tiempo) || 0) * (a.tiempo.includes("segundo") ? 1000 : a.tiempo.includes("minuto") ? 60000 : a.tiempo.includes("hora") ? 3600000 : a.tiempo.includes("día") ? 86400000 : 31536000000)).toISOString() : new Date().toISOString());
+                const bDate = parseISO(b.tiempo.includes("hace") ? new Date(Date.now() - (parseInt(b.tiempo) || 0) * (b.tiempo.includes("segundo") ? 1000 : b.tiempo.includes("minuto") ? 60000 : b.tiempo.includes("hora") ? 3600000 : b.tiempo.includes("día") ? 86400000 : 31536000000)).toISOString() : new Date().toISOString());
+                if (isValid(aDate) && isValid(bDate)) return bDate.getTime() - aDate.getTime();
+            } catch (e) { /* ignore error */ }
+            return 0;
         });
         setActividadReciente(actividades.slice(0, 5));
 
@@ -293,7 +287,7 @@ export default function DashboardRCAPage() {
         </p>
       </header>
 
-      {/* Resumen de Acciones Correctivas */}
+      
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -333,7 +327,7 @@ export default function DashboardRCAPage() {
         </CardContent>
       </Card>
 
-      {/* Análisis en Curso */}
+      
       <Card className="shadow-lg">
         <CardHeader>
            <div className="flex items-center gap-3">
@@ -353,7 +347,7 @@ export default function DashboardRCAPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[40%]">Proyecto/Evento</TableHead>
-                  <TableHead className="w-[30%]">Estado Actual</TableHead>
+                  <TableHead className="w-[30%]">Paso Actual</TableHead>
                   <TableHead className="w-[30%]">Progreso Estimado</TableHead>
                 </TableRow>
               </TableHeader>
@@ -361,7 +355,7 @@ export default function DashboardRCAPage() {
                 {analisisEnCurso.length > 0 ? analisisEnCurso.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.proyecto}</TableCell>
-                    <TableCell>{item.estado}</TableCell>
+                    <TableCell>Paso {item.currentStep} de 5</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Progress value={item.progreso} className="h-2.5" />
@@ -382,7 +376,7 @@ export default function DashboardRCAPage() {
         </CardContent>
       </Card>
 
-      {/* Planes de Acción Pendientes */}
+      
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -443,7 +437,7 @@ export default function DashboardRCAPage() {
         </CardFooter>
       </Card>
       
-      {/* Últimos Eventos Registrados */}
+      
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex items-center gap-3">
