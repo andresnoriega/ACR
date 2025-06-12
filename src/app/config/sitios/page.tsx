@@ -31,7 +31,7 @@ export default function ConfiguracionSitiosPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false); // For add/edit operations
+  const [isSubmitting, setIsSubmitting] = useState(false); // For add/edit/delete operations
 
   // State for Add Site Dialog
   const [isAddSiteDialogOpen, setIsAddSiteDialogOpen] = useState(false);
@@ -106,15 +106,13 @@ export default function ConfiguracionSitiosPage() {
         description: newSiteDescription.trim(),
       };
       const docRef = await addDoc(collection(db, "sites"), newSiteData);
-      // Optimistic update: add to local state immediately
-      // For more robust approach, refetch or use server timestamp if needed
       setSites(prevSites => [...prevSites, { id: docRef.id, ...newSiteData }].sort((a, b) => a.name.localeCompare(b.name)));
       toast({ title: "Sitio Añadido", description: `El sitio "${newSiteData.name}" ha sido añadido con éxito.` });
       resetNewSiteForm();
       setIsAddSiteDialogOpen(false);
     } catch (error) {
       console.error("Error adding site: ", error);
-      toast({ title: "Error al Añadir Sitio", description: "No se pudo añadir el sitio a Firestore. Verifique la consola.", variant: "destructive" });
+      toast({ title: "Error al Añadir Sitio", description: "No se pudo añadir el sitio. Verifique la consola.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -153,7 +151,7 @@ export default function ConfiguracionSitiosPage() {
       setIsEditSiteDialogOpen(false);
     } catch (error) {
       console.error("Error updating site: ", error);
-      toast({ title: "Error al Actualizar", description: "No se pudo actualizar el sitio en Firestore. Verifique la consola.", variant: "destructive" });
+      toast({ title: "Error al Actualizar", description: "No se pudo actualizar el sitio. Verifique la consola.", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -166,7 +164,7 @@ export default function ConfiguracionSitiosPage() {
 
   const confirmDeleteSite = async () => {
     if (siteToDelete) {
-      setIsSubmitting(true); // Use isSubmitting for delete too
+      setIsSubmitting(true); 
       try {
         await deleteDoc(doc(db, "sites", siteToDelete.id));
         setSites(sites.filter(s => s.id !== siteToDelete.id));
@@ -174,7 +172,7 @@ export default function ConfiguracionSitiosPage() {
         setSiteToDelete(null);
       } catch (error) {
         console.error("Error deleting site: ", error);
-        toast({ title: "Error al Eliminar", description: "No se pudo eliminar el sitio de Firestore. Verifique la consola.", variant: "destructive" });
+        toast({ title: "Error al Eliminar", description: "No se pudo eliminar el sitio. Verifique la consola.", variant: "destructive" });
       } finally {
         setIsSubmitting(false);
       }
@@ -245,9 +243,9 @@ export default function ConfiguracionSitiosPage() {
                         <Input id="site-address" value={newSiteAddress} onChange={(e) => setNewSiteAddress(e.target.value)} className="col-span-3" placeholder="Ej: Calle Falsa 123, Ciudad" />
                       </div>
                       <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="site-zone" className="text-right">Zona</Label>
+                        <Label htmlFor="add-site-zone-trigger" className="text-right">Zona</Label>
                         <Select value={newSiteZone} onValueChange={setNewSiteZone}>
-                          <SelectTrigger className="col-span-3">
+                          <SelectTrigger id="add-site-zone-trigger" className="col-span-3">
                             <SelectValue placeholder="-- Seleccione una zona --" />
                           </SelectTrigger>
                           <SelectContent>
@@ -284,7 +282,7 @@ export default function ConfiguracionSitiosPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? ( // Mostrar siempre el loader si isLoading es true, incluso si hay sitios
+          {isLoading ? (
             <div className="flex justify-center items-center h-24">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <p className="ml-2 text-muted-foreground">Cargando sitios...</p>
@@ -345,7 +343,7 @@ export default function ConfiguracionSitiosPage() {
             </div>
           )}
         </CardContent>
-         {sites.length > 0 && !isLoading && ( // Solo mostrar footer si hay sitios y no está cargando
+         {sites.length > 0 && !isLoading && ( 
           <CardFooter>
             <p className="text-xs text-muted-foreground">
               Actualmente gestionando {sites.length} sitio(s) desde Firestore. La importación/exportación no está implementada.
@@ -370,9 +368,9 @@ export default function ConfiguracionSitiosPage() {
               <Input id="edit-site-address" value={editSiteAddress} onChange={(e) => setEditSiteAddress(e.target.value)} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-site-zone" className="text-right">Zona</Label>
+              <Label htmlFor="edit-site-zone-trigger" className="text-right">Zona</Label>
               <Select value={editSiteZone} onValueChange={setEditSiteZone}>
-                <SelectTrigger className="col-span-3">
+                <SelectTrigger id="edit-site-zone-trigger" className="col-span-3">
                   <SelectValue placeholder="-- Seleccione una zona --" />
                 </SelectTrigger>
                 <SelectContent>
