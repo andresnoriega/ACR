@@ -435,7 +435,7 @@ export default function EventosReportadosPage() {
               buttonVariant = "outline";
               buttonOnClick = handleViewAnalysis;
             } else if (selectedEvent.status === 'Pendiente') {
-              buttonText = "Continuar Investigación";
+              buttonText = "Iniciar Investigación";
               ButtonIcon = PlayCircle;
               buttonOnClick = handleStartRCA;
               isDisabled = isUpdatingStatus;
@@ -445,7 +445,6 @@ export default function EventosReportadosPage() {
               ButtonIcon = PlayCircle;
               buttonOnClick = handleViewAnalysis;
             } else {
-              // Fallback for any unexpected status
               buttonText = "Estado Inválido";
               isDisabled = true;
             }
@@ -490,3 +489,4 @@ export default function EventosReportadosPage() {
     </div>
   );
 }
+
