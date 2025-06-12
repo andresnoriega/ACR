@@ -10,13 +10,21 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { PieChart, ListChecks, History, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, CalendarDays, Flame, Search, RefreshCcw } from 'lucide-react';
+import { PieChart as PieChartIcon, ListChecks, History, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, CalendarDays, Flame, Search, RefreshCcw } from 'lucide-react';
 import type { ReportedEvent, RCAAnalysisDocument, PlannedAction, Validation, Site, ReportedEventType, PriorityType, ReportedEventStatus } from '@/types/rca';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, Timestamp, where, orderBy, limit, QueryConstraint } from "firebase/firestore";
 import { format, parseISO, isValid, formatDistanceToNowStrict } from "date-fns";
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
+import {
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  Legend as RechartsLegend,
+} from 'recharts';
 
 const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Fallo', 'Accidente', 'No Conformidad'];
 const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
@@ -80,9 +88,9 @@ export default function DashboardRCAPage() {
     site: '',
     dateFrom: undefined,
     dateTo: undefined,
-    type: '',
-    priority: '',
-    status: '',
+    type: '' as ReportedEventType,
+    priority: '' as PriorityType,
+    status: '' as ReportedEventStatus,
   });
 
   const formatRelativeTime = (isoDateString?: string): string => {
@@ -120,7 +128,7 @@ export default function DashboardRCAPage() {
         baseQueryConstraints.push(where("isFinalized", "==", true));
       } else { 
         const isFinalizedFalseAlreadyPresent = baseQueryConstraints.some(
-            (c: any) => c._field === 'isFinalized' && c._op === '==' && c._value === false
+            (c: any) => (c._fieldPath?.toString() === 'isFinalized' || c._field === 'isFinalized') && c._op === '==' && c._value === false
         );
         if (!isFinalizedFalseAlreadyPresent) {
             baseQueryConstraints.push(where("isFinalized", "==", false));
@@ -164,25 +172,20 @@ export default function DashboardRCAPage() {
       const analisisQueryConstraints = [...baseQueryConstraints];
       let shouldFetchAnalisis = true;
 
-      const isFinalizedFilterApplied = baseQueryConstraints.some(
-        (c: any) => c._field === 'isFinalized'
+      const isFinalizedFilterApplied = analisisQueryConstraints.some(
+        (c: any) => (c._fieldPath?.toString() === 'isFinalized' || c._field === 'isFinalized')
       );
 
       if (currentFilters.status === 'Finalizado' && isFinalizedFilterApplied) {
-         // isFinalized == true is already applied
+         // isFinalized == true is already applied by the status filter
       } else if (currentFilters.status && currentFilters.status !== 'Finalizado' && isFinalizedFilterApplied) {
-        // isFinalized == false is already applied
+        // isFinalized == false is already applied by the status filter
       } else if (!isFinalizedFilterApplied) {
-        // If no status filter related to finalization was applied from currentFilters.status,
-        // but we generally want "En Curso" to mean not finalized.
-        // However, if a status filter IS active (e.g. "Pendiente"), it might imply isFinalized=false already
-        // For "Análisis en Curso", we default to isFinalized == false if no other status filter implies it.
-        if (!currentFilters.status) { // Only add if no specific status implies finalization state
+         if (!currentFilters.status) { 
              analisisQueryConstraints.push(where("isFinalized", "==", false));
         }
       }
       
-      // If the current status filter is "Finalizado", then "Análisis en Curso" should be empty
       if (currentFilters.status === 'Finalizado') {
         setAnalisisEnCurso([]);
         shouldFetchAnalisis = false;
@@ -190,17 +193,16 @@ export default function DashboardRCAPage() {
 
 
       if (shouldFetchAnalisis) {
-        // Remove any existing orderBy('updatedAt') if we are adding one to avoid conflict
-        const existingOrderByIndex = analisisQueryConstraints.findIndex((c: any) => c._op === 'orderBy' && c._fieldPath === 'updatedAt');
+        let effectiveAnalisisQueryConstraints = [...analisisQueryConstraints];
+        const existingOrderByIndex = effectiveAnalisisQueryConstraints.findIndex((c: any) => c._op === 'orderBy' && (c._fieldPath?.toString() === 'updatedAt' || c._field === 'updatedAt'));
         if (existingOrderByIndex > -1) {
-            analisisQueryConstraints.splice(existingOrderByIndex, 1);
+            effectiveAnalisisQueryConstraints.splice(existingOrderByIndex, 1);
         }
-        analisisQueryConstraints.push(orderBy("updatedAt", "desc"));
-
+        effectiveAnalisisQueryConstraints.push(orderBy("updatedAt", "desc"));
+        
         const rcaAnalysesRef = collection(db, "rcaAnalyses");
-        const q = query(rcaAnalysesRef, ...analisisQueryConstraints);
+        const q = query(rcaAnalysesRef, ...effectiveAnalisisQueryConstraints);
         const querySnapshot = await getDocs(q);
-        console.log(`[fetchAnalisisEnCurso] Query with constraints:`, analisisQueryConstraints.map(c => `${(c as any)._field || (c as any)._fieldPath?.toString()} ${(c as any)._op} ${(c as any)._value}`));
         console.log(`[fetchAnalisisEnCurso] Found ${querySnapshot.docs.length} documents.`);
         
         const analysesData = querySnapshot.docs.map(docSnap => {
@@ -230,7 +232,7 @@ export default function DashboardRCAPage() {
       let shouldFetchPlanes = true;
       
       const isFinalizedFilterAppliedForPlanes = planesQueryConstraints.some(
-        (c: any) => c._field === 'isFinalized'
+        (c: any) => (c._fieldPath?.toString() === 'isFinalized' || c._field === 'isFinalized')
       );
 
       if (currentFilters.status === 'Finalizado' && isFinalizedFilterAppliedForPlanes) {
@@ -238,8 +240,7 @@ export default function DashboardRCAPage() {
       } else if (currentFilters.status && currentFilters.status !== 'Finalizado' && isFinalizedFilterAppliedForPlanes) {
         // isFinalized == false is already applied
       } else if (!isFinalizedFilterAppliedForPlanes) {
-        // For "Planes de Acción Activos", we generally want non-finalized ones.
-        if (!currentFilters.status) { // Only add if no specific status implies finalization state
+        if (!currentFilters.status) { 
             planesQueryConstraints.push(where("isFinalized", "==", false));
         }
       }
@@ -250,14 +251,15 @@ export default function DashboardRCAPage() {
       }
       
       if (shouldFetchPlanes) {
-        const existingOrderByIndex = planesQueryConstraints.findIndex((c: any) => c._op === 'orderBy' && c._fieldPath === 'updatedAt');
+        let effectivePlanesQueryConstraints = [...planesQueryConstraints];
+        const existingOrderByIndex = effectivePlanesQueryConstraints.findIndex((c: any) => c._op === 'orderBy' && (c._fieldPath?.toString() === 'updatedAt' || c._field === 'updatedAt'));
         if (existingOrderByIndex > -1) {
-            planesQueryConstraints.splice(existingOrderByIndex, 1);
+            effectivePlanesQueryConstraints.splice(existingOrderByIndex, 1);
         }
-        planesQueryConstraints.push(orderBy("updatedAt", "desc"));
+        effectivePlanesQueryConstraints.push(orderBy("updatedAt", "desc"));
         
         const rcaAnalysesRef = collection(db, "rcaAnalyses");
-        const q = query(rcaAnalysesRef, ...planesQueryConstraints);
+        const q = query(rcaAnalysesRef, ...effectivePlanesQueryConstraints);
         const querySnapshot = await getDocs(q);
         const planes: PlanAccionPendienteItem[] = [];
         querySnapshot.forEach(docSnap => {
@@ -389,7 +391,7 @@ export default function DashboardRCAPage() {
 
   const renderActividadIcon = (tipo: ActividadRecienteItem['tipoIcono']) => {
     switch (tipo) {
-      case 'evento': return <ListFilter className="text-muted-foreground" />;
+      case 'evento': return <ListFilterIcon className="text-muted-foreground" />;
       case 'analisis': return <Activity className="text-blue-500" />;
       case 'finalizado': return <CheckSquare className="text-green-500" />;
       default: return <Bell className="text-muted-foreground" />;
@@ -398,6 +400,16 @@ export default function DashboardRCAPage() {
   
   const isLoading = isLoadingData || isLoadingSites;
   const validSites = useMemo(() => availableSites.filter(s => s.name && s.name.trim() !== ""), [availableSites]);
+
+  const pieChartData = useMemo(() => {
+    if (!actionStatsData || actionStatsData.totalAcciones === 0) {
+      return [];
+    }
+    return [
+      { name: 'Pendientes', value: actionStatsData.accionesPendientes, color: 'hsl(var(--chart-4))' }, // orange-yellow
+      { name: 'Validadas', value: actionStatsData.accionesValidadas, color: 'hsl(var(--chart-2))' },   // moss green
+    ].filter(item => item.value > 0); 
+  }, [actionStatsData]);
 
 
   return (
@@ -537,7 +549,7 @@ export default function DashboardRCAPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <PieChart className="h-6 w-6 text-primary" />
+            <PieChartIcon className="h-6 w-6 text-primary" />
             <CardTitle className="text-2xl">Resumen de Acciones Correctivas</CardTitle>
           </div>
         </CardHeader>
@@ -572,6 +584,78 @@ export default function DashboardRCAPage() {
           )}
         </CardContent>
       </Card>
+
+      {isLoadingData ? (
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-xl">Gráfico Estado de Acciones Correctivas</CardTitle>
+          </CardHeader>
+          <CardContent className="h-[300px] flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </CardContent>
+        </Card>
+      ) : actionStatsData && actionStatsData.totalAcciones > 0 && pieChartData.length > 0 ? (
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-xl">Gráfico Estado de Acciones Correctivas</CardTitle>
+          </CardHeader>
+          <CardContent className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <RechartsPieChart>
+                <Pie
+                  data={pieChartData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, value }) => {
+                    const RADIAN = Math.PI / 180;
+                    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                    if (value === 0) return null; 
+                    return (
+                      <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize="12px" fontWeight="bold">
+                        {`${(percent * 100).toFixed(0)}%`}
+                      </text>
+                    );
+                  }}
+                  outerRadius={100}
+                  fill="#8884d8" 
+                  dataKey="value"
+                  nameKey="name"
+                >
+                  {pieChartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <RechartsTooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--background))',
+                    borderColor: 'hsl(var(--border))',
+                    borderRadius: 'var(--radius)',
+                  }}
+                  itemStyle={{ color: 'hsl(var(--foreground))' }}
+                />
+                <RechartsLegend
+                  formatter={(value, entry) => {
+                    const { color } = entry;
+                    return <span style={{ color: 'hsl(var(--foreground))' }}>{value}</span>;
+                  }}
+                />
+              </RechartsPieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      ) : (
+         <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-xl">Gráfico Estado de Acciones Correctivas</CardTitle>
+          </CardHeader>
+          <CardContent className="h-[300px] flex items-center justify-center">
+            <p className="text-muted-foreground">No hay datos de acciones para mostrar en el gráfico.</p>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="shadow-lg">
         <CardHeader>
