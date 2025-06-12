@@ -189,7 +189,21 @@ export default function UserActionPlansPage() {
 
       const updatedPlannedActions = rcaDocData.plannedActions.map(action => {
         if (action.id === actionId) {
-          return { ...action, ...updates };
+          const actionWithOtherUpdates = { ...action, ...updates }; // Apply all updates first
+
+          // De-duplicate evidences if 'evidencias' was part of the updates
+          if (actionWithOtherUpdates.evidencias && Array.isArray(actionWithOtherUpdates.evidencias)) {
+            const seenEvidenceIds = new Set<string>();
+            actionWithOtherUpdates.evidencias = actionWithOtherUpdates.evidencias.filter(ev => {
+              if (!ev || typeof ev.id !== 'string') return false; // Basic sanity check for valid evidence object
+              if (seenEvidenceIds.has(ev.id)) {
+                return false; // Skip if ID already seen
+              }
+              seenEvidenceIds.add(ev.id);
+              return true;
+            });
+          }
+          return actionWithOtherUpdates;
         }
         return action;
       });
@@ -269,7 +283,10 @@ export default function UserActionPlansPage() {
 
   const handleUserCommentsChangeAndSave = async (comments: string) => {
     if (!selectedPlan) return;
-    setSelectedPlan(prev => prev ? {...prev, userComments: comments} : null);
+    
+    // Update local state immediately for responsiveness, but this is temporary if save fails
+    // The authoritative update will come through updateActionInFirestore -> setAllRcaDocuments -> re-memoization
+    // setSelectedPlan(prev => prev ? {...prev, userComments: comments} : null); 
 
     const success = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, {
       userComments: comments
@@ -286,14 +303,16 @@ export default function UserActionPlansPage() {
         toast({ title: "Acción ya Completada", description: "Esta tarea ya ha sido validada y completada.", variant: "default" });
         return;
     }
+    setIsUpdatingAction(true); // Indicate operation start
 
     let commentsToSave = selectedPlan.userComments || "";
+    // Only add system comment if truly 'Pendiente' and no user interaction yet
     if (selectedPlan.estado === 'Pendiente' && !commentsToSave.trim() && (!selectedPlan.evidencias || selectedPlan.evidencias.length === 0)) {
         commentsToSave = (commentsToSave ? commentsToSave + "\n\n" : "") + `[Sistema] Tarea marcada como lista para validación por ${selectedSimulatedUserName || 'el responsable'} el ${new Date().toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}.`;
     }
 
     const success = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, {
-      userComments: commentsToSave,
+      userComments: commentsToSave, 
     });
 
     if (success) {
@@ -302,6 +321,7 @@ export default function UserActionPlansPage() {
         description: `La tarea "${selectedPlan.tituloDetalle}" se ha actualizado. El Líder del Proyecto la revisará.` 
       });
     }
+    // setIsUpdatingAction(false) is handled by updateActionInFirestore's finally block
   };
 
 
@@ -419,7 +439,7 @@ export default function UserActionPlansPage() {
                 <TableBody>
                   {currentUserActionPlans.map((plan) => (
                     <TableRow 
-                      key={`${plan._originalRcaDocId}-${plan.id}`} 
+                      key={plan.id} 
                       onClick={() => handleSelectPlan(plan)}
                       className={cn(
                           "cursor-pointer hover:bg-muted/50",
@@ -566,3 +586,4 @@ export default function UserActionPlansPage() {
     </div>
   );
 }
+
