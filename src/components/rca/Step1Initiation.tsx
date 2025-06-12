@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PlusCircle, Trash2 } from 'lucide-react';
+import { useToast } from "@/hooks/use-toast"; // Import useToast
 
 interface Step1InitiationProps {
   eventData: RCAEventData;
@@ -18,7 +19,7 @@ interface Step1InitiationProps {
   onUpdateImmediateAction: (index: number, field: keyof ImmediateAction, value: string) => void;
   onRemoveImmediateAction: (index: number) => void;
   availableSites: Array<{ id: string; name: string; }>;
-  availableUsers: Array<{ id: string; name: string; }>; // Added prop
+  availableUsers: Array<{ id: string; name: string; }>;
   onNext: () => void;
 }
 
@@ -30,9 +31,11 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   onUpdateImmediateAction,
   onRemoveImmediateAction,
   availableSites,
-  availableUsers, // Destructure new prop
+  availableUsers,
   onNext,
 }) => {
+  const { toast } = useToast(); // Initialize useToast
+
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, field: keyof RCAEventData) => {
     onEventDataChange(field, e.target.value);
   };
@@ -52,11 +55,28 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   const getTodayDateString = () => {
     const today = new Date();
     const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+    const month = String(today.getMonth() + 1).padStart(2, '0');
     const day = String(today.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
   const maxDate = getTodayDateString();
+
+  const handleNextWithValidation = () => {
+    const missingFields = [];
+    if (!eventData.place) missingFields.push("Lugar del Evento");
+    if (!eventData.date) missingFields.push("Fecha del Evento");
+    if (!eventData.focusEventDescription.trim()) missingFields.push("Descripción del Evento Foco");
+
+    if (missingFields.length > 0) {
+      toast({
+        title: "Campos Obligatorios Faltantes",
+        description: `Por favor, complete los siguientes campos: ${missingFields.join(', ')}.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    onNext(); // Proceed if all validations pass
+  };
 
   return (
     <Card>
@@ -66,7 +86,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
-          <Label htmlFor="place">Lugar del Evento</Label>
+          <Label htmlFor="place">Lugar del Evento <span className="text-destructive">*</span></Label>
           <Select onValueChange={(value) => handleSelectChange(value, 'place')} value={eventData.place}>
             <SelectTrigger id="place">
               <SelectValue placeholder="-- Seleccione un lugar --" />
@@ -82,7 +102,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
           </p>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="date">Fecha del Evento</Label>
+          <Label htmlFor="date">Fecha del Evento <span className="text-destructive">*</span></Label>
           <Input 
             id="date" 
             type="date" 
@@ -92,7 +112,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="focusEventDescription">Descripción del Evento Foco</Label>
+          <Label htmlFor="focusEventDescription">Descripción del Evento Foco <span className="text-destructive">*</span></Label>
           <Textarea id="focusEventDescription" value={eventData.focusEventDescription} onChange={(e) => handleInputChange(e, 'focusEventDescription')} placeholder="Describa brevemente el evento principal..." />
         </div>
 
@@ -146,7 +166,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
         </div>
       </CardContent>
       <CardFooter className="flex justify-end">
-        <Button onClick={onNext} className="transition-transform hover:scale-105">Guardar y Continuar</Button>
+        <Button onClick={handleNextWithValidation} className="transition-transform hover:scale-105">Guardar y Continuar</Button>
       </CardFooter>
     </Card>
   );
