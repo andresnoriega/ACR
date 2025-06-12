@@ -2,7 +2,7 @@
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { SettingsIcon, Users, Globe, KeyRound } from 'lucide-react';
+import { SettingsIcon, Users, Globe, KeyRound, ShieldCheck } from 'lucide-react';
 
 export default function ConfiguracionHubPage() {
   return (
@@ -66,6 +66,23 @@ export default function ConfiguracionHubPage() {
             <Link href="/config/permisos" passHref>
               <Button className="w-full" size="lg">
                 Configurar Permisos
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 md:col-span-2 lg:col-span-1">
+          <CardHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <ShieldCheck className="h-7 w-7 text-primary" />
+              <CardTitle className="text-2xl">Privacidad y Datos</CardTitle>
+            </div>
+            <CardDescription>Gestione el almacenamiento de datos, opciones de reseteo y configuraciones de privacidad.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/config/privacidad" passHref>
+              <Button className="w-full" size="lg">
+                Gestionar Datos
               </Button>
             </Link>
           </CardContent>
