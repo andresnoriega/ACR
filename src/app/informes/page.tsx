@@ -94,6 +94,7 @@ export default function DashboardRCAPage() {
     let currentRcaFinalizadosCount = 0;
 
     try {
+      // Query for RCA Analyses (used for total RCAs, finalized RCAs, and action stats)
       const rcaQueryConstraints: QueryConstraint[] = [];
       if (currentFilters.site && currentFilters.site !== ALL_FILTER_VALUE) {
         rcaQueryConstraints.push(where("eventData.site", "==", currentFilters.site));
@@ -114,7 +115,7 @@ export default function DashboardRCAPage() {
         const rcaId = docSnap.id;
 
         if (rcaDoc.isFinalized) {
-            currentRcaFinalizadosCount++;
+          currentRcaFinalizadosCount++;
         }
 
         if (rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
@@ -181,6 +182,7 @@ export default function DashboardRCAPage() {
       });
       setPlanesAccionPendientes(currentPendingActionPlans.slice(0, 5));
 
+      // Query for Reported Events (used for "RCA Pendientes")
       const reportedEventsQueryConstraints: QueryConstraint[] = [where("status", "==", "En análisis")];
       if (currentFilters.site && currentFilters.site !== ALL_FILTER_VALUE) {
         reportedEventsQueryConstraints.push(where("site", "==", currentFilters.site));
@@ -191,20 +193,20 @@ export default function DashboardRCAPage() {
       if (currentFilters.priority && currentFilters.priority !== ALL_FILTER_VALUE) {
         reportedEventsQueryConstraints.push(where("priority", "==", currentFilters.priority));
       }
-
+      
       const reportedEventsRef = collection(db, "reportedEvents");
       const enAnalisisQuery = query(reportedEventsRef, ...reportedEventsQueryConstraints);
       const enAnalisisSnapshot = await getDocs(enAnalisisQuery);
       const currentRcaPendientesCount = enAnalisisSnapshot.size;
 
       const currentTotalRCAs = currentRcaPendientesCount + currentRcaFinalizadosCount;
-      const rcaCompletionRate = currentTotalRCAs > 0 ? (currentRcaFinalizadosCount / currentTotalRCAs) * 100 : 0;
+      const rcaCompletionRateValue = currentTotalRCAs > 0 ? (currentRcaFinalizadosCount / currentTotalRCAs) * 100 : 0;
 
       setRcaSummaryData({
         totalRCAs: currentTotalRCAs,
         rcaPendientes: currentRcaPendientesCount,
         rcaFinalizados: currentRcaFinalizadosCount,
-        rcaCompletionRate: rcaCompletionRate,
+        rcaCompletionRate: rcaCompletionRateValue,
       });
 
     } catch (error) {
@@ -683,9 +685,6 @@ export default function DashboardRCAPage() {
           )}
         </CardContent>
         <CardFooter className="flex justify-start gap-2 pt-4 border-t">
-          <Button variant="outline" size="sm" disabled>
-            <PlusCircle className="mr-2 h-4 w-4" /> Nueva Acción (No implementado)
-          </Button>
           <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80" disabled>
             Ver todos <ExternalLink className="ml-1.5 h-3.5 w-3.5" /> (No implementado)
           </Button>
