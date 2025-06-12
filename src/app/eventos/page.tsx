@@ -185,28 +185,12 @@ export default function EventosReportadosPage() {
     }
   };
 
+  // Para eventos "Pendientes": Navega al análisis. El cambio de estado a "En análisis" 
+  // ocurrirá cuando se guarde el progreso en el Paso 2 del módulo de análisis.
   const handleStartRCA = async () => {
     if (selectedEvent && selectedEvent.status === 'Pendiente') {
-      try {
-        const eventRef = doc(db, "reportedEvents", selectedEvent.id);
-        await updateDoc(eventRef, { status: "En análisis" });
-        
-        const updatedSelectedEvent = { ...selectedEvent, status: "En análisis" as ReportedEventStatus };
-        
-        setAllEvents(prevEvents => prevEvents.map(ev => 
-          ev.id === selectedEvent.id ? updatedSelectedEvent : ev
-        ));
-        setFilteredEvents(prevFiltered => prevFiltered.map(ev => 
-          ev.id === selectedEvent.id ? updatedSelectedEvent : ev
-        ));
-        setSelectedEvent(updatedSelectedEvent);
-
-        toast({ title: "Investigación Iniciada", description: `El evento ${selectedEvent.title} ahora está "En análisis".`});
-        router.push(`/analisis?id=${selectedEvent.id}`); 
-      } catch (error) {
-        console.error("Error updating event status to 'En análisis':", error);
-        toast({ title: "Error", description: "No se pudo actualizar el estado del evento.", variant: "destructive" });
-      }
+      // No se cambia el estado aquí. Solo se navega.
+      router.push(`/analisis?id=${selectedEvent.id}`); 
     } else if (selectedEvent) {
         toast({ title: "Acción no permitida", description: `El evento "${selectedEvent.title}" no está pendiente. Su estado es: ${selectedEvent.status}.`, variant: "destructive"});
     } else {
@@ -214,9 +198,9 @@ export default function EventosReportadosPage() {
     }
   };
   
+  // Para eventos "En análisis" o "Finalizado": Solo navega al análisis.
   const handleViewAnalysis = () => {
     if (selectedEvent) {
-        toast({ title: "Navegando al Análisis", description: `Abriendo análisis para el evento ${selectedEvent.title}.`});
         router.push(`/analisis?id=${selectedEvent.id}`);
     } else {
          toast({ title: "Ningún Evento Seleccionado", description: "Por favor, seleccione un evento.", variant: "destructive" });
@@ -422,9 +406,9 @@ export default function EventosReportadosPage() {
             let buttonOnClick = () => {};
 
             if (selectedEvent.status === 'Pendiente') {
-              buttonText = "Continuar Investigación";
+              buttonText = "Continuar Investigación"; // Texto se mantiene
               buttonIcon = PlayCircle;
-              buttonOnClick = handleStartRCA;
+              buttonOnClick = handleStartRCA; // Esta función ahora solo navega
             } else if (selectedEvent.status === 'En análisis') {
               buttonText = "Continuar Investigación";
               buttonIcon = PlayCircle;
@@ -438,12 +422,12 @@ export default function EventosReportadosPage() {
             const IconComponent = buttonIcon;
             return (
               <Button variant={buttonVariant} size="sm" onClick={buttonOnClick}>
-                <IconComponent className="mr-2" /> {buttonText}
+                <IconComponent className="mr-2 h-4 w-4" /> {buttonText}
               </Button>
             );
           })() : (
             <Button variant="default" size="sm" disabled>
-              <PlayCircle className="mr-2" /> Seleccione un evento
+              <PlayCircle className="mr-2 h-4 w-4" /> Seleccione un evento
             </Button>
           )}
         </CardFooter>
@@ -479,4 +463,3 @@ export default function EventosReportadosPage() {
     </div>
   );
 }
-
