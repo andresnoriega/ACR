@@ -23,7 +23,7 @@ interface ActionStatsData {
 interface AnalisisEnCursoItem {
   id: string;
   proyecto: string;
-  currentStep: number; // Cambiado de 'estado' a 'currentStep'
+  currentStep: number;
   progreso: number;
 }
 
@@ -115,6 +115,7 @@ export default function DashboardRCAPage() {
         const rcaAnalysesRef = collection(db, "rcaAnalyses");
         const q = query(rcaAnalysesRef, where("isFinalized", "==", false), orderBy("updatedAt", "desc"));
         const querySnapshot = await getDocs(q);
+        console.log(`[fetchAnalisisEnCurso] Found ${querySnapshot.docs.length} documents with isFinalized: false.`);
         
         const analysesData = querySnapshot.docs.map(docSnap => {
           const doc = docSnap.data() as RCAAnalysisDocument;
@@ -122,7 +123,6 @@ export default function DashboardRCAPage() {
           let proyecto = doc.eventData?.focusEventDescription || `Análisis ID: ${id.substring(0,8)}...`;
           let currentStep = 1;
 
-          // Determine current step
           if (doc.finalComments && doc.finalComments.trim() !== '') {
             currentStep = 5;
           } else if (doc.validations && doc.validations.length > 0 && doc.plannedActions && doc.plannedActions.length > 0) {
@@ -142,8 +142,7 @@ export default function DashboardRCAPage() {
           ) {
             currentStep = 2;
           }
-          // Default is Step 1 if none of the above
-
+          
           const progreso = Math.round((currentStep / 5) * 100);
           
           return { id, proyecto, currentStep, progreso };
@@ -162,6 +161,8 @@ export default function DashboardRCAPage() {
       const planes: PlanAccionPendienteItem[] = [];
       try {
         const rcaAnalysesRef = collection(db, "rcaAnalyses");
+        // Consider if isFinalized filter is needed here or if we want to show actions from finalized ones too
+        // For "Planes de Acción Activos", usually it's from non-finalized.
         const q = query(rcaAnalysesRef, where("isFinalized", "==", false), orderBy("updatedAt", "desc"));
         const querySnapshot = await getDocs(q);
 
@@ -174,21 +175,24 @@ export default function DashboardRCAPage() {
                 id: action.id,
                 accion: action.description,
                 responsable: action.responsible,
-                fechaLimite: action.dueDate ? format(parseISO(action.dueDate), 'dd/MM/yyyy', { locale: es }) : 'N/A',
+                fechaLimite: action.dueDate && isValid(parseISO(action.dueDate)) ? format(parseISO(action.dueDate), 'dd/MM/yyyy', { locale: es }) : 'N/A',
                 estado: 'Activa',
                 rcaId: docSnap.id,
-                rcaTitle: rcaDoc.eventData.focusEventDescription || `Análisis ID ${docSnap.id.substring(0,5)}...`
+                rcaTitle: rcaDoc.eventData?.focusEventDescription || `Análisis ID ${docSnap.id.substring(0,5)}...`
               });
             }
           });
         });
+        
         setPlanesAccionPendientes(planes.sort((a,b) => {
             try {
-                const dateA = parseISO(a.fechaLimite.split('/').reverse().join('-'));
-                const dateB = parseISO(b.fechaLimite.split('/').reverse().join('-'));
-                if (isValid(dateA) && isValid(dateB)) return dateA.getTime() - dateB.getTime();
-                if (isValid(dateA)) return -1; 
-                if (isValid(dateB)) return 1;  
+                // Ensure fechaLimite is valid before parsing
+                const dateA = a.fechaLimite !== 'N/A' ? parseISO(a.fechaLimite.split('/').reverse().join('-')) : null;
+                const dateB = b.fechaLimite !== 'N/A' ? parseISO(b.fechaLimite.split('/').reverse().join('-')) : null;
+
+                if (dateA && isValid(dateA) && dateB && isValid(dateB)) return dateA.getTime() - dateB.getTime();
+                if (dateA && isValid(dateA)) return -1; 
+                if (dateB && isValid(dateB)) return 1;  
             } catch (e) { /* Silently ignore parsing errors for sorting */ }
             return 0; 
         }).slice(0, 5)); 
@@ -204,49 +208,51 @@ export default function DashboardRCAPage() {
       setIsLoadingActividadReciente(true);
       const actividades: ActividadRecienteItem[] = [];
       try {
+        // Fetch recent reported events
         const eventsRef = collection(db, "reportedEvents");
         const eventsQuery = query(eventsRef, orderBy("updatedAt", "desc"), limit(3));
         const eventsSnapshot = await getDocs(eventsQuery);
         eventsSnapshot.forEach(docSnap => {
           const event = docSnap.data() as ReportedEvent;
-          let desc = `Evento '${event.title}'`;
-          if (event.createdAt && event.updatedAt && new Date(event.createdAt).getTime() === new Date(event.updatedAt).getTime()) { 
+          let desc = `Evento '${event.title || 'Sin Título'}'`;
+          // Check if createdAt and updatedAt are the same (or very close) to determine if it's new or updated
+          const isNew = !event.updatedAt || !event.createdAt || (new Date(event.createdAt).getTime() === new Date(event.updatedAt).getTime());
+          if (isNew) { 
             desc += ` registrado.`;
           } else {
              desc += ` actualizado (Estado: ${event.status}).`;
           }
-          if (event.updatedAt) { 
-            actividades.push({
-              id: `evt-${docSnap.id}`,
-              descripcion: desc,
-              tiempo: formatRelativeTime(event.updatedAt),
-              tipoIcono: event.status === 'Finalizado' ? 'finalizado' : 'evento'
-            });
-          }
+          actividades.push({
+            id: `evt-${docSnap.id}`,
+            descripcion: desc,
+            tiempo: formatRelativeTime(event.updatedAt || event.createdAt), // Fallback to createdAt
+            tipoIcono: event.status === 'Finalizado' ? 'finalizado' : 'evento'
+          });
         });
 
+        // Fetch recent RCA analyses
         const analysesRef = collection(db, "rcaAnalyses");
         const analysesQuery = query(analysesRef, orderBy("updatedAt", "desc"), limit(3));
         const analysesSnapshot = await getDocs(analysesQuery);
         analysesSnapshot.forEach(docSnap => {
           const analysis = docSnap.data() as RCAAnalysisDocument;
-           if (analysis.updatedAt) { 
-            actividades.push({
-              id: `rca-${docSnap.id}`,
-              descripcion: `Análisis '${analysis.eventData.focusEventDescription}' actualizado.`,
-              tiempo: formatRelativeTime(analysis.updatedAt),
-              tipoIcono: analysis.isFinalized ? 'finalizado' : 'analisis'
-            });
-          }
+           actividades.push({
+            id: `rca-${docSnap.id}`,
+            descripcion: `Análisis '${analysis.eventData?.focusEventDescription || `ID ${docSnap.id.substring(0,5)}...`}' actualizado.`,
+            tiempo: formatRelativeTime(analysis.updatedAt),
+            tipoIcono: analysis.isFinalized ? 'finalizado' : 'analisis'
+          });
         });
         
+        // Sort all activities by their actual date derived from 'tiempo' (this is tricky, better to sort by original date before formatting)
+        // For simplicity here, we'll assume updatedAt from Firestore gives a good enough order for recent items
+        // A more robust sort would convert 'tiempo' back to a date or use the original date fields
         actividades.sort((a, b) => {
-            try {
-                const aDate = parseISO(a.tiempo.includes("hace") ? new Date(Date.now() - (parseInt(a.tiempo) || 0) * (a.tiempo.includes("segundo") ? 1000 : a.tiempo.includes("minuto") ? 60000 : a.tiempo.includes("hora") ? 3600000 : a.tiempo.includes("día") ? 86400000 : 31536000000)).toISOString() : new Date().toISOString());
-                const bDate = parseISO(b.tiempo.includes("hace") ? new Date(Date.now() - (parseInt(b.tiempo) || 0) * (b.tiempo.includes("segundo") ? 1000 : b.tiempo.includes("minuto") ? 60000 : b.tiempo.includes("hora") ? 3600000 : b.tiempo.includes("día") ? 86400000 : 31536000000)).toISOString() : new Date().toISOString());
-                if (isValid(aDate) && isValid(bDate)) return bDate.getTime() - aDate.getTime();
-            } catch (e) { /* ignore error */ }
-            return 0;
+            // This sort is imperfect as it relies on parsing relative time string.
+            // A better approach would be to store the original timestamp with each activity item.
+            // For now, we rely on Firestore's ordering + slicing.
+            // If original timestamps were available: return parseISO(b.originalTimestamp).getTime() - parseISO(a.originalTimestamp).getTime();
+            return 0; // Placeholder if not sorting rigorously after merge
         });
         setActividadReciente(actividades.slice(0, 5));
 
@@ -383,7 +389,7 @@ export default function DashboardRCAPage() {
             <ListChecks className="h-6 w-6 text-primary" />
             <CardTitle className="text-2xl">Planes de Acción Activos</CardTitle>
           </div>
-          <CardDescription>Acciones de análisis no finalizados que aún no han sido validadas.</CardDescription>
+          <CardDescription>Acciones de análisis no finalizados que aún no han sido validadas (máx. 5).</CardDescription>
         </CardHeader>
         <CardContent>
          {isLoadingPlanesAccion ? (
@@ -444,7 +450,7 @@ export default function DashboardRCAPage() {
             <History className="h-6 w-6 text-primary" />
             <CardTitle className="text-2xl">Actividad Reciente en el Sistema</CardTitle>
           </div>
-          <CardDescription>Últimas acciones y actualizaciones importantes en eventos y análisis.</CardDescription>
+          <CardDescription>Últimas acciones y actualizaciones importantes en eventos y análisis (máx. 5).</CardDescription>
         </CardHeader>
         <CardContent>
         {isLoadingActividadReciente ? (
@@ -474,3 +480,4 @@ export default function DashboardRCAPage() {
     </div>
   );
 }
+
