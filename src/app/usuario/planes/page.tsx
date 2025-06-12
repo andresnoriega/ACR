@@ -1,7 +1,8 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback, ChangeEvent } from 'react';
+import type { FullUserProfile, RCAAnalysisDocument, PlannedAction as FirestorePlannedAction, Evidence as FirestoreEvidence, Validation } from '@/types/rca';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -9,19 +10,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { ListTodo, PlusCircle, FileText, Image as ImageIcon, Paperclip, Download, Eye, UploadCloud, CheckCircle2, Save, Info, MessageSquare } from 'lucide-react';
+import { ListTodo, PlusCircle, FileText, ImageIcon, Paperclip, Download, Eye, UploadCloud, CheckCircle2, Save, Info, MessageSquare, UserCog, Loader2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-
-interface Evidence {
-  id: string;
-  nombre: string;
-  tipo: 'pdf' | 'jpg' | 'docx' | 'other';
-  accionLabel: 'Descargar' | 'Ver';
-  link?: string; 
-}
+import { db } from '@/lib/firebase';
+import { collection, getDocs, doc, updateDoc, query, orderBy, arrayUnion, arrayRemove, writeBatch } from "firebase/firestore";
+import { format, parseISO, isValid as isValidDate } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 interface ActionPlan {
-  id: string;
+  id: string; // Corresponds to FirestorePlannedAction.id
   accionResumen: string; 
   estado: 'Pendiente' | 'En proceso' | 'Completado';
   plazoLimite: string;
@@ -29,84 +27,131 @@ interface ActionPlan {
   tituloDetalle: string; 
   descripcionDetallada: string;
   responsableDetalle: string; 
-  codigoRCA?: string;
-  evidencias: Evidence[];
-  userComments?: string; // Nuevo campo para comentarios del usuario
+  codigoRCA: string; // Corresponds to FirestorePlannedAction.eventId
+  evidencias: FirestoreEvidence[];
+  userComments?: string;
   ultimaActualizacion: {
-    usuario: string;
+    usuario: string; // For display, might be 'Sistema' or based on RCA updatedAt
     mensaje: string;
     fechaRelativa: string; 
   };
+  // Internal fields to help with updates
+  _originalRcaDocId: string;
+  _originalActionId: string;
 }
 
-const sampleActionPlansData: ActionPlan[] = [
-  { 
-    id: 'ap1', 
-    accionResumen: 'Revisar manual de operaciones', 
-    estado: 'Pendiente', 
-    plazoLimite: '15/06/2025', 
-    asignadoPor: 'Carlos Ruiz',
-    tituloDetalle: 'Revisión Exhaustiva del Manual de Operaciones Estándar',
-    descripcionDetallada: 'Actualizar el manual de operaciones para incluir los nuevos procedimientos de seguridad y verificar la conformidad con la normativa vigente.',
-    responsableDetalle: 'Equipo de Calidad',
-    codigoRCA: 'RCA-2025-007',
-    evidencias: [
-      { id: 'e1-1', nombre: 'Manual_actual_v3.pdf', tipo: 'pdf', accionLabel: 'Descargar' },
-      { id: 'e1-2', nombre: 'Propuesta_cambios.docx', tipo: 'docx', accionLabel: 'Ver' },
-    ],
-    userComments: 'Es crucial verificar la sección 3.2 sobre equipos de protección personal.',
-    ultimaActualizacion: { usuario: 'Sistema', mensaje: 'Plan de acción creado.', fechaRelativa: 'hace 3 días' }
-  },
-  { 
-    id: 'ap2', 
-    accionResumen: 'Capacitar equipo en mantenimiento', 
-    estado: 'En proceso', 
-    plazoLimite: '10/06/2025', 
-    asignadoPor: 'Ana López',
-    tituloDetalle: 'Capacitar equipo en mantenimiento preventivo',
-    descripcionDetallada: 'Entrenamiento obligatorio a todo el personal técnico sobre los nuevos procedimientos de mantenimiento preventivo para la maquinaria crítica.',
-    responsableDetalle: 'Ana López',
-    codigoRCA: 'RCA-2025-008',
-    evidencias: [
-      { id: 'e2-1', nombre: 'Informe_capacitacion_v1.pdf', tipo: 'pdf', accionLabel: 'Descargar' },
-      { id: 'e2-2', nombre: 'Foto_sesion_1.jpg', tipo: 'jpg', accionLabel: 'Ver' },
-      { id: 'e2-3', nombre: 'Notas_adicionales.docx', tipo: 'docx', accionLabel: 'Ver' },
-    ],
-    userComments: '',
-    ultimaActualizacion: { usuario: 'Ana López', mensaje: 'Se inició la sesión de capacitación', fechaRelativa: '(hoy)' }
-  },
-  { 
-    id: 'ap3', 
-    accionResumen: 'Realizar auditoría interna', 
-    estado: 'Completado', 
-    plazoLimite: '05/06/2025', 
-    asignadoPor: 'Luis Torres',
-    tituloDetalle: 'Ejecución de Auditoría Interna Post-Incidente',
-    descripcionDetallada: 'Auditoría interna completa para verificar la implementación de las acciones correctivas y la efectividad de las mismas.',
-    responsableDetalle: 'Luis Torres',
-    codigoRCA: 'RCA-2025-009',
-    evidencias: [
-      { id: 'e3-1', nombre: 'Reporte_auditoria_final.pdf', tipo: 'pdf', accionLabel: 'Descargar' },
-      { id: 'e3-2', nombre: 'Checklist_verificacion.docx', tipo: 'docx', accionLabel: 'Ver' },
-    ],
-    userComments: 'La auditoría reveló cumplimiento del 95%. Se adjunta informe detallado.',
-    ultimaActualizacion: { usuario: 'Luis Torres', mensaje: 'Auditoría completada y reporte subido.', fechaRelativa: 'ayer' }
-  },
-];
+const NONE_USER_VALUE = "--NONE--";
 
 export default function UserActionPlansPage() {
   const { toast } = useToast();
-  const [actionPlansList, setActionPlansList] = useState<ActionPlan[]>(sampleActionPlansData);
+  
+  const [availableUsers, setAvailableUsers] = useState<FullUserProfile[]>([]);
+  const [selectedSimulatedUserName, setSelectedSimulatedUserName] = useState<string | null>(null);
+  const [allRcaDocuments, setAllRcaDocuments] = useState<RCAAnalysisDocument[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+  const [isLoadingActions, setIsLoadingActions] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
+
   const [selectedPlan, setSelectedPlan] = useState<ActionPlan | null>(null);
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
 
+  const fetchUsers = useCallback(async () => {
+    setIsLoadingUsers(true);
+    try {
+      const usersCollectionRef = collection(db, "users");
+      const q = query(usersCollectionRef, orderBy("name", "asc"));
+      const querySnapshot = await getDocs(q);
+      const usersData = querySnapshot.docs.map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() } as FullUserProfile));
+      setAvailableUsers(usersData);
+    } catch (error) {
+      console.error("Error fetching users: ", error);
+      toast({ title: "Error al Cargar Usuarios", description: "No se pudieron cargar los usuarios.", variant: "destructive" });
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  }, [toast]);
+
+  const fetchRcaDocuments = useCallback(async () => {
+    setIsLoadingActions(true);
+    try {
+      const rcaCollectionRef = collection(db, "rcaAnalyses");
+      const q = query(rcaCollectionRef, orderBy("updatedAt", "desc"));
+      const querySnapshot = await getDocs(q);
+      const rcaData = querySnapshot.docs.map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() } as RCAAnalysisDocument));
+      setAllRcaDocuments(rcaData);
+    } catch (error) {
+      console.error("Error fetching RCA documents: ", error);
+      toast({ title: "Error al Cargar Análisis RCA", description: "No se pudieron cargar los documentos de análisis.", variant: "destructive" });
+    } finally {
+      setIsLoadingActions(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchUsers();
+    fetchRcaDocuments();
+  }, [fetchUsers, fetchRcaDocuments]);
+
+  const currentUserActionPlans = useMemo(() => {
+    if (!selectedSimulatedUserName || allRcaDocuments.length === 0) {
+      return [];
+    }
+    const plans: ActionPlan[] = [];
+    allRcaDocuments.forEach(rcaDoc => {
+      if (rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
+        rcaDoc.plannedActions.forEach(pa => {
+          if (pa.responsible === selectedSimulatedUserName) {
+            let estado: ActionPlan['estado'] = 'Pendiente';
+            const validation = rcaDoc.validations?.find(v => v.actionId === pa.id);
+            if (validation?.status === 'validated') {
+              estado = 'Completado';
+            } else if (pa.userComments || (pa.evidencias && pa.evidencias.length > 0)) {
+              estado = 'En proceso';
+            }
+
+            plans.push({
+              id: pa.id,
+              _originalRcaDocId: rcaDoc.eventData.id, // This is the ID of the RCA document itself
+              _originalActionId: pa.id,
+              accionResumen: pa.description.substring(0, 50) + (pa.description.length > 50 ? "..." : ""),
+              estado,
+              plazoLimite: pa.dueDate && isValidDate(parseISO(pa.dueDate)) ? format(parseISO(pa.dueDate), 'dd/MM/yyyy', { locale: es }) : 'N/A',
+              asignadoPor: rcaDoc.projectLeader || 'Sistema',
+              tituloDetalle: rcaDoc.eventData.focusEventDescription || 'Sin título',
+              descripcionDetallada: pa.description,
+              responsableDetalle: pa.responsible,
+              codigoRCA: rcaDoc.eventData.id,
+              evidencias: pa.evidencias || [],
+              userComments: pa.userComments || '',
+              ultimaActualizacion: {
+                usuario: 'Sistema', 
+                mensaje: 'Actualizado',
+                fechaRelativa: rcaDoc.updatedAt && isValidDate(parseISO(rcaDoc.updatedAt)) ? format(parseISO(rcaDoc.updatedAt), 'dd/MM/yyyy HH:mm', { locale: es }) : 'N/A',
+              }
+            });
+          }
+        });
+      }
+    });
+    return plans.sort((a,b) => { // Sort by due date, then title
+        const dateA = a.plazoLimite !== 'N/A' ? parseISO(a.plazoLimite.split('/').reverse().join('-')) : null;
+        const dateB = b.plazoLimite !== 'N/A' ? parseISO(b.plazoLimite.split('/').reverse().join('-')) : null;
+        if (dateA && dateB) {
+            if (dateA.getTime() !== dateB.getTime()) return dateA.getTime() - dateB.getTime();
+        } else if (dateA) return -1;
+        else if (dateB) return 1;
+        return a.tituloDetalle.localeCompare(b.tituloDetalle);
+    });
+  }, [selectedSimulatedUserName, allRcaDocuments]);
+
+
   const summary = useMemo(() => {
     return {
-      pendientes: actionPlansList.filter(p => p.estado === 'Pendiente').length,
-      enProceso: actionPlansList.filter(p => p.estado === 'En proceso').length,
-      completadas: actionPlansList.filter(p => p.estado === 'Completado').length,
+      pendientes: currentUserActionPlans.filter(p => p.estado === 'Pendiente').length,
+      enProceso: currentUserActionPlans.filter(p => p.estado === 'En proceso').length,
+      completadas: currentUserActionPlans.filter(p => p.estado === 'Completado').length,
     };
-  }, [actionPlansList]);
+  }, [currentUserActionPlans]);
 
   const handleSelectPlan = (plan: ActionPlan) => {
     setSelectedPlan(plan);
@@ -120,39 +165,145 @@ export default function UserActionPlansPage() {
     }
   };
 
-  const handleUploadEvidence = () => {
-    if (!selectedPlan) return;
-    if (!fileToUpload) {
-      toast({ title: "Error", description: "Por favor, seleccione un archivo para subir.", variant: "destructive" });
-      return;
-    }
-    const newEvidence: Evidence = {
-        id: `ev-${Date.now()}`,
-        nombre: fileToUpload.name,
-        tipo: fileToUpload.name.endsWith('.pdf') ? 'pdf' : fileToUpload.name.endsWith('.jpg') || fileToUpload.name.endsWith('.jpeg') ? 'jpg' : fileToUpload.name.endsWith('.docx') ? 'docx' : 'other',
-        accionLabel: 'Descargar',
-    };
+  const updateActionInFirestore = async (
+    rcaDocId: string, 
+    actionId: string, 
+    updates: Partial<FirestorePlannedAction>
+  ) => {
+    setIsUpdating(true);
+    try {
+      const rcaDocRef = doc(db, "rcaAnalyses", rcaDocId);
+      const rcaDocSnap = allRcaDocuments.find(d => d.eventData.id === rcaDocId); // Get from local state first
+      if (!rcaDocSnap) {
+        toast({ title: "Error", description: "No se encontró el documento RCA para actualizar.", variant: "destructive" });
+        return false;
+      }
 
-    const updatedActionPlansList = actionPlansList.map(p =>
-        p.id === selectedPlan.id
-            ? { ...p, evidencias: [...p.evidencias, newEvidence], ultimaActualizacion: {usuario: "Usuario Actual", mensaje: `Evidencia '${newEvidence.nombre}' adjuntada.`, fechaRelativa: '(ahora)'} }
-            : p
-    );
-    setActionPlansList(updatedActionPlansList);
-    
-    const updatedSelectedPlan = updatedActionPlansList.find(p => p.id === selectedPlan.id);
-    setSelectedPlan(updatedSelectedPlan || null);
+      const updatedPlannedActions = rcaDocSnap.plannedActions.map(action => {
+        if (action.id === actionId) {
+          return { ...action, ...updates };
+        }
+        return action;
+      });
 
+      await updateDoc(rcaDocRef, { 
+        plannedActions: updatedPlannedActions,
+        updatedAt: new Date().toISOString()
+      });
 
-    toast({ title: "Simulación", description: `Archivo "${fileToUpload.name}" subido para "${selectedPlan.tituloDetalle}".` });
-    setFileToUpload(null);
-    const fileInput = document.getElementById('evidence-file-input') as HTMLInputElement;
-    if (fileInput) {
-        fileInput.value = '';
+      // Update local state to reflect changes immediately
+      setAllRcaDocuments(prevDocs => 
+        prevDocs.map(d => 
+          d.eventData.id === rcaDocId 
+            ? { ...d, plannedActions: updatedPlannedActions, updatedAt: new Date().toISOString() } 
+            : d
+        )
+      );
+      // If a plan is selected, update its view too
+      if (selectedPlan && selectedPlan._originalRcaDocId === rcaDocId && selectedPlan._originalActionId === actionId) {
+        const newSelectedPlanState = { ...selectedPlan, ...updates };
+        if (updates.evidencias) newSelectedPlanState.evidencias = updates.evidencias;
+        if (updates.userComments) newSelectedPlanState.userComments = updates.userComments;
+        // Re-derive estado for selected plan if needed (or rely on currentUserActionPlans re-computation)
+        const validation = rcaDocSnap.validations?.find(v => v.actionId === actionId);
+        if (validation?.status === 'validated') {
+            newSelectedPlanState.estado = 'Completado';
+        } else if (newSelectedPlanState.userComments || (newSelectedPlanState.evidencias && newSelectedPlanState.evidencias.length > 0)) {
+            newSelectedPlanState.estado = 'En proceso';
+        } else {
+             newSelectedPlanState.estado = 'Pendiente';
+        }
+        setSelectedPlan(newSelectedPlanState as ActionPlan);
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Error updating action in Firestore: ", error);
+      toast({ title: "Error al Actualizar", description: "No se pudo actualizar la acción en la base de datos.", variant: "destructive" });
+      return false;
+    } finally {
+      setIsUpdating(false);
     }
   };
 
-  const getEvidenceIcon = (tipo: Evidence['tipo']) => {
+
+  const handleUploadEvidence = async () => {
+    if (!selectedPlan || !fileToUpload) {
+      toast({ title: "Error", description: "Seleccione un plan y un archivo.", variant: "destructive" });
+      return;
+    }
+
+    const newEvidence: FirestoreEvidence = {
+        id: `ev-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        nombre: fileToUpload.name,
+        // @ts-ignore
+        tipo: fileToUpload.name.endsWith('.pdf') ? 'pdf' : fileToUpload.name.endsWith('.jpg') || fileToUpload.name.endsWith('.jpeg') ? 'jpg' : fileToUpload.name.endsWith('.docx') ? 'docx' : 'other',
+    };
+
+    const currentEvidences = selectedPlan.evidencias || [];
+    const success = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, {
+      evidencias: [...currentEvidences, newEvidence]
+    });
+
+    if (success) {
+      toast({ title: "Evidencia (Simulación)", description: `Archivo "${fileToUpload.name}" registrado para "${selectedPlan.tituloDetalle}".` });
+      setFileToUpload(null);
+      const fileInput = document.getElementById('evidence-file-input') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+    }
+  };
+  
+  const handleUpdateStatus = async (newStatus: ActionPlan['estado']) => {
+    if (!selectedPlan) return;
+
+    // This function primarily updates local display. Firestore update for 'validated' status happens in Step 4.
+    // For 'En proceso' or 'Pendiente', it's based on comments/evidence.
+    // We will update the local state for immediate feedback, and if necessary,
+    // can trigger a save of userComments or evidence here if this button is meant to also save those.
+    // For now, this button will just update the *local* 'estado' if not 'Completado'.
+    // Actual validation to 'Completado' is done in Step 4.
+    
+    const rcaDoc = allRcaDocuments.find(d => d.eventData.id === selectedPlan._originalRcaDocId);
+    const validation = rcaDoc?.validations?.find(v => v.actionId === selectedPlan._originalActionId);
+
+    if (newStatus === 'Completado' && (!validation || validation.status !== 'validated')) {
+        toast({ title: "Operación no Permitida", description: "El estado 'Completado' solo se puede establecer desde el Paso 4 de Validación del RCA.", variant: "destructive" });
+        return;
+    }
+    
+    // If the user tries to set to 'Pendiente' or 'En proceso', we can allow it.
+    // This typically means they are just working on it.
+    // The actual saving of this conceptual "status" (other than 'Completado')
+    // happens when comments or evidence are saved.
+    // For this demo, we update locally.
+
+    const updatedPlan = { ...selectedPlan, estado: newStatus, ultimaActualizacion: {usuario: selectedSimulatedUserName || "Usuario", mensaje: `Estado cambiado a ${newStatus}.`, fechaRelativa: '(ahora)'}};
+    setSelectedPlan(updatedPlan);
+
+    // Update in the main list for summary re-calculation
+    // This is a bit of a hack as the `currentUserActionPlans` is memoized.
+    // A proper solution might involve re-fetching or more complex state update.
+    // For now, we'll just update the displayed plan.
+    
+    toast({ title: "Estado (Local) Actualizado", description: `El plan "${selectedPlan.tituloDetalle}" se marcó como "${newStatus}" en la vista. La persistencia de 'Completado' ocurre en Validación.` });
+  };
+
+
+  const handleUserCommentsChange = async (comments: string) => {
+    if (!selectedPlan) return;
+
+    const success = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, {
+      userComments: comments
+    });
+
+    if (success) {
+      toast({ title: "Comentarios Guardados", description: `Se guardaron los comentarios para el plan "${selectedPlan.tituloDetalle}".` });
+    }
+  };
+
+
+  const getEvidenceIcon = (tipo?: FirestoreEvidence['tipo']) => {
+    if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
     switch (tipo) {
       case 'pdf': return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
       case 'jpg': return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
@@ -160,35 +311,8 @@ export default function UserActionPlansPage() {
       default: return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
     }
   };
-  
-  const handleUpdateStatus = (newStatus: ActionPlan['estado']) => {
-    if (!selectedPlan) return;
 
-    const updatedActionPlansList = actionPlansList.map(plan => 
-        plan.id === selectedPlan.id ? { ...plan, estado: newStatus, ultimaActualizacion: { usuario: 'Usuario Actual', mensaje: `Estado cambiado a ${newStatus}.`, fechaRelativa: '(ahora)'} } : plan
-    );
-    setActionPlansList(updatedActionPlansList);
-    
-    const updatedSelectedPlan = updatedActionPlansList.find(p => p.id === selectedPlan.id);
-    setSelectedPlan(updatedSelectedPlan || null);
-    
-    toast({ title: "Estado Actualizado", description: `El plan "${selectedPlan.tituloDetalle}" se marcó como "${newStatus}".` });
-  };
-
-  const handleUserCommentsChange = (comments: string) => {
-    if (!selectedPlan) return;
-
-    const updatedActionPlansList = actionPlansList.map(plan =>
-      plan.id === selectedPlan.id ? { ...plan, userComments: comments, ultimaActualizacion: { usuario: 'Usuario Actual', mensaje: 'Comentarios actualizados.', fechaRelativa: '(ahora)' } } : plan
-    );
-    setActionPlansList(updatedActionPlansList);
-
-    const updatedSelectedPlan = updatedActionPlansList.find(p => p.id === selectedPlan.id);
-    setSelectedPlan(updatedSelectedPlan || null);
-    
-    toast({ title: "Comentarios Guardados", description: `Se guardaron los comentarios para el plan "${selectedPlan.tituloDetalle}".` });
-  };
-
+  const isLoading = isLoadingUsers || isLoadingActions;
 
   return (
     <div className="space-y-6 py-8">
@@ -196,23 +320,57 @@ export default function UserActionPlansPage() {
         <h1 className="text-3xl font-bold font-headline text-primary">
           Mis Planes de Acción
         </h1>
+         <p className="text-sm text-muted-foreground">Gestione las tareas que le han sido asignadas.</p>
       </header>
 
       <Card className="shadow-md">
         <CardHeader>
-          <CardTitle className="text-lg font-semibold text-primary">[Resumen Rápido]</CardTitle>
+            <Label htmlFor="simulatedUser" className="flex items-center font-medium text-primary">
+                <UserCog className="mr-2 h-5 w-5" />
+                Visualizar Tareas Asignadas a:
+            </Label>
+        </CardHeader>
+        <CardContent>
+            <Select
+                value={selectedSimulatedUserName || NONE_USER_VALUE}
+                onValueChange={(value) => {
+                    setSelectedSimulatedUserName(value === NONE_USER_VALUE ? null : value);
+                    setSelectedPlan(null); // Clear selected plan when user changes
+                }}
+                disabled={isLoadingUsers}
+            >
+                <SelectTrigger id="simulatedUser" className="max-w-md">
+                <SelectValue placeholder="-- Seleccione un Usuario --" />
+                </SelectTrigger>
+                <SelectContent>
+                <SelectItem value={NONE_USER_VALUE}>-- Ninguno --</SelectItem>
+                {availableUsers.length > 0 ? availableUsers.map(user => (
+                    <SelectItem key={user.id} value={user.name}>
+                    {user.name} ({user.email})
+                    </SelectItem>
+                )) : <SelectItem value="" disabled>No hay usuarios para mostrar</SelectItem>}
+                </SelectContent>
+            </Select>
+            {isLoadingUsers && <p className="text-xs text-muted-foreground mt-1 flex items-center"><Loader2 className="h-3 w-3 animate-spin mr-1"/>Cargando usuarios...</p>}
+        </CardContent>
+      </Card>
+
+
+      <Card className="shadow-md">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold text-primary">Resumen Rápido (Para: {selectedSimulatedUserName || "Nadie"})</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
           <div className="p-3 bg-secondary/40 rounded-md">
-            <p className="text-2xl font-bold text-destructive">{summary.pendientes}</p>
+            <p className="text-2xl font-bold text-destructive">{isLoadingActions ? <Loader2 className="h-6 w-6 animate-spin inline"/> : summary.pendientes}</p>
             <p className="text-xs text-muted-foreground">Acciones Pendientes</p>
           </div>
           <div className="p-3 bg-secondary/40 rounded-md">
-            <p className="text-2xl font-bold text-yellow-600">{summary.enProceso}</p>
+            <p className="text-2xl font-bold text-yellow-600">{isLoadingActions ? <Loader2 className="h-6 w-6 animate-spin inline"/> : summary.enProceso}</p>
             <p className="text-xs text-muted-foreground">En Proceso</p>
           </div>
           <div className="p-3 bg-secondary/40 rounded-md">
-            <p className="text-2xl font-bold text-green-600">{summary.completadas}</p>
+            <p className="text-2xl font-bold text-green-600">{isLoadingActions ? <Loader2 className="h-6 w-6 animate-spin inline"/> : summary.completadas}</p>
             <p className="text-xs text-muted-foreground">Completadas</p>
           </div>
         </CardContent>
@@ -220,89 +378,81 @@ export default function UserActionPlansPage() {
 
       <Card className="shadow-md">
         <CardHeader>
-          <CardTitle className="text-lg font-semibold text-primary">Lista de Planes de Acción</CardTitle>
+          <CardTitle className="text-lg font-semibold text-primary">Lista de Planes de Acción Asignados</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[40%]">Acción</TableHead>
-                  <TableHead className="w-[15%]">Estado</TableHead>
-                  <TableHead className="w-[20%]">Plazo Límite</TableHead>
-                  <TableHead className="w-[25%]">Asignado por</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {actionPlansList.map((plan) => (
-                  <TableRow 
-                    key={plan.id} 
-                    onClick={() => handleSelectPlan(plan)}
-                    className={cn(
-                        "cursor-pointer hover:bg-muted/50",
-                        selectedPlan?.id === plan.id && "bg-accent/50 hover:bg-accent/60"
-                    )}
-                  >
-                    <TableCell className="font-medium">{plan.accionResumen}</TableCell>
-                    <TableCell>
-                      <span className={cn("px-2 py-0.5 rounded-full text-xs font-semibold",
-                        plan.estado === 'Pendiente' && 'bg-red-100 text-red-700',
-                        plan.estado === 'En proceso' && 'bg-yellow-100 text-yellow-700',
-                        plan.estado === 'Completado' && 'bg-green-100 text-green-700'
-                      )}>
-                        {plan.estado}
-                      </span>
-                    </TableCell>
-                    <TableCell>{plan.plazoLimite}</TableCell>
-                    <TableCell>{plan.asignadoPor}</TableCell>
+          {isLoadingActions ? (
+             <div className="flex justify-center items-center h-24">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="ml-2 text-muted-foreground">Cargando acciones...</p>
+            </div>
+          ) : !selectedSimulatedUserName ? (
+            <p className="text-center text-muted-foreground py-10">Por favor, seleccione un usuario para ver sus tareas asignadas.</p>
+          ) : currentUserActionPlans.length === 0 ? (
+            <p className="text-center text-muted-foreground py-10">No hay planes de acción asignados a {selectedSimulatedUserName}.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[35%]">Acción (Resumen)</TableHead>
+                    <TableHead className="w-[15%]">Estado</TableHead>
+                    <TableHead className="w-[15%]">Plazo Límite</TableHead>
+                    <TableHead className="w-[20%]">Asignado Por (Líder RCA)</TableHead>
+                    <TableHead className="w-[15%]">ID RCA</TableHead>
                   </TableRow>
-                ))}
-                 {actionPlansList.length === 0 && (
-                    <TableRow>
-                        <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                            No hay planes de acción para mostrar.
-                        </TableCell>
+                </TableHeader>
+                <TableBody>
+                  {currentUserActionPlans.map((plan) => (
+                    <TableRow 
+                      key={plan.id} 
+                      onClick={() => handleSelectPlan(plan)}
+                      className={cn(
+                          "cursor-pointer hover:bg-muted/50",
+                          selectedPlan?.id === plan.id && "bg-accent/50 hover:bg-accent/60"
+                      )}
+                    >
+                      <TableCell className="font-medium">{plan.accionResumen}</TableCell>
+                      <TableCell>
+                        <span className={cn("px-2 py-0.5 rounded-full text-xs font-semibold",
+                          plan.estado === 'Pendiente' && 'bg-red-100 text-red-700',
+                          plan.estado === 'En proceso' && 'bg-yellow-100 text-yellow-700',
+                          plan.estado === 'Completado' && 'bg-green-100 text-green-700'
+                        )}>
+                          {plan.estado}
+                        </span>
+                      </TableCell>
+                      <TableCell>{plan.plazoLimite}</TableCell>
+                      <TableCell>{plan.asignadoPor}</TableCell>
+                      <TableCell className="font-mono text-xs">{plan.codigoRCA.substring(0,8)}...</TableCell>
                     </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
-        <CardFooter className="flex justify-start gap-2 pt-3 border-t">
-            <Button variant="outline" size="sm" onClick={() => toast({ title: 'Simulación', description: 'Abrir formulario para nuevo plan.'})}>
-              <PlusCircle className="mr-1.5 h-4 w-4" /> Nuevo Plan
-            </Button>
-            <Button 
-              size="sm" 
-              disabled={!selectedPlan}
-              onClick={() => { if (selectedPlan) toast({ title: 'Detalles', description: `Mostrando detalles para ${selectedPlan.accionResumen}`})}}
-            >
-              Ver Detalles
-            </Button>
-        </CardFooter>
       </Card>
 
       {selectedPlan && (
         <Card className="shadow-lg animate-in fade-in-50 duration-300">
           <CardHeader>
             <CardTitle className="text-lg font-semibold text-primary">Detalle del Plan Seleccionado</CardTitle>
+            <CardDescription>ID Acción: {selectedPlan.id}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             <div>
-              <Label className="font-semibold">Título:</Label>
-              <p>{selectedPlan.tituloDetalle}</p>
+              <Label className="font-semibold">Título del RCA:</Label>
+              <p>{selectedPlan.tituloDetalle} (ID RCA: {selectedPlan.codigoRCA})</p>
             </div>
-            <div>
-              <Label className="font-semibold">Descripción:</Label>
-              <p className="whitespace-pre-line">{selectedPlan.descripcionDetallada}</p>
+             <div>
+              <Label className="font-semibold">Descripción Completa de la Acción:</Label>
+              <p className="whitespace-pre-line bg-muted/20 p-2 rounded-md">{selectedPlan.descripcionDetallada}</p>
             </div>
             <div><Label className="font-semibold">Responsable:</Label> <p>{selectedPlan.responsableDetalle}</p></div>
-            <div><Label className="font-semibold">Estado:</Label> <p>{selectedPlan.estado}</p></div>
+            <div><Label className="font-semibold">Estado Actual:</Label> <p>{selectedPlan.estado}</p></div>
             <div><Label className="font-semibold">Plazo límite:</Label> <p>{selectedPlan.plazoLimite}</p></div>
-            {selectedPlan.codigoRCA && (
-              <div><Label className="font-semibold">Código RCA:</Label> <p>{selectedPlan.codigoRCA}</p></div>
-            )}
-
+            
             <div className="pt-2">
               <h4 className="font-semibold text-primary mb-1">[Evidencias Adjuntas]</h4>
               {selectedPlan.evidencias.length > 0 ? (
@@ -311,8 +461,8 @@ export default function UserActionPlansPage() {
                     <li key={ev.id} className="flex items-center text-xs">
                       {getEvidenceIcon(ev.tipo)}
                       <span className="flex-grow">{ev.nombre}</span>
-                      <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={() => toast({title: "Simulación", description: `${ev.accionLabel} archivo ${ev.nombre}`})}>
-                        ({ev.accionLabel})
+                      <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={() => toast({title: "Simulación", description: `Descargar archivo ${ev.nombre}`})}>
+                        (Descargar)
                       </Button>
                     </li>
                   ))}
@@ -323,9 +473,9 @@ export default function UserActionPlansPage() {
             <div className="pt-2">
               <h4 className="font-semibold text-primary mb-1">[Adjuntar nueva evidencia]</h4>
               <div className="flex items-center gap-2">
-                <Input id="evidence-file-input" type="file" onChange={handleFileChange} className="text-xs h-9 flex-grow" />
-                <Button size="sm" onClick={handleUploadEvidence} disabled={!fileToUpload}>
-                  <UploadCloud className="mr-1.5 h-4 w-4" /> Subir
+                <Input id="evidence-file-input" type="file" onChange={handleFileChange} className="text-xs h-9 flex-grow" disabled={isUpdating || selectedPlan.estado === 'Completado'}/>
+                <Button size="sm" onClick={handleUploadEvidence} disabled={!fileToUpload || isUpdating || selectedPlan.estado === 'Completado'}>
+                  {isUpdating ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-1.5 h-4 w-4" />} Subir
                 </Button>
               </div>
               {fileToUpload && <p className="text-xs text-muted-foreground mt-1">Archivo seleccionado: {fileToUpload.name}</p>}
@@ -334,28 +484,33 @@ export default function UserActionPlansPage() {
             <div className="pt-2">
               <h4 className="font-semibold text-primary mb-1 flex items-center">
                 <MessageSquare className="mr-1.5 h-4 w-4" />
-                [Comentarios]
+                [Mis Comentarios]
               </h4>
               <Textarea
                 value={selectedPlan.userComments || ''}
-                onChange={(e) => handleUserCommentsChange(e.target.value)}
-                placeholder="Añada sus comentarios aquí..."
+                onChange={(e) => setSelectedPlan(prev => prev ? {...prev, userComments: e.target.value, ultimaActualizacion: {...prev.ultimaActualizacion, mensaje: "Comentarios modificados", fechaRelativa: "(ahora)"}} : null)}
+                placeholder="Añada sus comentarios sobre el progreso o finalización de esta tarea..."
                 rows={3}
                 className="text-sm"
+                disabled={isUpdating || selectedPlan.estado === 'Completado'}
               />
-              {/* <Button size="sm" variant="outline" onClick={() => handleUserCommentsChange(selectedPlan.userComments || '')} className="mt-2">
-                Guardar Comentarios
-              </Button> */}
+              <Button size="sm" variant="outline" onClick={() => handleUserCommentsChange(selectedPlan.userComments || '')} className="mt-2" disabled={isUpdating || selectedPlan.estado === 'Completado'}>
+                {isUpdating ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />} Guardar Comentarios
+              </Button>
             </div>
 
             <div className="pt-2">
-              <h4 className="font-semibold text-primary mb-1">[Actualizar estado]</h4>
+              <h4 className="font-semibold text-primary mb-1">[Actualizar estado de esta tarea]</h4>
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => handleUpdateStatus('Completado')}>
-                  <CheckCircle2 className="mr-1.5 h-4 w-4" /> Marcar como completado
+                <Button size="sm" variant="outline" onClick={() => handleUpdateStatus('En proceso')} disabled={isUpdating || selectedPlan.estado === 'Completado' || selectedPlan.estado === 'En proceso'}>
+                   Marcar como 'En Proceso'
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => handleUpdateStatus('En proceso')}>
-                  <Save className="mr-1.5 h-4 w-4" /> Guardar progreso
+                 <Button size="sm" variant="outline" onClick={() => handleUpdateStatus('Pendiente')} disabled={isUpdating || selectedPlan.estado === 'Completado' || selectedPlan.estado === 'Pendiente'}>
+                   Marcar como 'Pendiente'
+                </Button>
+                {/* Marcar como Completado está deshabilitado aquí, se hace en Paso 4 de Validación */}
+                <Button size="sm" variant="default" disabled={true} title="El estado 'Completado' se gestiona en el Paso 4 de Validación del RCA.">
+                  <CheckCircle2 className="mr-1.5 h-4 w-4" /> Marcar como completado (En Validación)
                 </Button>
               </div>
             </div>
@@ -363,7 +518,8 @@ export default function UserActionPlansPage() {
             <div className="pt-2">
               <h4 className="font-semibold text-primary mb-1">[Notas del sistema]</h4>
               <div className="text-xs bg-secondary/30 p-2 rounded-md">
-                <p>Última actualización: {selectedPlan.ultimaActualizacion.usuario} - "{selectedPlan.ultimaActualizacion.mensaje}" {selectedPlan.ultimaActualizacion.fechaRelativa}</p>
+                <p>Última actualización del RCA: {selectedPlan.ultimaActualizacion.fechaRelativa}</p>
+                {selectedPlan.estado === 'Completado' && <p className="text-green-600 font-medium">Esta acción ha sido validada y marcada como completada en el análisis RCA.</p>}
               </div>
             </div>
           </CardContent>
@@ -375,10 +531,11 @@ export default function UserActionPlansPage() {
           <div className="flex items-start">
             <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-2.5 mt-0.5 flex-shrink-0" />
             <div>
-              <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-0.5">Nota sobre la interactividad</h3>
+              <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-0.5">Nota sobre la funcionalidad</h3>
               <p className="text-xs text-blue-600 dark:text-blue-400/90">
-                Esta es una maqueta visual. Algunas acciones como "Subir Evidencia", "Guardar Progreso" o "Guardar Comentarios" están simuladas y mostrarán notificaciones.
-                La selección de un plan en la tabla superior mostrará sus detalles a continuación. La actualización de estados y comentarios sí se refleja en la tabla y el resumen.
+                Seleccione un usuario para ver sus tareas. Puede adjuntar (simulado) evidencias y añadir comentarios. 
+                Estos cambios se guardarán en el documento de Análisis de Causa Raíz correspondiente en Firestore.
+                El estado 'Completado' de una tarea se gestiona y valida en el Paso 4 del flujo de Análisis RCA.
               </p>
             </div>
           </div>
