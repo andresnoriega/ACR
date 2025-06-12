@@ -167,15 +167,6 @@ export default function EventosReportadosPage() {
     setIsDetailsCardVisible(false);
     toast({ title: "Filtros Limpiados" });
   };
-
-  const getStatusBadgeVariant = (status: ReportedEventStatus): "default" | "secondary" | "destructive" | "outline" => {
-    switch (status) {
-      case 'Pendiente': return 'destructive';
-      case 'En análisis': return 'secondary'; 
-      case 'Finalizado': return 'default'; 
-      default: return 'outline';
-    }
-  };
   
   const formatDateForDisplay = (dateString: string) => {
     if (!dateString) return 'N/A';
@@ -239,6 +230,17 @@ export default function EventosReportadosPage() {
       </div>
     );
   }
+
+  const renderStatusBadge = (status: ReportedEventStatus) => {
+    if (status === 'Pendiente') {
+      return <Badge variant="destructive">{status}</Badge>;
+    } else if (status === 'En análisis') {
+      return <Badge variant="outline" className={cn("border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:border-yellow-500/60 dark:bg-yellow-500/20 dark:text-yellow-400")}>{status}</Badge>;
+    } else if (status === 'Finalizado') {
+      return <Badge variant="outline" className={cn("border-green-500/50 bg-green-500/10 text-green-700 dark:border-green-500/60 dark:bg-green-500/20 dark:text-green-400")}>{status}</Badge>;
+    }
+    return <Badge variant="outline">{status}</Badge>;
+  };
 
   return (
     <div className="space-y-8 py-8">
@@ -407,7 +409,7 @@ export default function EventosReportadosPage() {
                           checked={selectedEvent?.id === event.id}
                           onCheckedChange={() => handleSelectEvent(event)}
                           aria-label={`Seleccionar evento ${event.title}`}
-                        /></TableCell><TableCell className="font-mono text-xs">{event.id}</TableCell><TableCell className="font-medium">{event.title}</TableCell><TableCell>{event.site}</TableCell><TableCell>{formatDateForDisplay(event.date)}</TableCell><TableCell>{event.type}</TableCell><TableCell>{event.priority}</TableCell><TableCell><Badge variant={getStatusBadgeVariant(event.status)}>{event.status}</Badge></TableCell></TableRow>
+                        /></TableCell><TableCell className="font-mono text-xs">{event.id}</TableCell><TableCell className="font-medium">{event.title}</TableCell><TableCell>{event.site}</TableCell><TableCell>{formatDateForDisplay(event.date)}</TableCell><TableCell>{event.type}</TableCell><TableCell>{event.priority}</TableCell><TableCell>{renderStatusBadge(event.status)}</TableCell></TableRow>
                   ))
                 ) : (
                   <TableRow>
@@ -439,7 +441,7 @@ export default function EventosReportadosPage() {
               buttonVariant = "outline";
               buttonOnClick = handleViewAnalysis;
             } else if (selectedEvent.status === 'Pendiente') {
-              buttonText = "Iniciar Investigación"; // Changed text
+              buttonText = "Iniciar Investigación"; 
               ButtonIcon = PlayCircle;
               buttonOnClick = handleStartRCA;
               isDisabled = isUpdatingStatus;
@@ -448,7 +450,7 @@ export default function EventosReportadosPage() {
               buttonText = "Continuar Investigación";
               ButtonIcon = PlayCircle;
               buttonOnClick = handleViewAnalysis;
-            } else { // Should not happen with defined statuses
+            } else { 
               buttonText = "Estado Inválido";
               ButtonIcon = AlertTriangle;
               isDisabled = true;
@@ -478,7 +480,7 @@ export default function EventosReportadosPage() {
             <div><strong>Fecha:</strong> {formatDateForDisplay(selectedEvent.date)}</div>
             <div><strong>Tipo:</strong> {selectedEvent.type}</div>
             <div><strong>Prioridad:</strong> {selectedEvent.priority}</div>
-            <div><strong>Estado:</strong> <Badge variant={getStatusBadgeVariant(selectedEvent.status)}>{selectedEvent.status}</Badge></div>
+            <div><strong>Estado:</strong> {renderStatusBadge(selectedEvent.status)}</div>
             <div>
               <strong>Descripción Inicial:</strong>
               <p className="mt-1 text-sm text-muted-foreground p-2 border rounded-md bg-secondary/30">
@@ -494,4 +496,3 @@ export default function EventosReportadosPage() {
     </div>
   );
 }
-
