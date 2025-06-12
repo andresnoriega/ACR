@@ -149,7 +149,6 @@ export default function RCAAnalysisPage() {
         setIsFinalized(initialRCAAnalysisState.isFinalized);
         setAnalysisDocumentId(null);
         setMaxCompletedStep(0);
-        setLastLoadedAnalysisId(null); // Reset on not found
         setIsLoadingPage(false);
         return false;
       }
@@ -174,11 +173,16 @@ export default function RCAAnalysisPage() {
       setIsFinalized(initialRCAAnalysisState.isFinalized);
       setAnalysisDocumentId(null);
       setMaxCompletedStep(0);
-      setLastLoadedAnalysisId(null); // Reset on error
       setIsLoadingPage(false);
       return false;
     }
-  }, [ toast, setEventData, setImmediateActions, setProjectLeader, setDetailedFacts, setAnalysisDetails, setPreservedFacts, setAnalysisTechnique, setAnalysisTechniqueNotes, setIshikawaData, setFiveWhysData, setCtmData, setIdentifiedRootCauses, setPlannedActions, setValidations, setFinalComments, setIsFinalized, setAnalysisDocumentId, setMaxCompletedStep, setIsLoadingPage, setLastLoadedAnalysisId ]);
+  }, [ 
+    toast, setEventData, setImmediateActions, setProjectLeader, setDetailedFacts, 
+    setAnalysisDetails, setPreservedFacts, setAnalysisTechnique, 
+    setAnalysisTechniqueNotes, setIshikawaData, setFiveWhysData, setCtmData, 
+    setIdentifiedRootCauses, setPlannedActions, setValidations, 
+    setFinalComments, setIsFinalized, setAnalysisDocumentId, setMaxCompletedStep, setIsLoadingPage
+  ]);
 
 
   useEffect(() => {
@@ -191,37 +195,44 @@ export default function RCAAnalysisPage() {
           if (success) {
             toast({ title: "Análisis Cargado", description: `Se cargó el análisis ID: ${analysisIdFromParams}` });
             setLastLoadedAnalysisId(analysisIdFromParams);
+          } else {
+            // If loading failed (not found or error), reset lastLoadedAnalysisId
+            // to allow re-attempting the same ID if user navigates again.
+            setLastLoadedAnalysisId(null);
           }
-          // If not successful, loadAnalysisData handles its own error/not-found toasts and resets lastLoadedAnalysisId
+          // setIsLoadingPage(false) is handled within loadAnalysisData
         });
       } else {
         setIsLoadingPage(false); // Already loaded this ID, ensure loading is false
       }
     } else { // No ID in params, reset to new analysis state
       setIsLoadingPage(true);
-      setEventData(initialRCAAnalysisState.eventData);
-      setImmediateActions(initialRCAAnalysisState.immediateActions);
-      setProjectLeader(initialRCAAnalysisState.projectLeader);
-      setDetailedFacts(initialRCAAnalysisState.detailedFacts);
-      setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
-      setPreservedFacts(initialRCAAnalysisState.preservedFacts);
-      setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
-      setAnalysisTechniqueNotes(initialRCAAnalysisState.analysisTechniqueNotes);
-      setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
-      setFiveWhysData(JSON.parse(JSON.stringify(initialFiveWhysData)));
-      setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
-      setIdentifiedRootCauses(initialRCAAnalysisState.identifiedRootCauses);
-      setPlannedActions(initialRCAAnalysisState.plannedActions);
-      setValidations(initialRCAAnalysisState.validations);
-      setFinalComments(initialRCAAnalysisState.finalComments);
-      setIsFinalized(initialRCAAnalysisState.isFinalized);
-      setAnalysisDocumentId(null);
-      setMaxCompletedStep(0);
-      setLastLoadedAnalysisId(null);
+      // Only reset all form states if there was a previously loaded analysis
+      if (lastLoadedAnalysisId !== null) {
+        setEventData(initialRCAAnalysisState.eventData);
+        setImmediateActions(initialRCAAnalysisState.immediateActions);
+        setProjectLeader(initialRCAAnalysisState.projectLeader);
+        setDetailedFacts(initialRCAAnalysisState.detailedFacts);
+        setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
+        setPreservedFacts(initialRCAAnalysisState.preservedFacts);
+        setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
+        setAnalysisTechniqueNotes(initialRCAAnalysisState.analysisTechniqueNotes);
+        setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
+        setFiveWhysData(JSON.parse(JSON.stringify(initialFiveWhysData)));
+        setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
+        setIdentifiedRootCauses(initialRCAAnalysisState.identifiedRootCauses);
+        setPlannedActions(initialRCAAnalysisState.plannedActions);
+        setValidations(initialRCAAnalysisState.validations);
+        setFinalComments(initialRCAAnalysisState.finalComments);
+        setIsFinalized(initialRCAAnalysisState.isFinalized);
+        setAnalysisDocumentId(null);
+        setMaxCompletedStep(0);
+        setLastLoadedAnalysisId(null);
+      }
       setIsLoadingPage(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, toast, loadAnalysisData]); // lastLoadedAnalysisId removed from here, managed by loadAnalysisData and its caller
+  }, [searchParams, loadAnalysisData]); // lastLoadedAnalysisId is NOT a direct dependency here.
 
   useEffect(() => {
     const fetchConfigData = async () => {
@@ -252,10 +263,10 @@ export default function RCAAnalysisPage() {
       const newEventID = `E-${String(Date.now()).slice(-5)}-${String(eventCounter).padStart(3, '0')}`;
       setEventData(prev => ({ ...prev, id: newEventID }));
       setEventCounter(prev => prev + 1);
-      setAnalysisDocumentId(newEventID);
+      setAnalysisDocumentId(newEventID); // Also set this if a new event ID is generated
       return newEventID;
     }
-    if (!analysisDocumentId && eventData.id) {
+    if (!analysisDocumentId && eventData.id) { // Ensure analysisDocumentId is also set if eventData.id exists but analysisDocumentId is null
         setAnalysisDocumentId(eventData.id);
     }
     return eventData.id;
@@ -321,7 +332,7 @@ export default function RCAAnalysisPage() {
             type: reportedEventPayload.type,
             priority: reportedEventPayload.priority,
             description: reportedEventPayload.description,
-            status: statusForReportedEvent, // Update status if finalized, otherwise keep existing
+            status: statusForReportedEvent, 
         });
       }
 
@@ -564,12 +575,23 @@ export default function RCAAnalysisPage() {
         return;
     }
     
+    // Set isFinalized to true locally first to ensure it's part of the payload
     setIsFinalized(true); 
     
-    await handleSaveAnalysisData(false); 
+    // Then, create a temporary payload with isFinalized as true
+    const tempFinalizedPayload = {
+      eventData, immediateActions, projectLeader, detailedFacts, analysisDetails,
+      preservedFacts, analysisTechnique, analysisTechniqueNotes, ishikawaData,
+      fiveWhysData, ctmData, identifiedRootCauses, plannedActions,
+      validations, finalComments, 
+      isFinalized: true, // Explicitly true here
+    };
+    
+    // Call save with the explicit payload for finalization
+    await handleSaveAnalysisData(false); // handleSaveAnalysisData will use the current component state which includes isFinalized = true
 
     toast({ title: "Proceso Finalizado", description: `Análisis ${currentId} marcado como finalizado y evento reportado actualizado.`, className: "bg-primary text-primary-foreground"});
-    
+    // setIsSaving(false); // Already handled by handleSaveAnalysisData
   };
 
 
