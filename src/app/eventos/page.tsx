@@ -35,7 +35,6 @@ interface Filters {
   status: ReportedEventStatus;
 }
 
-// Helper function to update event status in Firestore
 async function updateEventStatusInFirestore(eventId: string, newStatus: ReportedEventStatus, toastInstance: ReturnType<typeof useToast>['toast']) {
   const eventRef = doc(db, "reportedEvents", eventId);
   try {
@@ -206,7 +205,6 @@ export default function EventosReportadosPage() {
       toast({ title: "Acción no Válida", description: "Esta acción solo es para eventos pendientes.", variant: "destructive" });
       return;
     }
-
     setIsUpdatingStatus(true);
     const success = await updateEventStatusInFirestore(selectedEvent.id, "En análisis", toast);
     if (success) {
@@ -429,26 +427,32 @@ export default function EventosReportadosPage() {
             let buttonVariant: "default" | "outline" = "default";
             let buttonOnClick = () => {};
             let isDisabled = false;
+            let showLoader = false;
 
-            if (selectedEvent.status === 'Pendiente') {
-              buttonText = "Continuar Investigación";
-              ButtonIcon = PlayCircle;
-              buttonOnClick = handleStartRCA;
-              isDisabled = isUpdatingStatus;
-            } else if (selectedEvent.status === 'En análisis') {
-              buttonText = "Continuar Investigación";
-              ButtonIcon = PlayCircle;
-              buttonOnClick = handleViewAnalysis;
-            } else if (selectedEvent.status === 'Finalizado') {
+            if (selectedEvent.status === 'Finalizado') {
               buttonText = "Revisar Investigación";
               ButtonIcon = Eye;
               buttonVariant = "outline";
               buttonOnClick = handleViewAnalysis;
+            } else if (selectedEvent.status === 'Pendiente') {
+              buttonText = "Continuar Investigación";
+              ButtonIcon = PlayCircle;
+              buttonOnClick = handleStartRCA;
+              isDisabled = isUpdatingStatus;
+              showLoader = isUpdatingStatus;
+            } else if (selectedEvent.status === 'En análisis') {
+              buttonText = "Continuar Investigación";
+              ButtonIcon = PlayCircle;
+              buttonOnClick = handleViewAnalysis;
+            } else {
+              // Fallback for any unexpected status
+              buttonText = "Estado Inválido";
+              isDisabled = true;
             }
             
             return (
               <Button variant={buttonVariant} size="sm" onClick={buttonOnClick} disabled={isDisabled}>
-                {isDisabled && selectedEvent.status === 'Pendiente' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ButtonIcon className="mr-2 h-4 w-4" />}
+                {showLoader ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ButtonIcon className="mr-2 h-4 w-4" />}
                 {buttonText}
               </Button>
             );
@@ -486,4 +490,3 @@ export default function EventosReportadosPage() {
     </div>
   );
 }
-
