@@ -97,13 +97,13 @@ export default function UserActionPlansPage() {
       return [];
     }
     const plans: ActionPlan[] = [];
-    const uniqueTracker = new Set<string>(); // To track unique rcaId-actionId pairs
+    const uniqueTracker = new Set<string>(); // Use pa.id for tracking, as it should be globally unique
 
     allRcaDocuments.forEach(rcaDoc => {
       if (rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
         rcaDoc.plannedActions.forEach(pa => {
           if (pa.responsible === selectedSimulatedUserName) {
-            const uniqueKey = `${rcaDoc.eventData.id}-${pa.id}`;
+            const uniqueKey = pa.id; // PlannedAction.id should be globally unique
             if (!uniqueTracker.has(uniqueKey)) {
               uniqueTracker.add(uniqueKey);
             
@@ -262,13 +262,6 @@ export default function UserActionPlansPage() {
   
   const handleUpdateStatus = async (newStatus: ActionPlan['estado']) => {
     if (!selectedPlan) return;
-
-    // This function primarily updates local display. Firestore update for 'validated' status happens in Step 4.
-    // For 'En proceso' or 'Pendiente', it's based on comments/evidence.
-    // We will update the local state for immediate feedback, and if necessary,
-    // can trigger a save of userComments or evidence here if this button is meant to also save those.
-    // For now, this button will just update the *local* 'estado' if not 'Completado'.
-    // Actual validation to 'Completado' is done in Step 4.
     
     const rcaDoc = allRcaDocuments.find(d => d.eventData.id === selectedPlan._originalRcaDocId);
     const validation = rcaDoc?.validations?.find(v => v.actionId === selectedPlan._originalActionId);
@@ -278,19 +271,8 @@ export default function UserActionPlansPage() {
         return;
     }
     
-    // If the user tries to set to 'Pendiente' or 'En proceso', we can allow it.
-    // This typically means they are working on it.
-    // The actual saving of this conceptual "status" (other than 'Completado')
-    // happens when comments or evidence are saved.
-    // For this demo, we update locally.
-
     const updatedPlan = { ...selectedPlan, estado: newStatus, ultimaActualizacion: {usuario: selectedSimulatedUserName || "Usuario", mensaje: `Estado cambiado a ${newStatus}.`, fechaRelativa: '(ahora)'}};
     setSelectedPlan(updatedPlan);
-
-    // Update in the main list for summary re-calculation
-    // This is a bit of a hack as the `currentUserActionPlans` is memoized.
-    // A proper solution might involve re-fetching or more complex state update.
-    // For now, we'll just update the displayed plan.
     
     toast({ title: "Estado (Local) Actualizado", description: `El plan "${selectedPlan.tituloDetalle}" se marcó como "${newStatus}" en la vista. La persistencia de 'Completado' ocurre en Validación.` });
   };
@@ -423,11 +405,11 @@ export default function UserActionPlansPage() {
                 <TableBody>
                   {currentUserActionPlans.map((plan) => (
                     <TableRow 
-                      key={`${plan._originalRcaDocId}-${plan.id}`} 
+                      key={plan.id} 
                       onClick={() => handleSelectPlan(plan)}
                       className={cn(
                           "cursor-pointer hover:bg-muted/50",
-                          selectedPlan?.id === plan.id && selectedPlan?._originalRcaDocId === plan._originalRcaDocId && "bg-accent/50 hover:bg-accent/60"
+                          selectedPlan?.id === plan.id && "bg-accent/50 hover:bg-accent/60"
                       )}
                     >
                       <TableCell className="font-medium">{plan.accionResumen}</TableCell>
