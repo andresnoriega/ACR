@@ -14,11 +14,10 @@ import { collection, getDocs, query, Timestamp, where, orderBy, limit } from "fi
 import { format, parseISO, isValid, formatDistanceToNowStrict } from "date-fns";
 import { es } from 'date-fns/locale';
 
-interface StatsData {
-  totalEventos: number;
-  pendientes: number;
-  enAnalisis: number;
-  finalizados: number;
+interface ActionStatsData {
+  totalAcciones: number;
+  accionesPendientes: number;
+  accionesValidadas: number;
 }
 
 interface AnalisisEnCursoItem {
@@ -47,8 +46,8 @@ interface ActividadRecienteItem {
 
 
 export default function DashboardRCAPage() {
-  const [statsData, setStatsData] = useState<StatsData | null>(null);
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [actionStatsData, setActionStatsData] = useState<ActionStatsData | null>(null);
+  const [isLoadingActionStats, setIsLoadingActionStats] = useState(true);
   
   const [analisisEnCurso, setAnalisisEnCurso] = useState<AnalisisEnCursoItem[]>([]);
   const [isLoadingAnalisisEnCurso, setIsLoadingAnalisisEnCurso] = useState(true);
@@ -72,33 +71,41 @@ export default function DashboardRCAPage() {
   };
 
   useEffect(() => {
-    const fetchStats = async () => {
-      setIsLoadingStats(true);
+    const fetchActionStats = async () => {
+      setIsLoadingActionStats(true);
       try {
-        const eventsCollectionRef = collection(db, "reportedEvents");
-        const querySnapshot = await getDocs(eventsCollectionRef);
-        const events = querySnapshot.docs.map(doc => {
-            const data = doc.data();
-            let eventDateStr = data.date; 
-            if (data.date && typeof data.date.toDate === 'function') { 
-                eventDateStr = format(data.date.toDate(), 'yyyy-MM-dd');
-            }
-            return { ...data, date: eventDateStr } as ReportedEvent;
+        const rcaAnalysesRef = collection(db, "rcaAnalyses");
+        const querySnapshot = await getDocs(rcaAnalysesRef);
+        
+        let totalAcciones = 0;
+        let accionesPendientes = 0;
+        let accionesValidadas = 0;
+
+        querySnapshot.forEach(docSnap => {
+          const rcaDoc = docSnap.data() as RCAAnalysisDocument;
+          if (rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
+            rcaDoc.plannedActions.forEach(action => {
+              totalAcciones++;
+              const validation = rcaDoc.validations?.find(v => v.actionId === action.id);
+              if (validation && validation.status === 'validated') {
+                accionesValidadas++;
+              } else {
+                accionesPendientes++;
+              }
+            });
+          }
         });
         
-        const newStats: StatsData = {
-          totalEventos: events.length,
-          pendientes: events.filter(e => e.status === 'Pendiente').length,
-          enAnalisis: events.filter(e => e.status === 'En análisis').length,
-          finalizados: events.filter(e => e.status === 'Finalizado').length,
-        };
-        
-        setStatsData(newStats);
+        setActionStatsData({
+          totalAcciones,
+          accionesPendientes,
+          accionesValidadas,
+        });
       } catch (error) {
-        console.error("Error fetching stats for dashboard: ", error);
-        setStatsData({ totalEventos: 0, pendientes: 0, enAnalisis: 0, finalizados: 0 }); 
+        console.error("Error fetching action stats for dashboard: ", error);
+        setActionStatsData({ totalAcciones: 0, accionesPendientes: 0, accionesValidadas: 0 }); 
       } finally {
-        setIsLoadingStats(false);
+        setIsLoadingActionStats(false);
       }
     };
 
@@ -106,6 +113,7 @@ export default function DashboardRCAPage() {
       setIsLoadingAnalisisEnCurso(true);
       try {
         const rcaAnalysesRef = collection(db, "rcaAnalyses");
+        // Firestore query for documents where isFinalized is false, ordered by updatedAt
         const q = query(rcaAnalysesRef, where("isFinalized", "==", false), orderBy("updatedAt", "desc"));
         const querySnapshot = await getDocs(q);
         const analysesData = querySnapshot.docs.map(docSnap => {
@@ -175,12 +183,21 @@ export default function DashboardRCAPage() {
                 fechaLimite: action.dueDate ? format(parseISO(action.dueDate), 'dd/MM/yyyy', { locale: es }) : 'N/A',
                 estado: 'Activa',
                 rcaId: docSnap.id,
-                rcaTitle: rcaDoc.eventData.focusEventDescription
+                rcaTitle: rcaDoc.eventData.focusEventDescription || `Análisis ID ${docSnap.id.substring(0,5)}...`
               });
             }
           });
         });
-        setPlanesAccionPendientes(planes.sort((a,b) => new Date(a.fechaLimite).getTime() - new Date(b.fechaLimite).getTime()).slice(0, 5)); // Show top 5 by due date
+        setPlanesAccionPendientes(planes.sort((a,b) => {
+            try {
+                const dateA = parseISO(a.fechaLimite.split('/').reverse().join('-'));
+                const dateB = parseISO(b.fechaLimite.split('/').reverse().join('-'));
+                if (isValid(dateA) && isValid(dateB)) return dateA.getTime() - dateB.getTime();
+                if (isValid(dateA)) return -1; // a antes si b es inválida
+                if (isValid(dateB)) return 1;  // b antes si a es inválida
+            } catch (e) { /* Silently ignore parsing errors for sorting */ }
+            return 0; // Mantener orden si hay fechas inválidas
+        }).slice(0, 5)); // Show top 5 by due date
       } catch (error) {
         console.error("Error fetching planes de acción: ", error);
         setPlanesAccionPendientes([]);
@@ -193,49 +210,49 @@ export default function DashboardRCAPage() {
       setIsLoadingActividadReciente(true);
       const actividades: ActividadRecienteItem[] = [];
       try {
-        // Fetch recent reported events
         const eventsRef = collection(db, "reportedEvents");
         const eventsQuery = query(eventsRef, orderBy("updatedAt", "desc"), limit(3));
         const eventsSnapshot = await getDocs(eventsQuery);
         eventsSnapshot.forEach(docSnap => {
           const event = docSnap.data() as ReportedEvent;
           let desc = `Evento '${event.title}'`;
-          if (event.createdAt === event.updatedAt) {
+          if (event.createdAt === event.updatedAt) { // Assuming createdAt exists, might need to adjust if not always present
             desc += ` registrado.`;
           } else {
              desc += ` actualizado (Estado: ${event.status}).`;
           }
-          actividades.push({
-            id: docSnap.id,
-            descripcion: desc,
-            tiempo: formatRelativeTime(event.updatedAt),
-            tipoIcono: event.status === 'Finalizado' ? 'finalizado' : 'evento'
-          });
+          if (event.updatedAt) { // Only add if updatedAt exists
+            actividades.push({
+              id: `evt-${docSnap.id}`,
+              descripcion: desc,
+              tiempo: formatRelativeTime(event.updatedAt),
+              tipoIcono: event.status === 'Finalizado' ? 'finalizado' : 'evento'
+            });
+          }
         });
 
-        // Fetch recent RCA analyses updates
         const analysesRef = collection(db, "rcaAnalyses");
         const analysesQuery = query(analysesRef, orderBy("updatedAt", "desc"), limit(3));
         const analysesSnapshot = await getDocs(analysesQuery);
         analysesSnapshot.forEach(docSnap => {
           const analysis = docSnap.data() as RCAAnalysisDocument;
-          actividades.push({
-            id: docSnap.id,
-            descripcion: `Análisis '${analysis.eventData.focusEventDescription}' actualizado.`,
-            tiempo: formatRelativeTime(analysis.updatedAt),
-            tipoIcono: analysis.isFinalized ? 'finalizado' : 'analisis'
-          });
+           if (analysis.updatedAt) { // Only add if updatedAt exists
+            actividades.push({
+              id: `rca-${docSnap.id}`,
+              descripcion: `Análisis '${analysis.eventData.focusEventDescription}' actualizado.`,
+              tiempo: formatRelativeTime(analysis.updatedAt),
+              tipoIcono: analysis.isFinalized ? 'finalizado' : 'analisis'
+            });
+          }
         });
-
-        // Sort combined activities and take top 5
+        
         actividades.sort((a, b) => {
-            // Attempt to parse 'tiempo' back to date for sorting; this is tricky with relative strings.
-            // A more robust solution would sort by original ISO date before formatting.
-            // For now, this is a placeholder for proper sorting.
-            // We'll rely on the limit(3) from each query and then interleave them.
-            // A better approach would be to use the original date for sorting.
-            // For this example, we'll just use the order they came in, which is roughly chronological due to limit.
-            return 0; 
+            // This basic sort is okay for relative times like "hace X [unidad]"
+            // but would be more robust if we sorted by the original ISO date strings.
+            // For now, we assume formatRelativeTime produces comparable strings in this limited set.
+            const aTime = new Date(Date.now() - (a.tiempo.includes("segundo") ? 1000 : a.tiempo.includes("minuto") ? 60000 : a.tiempo.includes("hora") ? 3600000 : a.tiempo.includes("día") ? 86400000 : 0 ) * (parseInt(a.tiempo) || 0) ).getTime();
+            const bTime = new Date(Date.now() - (b.tiempo.includes("segundo") ? 1000 : b.tiempo.includes("minuto") ? 60000 : b.tiempo.includes("hora") ? 3600000 : b.tiempo.includes("día") ? 86400000 : 0 ) * (parseInt(b.tiempo) || 0) ).getTime();
+            return bTime - aTime; // Sort descending (most recent first)
         });
         setActividadReciente(actividades.slice(0, 5));
 
@@ -247,8 +264,7 @@ export default function DashboardRCAPage() {
       }
     };
 
-
-    fetchStats();
+    fetchActionStats();
     fetchAnalisisEnCurso();
     fetchPlanesAccion();
     fetchActividadReciente();
@@ -277,45 +293,41 @@ export default function DashboardRCAPage() {
         </p>
       </header>
 
-      {/* Resumen Estadístico */}
+      {/* Resumen de Acciones Correctivas */}
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex items-center gap-3">
             <PieChart className="h-6 w-6 text-primary" />
-            <CardTitle className="text-2xl">Resumen Estadístico de Eventos</CardTitle>
+            <CardTitle className="text-2xl">Resumen de Acciones Correctivas</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-center">
-          {isLoadingStats ? (
+        <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+          {isLoadingActionStats ? (
             <>
-              {[...Array(4)].map((_, i) => (
+              {[...Array(3)].map((_, i) => (
                 <div key={i} className="p-4 bg-secondary/30 rounded-lg flex flex-col items-center justify-center h-24">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 </div>
               ))}
             </>
-          ) : statsData ? (
+          ) : actionStatsData ? (
             <>
               <div className="p-4 bg-secondary/40 rounded-lg">
-                <p className="text-3xl font-bold text-primary">{statsData.totalEventos}</p>
-                <p className="text-sm text-muted-foreground">Total de Eventos</p>
-              </div>
-              <div className="p-4 bg-destructive/10 rounded-lg">
-                <p className="text-3xl font-bold text-destructive">{statsData.pendientes}</p>
-                <p className="text-sm text-muted-foreground">Eventos Pendientes</p>
+                <p className="text-3xl font-bold text-primary">{actionStatsData.totalAcciones}</p>
+                <p className="text-sm text-muted-foreground">Total de Acciones</p>
               </div>
               <div className="p-4 bg-yellow-400/20 rounded-lg">
-                <p className="text-3xl font-bold text-yellow-600">{statsData.enAnalisis}</p>
-                <p className="text-sm text-muted-foreground">Eventos En Análisis</p>
+                <p className="text-3xl font-bold text-yellow-600">{actionStatsData.accionesPendientes}</p>
+                <p className="text-sm text-muted-foreground">Acciones Pendientes</p>
               </div>
               <div className="p-4 bg-green-400/20 rounded-lg">
-                <p className="text-3xl font-bold text-green-600">{statsData.finalizados}</p>
-                <p className="text-sm text-muted-foreground">Eventos Finalizados</p>
+                <p className="text-3xl font-bold text-green-600">{actionStatsData.accionesValidadas}</p>
+                <p className="text-sm text-muted-foreground">Acciones Validadas</p>
               </div>
             </>
           ) : (
              <div className="col-span-full p-4 bg-secondary/30 rounded-lg text-center">
-                <p className="text-muted-foreground">No se pudieron cargar las estadísticas.</p>
+                <p className="text-muted-foreground">No se pudieron cargar las estadísticas de acciones.</p>
             </div>
           )}
         </CardContent>
