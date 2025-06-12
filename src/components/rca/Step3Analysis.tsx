@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2 } from 'lucide-react';
+import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2, Save, Send } from 'lucide-react'; // Added Save, Send
 import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
 import { FiveWhysInteractive } from './FiveWhysInteractive';
@@ -107,14 +107,14 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   };
   const minDateForPlannedActions = getTodayDateString();
 
-  const handleNextWithValidation = () => {
+  const validateStepContinue = (): boolean => {
     if (identifiedRootCauses.length === 0) {
       toast({
         title: "Campo Obligatorio Faltante",
         description: "Debe añadir al menos una Causa Raíz Identificada.",
         variant: "destructive",
       });
-      return;
+      return false;
     }
     for (const rc of identifiedRootCauses) {
       if (!rc.description.trim()) {
@@ -123,7 +123,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
           description: `La Causa Raíz ID: ${rc.id.substring(0,7)}... debe tener una descripción.`,
           variant: "destructive",
         });
-        return;
+        return false;
       }
     }
 
@@ -138,7 +138,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
             description: `La Acción Planificada ${actionLabel} requiere una descripción.`,
             variant: "destructive",
           });
-          return;
+          return false;
         }
         if (!action.relatedRootCauseIds || action.relatedRootCauseIds.length === 0) {
           toast({
@@ -146,7 +146,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
             description: `La Acción Planificada ${actionLabel} debe abordar al menos una Causa Raíz.`,
             variant: "destructive",
           });
-          return;
+          return false;
         }
         if (!action.responsible) {
           toast({
@@ -154,7 +154,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
             description: `La Acción Planificada ${actionLabel} requiere un responsable.`,
             variant: "destructive",
           });
-          return;
+          return false;
         }
         if (!action.dueDate) {
           toast({
@@ -162,11 +162,97 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
             description: `La Acción Planificada ${actionLabel} requiere una fecha límite.`,
             variant: "destructive",
           });
-          return;
+          return false;
         }
       }
     }
-    // If all validations pass for planned actions (or if there are no planned actions and root causes are fine)
+    return true;
+  }
+
+  const handleSaveProgress = () => {
+    // Basic validation: at least one root cause if others are empty
+    if (identifiedRootCauses.length === 0 && plannedActions.length === 0 && analysisTechniqueNotes.trim() === '') {
+        toast({
+            title: "Nada que guardar",
+            description: "No hay información significativa para guardar en este paso.",
+            variant: "default"
+        });
+        return;
+    }
+    // Check if root causes have descriptions if they exist
+    for (const rc of identifiedRootCauses) {
+      if (!rc.description.trim()) {
+        toast({
+          title: "Guardado Parcial (Advertencia)",
+          description: `La Causa Raíz ID: ${rc.id.substring(0,7)}... no tiene descripción. Se guardó el resto.`,
+          variant: "default",
+        });
+        // Continue saving other data
+      }
+    }
+    toast({
+      title: "Progreso Guardado",
+      description: "El estado actual del análisis ha sido guardado (simulación).",
+    });
+  };
+
+  const handleSendTasks = () => {
+    if (plannedActions.length === 0) {
+      toast({
+        title: "Sin Tareas para Enviar",
+        description: "No hay acciones planificadas definidas.",
+        variant: "default"
+      });
+      return;
+    }
+
+    let tasksSentCount = 0;
+    plannedActions.forEach(action => {
+      if (action.responsible && action.description.trim() && action.dueDate) {
+        const responsibleUser = availableUsers.find(user => user.name === action.responsible);
+        if (responsibleUser && responsibleUser.email) {
+          toast({
+            title: "Simulación de Envío de Correo (Tarea)",
+            description: `Tarea enviada a ${responsibleUser.name} (${responsibleUser.email}): "${action.description.substring(0, 50)}${action.description.length > 50 ? "..." : ""}".`,
+            duration: 4000,
+          });
+          tasksSentCount++;
+        } else {
+           toast({
+            title: "Error al Enviar Tarea",
+            description: `No se pudo encontrar el correo para el responsable de la tarea: "${action.description.substring(0, 50)}...".`,
+            variant: "destructive",
+            duration: 4000,
+          });
+        }
+      } else if (action.responsible) { // Has responsible but other fields missing
+         toast({
+            title: "Tarea Incompleta",
+            description: `La tarea para ${action.responsible} no se puede enviar porque falta descripción o fecha límite.`,
+            variant: "destructive",
+            duration: 4000,
+          });
+      }
+    });
+
+    if (tasksSentCount === 0 && plannedActions.some(pa => !pa.responsible)) {
+         toast({
+            title: "Tareas No Enviadas",
+            description: "Algunas tareas no pudieron ser enviadas porque no tienen un responsable asignado, o les falta descripción/fecha.",
+            variant: "default"
+        });
+    } else if (tasksSentCount > 0) {
+         toast({
+            title: "Envío de Tareas Procesado",
+            description: `${tasksSentCount} tarea(s) fueron "enviadas".`,
+        });
+    }
+  };
+
+  const handleContinue = () => {
+    if (!validateStepContinue()) {
+      return;
+    }
     if (plannedActions.length === 0 && identifiedRootCauses.length > 0 && identifiedRootCauses.every(rc => rc.description.trim())) {
         toast({
             title: "Advertencia: Sin Plan de Acción",
@@ -176,9 +262,8 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
             ),
             duration: 8000,
         });
-        return; // Prevent automatic next step if there are no planned actions. User must click "Sí, continuar"
+        return; 
     }
-
     onNext();
   };
 
@@ -352,10 +437,20 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
           </Button>
         </div>
       </CardContent>
-      <CardFooter className="flex justify-between">
-        <Button onClick={onPrevious} variant="outline" className="transition-transform hover:scale-105">Anterior</Button>
-        <Button onClick={handleNextWithValidation} className="transition-transform hover:scale-105">Guardar y Continuar</Button>
+      <CardFooter className="flex flex-col sm:flex-row justify-between gap-2 pt-4 border-t">
+        <Button onClick={onPrevious} variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105">Anterior</Button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Button onClick={handleSaveProgress} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105">
+                <Save className="mr-2 h-4 w-4" /> Guardar Avance
+            </Button>
+            <Button onClick={handleSendTasks} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105">
+                <Send className="mr-2 h-4 w-4" /> Enviar Tareas
+            </Button>
+            <Button onClick={handleContinue} className="w-full sm:w-auto transition-transform hover:scale-105">Continuar</Button>
+        </div>
       </CardFooter>
     </Card>
   );
 };
+
+    

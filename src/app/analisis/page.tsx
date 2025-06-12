@@ -96,11 +96,11 @@ export default function RCAAnalysisPage() {
       const newEventID = `E-${String(eventCounter).padStart(5, '0')}`;
       setEventData(prev => ({ ...prev, id: newEventID }));
       setEventCounter(prev => prev + 1);
-      toast({ title: "ID de Evento Generado", description: `Nuevo ID de evento: ${newEventID}` });
+      // toast({ title: "ID de Evento Generado", description: `Nuevo ID de evento: ${newEventID}` }); // Toast moved to save action
       return newEventID;
     }
     return eventData.id;
-  }, [eventData.id, eventCounter, toast]);
+  }, [eventData.id, eventCounter]);
 
 
   const handleGoToStep = (targetStep: number) => {
@@ -120,22 +120,10 @@ export default function RCAAnalysisPage() {
   };
 
   const handleNextStep = () => {
-    const currentEventId = ensureEventId(); 
+    ensureEventId(); 
 
-    if (step === 3) { // Correo para acciones planificadas (Paso 3)
-      plannedActions.forEach(action => {
-        if (action.responsible) {
-          const responsibleUser = sampleUserProfiles.find(user => user.name === action.responsible);
-          if (responsibleUser && responsibleUser.email) {
-            toast({
-              title: "Simulación de Envío de Correo (Acción Planificada)",
-              description: `Correo enviado a ${responsibleUser.name} (${responsibleUser.email}) sobre la acción: "${action.description.substring(0, 50)}${action.description.length > 50 ? "..." : ""}".`,
-              duration: 5000,
-            });
-          }
-        }
-      });
-    }
+    // Removed email sending logic for planned actions from here, as it's now in Step3Analysis component.
+    // if (step === 3) { /* ... email sending logic was here ... */ }
 
     const newStep = Math.min(step + 1, 5);
     const newMaxCompletedStep = Math.max(maxCompletedStep, step);
@@ -153,8 +141,7 @@ export default function RCAAnalysisPage() {
   };
 
   const handleAddImmediateAction = () => {
-    // ensureEventId() se llamará explícitamente en la lógica de guardado o al continuar
-    const tempEventId = eventData.id || `TEMP-${Date.now()}`; // ID temporal si aún no existe
+    const tempEventId = eventData.id || `TEMP-${Date.now()}`; 
     const newActionId = `${tempEventId}-IMA-${String(immediateActionCounter).padStart(3, '0')}`;
     setImmediateActions(prev => [...prev, { id: newActionId, eventId: tempEventId, description: '', responsible: '', dueDate: '' }]);
     setImmediateActionCounter(prev => prev + 1);
@@ -338,9 +325,9 @@ export default function RCAAnalysisPage() {
             onUpdateImmediateAction={handleUpdateImmediateAction}
             onRemoveImmediateAction={handleRemoveImmediateAction}
             availableSites={sampleAvailableSites}
-            availableUsers={sampleUserProfiles} // Pass full user profile for email access
+            availableUsers={sampleUserProfiles} 
             onContinue={handleNextStep}
-            onForceEnsureEventId={ensureEventId} // Pass ensureEventId
+            onForceEnsureEventId={ensureEventId} 
           />
         )}
       </div>
@@ -432,3 +419,4 @@ export default function RCAAnalysisPage() {
   );
 }
 
+    
