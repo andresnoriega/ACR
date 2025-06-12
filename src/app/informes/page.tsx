@@ -23,6 +23,8 @@ const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Fallo', 'Accidente'
 const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
 const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'Finalizado'];
 const ALL_FILTER_VALUE = "__ALL__";
+const NO_SITES_PLACEHOLDER_VALUE = "__NO_SITES_PLACEHOLDER__";
+
 
 interface ActionStatsData {
   totalAcciones: number;
@@ -38,12 +40,12 @@ interface AnalisisEnCursoItem {
 }
 
 interface PlanAccionPendienteItem {
+  rcaId: string;
   actionId: string;
   accion: string;
   responsable: string;
   fechaLimite: string;
   estado: 'Activa' | 'Validada'; 
-  rcaId: string;
   rcaTitle: string;
 }
 
@@ -113,8 +115,10 @@ export default function DashboardRCAPage() {
     if (currentFilters.status) {
       if (currentFilters.status === 'Finalizado') {
         baseQueryConstraints.push(where("isFinalized", "==", true));
-      } else { // Pendiente o En análisis
+      } else { 
         baseQueryConstraints.push(where("isFinalized", "==", false));
+         // Adicionalmente, si el status es "Pendiente" o "En análisis", podemos intentar refinarlo.
+         // Pero por ahora, isFinalized == false cubre ambos para el propósito del dashboard.
       }
     }
 
@@ -152,36 +156,37 @@ export default function DashboardRCAPage() {
     // Fetch Analisis En Curso
     try {
       const analisisQueryConstraints = [...baseQueryConstraints];
-      // If status filter is "Finalizado", this section should be empty.
-      // If status is "Pendiente" or "En Analisis", isFinalized == false is already applied or will be.
-      // If no status filter, we still only want non-finalized ones for "En Curso"
-      if (currentFilters.status !== 'Finalizado') {
+      let shouldFetchAnalisis = true;
+
+      if (currentFilters.status === 'Finalizado') {
+        setAnalisisEnCurso([]);
+        shouldFetchAnalisis = false; // No hay "en curso" si el filtro es "Finalizado"
+      } else {
          const isFinalizedFalseAlreadyPresent = analisisQueryConstraints.some(
             (c: any) => c._field === 'isFinalized' && c._op === '==' && c._value === false
         );
         if (!isFinalizedFalseAlreadyPresent) {
             analisisQueryConstraints.push(where("isFinalized", "==", false));
         }
-      } else {
-        // If filter is "Finalizado", "Análisis en Curso" should be empty
-        setAnalisisEnCurso([]);
       }
 
-      if (currentFilters.status !== 'Finalizado') {
+      if (shouldFetchAnalisis) {
         analisisQueryConstraints.push(orderBy("updatedAt", "desc"));
         const rcaAnalysesRef = collection(db, "rcaAnalyses");
         const q = query(rcaAnalysesRef, ...analisisQueryConstraints);
         const querySnapshot = await getDocs(q);
+        console.log(`[fetchAnalisisEnCurso] Found ${querySnapshot.docs.length} documents with isFinalized: false (and other filters).`);
         
         const analysesData = querySnapshot.docs.map(docSnap => {
           const doc = docSnap.data() as RCAAnalysisDocument;
           const id = docSnap.id;
           let proyecto = doc.eventData?.focusEventDescription || `Análisis ID: ${id.substring(0,8)}...`;
-          let currentStep = 1;
+          let currentStep = 1; // Default to step 1 if it exists
           if (doc.finalComments && doc.finalComments.trim() !== '') currentStep = 5;
           else if (doc.validations && doc.validations.length > 0 && doc.plannedActions && doc.plannedActions.length > 0) currentStep = 4;
           else if (doc.analysisTechnique || (doc.analysisTechniqueNotes && doc.analysisTechniqueNotes.trim() !== '') || (doc.identifiedRootCauses && doc.identifiedRootCauses.length > 0) || (doc.plannedActions && doc.plannedActions.length > 0)) currentStep = 3;
           else if (doc.projectLeader || (doc.detailedFacts && Object.values(doc.detailedFacts).some(v => !!v)) || (doc.analysisDetails && doc.analysisDetails.trim() !== '') || (doc.preservedFacts && doc.preservedFacts.length > 0)) currentStep = 2;
+          
           const progreso = Math.round((currentStep / 5) * 100);
           return { id, proyecto, currentStep, progreso };
         });
@@ -197,18 +202,21 @@ export default function DashboardRCAPage() {
     const planes: PlanAccionPendienteItem[] = [];
     try {
       const planesQueryConstraints = [...baseQueryConstraints];
-      if (currentFilters.status !== 'Finalizado') {
+      let shouldFetchPlanes = true;
+
+      if (currentFilters.status === 'Finalizado') {
+        setPlanesAccionPendientes([]);
+        shouldFetchPlanes = false; 
+      } else {
         const isFinalizedFalseAlreadyPresent = planesQueryConstraints.some(
             (c: any) => c._field === 'isFinalized' && c._op === '==' && c._value === false
         );
         if (!isFinalizedFalseAlreadyPresent) {
             planesQueryConstraints.push(where("isFinalized", "==", false));
         }
-      } else {
-        setPlanesAccionPendientes([]); // No actions if filtering by "Finalizado" status
       }
       
-      if (currentFilters.status !== 'Finalizado') {
+      if (shouldFetchPlanes) {
         planesQueryConstraints.push(orderBy("updatedAt", "desc"));
         const rcaAnalysesRef = collection(db, "rcaAnalyses");
         const q = query(rcaAnalysesRef, ...planesQueryConstraints);
@@ -221,11 +229,11 @@ export default function DashboardRCAPage() {
             if (!validation || validation.status === 'pending') {
               planes.push({
                 actionId: action.id,
+                rcaId: docSnap.id,
                 accion: action.description,
                 responsable: action.responsible,
                 fechaLimite: action.dueDate && isValid(parseISO(action.dueDate)) ? format(parseISO(action.dueDate), 'dd/MM/yyyy', { locale: es }) : 'N/A',
                 estado: 'Activa',
-                rcaId: docSnap.id,
                 rcaTitle: rcaDoc.eventData?.focusEventDescription || `Análisis ID ${docSnap.id.substring(0,8)}...`
               });
             }
@@ -252,9 +260,8 @@ export default function DashboardRCAPage() {
     setIsLoadingData(false);
   }, [toast]);
 
-  // Fetch initial data and sites
   useEffect(() => {
-    fetchAllDashboardData(filters); // Initial fetch with empty filters
+    fetchAllDashboardData(filters); 
     const fetchSitesData = async () => {
       setIsLoadingSites(true);
       try {
@@ -272,16 +279,12 @@ export default function DashboardRCAPage() {
     };
     fetchSitesData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Initial fetch for all data and sites (filters are empty initially)
+  }, []); 
 
-  // Fetch Actividad Reciente (currently not affected by filters other than implicitly by what's in DB)
   useEffect(() => {
     const fetchActividadReciente = async () => {
-      // setIsLoadingActividadReciente(true); // This state was removed, use setIsLoadingData
       const actividades: ActividadRecienteItem[] = [];
       try {
-        // Note: This part is not using the main filters for simplicity. 
-        // Could be enhanced to filter by date range if filters.date has a range.
         const eventsRef = collection(db, "reportedEvents");
         const eventsQuery = query(eventsRef, orderBy("updatedAt", "desc"), limit(3));
         const eventsSnapshot = await getDocs(eventsQuery);
@@ -310,7 +313,6 @@ export default function DashboardRCAPage() {
         setActividadReciente([]);
         toast({ title: "Error al Cargar Actividad Reciente", description: (error as Error).message, variant: "destructive" });
       }
-      // setIsLoadingActividadReciente(false);
     };
     fetchActividadReciente();
   }, [toast]);
@@ -346,6 +348,8 @@ export default function DashboardRCAPage() {
   };
   
   const isLoading = isLoadingData || isLoadingSites;
+  const validSites = useMemo(() => availableSites.filter(s => s.name && s.name.trim() !== ""), [availableSites]);
+
 
   return (
     <div className="space-y-6 py-8">
@@ -379,8 +383,12 @@ export default function DashboardRCAPage() {
               <SelectTrigger id="filter-site"><SelectValue placeholder="Todos los sitios" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL_FILTER_VALUE}>Todos los sitios</SelectItem>
-                {availableSites.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
-                 {availableSites.length === 0 && <SelectItem value="" disabled>No hay sitios configurados</SelectItem>}
+                {validSites.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                {validSites.length === 0 && (
+                  <SelectItem value={NO_SITES_PLACEHOLDER_VALUE} disabled>
+                    {availableSites.length === 0 ? "No hay sitios configurados" : "No hay sitios válidos para mostrar"}
+                  </SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -606,7 +614,7 @@ export default function DashboardRCAPage() {
           <CardDescription>Últimas acciones y actualizaciones importantes en eventos y análisis (máx. 5).</CardDescription>
         </CardHeader>
         <CardContent>
-        {isLoadingData ? ( // Assuming actividadReciente is also covered by general isLoadingData
+        {isLoadingData ? ( 
             <div className="flex justify-center items-center h-24">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="ml-2 text-muted-foreground">Cargando actividad reciente...</p>
