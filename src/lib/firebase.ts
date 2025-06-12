@@ -7,15 +7,15 @@ import { getFirestore } from "firebase/firestore";
 // https://firebase.google.com/docs/web/setup#available-libraries
 
 // Your web app's Firebase configuration
-// IMPORTANT: Replace these with your actual Firebase project configuration!
+// IMPORTANT: Double-check these values with your Firebase project console!
 const firebaseConfig = {
-  apiKey: "AIzaSyA3a8UytRbwFKWT9ISF1OlYaizC37b3rZQ",
+  apiKey: "AIzaSyA3a8UytRbwFKWT9ISF10lYaizC37b3rZQ",
   authDomain: "rca-assistant-jk3ja.firebaseapp.com",
-  projectId: "Yrca-assistant-jk3ja",
-  storageBucket: "Yrca-assistant-jk3ja.firebasestorage.app",
-  messagingSenderId: "Y1044963774198",
+  projectId: "rca-assistant-jk3ja", // Corregido
+  storageBucket: "rca-assistant-jk3ja.appspot.com", // Corregido
+  messagingSenderId: "1044963774198", // Corregido
   appId: "1:1044963774198:web:4ae00d1ee674f1864ea6d7",
-  measurementId: "YOUR_MEASUREMENT_ID" // Optional: if you use Google Analytics
+  measurementId: "YOUR_MEASUREMENT_ID" // Opcional: si usas Google Analytics
 };
 
 // Initialize Firebase
