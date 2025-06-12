@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
-import { Calendar as CalendarIcon, PlusCircle, Trash2, FileText, Paperclip, UserCircle } from 'lucide-react';
+import { Calendar as CalendarIcon, PlusCircle, Trash2, FileText, Paperclip, UserCircle, Save } from 'lucide-react';
 import { format, parse, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
@@ -277,6 +277,26 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     onNext();
   };
 
+  const handleSaveProgress = () => {
+    const hasLeader = !!projectLeader;
+    const hasAnyDetailedFact = Object.values(detailedFacts).some(value => value.trim() !== '');
+    const hasAnalysisDetails = analysisDetails.trim() !== '';
+    const hasPreservedFacts = preservedFacts.length > 0;
+
+    if (hasLeader || hasAnyDetailedFact || hasAnalysisDetails || hasPreservedFacts) {
+      toast({
+        title: "Progreso Guardado",
+        description: "El estado actual del análisis (Paso 2) ha sido guardado (simulación).",
+      });
+    } else {
+      toast({
+        title: "Nada que guardar",
+        description: "No se ha ingresado información nueva o modificado datos existentes en este paso.",
+        variant: "default",
+      });
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -421,10 +441,17 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
         </div>
 
       </CardContent>
-      <CardFooter className="flex justify-between">
-        <Button onClick={onPrevious} variant="outline" className="transition-transform hover:scale-105">Anterior</Button>
-        <Button onClick={handleNextWithValidation} className="transition-transform hover:scale-105">Siguiente</Button>
+      <CardFooter className="flex flex-col sm:flex-row justify-between gap-2 pt-4 border-t">
+        <Button onClick={onPrevious} variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105">Anterior</Button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Button onClick={handleSaveProgress} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105">
+                <Save className="mr-2 h-4 w-4" /> Guardar Avance
+            </Button>
+            <Button onClick={handleNextWithValidation} className="w-full sm:w-auto transition-transform hover:scale-105">Siguiente</Button>
+        </div>
       </CardFooter>
     </Card>
   );
 };
+
+    
