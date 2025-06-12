@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PieChart as PieChartIcon, ListChecks, History, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, Flame, Search, RefreshCcw, Percent, FileText, ListTodo, BarChart3 as RCASummaryIcon } from 'lucide-react';
+import { PieChart as PieChartIcon, ListChecks, History, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, Flame, Search, RefreshCcw, Percent, FileText, ListTodo, BarChart3 as RCASummaryIcon, FileDown } from 'lucide-react';
 import type { ReportedEvent, RCAAnalysisDocument, PlannedAction, Validation, Site, ReportedEventType, PriorityType } from '@/types/rca';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, Timestamp, where, orderBy, limit, QueryConstraint } from "firebase/firestore";
@@ -68,7 +68,7 @@ interface DashboardFilters {
 
 export default function DashboardRCAPage() {
   const { toast } = useToast();
-  const router = useRouter(); // Initialize useRouter
+  const router = useRouter(); 
 
   const [actionStatsData, setActionStatsData] = useState<ActionStatsData | null>(null);
   const [rcaSummaryData, setRcaSummaryData] = useState<RCASummaryData | null>(null);
@@ -688,12 +688,11 @@ export default function DashboardRCAPage() {
         </CardContent>
         <CardFooter className="flex justify-start gap-2 pt-4 border-t">
           <Button 
-            variant="ghost" 
+            variant="outline" 
             size="sm" 
-            className="text-primary hover:text-primary/80" 
-            onClick={() => router.push('/eventos')}
+            onClick={() => toast({ title: "Funcionalidad no implementada", description: "La exportación a Excel de planes de acción aún no está disponible." })}
           >
-            Ver todos <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+            <FileDown className="mr-1.5 h-3.5 w-3.5" /> Exportar Excel
           </Button>
         </CardFooter>
       </Card>
