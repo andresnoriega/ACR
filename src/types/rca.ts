@@ -40,6 +40,7 @@ export interface PlannedAction {
   relatedRootCauseIds?: string[];
   evidencias?: Evidence[]; 
   userComments?: string; 
+  isNotificationSent?: boolean; // Added field
 }
 
 export interface Validation {

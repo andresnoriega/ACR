@@ -1,6 +1,7 @@
 
 'use client';
 import type { FC, ChangeEvent } from 'react';
+import { useState, useMemo, useCallback } from 'react'; // Added useCallback
 import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhysData, RCAEventData, CTMData, IdentifiedRootCause, FullUserProfile } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -8,14 +9,143 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2, Save, Send, Loader2 } from 'lucide-react';
+import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2, Save, Send, Loader2, Mail } from 'lucide-react'; // Added Mail
 import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
 import { FiveWhysInteractive } from './FiveWhysInteractive';
 import { CTMInteractive } from './CTMInteractive';
 import { useToast } from "@/hooks/use-toast";
 import { sendEmailAction } from '@/app/actions';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog'; // Added Dialog components
+import { ScrollArea } from '@/components/ui/scroll-area'; // Added ScrollArea
 
+// --- NotifyTasksDialog Component ---
+interface NotifyTasksDialogProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  actionsToNotify: PlannedAction[];
+  availableUsers: FullUserProfile[];
+  eventId: string;
+  eventFocusDescription: string;
+  identifiedRootCauses: IdentifiedRootCause[];
+  onConfirmSend: (selectedActionIds: string[]) => Promise<{ sent: number; failed: number; incomplete: number }>;
+}
+
+const NotifyTasksDialog: FC<NotifyTasksDialogProps> = ({
+  isOpen,
+  onOpenChange,
+  actionsToNotify,
+  availableUsers,
+  eventId,
+  eventFocusDescription,
+  identifiedRootCauses,
+  onConfirmSend,
+}) => {
+  const [selectedActionIds, setSelectedActionIds] = useState<string[]>([]);
+  const [isSending, setIsSending] = useState(false);
+
+  // Reset selection when dialog opens/closes or actions change
+  useEffect(() => {
+    setSelectedActionIds([]);
+  }, [isOpen, actionsToNotify]);
+
+  const handleToggleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedActionIds(actionsToNotify.map(a => a.id));
+    } else {
+      setSelectedActionIds([]);
+    }
+  };
+
+  const handleActionSelectionChange = (actionId: string, checked: boolean) => {
+    setSelectedActionIds(prev =>
+      checked ? [...prev, actionId] : prev.filter(id => id !== actionId)
+    );
+  };
+
+  const allSelected = actionsToNotify.length > 0 && selectedActionIds.length === actionsToNotify.length;
+
+  const handleSend = async () => {
+    setIsSending(true);
+    await onConfirmSend(selectedActionIds);
+    setIsSending(false);
+    onOpenChange(false); // Close dialog after sending
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center"><Mail className="mr-2 h-5 w-5" />Notificar Tareas Planificadas</DialogTitle>
+          <DialogDescription>
+            Seleccione las tareas para las cuales desea enviar una notificación por correo electrónico al responsable asignado.
+            Solo se muestran tareas con responsable, descripción, fecha límite y que no hayan sido notificadas previamente.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-2 space-y-3">
+          {actionsToNotify.length > 0 ? (
+            <>
+              <div className="flex items-center space-x-2 border-b pb-2 mb-2">
+                <Checkbox
+                  id="select-all-tasks-notify"
+                  checked={allSelected}
+                  onCheckedChange={handleToggleSelectAll}
+                />
+                <Label htmlFor="select-all-tasks-notify" className="text-sm font-medium">
+                  {allSelected ? 'Deseleccionar Todo' : 'Seleccionar Todo'} ({selectedActionIds.length}/{actionsToNotify.length})
+                </Label>
+              </div>
+              <ScrollArea className="h-[300px] pr-3">
+                <div className="space-y-2">
+                  {actionsToNotify.map(action => (
+                    <Card key={action.id} className="p-3 bg-muted/30 text-xs">
+                      <div className="flex items-start space-x-2">
+                        <Checkbox
+                          id={`task-notify-${action.id}`}
+                          checked={selectedActionIds.includes(action.id)}
+                          onCheckedChange={(checked) => handleActionSelectionChange(action.id, checked as boolean)}
+                          className="mt-0.5"
+                        />
+                        <div className="flex-grow">
+                          <Label htmlFor={`task-notify-${action.id}`} className="font-semibold block cursor-pointer">
+                            {action.description || "Sin descripción"}
+                          </Label>
+                          <p>ID Acción: {action.id.substring(0, 8)}...</p>
+                          <p>Responsable: {action.responsible || "N/A"}</p>
+                          <p>Fecha Límite: {action.dueDate || "N/A"}</p>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </ScrollArea>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No hay acciones planificadas que cumplan los criterios para notificación en este momento.
+            </p>
+          )}
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="button" variant="outline" disabled={isSending}>Cancelar</Button>
+          </DialogClose>
+          <Button
+            type="button"
+            onClick={handleSend}
+            disabled={isSending || selectedActionIds.length === 0}
+          >
+            {isSending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Enviar {selectedActionIds.length > 0 ? `(${selectedActionIds.length})` : ''} Notificaciones
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+
+// --- Step3Analysis Component ---
 interface Step3AnalysisProps {
   eventData: RCAEventData;
   analysisTechnique: AnalysisTechnique;
@@ -36,12 +166,12 @@ interface Step3AnalysisProps {
   onRemoveIdentifiedRootCause: (id: string) => void;
   plannedActions: PlannedAction[];
   onAddPlannedAction: () => void;
-  onUpdatePlannedAction: (index: number, field: keyof Omit<PlannedAction, 'eventId' | 'id'>, value: string | string[]) => void;
+  onUpdatePlannedAction: (index: number, field: keyof Omit<PlannedAction, 'eventId' | 'id'>, value: string | string[] | boolean) => void;
   onRemovePlannedAction: (index: number) => void;
   availableUsers: FullUserProfile[];
   onPrevious: () => void;
   onNext: () => void;
-  onSaveAnalysis: (showToast?: boolean) => Promise<void>; // New prop for saving
+  onSaveAnalysis: (showToast?: boolean) => Promise<void>;
   isSaving: boolean;
 }
 
@@ -74,6 +204,8 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   isSaving,
 }) => {
   const { toast } = useToast();
+  const [isNotifyTasksDialogOpen, setIsNotifyTasksDialogOpen] = useState(false);
+  const [actionsForNotificationDialog, setActionsForNotificationDialog] = useState<PlannedAction[]>([]);
 
   const handleActionChange = (index: number, field: keyof Omit<PlannedAction, 'eventId' | 'id'>, value: string) => {
     onUpdatePlannedAction(index, field, value);
@@ -220,23 +352,36 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     await onSaveAnalysis(); 
   };
 
+  const handleOpenSendTasksDialog = async () => {
+    await onSaveAnalysis(false); // Save current state before opening dialog
 
-  const handleSendTasksLocal = async () => {
-    if (plannedActions.length === 0) {
+    const actionsToNotify = plannedActions.filter(
+      action => action.responsible && action.description.trim() && action.dueDate && !action.isNotificationSent
+    );
+
+    if (actionsToNotify.length === 0) {
       toast({
-        title: "Sin Tareas para Enviar",
-        description: "No hay acciones planificadas definidas.",
+        title: "Sin Tareas para Notificar",
+        description: "Todas las tareas elegibles ya han sido notificadas o no cumplen los criterios.",
         variant: "default"
       });
       return;
     }
-    await onSaveAnalysis(false); // Save before sending tasks
-
+    setActionsForNotificationDialog(actionsToNotify);
+    setIsNotifyTasksDialogOpen(true);
+  };
+  
+  const handleConfirmSendNotificationsInDialog = async (selectedActionIds: string[]) => {
     let tasksSentCount = 0;
     let tasksFailedCount = 0;
-    let tasksIncompleteCount = 0;
+    let tasksIncompleteCount = 0; // Already handled by filter, but good for robustness
 
-    for (const action of plannedActions) {
+    for (const actionId of selectedActionIds) {
+      const actionIndex = plannedActions.findIndex(a => a.id === actionId);
+      if (actionIndex === -1) continue;
+      
+      const action = plannedActions[actionIndex];
+
       if (action.responsible && action.description.trim() && action.dueDate) {
         const responsibleUser = availableUsers.find(user => user.name === action.responsible);
         if (responsibleUser && responsibleUser.email) {
@@ -251,31 +396,36 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
 
           if(result.success) {
             tasksSentCount++;
+            onUpdatePlannedAction(actionIndex, 'isNotificationSent', true);
           } else {
             tasksFailedCount++;
           }
         } else {
-           tasksFailedCount++;
+           tasksFailedCount++; // User or email not found
         }
       } else {
-        tasksIncompleteCount++;
+        tasksIncompleteCount++; // Should not happen if filter is correct
       }
     }
-
-    if (tasksSentCount > 0 || tasksFailedCount > 0 || tasksIncompleteCount > 0) {
-         toast({
-            title: "Envío de Tareas Procesado (Simulación)",
-            description: `${tasksSentCount} enviada(s). ${tasksFailedCount > 0 ? `${tasksFailedCount} fallaron.` : ''} ${tasksIncompleteCount > 0 ? `${tasksIncompleteCount} incompletas.` : ''}`,
-            variant: tasksFailedCount > 0 || tasksIncompleteCount > 0 ? "destructive" : "default",
-        });
+    
+    // Save changes to isNotificationSent flags
+    if (tasksSentCount > 0) {
+        await onSaveAnalysis(false); 
     }
+
+    toast({
+        title: "Envío de Tareas Procesado (Simulación)",
+        description: `${tasksSentCount} enviada(s). ${tasksFailedCount > 0 ? `${tasksFailedCount} fallaron.` : ''} ${tasksIncompleteCount > 0 ? `${tasksIncompleteCount} incompletas.` : ''}`,
+        variant: tasksFailedCount > 0 || tasksIncompleteCount > 0 ? "destructive" : "default",
+    });
+    return { sent: tasksSentCount, failed: tasksFailedCount, incomplete: tasksIncompleteCount };
   };
 
   const handleContinueLocal = async () => {
     if (!validateFieldsForNext()) {
       return;
     }
-    await onSaveAnalysis(false); // Save silently before continuing
+    await onSaveAnalysis(false); 
 
     if (plannedActions.length === 0 && identifiedRootCauses.length > 0 && identifiedRootCauses.every(rc => rc.description.trim())) {
         toast({
@@ -293,6 +443,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
 
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle className="font-headline">Paso 3: Análisis y Plan de Acción</CardTitle>
@@ -388,7 +539,12 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
           {plannedActions.map((action, index) => (
             <Card key={action.id} className="p-4 space-y-3 bg-secondary/50">
                <div className="flex justify-between items-center">
-                <p className="font-medium text-sm text-primary">Acción Planificada #{index + 1} (ID: {action.id})</p>
+                <div className="flex items-center gap-2">
+                    <p className="font-medium text-sm text-primary">Acción Planificada #{index + 1}</p>
+                    {action.isNotificationSent && (
+                        <span className="text-xs text-green-600 bg-green-100 px-1.5 py-0.5 rounded-full">Notificada</span>
+                    )}
+                </div>
                  <Button variant="ghost" size="icon" onClick={() => onRemovePlannedAction(index)} aria-label="Eliminar acción planificada">
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
@@ -465,7 +621,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Save className="mr-2 h-4 w-4" /> Guardar Avance
             </Button>
-            <Button onClick={handleSendTasksLocal} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || plannedActions.length === 0}>
+            <Button onClick={handleOpenSendTasksDialog} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || plannedActions.length === 0}>
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Send className="mr-2 h-4 w-4" /> Enviar Tareas
             </Button>
@@ -476,5 +632,17 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
         </div>
       </CardFooter>
     </Card>
+
+    <NotifyTasksDialog
+        isOpen={isNotifyTasksDialogOpen}
+        onOpenChange={setIsNotifyTasksDialogOpen}
+        actionsToNotify={actionsForNotificationDialog}
+        availableUsers={availableUsers}
+        eventId={eventData.id}
+        eventFocusDescription={eventData.focusEventDescription}
+        identifiedRootCauses={identifiedRootCauses}
+        onConfirmSend={handleConfirmSendNotificationsInDialog}
+     />
+    </>
   );
 };

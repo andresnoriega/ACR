@@ -212,6 +212,7 @@ export default function RCAAnalysisPage() {
                     if (lastLoadedAnalysisIdRef.current === currentId) { // If this ID was the one we tried to load
                         lastLoadedAnalysisIdRef.current = null; // Allow retry for this ID
                     }
+                    router.replace('/analisis', undefined); // Remove invalid ID from URL
                     setStep(1);
                     setMaxCompletedStep(0);
                 }
@@ -262,8 +263,7 @@ export default function RCAAnalysisPage() {
         }
     }
 // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [analysisIdFromParams, loadAnalysisData, searchParams]); // searchParams is needed for stepParam
-// 'step' was removed from deps; step changes internally or via query, not a direct trigger for this whole effect block
+}, [analysisIdFromParams, loadAnalysisData, searchParams, router]); 
 
 
   useEffect(() => {
@@ -296,13 +296,15 @@ export default function RCAAnalysisPage() {
       setEventData(prev => ({ ...prev, id: newEventID }));
       setEventCounter(prev => prev + 1);
       setAnalysisDocumentId(newEventID); 
+      // Update URL without full navigation/reload if creating a new ID
+      router.replace(`/analisis?id=${newEventID}`, undefined);
       return newEventID;
     }
     if (!analysisDocumentId && eventData.id) { 
         setAnalysisDocumentId(eventData.id);
     }
     return eventData.id;
-  }, [eventData.id, eventCounter, analysisDocumentId]);
+  }, [eventData.id, eventCounter, analysisDocumentId, router]);
 
  const handleSaveAnalysisData = async (showToast: boolean = true, finalizedOverride?: boolean): Promise<boolean> => {
     const currentId = analysisDocumentId || ensureEventId();
@@ -354,10 +356,11 @@ export default function RCAAnalysisPage() {
         priority: eventData.priority || '',
         status: statusForReportedEvent,
         description: eventData.focusEventDescription || "Sin descripción detallada.",
+        updatedAt: new Date().toISOString(), 
       };
 
       if (!reportedEventSnap.exists()) {
-        await setDoc(reportedEventRef, { ...reportedEventPayload, status: "Pendiente" });
+        await setDoc(reportedEventRef, { ...reportedEventPayload, status: "Pendiente", createdAt: new Date().toISOString() });
       } else {
         await updateDoc(reportedEventRef, {
             title: reportedEventPayload.title,
@@ -367,6 +370,7 @@ export default function RCAAnalysisPage() {
             priority: reportedEventPayload.priority,
             description: reportedEventPayload.description,
             status: statusForReportedEvent, 
+            updatedAt: new Date().toISOString(),
         });
       }
 
@@ -395,7 +399,7 @@ export default function RCAAnalysisPage() {
         const reportedEventRef = doc(db, "reportedEvents", analysisDocumentId);
         const reportedEventSnap = await getDoc(reportedEventRef);
         if (reportedEventSnap.exists() && reportedEventSnap.data().status === "Pendiente") {
-          await updateDoc(reportedEventRef, { status: "En análisis" });
+          await updateDoc(reportedEventRef, { status: "En análisis", updatedAt: new Date().toISOString() });
           if (showToast) { 
             toast({ title: "Estado Actualizado", description: `El evento ${analysisDocumentId} ahora está "En análisis".` });
           }
@@ -422,6 +426,10 @@ export default function RCAAnalysisPage() {
     if (targetStep > maxCompletedStep && targetStep > step ) {
         setMaxCompletedStep(targetStep -1);
     }
+    // Update URL with step
+    if (analysisDocumentId) {
+      router.replace(`/analisis?id=${analysisDocumentId}&step=${targetStep}`, undefined);
+    }
   };
 
   const handleNextStep = async () => {
@@ -447,12 +455,24 @@ export default function RCAAnalysisPage() {
       const newMaxCompletedStep = Math.max(maxCompletedStep, step);
       setStep(newStep);
       setMaxCompletedStep(newMaxCompletedStep);
+      // Update URL with step
+       if (currentId) {
+         router.replace(`/analisis?id=${currentId}&step=${newStep}`, undefined);
+       }
     }
   };
 
   const handlePreviousStep = () => {
     const newStep = Math.max(step - 1, 1);
     setStep(newStep);
+    // Update URL with step
+    if (analysisDocumentId) {
+      router.replace(`/analisis?id=${analysisDocumentId}&step=${newStep}`, undefined);
+    } else if (step === 1) { // Going from step 1 to nowhere essentially, clear URL if it had step
+       const currentId = searchParams.get('id');
+       if (currentId) router.replace(`/analisis?id=${currentId}`, undefined);
+       else router.replace('/analisis', undefined);
+    }
   };
 
   const handleEventDataChange = (field: keyof RCAEventData, value: string | EventType | PriorityType) => {
@@ -571,11 +591,12 @@ export default function RCAAnalysisPage() {
       relatedRootCauseIds: [],
       evidencias: [],
       userComments: '',
+      isNotificationSent: false, // Initialize new field
     }]);
     setPlannedActionCounter(prev => prev + 1);
   };
 
-  const handleUpdatePlannedAction = (index: number, field: keyof Omit<PlannedAction, 'eventId' | 'id'>, value: string | string[]) => {
+  const handleUpdatePlannedAction = (index: number, field: keyof Omit<PlannedAction, 'eventId' | 'id'>, value: string | string[] | boolean) => {
     setPlannedActions(prev => prev.map((act, i) => i === index ? { ...act, [field]: value } : act));
   };
 
@@ -609,12 +630,12 @@ export default function RCAAnalysisPage() {
 
   const handleMarkAsFinalized = async () => {
     const currentEventIdUsedForToast = analysisDocumentId || eventData.id;
-    setIsSaving(true); // Indicate operation start
+    setIsSaving(true); 
     const currentId = analysisDocumentId || ensureEventId();
     
     if (!currentId) {
         toast({ title: "Error", description: "No se pudo obtener el ID del análisis para finalizar.", variant: "destructive" });
-        setIsSaving(false); // Reset saving state on error
+        setIsSaving(false); 
         return;
     }
     
@@ -628,7 +649,6 @@ export default function RCAAnalysisPage() {
       setIsFinalized(false); 
       toast({ title: "Error al Finalizar", description: "No se pudo guardar el estado finalizado del análisis. Intente de nuevo.", variant: "destructive" });
     }
-    // setIsSaving is handled by handleSaveAnalysisData's finally block
   };
 
 
