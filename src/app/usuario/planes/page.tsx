@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { ListTodo, PlusCircle, FileText, Image as ImageIcon, Paperclip, Download, Eye, UploadCloud, CheckCircle2, Save, Info } from 'lucide-react';
+import { ListTodo, PlusCircle, FileText, Image as ImageIcon, Paperclip, Download, Eye, UploadCloud, CheckCircle2, Save, Info, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Evidence {
@@ -31,6 +31,7 @@ interface ActionPlan {
   responsableDetalle: string; 
   codigoRCA?: string;
   evidencias: Evidence[];
+  userComments?: string; // Nuevo campo para comentarios del usuario
   ultimaActualizacion: {
     usuario: string;
     mensaje: string;
@@ -53,6 +54,7 @@ const sampleActionPlansData: ActionPlan[] = [
       { id: 'e1-1', nombre: 'Manual_actual_v3.pdf', tipo: 'pdf', accionLabel: 'Descargar' },
       { id: 'e1-2', nombre: 'Propuesta_cambios.docx', tipo: 'docx', accionLabel: 'Ver' },
     ],
+    userComments: 'Es crucial verificar la sección 3.2 sobre equipos de protección personal.',
     ultimaActualizacion: { usuario: 'Sistema', mensaje: 'Plan de acción creado.', fechaRelativa: 'hace 3 días' }
   },
   { 
@@ -70,6 +72,7 @@ const sampleActionPlansData: ActionPlan[] = [
       { id: 'e2-2', nombre: 'Foto_sesion_1.jpg', tipo: 'jpg', accionLabel: 'Ver' },
       { id: 'e2-3', nombre: 'Notas_adicionales.docx', tipo: 'docx', accionLabel: 'Ver' },
     ],
+    userComments: '',
     ultimaActualizacion: { usuario: 'Ana López', mensaje: 'Se inició la sesión de capacitación', fechaRelativa: '(hoy)' }
   },
   { 
@@ -86,6 +89,7 @@ const sampleActionPlansData: ActionPlan[] = [
       { id: 'e3-1', nombre: 'Reporte_auditoria_final.pdf', tipo: 'pdf', accionLabel: 'Descargar' },
       { id: 'e3-2', nombre: 'Checklist_verificacion.docx', tipo: 'docx', accionLabel: 'Ver' },
     ],
+    userComments: 'La auditoría reveló cumplimiento del 95%. Se adjunta informe detallado.',
     ultimaActualizacion: { usuario: 'Luis Torres', mensaje: 'Auditoría completada y reporte subido.', fechaRelativa: 'ayer' }
   },
 ];
@@ -122,22 +126,23 @@ export default function UserActionPlansPage() {
       toast({ title: "Error", description: "Por favor, seleccione un archivo para subir.", variant: "destructive" });
       return;
     }
-    // Simulate upload
     const newEvidence: Evidence = {
         id: `ev-${Date.now()}`,
         nombre: fileToUpload.name,
         tipo: fileToUpload.name.endsWith('.pdf') ? 'pdf' : fileToUpload.name.endsWith('.jpg') || fileToUpload.name.endsWith('.jpeg') ? 'jpg' : fileToUpload.name.endsWith('.docx') ? 'docx' : 'other',
-        accionLabel: 'Descargar', // Default or determine based on type
+        accionLabel: 'Descargar',
     };
 
-    setActionPlansList(prevPlans =>
-        prevPlans.map(p =>
-            p.id === selectedPlan.id
-                ? { ...p, evidencias: [...p.evidencias, newEvidence] }
-                : p
-        )
+    const updatedActionPlansList = actionPlansList.map(p =>
+        p.id === selectedPlan.id
+            ? { ...p, evidencias: [...p.evidencias, newEvidence], ultimaActualizacion: {usuario: "Usuario Actual", mensaje: `Evidencia '${newEvidence.nombre}' adjuntada.`, fechaRelativa: '(ahora)'} }
+            : p
     );
-    setSelectedPlan(prev => prev ? { ...prev, evidencias: [...prev.evidencias, newEvidence] } : null);
+    setActionPlansList(updatedActionPlansList);
+    
+    const updatedSelectedPlan = updatedActionPlansList.find(p => p.id === selectedPlan.id);
+    setSelectedPlan(updatedSelectedPlan || null);
+
 
     toast({ title: "Simulación", description: `Archivo "${fileToUpload.name}" subido para "${selectedPlan.tituloDetalle}".` });
     setFileToUpload(null);
@@ -159,16 +164,31 @@ export default function UserActionPlansPage() {
   const handleUpdateStatus = (newStatus: ActionPlan['estado']) => {
     if (!selectedPlan) return;
 
-    setActionPlansList(prevPlans => 
-      prevPlans.map(plan => 
+    const updatedActionPlansList = actionPlansList.map(plan => 
         plan.id === selectedPlan.id ? { ...plan, estado: newStatus, ultimaActualizacion: { usuario: 'Usuario Actual', mensaje: `Estado cambiado a ${newStatus}.`, fechaRelativa: '(ahora)'} } : plan
-      )
     );
+    setActionPlansList(updatedActionPlansList);
     
-    setSelectedPlan(prev => prev ? {...prev, estado: newStatus, ultimaActualizacion: { usuario: 'Usuario Actual', mensaje: `Estado cambiado a ${newStatus}.`, fechaRelativa: '(ahora)'}} : null);
+    const updatedSelectedPlan = updatedActionPlansList.find(p => p.id === selectedPlan.id);
+    setSelectedPlan(updatedSelectedPlan || null);
     
     toast({ title: "Estado Actualizado", description: `El plan "${selectedPlan.tituloDetalle}" se marcó como "${newStatus}".` });
   };
+
+  const handleUserCommentsChange = (comments: string) => {
+    if (!selectedPlan) return;
+
+    const updatedActionPlansList = actionPlansList.map(plan =>
+      plan.id === selectedPlan.id ? { ...plan, userComments: comments, ultimaActualizacion: { usuario: 'Usuario Actual', mensaje: 'Comentarios actualizados.', fechaRelativa: '(ahora)' } } : plan
+    );
+    setActionPlansList(updatedActionPlansList);
+
+    const updatedSelectedPlan = updatedActionPlansList.find(p => p.id === selectedPlan.id);
+    setSelectedPlan(updatedSelectedPlan || null);
+    
+    toast({ title: "Comentarios Guardados", description: `Se guardaron los comentarios para el plan "${selectedPlan.tituloDetalle}".` });
+  };
+
 
   return (
     <div className="space-y-6 py-8">
@@ -312,6 +332,23 @@ export default function UserActionPlansPage() {
             </div>
             
             <div className="pt-2">
+              <h4 className="font-semibold text-primary mb-1 flex items-center">
+                <MessageSquare className="mr-1.5 h-4 w-4" />
+                [Comentarios]
+              </h4>
+              <Textarea
+                value={selectedPlan.userComments || ''}
+                onChange={(e) => handleUserCommentsChange(e.target.value)}
+                placeholder="Añada sus comentarios aquí..."
+                rows={3}
+                className="text-sm"
+              />
+              {/* <Button size="sm" variant="outline" onClick={() => handleUserCommentsChange(selectedPlan.userComments || '')} className="mt-2">
+                Guardar Comentarios
+              </Button> */}
+            </div>
+
+            <div className="pt-2">
               <h4 className="font-semibold text-primary mb-1">[Actualizar estado]</h4>
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" onClick={() => handleUpdateStatus('Completado')}>
@@ -340,8 +377,8 @@ export default function UserActionPlansPage() {
             <div>
               <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-0.5">Nota sobre la interactividad</h3>
               <p className="text-xs text-blue-600 dark:text-blue-400/90">
-                Esta es una maqueta visual. Algunas acciones como "Subir Evidencia" o "Guardar Progreso" están simuladas y mostrarán notificaciones.
-                La selección de un plan en la tabla superior mostrará sus detalles a continuación. La actualización de estados sí se refleja en la tabla y el resumen.
+                Esta es una maqueta visual. Algunas acciones como "Subir Evidencia", "Guardar Progreso" o "Guardar Comentarios" están simuladas y mostrarán notificaciones.
+                La selección de un plan en la tabla superior mostrará sus detalles a continuación. La actualización de estados y comentarios sí se refleja en la tabla y el resumen.
               </p>
             </div>
           </div>
