@@ -160,6 +160,8 @@ export interface ReportedEvent {
   priority: PriorityType; 
   status: ReportedEventStatus;
   description?: string;
+  createdAt?: string; // ISO string
+  updatedAt?: string; // ISO string
 }
 
 export interface Site {

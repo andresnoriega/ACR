@@ -13,7 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format, parseISO, isValid as isValidDate } from 'date-fns';
+import { format, parseISO, isValid as isValidDate, formatDistanceToNowStrict } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { ReportedEvent, ReportedEventType, ReportedEventStatus, PriorityType, Site } from '@/types/rca';
 import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, PlayCircle, Info, Loader2, Eye } from 'lucide-react';
@@ -38,7 +38,7 @@ interface Filters {
 async function updateEventStatusInFirestore(eventId: string, newStatus: ReportedEventStatus, toastInstance: ReturnType<typeof useToast>['toast']) {
   const eventRef = doc(db, "reportedEvents", eventId);
   try {
-    await updateDoc(eventRef, { status: newStatus });
+    await updateDoc(eventRef, { status: newStatus, updatedAt: new Date().toISOString() });
     return true;
   } catch (error) {
     console.error("Error updating event status in Firestore: ", error);
@@ -199,7 +199,7 @@ export default function EventosReportadosPage() {
     setIsUpdatingStatus(true);
     const success = await updateEventStatusInFirestore(selectedEvent.id, "En análisis", toast);
     if (success) {
-      const updatedEvent = { ...selectedEvent, status: "En análisis" as ReportedEventStatus };
+      const updatedEvent = { ...selectedEvent, status: "En análisis" as ReportedEventStatus, updatedAt: new Date().toISOString() };
       setAllEvents(prevEvents => prevEvents.map(e => e.id === selectedEvent.id ? updatedEvent : e));
       setFilteredEvents(prevEvents => prevEvents.map(e => e.id === selectedEvent.id ? updatedEvent : e));
       setSelectedEvent(updatedEvent); 
@@ -496,3 +496,4 @@ export default function EventosReportadosPage() {
     </div>
   );
 }
+
