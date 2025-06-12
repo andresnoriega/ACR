@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PieChart as PieChartIcon, ListChecks, History, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, Flame, Search, RefreshCcw, Percent } from 'lucide-react';
+import { PieChart as PieChartIcon, ListChecks, History, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, Flame, Search, RefreshCcw, Percent, FileText, ListTodo, BarChart3 as RCASummaryIcon } from 'lucide-react';
 import type { ReportedEvent, RCAAnalysisDocument, PlannedAction, Validation, Site, ReportedEventType, PriorityType } from '@/types/rca';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, Timestamp, where, orderBy, limit, QueryConstraint } from "firebase/firestore";
@@ -33,6 +33,12 @@ interface ActionStatsData {
   totalAcciones: number;
   accionesPendientes: number;
   accionesValidadas: number;
+}
+
+interface RCASummaryData {
+  totalRCAs: number;
+  accionesPendientesEnRCAPendientes: number;
+  accionesValidadasEnRCAFinalizados: number;
 }
 
 interface AnalisisEnCursoItem {
@@ -70,6 +76,7 @@ export default function DashboardRCAPage() {
   const { toast } = useToast();
 
   const [actionStatsData, setActionStatsData] = useState<ActionStatsData | null>(null);
+  const [rcaSummaryData, setRcaSummaryData] = useState<RCASummaryData | null>(null);
   const [analisisEnCurso, setAnalisisEnCurso] = useState<AnalisisEnCursoItem[]>([]);
   const [planesAccionPendientes, setPlanesAccionPendientes] = useState<PlanAccionPendienteItem[]>([]);
   const [actividadReciente, setActividadReciente] = useState<ActividadRecienteItem[]>([]);
@@ -99,119 +106,122 @@ export default function DashboardRCAPage() {
     setIsLoadingData(true);
     
     const baseQueryConstraints: QueryConstraint[] = [];
-    if (currentFilters.site) {
+    if (currentFilters.site && currentFilters.site !== ALL_FILTER_VALUE) {
       baseQueryConstraints.push(where("eventData.site", "==", currentFilters.site));
     }
-    if (currentFilters.type) {
+    if (currentFilters.type && currentFilters.type !== ALL_FILTER_VALUE) {
       baseQueryConstraints.push(where("eventData.eventType", "==", currentFilters.type));
     }
-    if (currentFilters.priority) {
+    if (currentFilters.priority && currentFilters.priority !== ALL_FILTER_VALUE) {
       baseQueryConstraints.push(where("eventData.priority", "==", currentFilters.priority));
     }
 
-    // Fetch Action Stats
     try {
       const rcaAnalysesRef = collection(db, "rcaAnalyses");
-      const actionStatsQuery = query(rcaAnalysesRef, ...baseQueryConstraints);
-      const querySnapshot = await getDocs(actionStatsQuery);
+      const dataQuery = query(rcaAnalysesRef, ...baseQueryConstraints);
+      const querySnapshot = await getDocs(dataQuery);
       
       let totalAcciones = 0;
-      let accionesPendientes = 0;
-      let accionesValidadas = 0;
+      let accionesPendientesGlobal = 0;
+      let accionesValidadasGlobal = 0;
+
+      let totalRCAs = querySnapshot.size;
+      let accionesPendientesEnRCAPendientes = 0;
+      let accionesValidadasEnRCAFinalizados = 0;
+
+      const currentAnalysesInProgress: AnalisisEnCursoItem[] = [];
+      const currentPendingActionPlans: PlanAccionPendienteItem[] = [];
 
       querySnapshot.forEach(docSnap => {
         const rcaDoc = docSnap.data() as RCAAnalysisDocument;
+        const rcaId = docSnap.id;
+
+        // Calculations for Resumen de Acciones Correctivas & Cumplimiento
         if (rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
           rcaDoc.plannedActions.forEach(action => {
             totalAcciones++;
             const validation = rcaDoc.validations?.find(v => v.actionId === action.id);
-            if (validation && validation.status === 'validated') {
-              accionesValidadas++;
+            const isActionValidated = validation && validation.status === 'validated';
+            
+            if (isActionValidated) {
+              accionesValidadasGlobal++;
             } else {
-              accionesPendientes++;
+              accionesPendientesGlobal++;
+            }
+
+            // Calculations for Resumen de Análisis de Causa Raíz
+            if (!rcaDoc.isFinalized && !isActionValidated) {
+              accionesPendientesEnRCAPendientes++;
+            }
+            if (rcaDoc.isFinalized && isActionValidated) {
+              accionesValidadasEnRCAFinalizados++;
+            }
+
+            // For Planes de Acción Activos (only if RCA is not finalized and action is pending)
+            if (!rcaDoc.isFinalized && !isActionValidated) {
+                 currentPendingActionPlans.push({
+                    actionId: action.id,
+                    rcaId: rcaId,
+                    accion: action.description,
+                    responsable: action.responsible,
+                    fechaLimite: action.dueDate && isValid(parseISO(action.dueDate)) ? format(parseISO(action.dueDate), 'dd/MM/yyyy', { locale: es }) : 'N/A',
+                    estado: 'Activa',
+                    rcaTitle: rcaDoc.eventData?.focusEventDescription || `Análisis ID ${rcaId.substring(0,8)}...`
+                });
             }
           });
         }
-      });
-      setActionStatsData({ totalAcciones, accionesPendientes, accionesValidadas });
-    } catch (error) {
-      console.error("Error fetching action stats for dashboard: ", error);
-      setActionStatsData({ totalAcciones: 0, accionesPendientes: 0, accionesValidadas: 0 }); 
-      toast({ title: "Error al Cargar Estadísticas de Acciones", description: (error as Error).message, variant: "destructive" });
-    }
-
-    // Fetch Analisis En Curso
-    try {
-      const analisisQueryConstraints = [...baseQueryConstraints, where("isFinalized", "==", false)];
-      // Ensure orderBy is applied after all filters, especially if baseQueryConstraints changes order.
-      const orderedAnalisisQueryConstraints = [...analisisQueryConstraints.filter(c => (c as any)._op !== 'orderBy'), orderBy("updatedAt", "desc")];
-      
-      const rcaAnalysesRef = collection(db, "rcaAnalyses");
-      const q = query(rcaAnalysesRef, ...orderedAnalisisQueryConstraints);
-      const querySnapshot = await getDocs(q);
-      
-      const analysesData = querySnapshot.docs.map(docSnap => {
-        const doc = docSnap.data() as RCAAnalysisDocument;
-        const id = docSnap.id;
-        let proyecto = doc.eventData?.focusEventDescription || `Análisis ID: ${id.substring(0,8)}...`;
-        let currentStep = 1; 
-        if (doc.finalComments && doc.finalComments.trim() !== '') currentStep = 5;
-        else if (doc.validations && doc.validations.length > 0 && doc.plannedActions && doc.plannedActions.length > 0) currentStep = 4;
-        else if (doc.analysisTechnique || (doc.analysisTechniqueNotes && doc.analysisTechniqueNotes.trim() !== '') || (doc.identifiedRootCauses && doc.identifiedRootCauses.length > 0) || (doc.plannedActions && doc.plannedActions.length > 0)) currentStep = 3;
-        else if (doc.projectLeader || (doc.detailedFacts && Object.values(doc.detailedFacts).some(v => !!v)) || (doc.analysisDetails && doc.analysisDetails.trim() !== '') || (doc.preservedFacts && doc.preservedFacts.length > 0)) currentStep = 2;
         
-        const progreso = Math.round((currentStep / 5) * 100);
-        return { id, proyecto, currentStep, progreso };
+        // For Analisis En Curso
+        if (!rcaDoc.isFinalized) {
+            let proyecto = rcaDoc.eventData?.focusEventDescription || `Análisis ID: ${rcaId.substring(0,8)}...`;
+            let currentStep = 1; 
+            if (rcaDoc.finalComments && rcaDoc.finalComments.trim() !== '') currentStep = 5;
+            else if (rcaDoc.validations && rcaDoc.validations.length > 0 && rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) currentStep = 4;
+            else if (rcaDoc.analysisTechnique || (rcaDoc.analysisTechniqueNotes && rcaDoc.analysisTechniqueNotes.trim() !== '') || (rcaDoc.identifiedRootCauses && rcaDoc.identifiedRootCauses.length > 0) || (rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0)) currentStep = 3;
+            else if (rcaDoc.projectLeader || (rcaDoc.detailedFacts && Object.values(rcaDoc.detailedFacts).some(v => !!v)) || (rcaDoc.analysisDetails && rcaDoc.analysisDetails.trim() !== '') || (rcaDoc.preservedFacts && rcaDoc.preservedFacts.length > 0)) currentStep = 2;
+            
+            const progreso = Math.round((currentStep / 5) * 100);
+            currentAnalysesInProgress.push({ id: rcaId, proyecto, currentStep, progreso });
+        }
       });
-      setAnalisisEnCurso(analysesData);
-    } catch (error) {
-      console.error("Error fetching analisis en curso: ", error);
-      setAnalisisEnCurso([]);
-      toast({ title: "Error al Cargar Análisis en Curso", description: (error as Error).message, variant: "destructive" });
-    }
 
-    // Fetch Planes de Acción Activos
-    try {
-      const planesQueryConstraints = [...baseQueryConstraints, where("isFinalized", "==", false)];
-      const orderedPlanesQueryConstraints = [...planesQueryConstraints.filter(c => (c as any)._op !== 'orderBy'), orderBy("updatedAt", "desc")];
-        
-      const rcaAnalysesRef = collection(db, "rcaAnalyses");
-      const q = query(rcaAnalysesRef, ...orderedPlanesQueryConstraints);
-      const querySnapshot = await getDocs(q);
-      const planes: PlanAccionPendienteItem[] = [];
-      querySnapshot.forEach(docSnap => {
-        const rcaDoc = docSnap.data() as RCAAnalysisDocument;
-        rcaDoc.plannedActions?.forEach(action => {
-          const validation = rcaDoc.validations?.find(v => v.actionId === action.id);
-          if (!validation || validation.status === 'pending') {
-            planes.push({
-              actionId: action.id,
-              rcaId: docSnap.id,
-              accion: action.description,
-              responsable: action.responsible,
-              fechaLimite: action.dueDate && isValid(parseISO(action.dueDate)) ? format(parseISO(action.dueDate), 'dd/MM/yyyy', { locale: es }) : 'N/A',
-              estado: 'Activa',
-              rcaTitle: rcaDoc.eventData?.focusEventDescription || `Análisis ID ${docSnap.id.substring(0,8)}...`
-            });
-          }
-        });
+      setActionStatsData({ totalAcciones, accionesPendientes: accionesPendientesGlobal, accionesValidadas: accionesValidadasGlobal });
+      setRcaSummaryData({ totalRCAs, accionesPendientesEnRCAPendientes, accionesValidadasEnRCAFinalizados });
+      
+      // Sort and limit "Análisis en Curso"
+      currentAnalysesInProgress.sort((a,b) => {
+        const rcaA = querySnapshot.docs.find(d => d.id === a.id)?.data() as RCAAnalysisDocument | undefined;
+        const rcaB = querySnapshot.docs.find(d => d.id === b.id)?.data() as RCAAnalysisDocument | undefined;
+        const dateA = rcaA?.updatedAt ? parseISO(rcaA.updatedAt).getTime() : 0;
+        const dateB = rcaB?.updatedAt ? parseISO(rcaB.updatedAt).getTime() : 0;
+        return dateB - dateA; // Descending by updatedAt
       });
-      setPlanesAccionPendientes(planes.sort((a,b) => {
+      setAnalisisEnCurso(currentAnalysesInProgress);
+
+
+      // Sort and limit "Planes de Acción Activos"
+      currentPendingActionPlans.sort((a,b) => {
           try {
               const dateAStr = a.fechaLimite.split('/').reverse().join('-');
               const dateBStr = b.fechaLimite.split('/').reverse().join('-');
               const dateA = a.fechaLimite !== 'N/A' ? parseISO(dateAStr) : null;
               const dateB = b.fechaLimite !== 'N/A' ? parseISO(dateBStr) : null;
-              if (dateA && isValid(dateA) && dateB && isValid(dateB)) return dateA.getTime() - dateB.getTime();
+              if (dateA && isValid(dateA) && dateB && isValid(dateB)) return dateA.getTime() - dateB.getTime(); // Ascending by due date
               if (dateA && isValid(dateA)) return -1; 
               if (dateB && isValid(dateB)) return 1;  
           } catch (e) { /* Silently ignore */ }
           return 0; 
-      }).slice(0, 5));
+      });
+      setPlanesAccionPendientes(currentPendingActionPlans.slice(0, 5));
+
     } catch (error) {
-      console.error("Error fetching planes de acción: ", error);
+      console.error("Error fetching dashboard data: ", error);
+      setActionStatsData({ totalAcciones: 0, accionesPendientes: 0, accionesValidadas: 0 }); 
+      setRcaSummaryData({ totalRCAs: 0, accionesPendientesEnRCAPendientes: 0, accionesValidadasEnRCAFinalizados: 0 });
+      setAnalisisEnCurso([]);
       setPlanesAccionPendientes([]);
-      toast({ title: "Error al Cargar Planes de Acción", description: (error as Error).message, variant: "destructive" });
+      toast({ title: "Error al Cargar Datos del Dashboard", description: (error as Error).message, variant: "destructive" });
     }
     setIsLoadingData(false);
   }, [toast]);
@@ -242,6 +252,8 @@ export default function DashboardRCAPage() {
       const actividades: ActividadRecienteItem[] = [];
       try {
         const eventsRef = collection(db, "reportedEvents");
+        // Note: Filtering recent activity by dashboard filters might be complex due to different data structures.
+        // For now, recent activity remains unfiltered by the dashboard's main filters.
         const eventsQuery = query(eventsRef, orderBy("updatedAt", "desc"), limit(3));
         const eventsSnapshot = await getDocs(eventsQuery);
         eventsSnapshot.forEach(docSnap => {
@@ -404,15 +416,60 @@ export default function DashboardRCAPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex items-center gap-3">
+            <RCASummaryIcon className="h-6 w-6 text-primary" />
+            <CardTitle className="text-2xl">Resumen de Análisis de Causa Raíz</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 text-center">
+          {isLoadingData ? (
+            [...Array(4)].map((_, i) => (
+              <div key={`rca-load-${i}`} className="p-4 bg-secondary/30 rounded-lg flex flex-col items-center justify-center h-24">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ))
+          ) : rcaSummaryData ? (
+            <>
+              <div className="p-4 bg-secondary/40 rounded-lg">
+                <div className="flex items-center justify-center mb-1"><FileText className="h-5 w-5 text-primary mr-1.5"/></div>
+                <p className="text-3xl font-bold text-primary">{rcaSummaryData.totalRCAs}</p>
+                <p className="text-sm text-muted-foreground">Total RCA</p>
+              </div>
+              <div className="p-4 bg-yellow-400/20 rounded-lg">
+                <div className="flex items-center justify-center mb-1"><ListTodo className="h-5 w-5 text-yellow-600 mr-1.5"/></div>
+                <p className="text-3xl font-bold text-yellow-600">{rcaSummaryData.accionesPendientesEnRCAPendientes}</p>
+                <p className="text-sm text-muted-foreground">Acciones Pendientes (RCA Pendientes)</p>
+              </div>
+              <div className="p-4 bg-green-400/20 rounded-lg">
+                <div className="flex items-center justify-center mb-1"><CheckSquare className="h-5 w-5 text-green-600 mr-1.5"/></div>
+                <p className="text-3xl font-bold text-green-600">{rcaSummaryData.accionesValidadasEnRCAFinalizados}</p>
+                <p className="text-sm text-muted-foreground">Acciones Validadas (RCA Finalizados)</p>
+              </div>
+              <div className="p-4 bg-blue-400/20 rounded-lg">
+                <div className="flex items-center justify-center mb-1"><Percent className="h-5 w-5 text-blue-600 mr-1.5"/></div>
+                <p className="text-3xl font-bold text-blue-600">{cumplimientoPorcentaje.toFixed(1)}%</p>
+                <p className="text-sm text-muted-foreground">Cumplimiento (Global Acciones)</p>
+              </div>
+            </>
+          ) : (
+             <div className="col-span-full p-4 bg-secondary/30 rounded-lg text-center">
+                <p className="text-muted-foreground">No se pudieron cargar las estadísticas de RCA.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-lg">
+        <CardHeader>
+          <div className="flex items-center gap-3">
             <PieChartIcon className="h-6 w-6 text-primary" />
             <CardTitle className="text-2xl">Resumen de Acciones Correctivas</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-center">
+        <CardContent className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 text-center">
           {isLoadingData ? (
             <>
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="p-4 bg-secondary/30 rounded-lg flex flex-col items-center justify-center h-24">
+                <div key={`action-load-${i}`} className="p-4 bg-secondary/30 rounded-lg flex flex-col items-center justify-center h-24">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 </div>
               ))}
