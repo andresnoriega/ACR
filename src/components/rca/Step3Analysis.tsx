@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2, Save, Send } from 'lucide-react'; // Added Save, Send
+import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2, Save, Send } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
 import { FiveWhysInteractive } from './FiveWhysInteractive';
@@ -170,30 +170,64 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   }
 
   const handleSaveProgress = () => {
-    // Basic validation: at least one root cause if others are empty
-    if (identifiedRootCauses.length === 0 && plannedActions.length === 0 && analysisTechniqueNotes.trim() === '') {
-        toast({
-            title: "Nada que guardar",
-            description: "No hay información significativa para guardar en este paso.",
-            variant: "default"
-        });
-        return;
+    const isTechniqueSelected = analysisTechnique !== '';
+    const hasNotes = analysisTechniqueNotes.trim() !== '';
+    const hasRootCauses = identifiedRootCauses.length > 0;
+    const hasPlannedActions = plannedActions.length > 0;
+
+    const isIshikawaEdited = ishikawaData.some(cat => cat.causes.some(c => c.description.trim() !== ''));
+    // Check if 5 Whys has edits beyond the potentially pre-filled first "why"
+    const isFiveWhysEdited = fiveWhysData.length > 1 || 
+                             (fiveWhysData.length === 1 && fiveWhysData[0].because.trim() !== '');
+    const isCtmEdited = ctmData.length > 0 && ctmData.some(fm => 
+        fm.description.trim() !== '' || 
+        fm.hypotheses.some(h => h.description.trim() !== '' || 
+            h.physicalCauses.some(pc => pc.description.trim() !== '' ||
+                pc.humanCauses.some(hc => hc.description.trim() !== '' || 
+                    hc.latentCauses.some(lc => lc.description.trim() !== '')
+                )
+            )
+        )
+    );
+
+    if (
+      !isTechniqueSelected &&
+      !hasNotes &&
+      !hasRootCauses &&
+      !hasPlannedActions &&
+      !isIshikawaEdited &&
+      !isFiveWhysEdited &&
+      !isCtmEdited
+    ) {
+      toast({
+        title: "Nada que guardar",
+        description: "No se ha ingresado información nueva o modificado datos existentes en este paso.",
+        variant: "default",
+      });
+      return;
     }
-    // Check if root causes have descriptions if they exist
-    for (const rc of identifiedRootCauses) {
-      if (!rc.description.trim()) {
-        toast({
-          title: "Guardado Parcial (Advertencia)",
-          description: `La Causa Raíz ID: ${rc.id.substring(0,7)}... no tiene descripción. Se guardó el resto.`,
-          variant: "default",
+
+    const undescribedRootCauses = identifiedRootCauses.filter(rc => !rc.description.trim());
+    if (hasRootCauses && undescribedRootCauses.length === identifiedRootCauses.length && undescribedRootCauses.length > 0) {
+         toast({
+            title: "Progreso Guardado (Advertencia)",
+            description: "El avance se guardó (simulación), pero todas las causas raíz identificadas aún necesitan descripción.",
+            variant: "default",
+            duration: 5000,
         });
-        // Continue saving other data
-      }
+    } else if (undescribedRootCauses.length > 0) {
+      toast({
+        title: "Progreso Guardado (con Advertencias)",
+        description: `El avance se guardó (simulación). ${undescribedRootCauses.length} causa(s) raíz aún necesitan descripción.`,
+        variant: "default",
+        duration: 5000,
+      });
+    } else {
+      toast({
+        title: "Progreso Guardado",
+        description: "El estado actual del análisis ha sido guardado (simulación).",
+      });
     }
-    toast({
-      title: "Progreso Guardado",
-      description: "El estado actual del análisis ha sido guardado (simulación).",
-    });
   };
 
   const handleSendTasks = () => {
@@ -225,7 +259,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
             duration: 4000,
           });
         }
-      } else if (action.responsible) { // Has responsible but other fields missing
+      } else if (action.responsible) { 
          toast({
             title: "Tarea Incompleta",
             description: `La tarea para ${action.responsible} no se puede enviar porque falta descripción o fecha límite.`,
@@ -235,7 +269,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
       }
     });
 
-    if (tasksSentCount === 0 && plannedActions.some(pa => !pa.responsible)) {
+    if (tasksSentCount === 0 && plannedActions.some(pa => !pa.responsible && pa.description.trim() && pa.dueDate)) {
          toast({
             title: "Tareas No Enviadas",
             description: "Algunas tareas no pudieron ser enviadas porque no tienen un responsable asignado, o les falta descripción/fecha.",
@@ -452,5 +486,3 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     </Card>
   );
 };
-
-    
