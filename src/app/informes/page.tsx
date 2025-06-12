@@ -37,8 +37,8 @@ interface ActionStatsData {
 
 interface RCASummaryData {
   totalRCAs: number;
-  rcaPendientes: number; // Count of 'reportedEvents' with status 'En análisis' matching filters
-  rcaFinalizados: number; // Count of 'rcaAnalyses' with isFinalized:true matching filters
+  rcaPendientes: number; 
+  rcaFinalizados: number; 
 }
 
 interface AnalisisEnCursoItem {
@@ -105,7 +105,6 @@ export default function DashboardRCAPage() {
   const fetchAllDashboardData = useCallback(async (currentFilters: DashboardFilters) => {
     setIsLoadingData(true);
     
-    // Define query constraints for rcaAnalyses collection based on filters
     const rcaQueryConstraints: QueryConstraint[] = [];
     if (currentFilters.site && currentFilters.site !== ALL_FILTER_VALUE) {
       rcaQueryConstraints.push(where("eventData.site", "==", currentFilters.site));
@@ -118,12 +117,10 @@ export default function DashboardRCAPage() {
     }
 
     try {
-      // --- Query 1: rcaAnalyses collection (for Total RCA, RCA Finalizados, and action stats) ---
       const rcaAnalysesRef = collection(db, "rcaAnalyses");
       const rcaQueryInstance = query(rcaAnalysesRef, ...rcaQueryConstraints);
       const rcaSnapshot = await getDocs(rcaQueryInstance);
       
-      let currentTotalRCAs = rcaSnapshot.size;
       let currentRcaFinalizadosCount = 0;
       let totalAcciones = 0;
       let accionesPendientesGlobal = 0;
@@ -139,7 +136,6 @@ export default function DashboardRCAPage() {
             currentRcaFinalizadosCount++;
         }
 
-        // Calculations for Action Stats & Active Action Plans
         if (rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
           rcaDoc.plannedActions.forEach(action => {
             totalAcciones++;
@@ -204,7 +200,6 @@ export default function DashboardRCAPage() {
       });
       setPlanesAccionPendientes(currentPendingActionPlans.slice(0, 5));
 
-      // --- Query 2: reportedEvents collection (for RCA Pendientes - events 'En análisis') ---
       const reportedEventsQueryConstraints: QueryConstraint[] = [where("status", "==", "En análisis")];
       if (currentFilters.site && currentFilters.site !== ALL_FILTER_VALUE) {
         reportedEventsQueryConstraints.push(where("site", "==", currentFilters.site));
@@ -220,6 +215,8 @@ export default function DashboardRCAPage() {
       const enAnalisisQuery = query(reportedEventsRef, ...reportedEventsQueryConstraints);
       const enAnalisisSnapshot = await getDocs(enAnalisisQuery);
       let currentRcaPendientesCount = enAnalisisSnapshot.size;
+
+      const currentTotalRCAs = currentRcaPendientesCount + currentRcaFinalizadosCount;
 
       setRcaSummaryData({
         totalRCAs: currentTotalRCAs,
