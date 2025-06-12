@@ -37,9 +37,9 @@ interface ActionStatsData {
 
 interface RCASummaryData {
   totalRCAs: number;
-  rcaPendientes: number; 
-  rcaFinalizados: number; 
-  rcaCompletionRate?: number; // New: Specific RCA completion rate
+  rcaPendientes: number;
+  rcaFinalizados: number;
+  rcaCompletionRate?: number;
 }
 
 interface AnalisisEnCursoItem {
@@ -55,16 +55,16 @@ interface PlanAccionPendienteItem {
   accion: string;
   responsable: string;
   fechaLimite: string;
-  estado: 'Activa' | 'Validada'; 
+  estado: 'Activa' | 'Validada';
   rcaTitle: string;
 }
 
 interface ActividadRecienteItem {
   id: string;
   descripcion: string;
-  tiempo: string; 
+  tiempo: string;
   tipoIcono: 'evento' | 'analisis' | 'finalizado';
-  originalTimestamp: string; 
+  originalTimestamp: string;
 }
 
 interface DashboardFilters {
@@ -81,7 +81,7 @@ export default function DashboardRCAPage() {
   const [analisisEnCurso, setAnalisisEnCurso] = useState<AnalisisEnCursoItem[]>([]);
   const [planesAccionPendientes, setPlanesAccionPendientes] = useState<PlanAccionPendienteItem[]>([]);
   const [actividadReciente, setActividadReciente] = useState<ActividadRecienteItem[]>([]);
-  
+
   const [availableSites, setAvailableSites] = useState<Site[]>([]);
   const [isLoadingSites, setIsLoadingSites] = useState(true);
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -105,17 +105,15 @@ export default function DashboardRCAPage() {
 
   const fetchAllDashboardData = useCallback(async (currentFilters: DashboardFilters) => {
     setIsLoadingData(true);
-    
-    let totalAcciones = 0;
+
+    let totalAccionesGlobal = 0;
     let accionesPendientesGlobal = 0;
     let accionesValidadasGlobal = 0;
     const currentAnalysesInProgress: AnalisisEnCursoItem[] = [];
     const currentPendingActionPlans: PlanAccionPendienteItem[] = [];
     let currentRcaFinalizadosCount = 0;
-    let rcaQuerySnapshotSize = 0;
 
     try {
-      // 1. Fetch RCA Analyses for action stats, in-progress analyses, and finalized RCAs
       const rcaQueryConstraints: QueryConstraint[] = [];
       if (currentFilters.site && currentFilters.site !== ALL_FILTER_VALUE) {
         rcaQueryConstraints.push(where("eventData.site", "==", currentFilters.site));
@@ -130,7 +128,6 @@ export default function DashboardRCAPage() {
       const rcaAnalysesRef = collection(db, "rcaAnalyses");
       const rcaQueryInstance = query(rcaAnalysesRef, ...rcaQueryConstraints);
       const rcaSnapshot = await getDocs(rcaQueryInstance);
-      rcaQuerySnapshotSize = rcaSnapshot.size;
 
       rcaSnapshot.forEach(docSnap => {
         const rcaDoc = docSnap.data() as RCAAnalysisDocument;
@@ -142,10 +139,10 @@ export default function DashboardRCAPage() {
 
         if (rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
           rcaDoc.plannedActions.forEach(action => {
-            totalAcciones++;
+            totalAccionesGlobal++;
             const validation = rcaDoc.validations?.find(v => v.actionId === action.id);
             const isActionValidated = validation && validation.status === 'validated';
-            
+
             if (isActionValidated) {
               accionesValidadasGlobal++;
             } else {
@@ -165,22 +162,22 @@ export default function DashboardRCAPage() {
             }
           });
         }
-        
+
         if (!rcaDoc.isFinalized) {
             let proyecto = rcaDoc.eventData?.focusEventDescription || `Análisis ID: ${rcaId.substring(0,8)}...`;
-            let currentStep = 1; 
+            let currentStep = 1;
             if (rcaDoc.finalComments && rcaDoc.finalComments.trim() !== '') currentStep = 5;
             else if (rcaDoc.validations && rcaDoc.validations.length > 0 && rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) currentStep = 4;
             else if (rcaDoc.analysisTechnique || (rcaDoc.analysisTechniqueNotes && rcaDoc.analysisTechniqueNotes.trim() !== '') || (rcaDoc.identifiedRootCauses && rcaDoc.identifiedRootCauses.length > 0) || (rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0)) currentStep = 3;
             else if (rcaDoc.projectLeader || (rcaDoc.detailedFacts && Object.values(rcaDoc.detailedFacts).some(v => !!v)) || (rcaDoc.analysisDetails && rcaDoc.analysisDetails.trim() !== '') || (rcaDoc.preservedFacts && rcaDoc.preservedFacts.length > 0)) currentStep = 2;
-            
+
             const progreso = Math.round((currentStep / 5) * 100);
             currentAnalysesInProgress.push({ id: rcaId, proyecto, currentStep, progreso });
         }
       });
 
-      setActionStatsData({ totalAcciones, accionesPendientes: accionesPendientesGlobal, accionesValidadas: accionesValidadasGlobal });
-      
+      setActionStatsData({ totalAcciones: totalAccionesGlobal, accionesPendientes: accionesPendientesGlobal, accionesValidadas: accionesValidadasGlobal });
+
       currentAnalysesInProgress.sort((a,b) => {
         const rcaA = rcaSnapshot.docs.find(d => d.id === a.id)?.data() as RCAAnalysisDocument | undefined;
         const rcaB = rcaSnapshot.docs.find(d => d.id === b.id)?.data() as RCAAnalysisDocument | undefined;
@@ -197,14 +194,13 @@ export default function DashboardRCAPage() {
               const dateA = a.fechaLimite !== 'N/A' ? parseISO(dateAStr) : null;
               const dateB = b.fechaLimite !== 'N/A' ? parseISO(dateBStr) : null;
               if (dateA && isValid(dateA) && dateB && isValid(dateB)) return dateA.getTime() - dateB.getTime();
-              if (dateA && isValid(dateA)) return -1; 
-              if (dateB && isValid(dateB)) return 1;  
+              if (dateA && isValid(dateA)) return -1;
+              if (dateB && isValid(dateB)) return 1;
           } catch (e) { /* Silently ignore */ }
-          return 0; 
+          return 0;
       });
       setPlanesAccionPendientes(currentPendingActionPlans.slice(0, 5));
 
-      // 2. Fetch Reported Events for "RCA Pendientes" count
       const reportedEventsQueryConstraints: QueryConstraint[] = [where("status", "==", "En análisis")];
       if (currentFilters.site && currentFilters.site !== ALL_FILTER_VALUE) {
         reportedEventsQueryConstraints.push(where("site", "==", currentFilters.site));
@@ -215,13 +211,12 @@ export default function DashboardRCAPage() {
       if (currentFilters.priority && currentFilters.priority !== ALL_FILTER_VALUE) {
         reportedEventsQueryConstraints.push(where("priority", "==", currentFilters.priority));
       }
-      
+
       const reportedEventsRef = collection(db, "reportedEvents");
       const enAnalisisQuery = query(reportedEventsRef, ...reportedEventsQueryConstraints);
       const enAnalisisSnapshot = await getDocs(enAnalisisQuery);
       const currentRcaPendientesCount = enAnalisisSnapshot.size;
 
-      // 3. Calculate RCASummaryData
       const currentTotalRCAs = currentRcaPendientesCount + currentRcaFinalizadosCount;
       const rcaCompletionRate = currentTotalRCAs > 0 ? (currentRcaFinalizadosCount / currentTotalRCAs) * 100 : 0;
 
@@ -234,7 +229,7 @@ export default function DashboardRCAPage() {
 
     } catch (error) {
       console.error("Error fetching dashboard data: ", error);
-      setActionStatsData({ totalAcciones: 0, accionesPendientes: 0, accionesValidadas: 0 }); 
+      setActionStatsData({ totalAcciones: 0, accionesPendientes: 0, accionesValidadas: 0 });
       setRcaSummaryData({ totalRCAs: 0, rcaPendientes: 0, rcaFinalizados: 0, rcaCompletionRate: 0 });
       setAnalisisEnCurso([]);
       setPlanesAccionPendientes([]);
@@ -244,7 +239,7 @@ export default function DashboardRCAPage() {
   }, [toast]);
 
   useEffect(() => {
-    fetchAllDashboardData(filters); 
+    fetchAllDashboardData(filters);
     const fetchSitesData = async () => {
       setIsLoadingSites(true);
       try {
@@ -262,7 +257,7 @@ export default function DashboardRCAPage() {
     };
     fetchSitesData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+  }, []);
 
   useEffect(() => {
     const fetchActividadReciente = async () => {
@@ -304,17 +299,17 @@ export default function DashboardRCAPage() {
   const handleFilterChange = (field: keyof DashboardFilters, value: any) => {
     setFilters(prev => ({ ...prev, [field]: value === ALL_FILTER_VALUE ? '' : value }));
   };
-  
+
   const applyFilters = () => {
     toast({ title: "Aplicando Filtros...", description: "Recargando datos del dashboard." });
     fetchAllDashboardData(filters);
   };
 
   const clearFilters = () => {
-    const emptyFilters: DashboardFilters = { 
-        site: '', 
-        type: '' as ReportedEventType, 
-        priority: '' as PriorityType, 
+    const emptyFilters: DashboardFilters = {
+        site: '',
+        type: '' as ReportedEventType,
+        priority: '' as PriorityType,
     };
     setFilters(emptyFilters);
     toast({ title: "Filtros Limpiados", description: "Recargando todos los datos del dashboard." });
@@ -329,19 +324,30 @@ export default function DashboardRCAPage() {
       default: return <Bell className="text-muted-foreground" />;
     }
   };
-  
+
   const isLoading = isLoadingData || isLoadingSites;
   const validSites = useMemo(() => availableSites.filter(s => s.name && s.name.trim() !== ""), [availableSites]);
 
-  const pieChartData = useMemo(() => {
+  const actionStatusPieChartData = useMemo(() => {
     if (!actionStatsData || actionStatsData.totalAcciones === 0) {
       return [];
     }
     return [
-      { name: 'Pendientes', value: actionStatsData.accionesPendientes, color: 'hsl(var(--chart-4))' }, 
-      { name: 'Validadas', value: actionStatsData.accionesValidadas, color: 'hsl(var(--chart-2))' },   
-    ].filter(item => item.value > 0); 
+      { name: 'Pendientes', value: actionStatsData.accionesPendientes, color: 'hsl(var(--chart-4))' },
+      { name: 'Validadas', value: actionStatsData.accionesValidadas, color: 'hsl(var(--chart-2))' },
+    ].filter(item => item.value > 0);
   }, [actionStatsData]);
+
+  const rcaStatusPieChartData = useMemo(() => {
+    if (!rcaSummaryData || (rcaSummaryData.rcaPendientes === 0 && rcaSummaryData.rcaFinalizados === 0)) {
+      return [];
+    }
+    return [
+      { name: 'RCA Pendientes', value: rcaSummaryData.rcaPendientes, color: 'hsl(var(--chart-5))' }, // Orange/Red
+      { name: 'RCA Finalizados', value: rcaSummaryData.rcaFinalizados, color: 'hsl(var(--chart-2))' }, // Green
+    ].filter(item => item.value > 0);
+  }, [rcaSummaryData]);
+
 
   const cumplimientoPorcentajeAcciones = useMemo(() => {
     if (!actionStatsData || actionStatsData.totalAcciones === 0) {
@@ -392,7 +398,7 @@ export default function DashboardRCAPage() {
               </SelectContent>
             </Select>
           </div>
-          
+
           <div>
             <Label htmlFor="filter-type" className="flex items-center mb-1"><AlertTriangle className="mr-1.5 h-4 w-4 text-muted-foreground"/>Tipo de Evento</Label>
             <Select
@@ -427,7 +433,7 @@ export default function DashboardRCAPage() {
           <Button onClick={clearFilters} variant="outline" disabled={isLoading}><RefreshCcw className="mr-2"/>Limpiar Filtros</Button>
         </CardFooter>
       </Card>
-      
+
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -518,77 +524,126 @@ export default function DashboardRCAPage() {
         </CardContent>
       </Card>
 
-      {isLoadingData ? (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle className="text-xl">Gráfico Estado de Acciones Correctivas</CardTitle>
+            <CardTitle className="text-xl">Gráfico Estado de Análisis de Causa Raíz</CardTitle>
           </CardHeader>
-          <CardContent className="h-[300px] flex items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <CardContent className="h-[300px]">
+            {isLoadingData ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : rcaSummaryData && rcaStatusPieChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsPieChart>
+                  <Pie
+                    data={rcaStatusPieChartData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, value }) => {
+                      const RADIAN = Math.PI / 180;
+                      const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                      if (value === 0) return null;
+                      return (
+                        <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize="12px" fontWeight="bold">
+                          {`${value} (${(percent * 100).toFixed(0)}%)`}
+                        </text>
+                      );
+                    }}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                    nameKey="name"
+                  >
+                    {rcaStatusPieChartData.map((entry, index) => (
+                      <Cell key={`cell-rca-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      borderColor: 'hsl(var(--border))',
+                      borderRadius: 'var(--radius)',
+                    }}
+                    itemStyle={{ color: 'hsl(var(--foreground))' }}
+                  />
+                  <RechartsLegend
+                    formatter={(value) => <span style={{ color: 'hsl(var(--foreground))' }}>{value}</span>}
+                  />
+                </RechartsPieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-muted-foreground">No hay datos de estado RCA para mostrar.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
-      ) : actionStatsData && actionStatsData.totalAcciones > 0 && pieChartData.length > 0 ? (
+
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="text-xl">Gráfico Estado de Acciones Correctivas</CardTitle>
           </CardHeader>
           <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <RechartsPieChart>
-                <Pie
-                  data={pieChartData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, value }) => {
-                    const RADIAN = Math.PI / 180;
-                    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-                    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                    const y = cy + radius * Math.sin(-midAngle * RADIAN);
-                    if (value === 0) return null; 
-                    return (
-                      <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize="12px" fontWeight="bold">
-                        {`${value} (${(percent * 100).toFixed(0)}%)`}
-                      </text>
-                    );
-                  }}
-                  outerRadius={100}
-                  fill="#8884d8" 
-                  dataKey="value"
-                  nameKey="name"
-                >
-                  {pieChartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <RechartsTooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--background))',
-                    borderColor: 'hsl(var(--border))',
-                    borderRadius: 'var(--radius)',
-                  }}
-                  itemStyle={{ color: 'hsl(var(--foreground))' }}
-                />
-                <RechartsLegend
-                  formatter={(value, entry) => {
-                    const { color } = entry;
-                    return <span style={{ color: 'hsl(var(--foreground))' }}>{value}</span>;
-                  }}
-                />
-              </RechartsPieChart>
-            </ResponsiveContainer>
+            {isLoadingData ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : actionStatsData && actionStatusPieChartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsPieChart>
+                  <Pie
+                    data={actionStatusPieChartData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, value }) => {
+                      const RADIAN = Math.PI / 180;
+                      const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                      const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                      const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                      if (value === 0) return null;
+                      return (
+                        <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize="12px" fontWeight="bold">
+                          {`${value} (${(percent * 100).toFixed(0)}%)`}
+                        </text>
+                      );
+                    }}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                    nameKey="name"
+                  >
+                    {actionStatusPieChartData.map((entry, index) => (
+                      <Cell key={`cell-action-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      borderColor: 'hsl(var(--border))',
+                      borderRadius: 'var(--radius)',
+                    }}
+                    itemStyle={{ color: 'hsl(var(--foreground))' }}
+                  />
+                  <RechartsLegend
+                    formatter={(value) => <span style={{ color: 'hsl(var(--foreground))' }}>{value}</span>}
+                  />
+                </RechartsPieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-muted-foreground">No hay datos de acciones para mostrar.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
-      ) : (
-         <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-xl">Gráfico Estado de Acciones Correctivas</CardTitle>
-          </CardHeader>
-          <CardContent className="h-[300px] flex items-center justify-center">
-            <p className="text-muted-foreground">No hay datos de acciones para mostrar en el gráfico.</p>
-          </CardContent>
-        </Card>
-      )}
+      </div>
+
 
       <Card className="shadow-lg">
         <CardHeader>
@@ -637,7 +692,7 @@ export default function DashboardRCAPage() {
           )}
         </CardContent>
       </Card>
-      
+
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -701,7 +756,7 @@ export default function DashboardRCAPage() {
           </Button>
         </CardFooter>
       </Card>
-      
+
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -711,7 +766,7 @@ export default function DashboardRCAPage() {
           <CardDescription>Últimas acciones y actualizaciones importantes en eventos y análisis (máx. 5).</CardDescription>
         </CardHeader>
         <CardContent>
-        {isLoadingData ? ( 
+        {isLoadingData ? (
             <div className="flex justify-center items-center h-24">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="ml-2 text-muted-foreground">Cargando actividad reciente...</p>
