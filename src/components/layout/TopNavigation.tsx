@@ -7,12 +7,12 @@ import { Home, BarChart3, FileText, SettingsIcon, UserCheck, ListOrdered } from 
 import { cn } from '@/lib/utils';
 
 const mainMenuItems = [
-  { href: '/inicio', label: 'Inicio', icon: Home },
-  { href: '/eventos', label: 'Eventos', icon: ListOrdered },
-  { href: '/analisis', label: 'Análisis', icon: BarChart3 },
-  { href: '/informes', label: 'Informes', icon: FileText },
-  { href: '/usuario/planes', label: 'Mis Tareas', icon: UserCheck },
-  { href: '/config', label: 'Config.', icon: SettingsIcon },
+  { href: '/inicio', label: 'Inicio', icon: Home, section: 'inicio' },
+  { href: '/eventos', label: 'Eventos', icon: ListOrdered, section: 'eventos' },
+  { href: '/analisis', label: 'Análisis', icon: BarChart3, section: 'analisis' },
+  { href: '/informes', label: 'Informes', icon: FileText, section: 'informes' },
+  { href: '/usuario/planes', label: 'Mis Tareas', icon: UserCheck, section: 'usuario' },
+  { href: '/config', label: 'Config.', icon: SettingsIcon, section: 'config' },
 ];
 
 export function TopNavigation() {
@@ -25,26 +25,23 @@ export function TopNavigation() {
           <div className="flex space-x-1 sm:space-x-2 md:space-x-4">
             {mainMenuItems.map((item) => {
               let isActive = false;
-              
-              // Lógica específica para "Inicio": activo en "/" o cualquier ruta que comience con "/inicio"
-              if (item.href === '/inicio') {
+              if (item.section === 'inicio') {
                 isActive = pathname === '/' || pathname.startsWith('/inicio');
-              } 
-              // Lógica específica para "Mis Tareas": activo para cualquier ruta que comience con "/usuario"
-              else if (item.href === '/usuario/planes') {
+              } else if (item.section === 'usuario') {
+                // Handles /usuario/* for "Mis Tareas" link which points to /usuario/planes
                 isActive = pathname.startsWith('/usuario');
-              } 
-              // Lógica genérica para otros ítems: activo si el pathname comienza con el href del ítem
-              // (asegurándose de que href no sea solo "/" para evitar conflictos si "/" se manejara de forma diferente)
-              else if (item.href && item.href !== '/') { 
+              } else if (item.section === 'config') {
+                // Handles /config/* for "Config." link
+                isActive = pathname.startsWith('/config');
+              } else {
+                // For other direct links like /eventos, /analisis, /informes
+                // Checks if the current path starts with the item's specific href
                 isActive = pathname.startsWith(item.href);
               }
-              // Si item.href es solo "/", normalmente sería manejado por la lógica de /inicio debido a la redirección,
-              // o necesitaría su propia verificación específica si fuera una página distinta.
 
               return (
                 <Link
-                  key={item.href}
+                  key={item.href} // Using href as key is fine if hrefs are unique and stable
                   href={item.href}
                   className={cn(
                     'px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2 transition-colors duration-150 ease-in-out',
