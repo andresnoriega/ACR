@@ -65,36 +65,6 @@ export default function ConfiguracionPrivacidadPage() {
 
           <div className="flex flex-col sm:flex-row justify-between items-center p-4 border rounded-md">
             <div>
-              <h4 className="font-semibold">Resetear Datos de Análisis Completados</h4>
-              <p className="text-sm text-muted-foreground">Elimina todos los informes RCA marcados como "Finalizado".</p>
-            </div>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="mt-2 sm:mt-0" disabled={isResetting}>
-                  {isResetting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} 
-                  Resetear Finalizados
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>¿Confirmar Reseteo?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Esta acción eliminará permanentemente todos los análisis RCA marcados como "Finalizado". Esta acción no se puede deshacer.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel disabled={isResetting}>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => handleResetData("Análisis Finalizados")} disabled={isResetting} className="bg-destructive hover:bg-destructive/90">
-                    {isResetting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Sí, Resetear
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-
-          <div className="flex flex-col sm:flex-row justify-between items-center p-4 border rounded-md">
-            <div>
               <h4 className="font-semibold">Resetear Todos los Datos de RCA</h4>
               <p className="text-sm text-muted-foreground">Elimina todos los eventos y análisis RCA (Pendientes, En Análisis y Finalizados).</p>
             </div>
