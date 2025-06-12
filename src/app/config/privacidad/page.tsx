@@ -99,18 +99,6 @@ export default function ConfiguracionPrivacidadPage() {
             </p>
         </CardFooter>
       </Card>
-
-      <Card className="max-w-2xl mx-auto shadow-md">
-        <CardHeader>
-            <CardTitle>Configuración de Almacenamiento (Ilustrativo)</CardTitle>
-            <CardDescription>Opciones futuras para la gestión del almacenamiento de datos.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-            <Button variant="outline" className="w-full sm:w-auto" onClick={() => toast({title: "Próximamente", description: "Configurar límites de almacenamiento."})}>Configurar Límites de Almacenamiento</Button>
-            <Button variant="outline" className="w-full sm:w-auto" onClick={() => toast({title: "Próximamente", description: "Ver estadísticas de uso de almacenamiento."})}>Ver Uso de Almacenamiento</Button>
-            <Button variant="outline" className="w-full sm:w-auto" onClick={() => toast({title: "Próximamente", description: "Gestionar exportaciones programadas."})}>Exportaciones Programadas</Button>
-        </CardContent>
-      </Card>
     </div>
   );
 }
