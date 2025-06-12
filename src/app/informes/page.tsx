@@ -8,9 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { PieChart, ClipboardList, ListChecks, History, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter } from 'lucide-react';
-import type { ReportedEvent, ReportedEventStatus } from '@/types/rca';
+import type { ReportedEvent } from '@/types/rca';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, Timestamp, format } from "firebase/firestore"; // Added format, Timestamp
+import { collection, getDocs, query, Timestamp } from "firebase/firestore";
+import { format } from "date-fns";
 
 interface StatsData {
   totalEventos: number;
@@ -49,12 +50,12 @@ export default function DashboardRCAPage() {
         const querySnapshot = await getDocs(eventsCollectionRef);
         const events = querySnapshot.docs.map(doc => {
             const data = doc.data();
-            let eventDate = data.date;
+            let eventDateStr = data.date; // Assume it's a string 'yyyy-MM-dd' or Firestore Timestamp
             if (data.date && typeof data.date.toDate === 'function') { // Firestore Timestamp
-                 // Assuming you store dates as 'yyyy-MM-dd' strings after conversion
-                eventDate = format(data.date.toDate(), 'yyyy-MM-dd');
+                eventDateStr = format(data.date.toDate(), 'yyyy-MM-dd');
             }
-            return { ...data, date: eventDate } as ReportedEvent;
+            // If data.date is already a 'yyyy-MM-dd' string, it will be used as is.
+            return { ...data, date: eventDateStr } as ReportedEvent;
         });
         
         const newStats: StatsData = {
@@ -260,4 +261,3 @@ export default function DashboardRCAPage() {
     </div>
   );
 }
-
