@@ -37,8 +37,8 @@ interface ActionStatsData {
 
 interface RCASummaryData {
   totalRCAs: number;
-  rcaPendientes: number;
-  accionesValidadasEnRCAFinalizados: number;
+  rcaPendientes: number; // Count of 'reportedEvents' with status 'En análisis' matching filters
+  rcaFinalizados: number; // Count of 'rcaAnalyses' with isFinalized:true matching filters
 }
 
 interface AnalisisEnCursoItem {
@@ -105,42 +105,41 @@ export default function DashboardRCAPage() {
   const fetchAllDashboardData = useCallback(async (currentFilters: DashboardFilters) => {
     setIsLoadingData(true);
     
-    const baseQueryConstraints: QueryConstraint[] = [];
+    // Define query constraints for rcaAnalyses collection based on filters
+    const rcaQueryConstraints: QueryConstraint[] = [];
     if (currentFilters.site && currentFilters.site !== ALL_FILTER_VALUE) {
-      baseQueryConstraints.push(where("eventData.site", "==", currentFilters.site));
+      rcaQueryConstraints.push(where("eventData.site", "==", currentFilters.site));
     }
     if (currentFilters.type && currentFilters.type !== ALL_FILTER_VALUE) {
-      baseQueryConstraints.push(where("eventData.eventType", "==", currentFilters.type));
+      rcaQueryConstraints.push(where("eventData.eventType", "==", currentFilters.type));
     }
     if (currentFilters.priority && currentFilters.priority !== ALL_FILTER_VALUE) {
-      baseQueryConstraints.push(where("eventData.priority", "==", currentFilters.priority));
+      rcaQueryConstraints.push(where("eventData.priority", "==", currentFilters.priority));
     }
 
     try {
+      // --- Query 1: rcaAnalyses collection (for Total RCA, RCA Finalizados, and action stats) ---
       const rcaAnalysesRef = collection(db, "rcaAnalyses");
-      const dataQuery = query(rcaAnalysesRef, ...baseQueryConstraints);
-      const querySnapshot = await getDocs(dataQuery);
+      const rcaQueryInstance = query(rcaAnalysesRef, ...rcaQueryConstraints);
+      const rcaSnapshot = await getDocs(rcaQueryInstance);
       
+      let currentTotalRCAs = rcaSnapshot.size;
+      let currentRcaFinalizadosCount = 0;
       let totalAcciones = 0;
       let accionesPendientesGlobal = 0;
       let accionesValidadasGlobal = 0;
-
-      let totalRCAs = querySnapshot.size;
-      let rcaPendientesCount = 0;
-      let accionesValidadasEnRCAFinalizados = 0;
-
       const currentAnalysesInProgress: AnalisisEnCursoItem[] = [];
       const currentPendingActionPlans: PlanAccionPendienteItem[] = [];
 
-      querySnapshot.forEach(docSnap => {
+      rcaSnapshot.forEach(docSnap => {
         const rcaDoc = docSnap.data() as RCAAnalysisDocument;
         const rcaId = docSnap.id;
 
-        if (!rcaDoc.isFinalized) {
-            rcaPendientesCount++;
+        if (rcaDoc.isFinalized) {
+            currentRcaFinalizadosCount++;
         }
 
-        // Calculations for Resumen de Acciones Correctivas & Cumplimiento
+        // Calculations for Action Stats & Active Action Plans
         if (rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
           rcaDoc.plannedActions.forEach(action => {
             totalAcciones++;
@@ -153,12 +152,6 @@ export default function DashboardRCAPage() {
               accionesPendientesGlobal++;
             }
 
-            // Calculations for Resumen de Análisis de Causa Raíz
-            if (rcaDoc.isFinalized && isActionValidated) {
-              accionesValidadasEnRCAFinalizados++;
-            }
-
-            // For Planes de Acción Activos (only if RCA is not finalized and action is pending)
             if (!rcaDoc.isFinalized && !isActionValidated) {
                  currentPendingActionPlans.push({
                     actionId: action.id,
@@ -173,7 +166,6 @@ export default function DashboardRCAPage() {
           });
         }
         
-        // For Analisis En Curso
         if (!rcaDoc.isFinalized) {
             let proyecto = rcaDoc.eventData?.focusEventDescription || `Análisis ID: ${rcaId.substring(0,8)}...`;
             let currentStep = 1; 
@@ -188,27 +180,23 @@ export default function DashboardRCAPage() {
       });
 
       setActionStatsData({ totalAcciones, accionesPendientes: accionesPendientesGlobal, accionesValidadas: accionesValidadasGlobal });
-      setRcaSummaryData({ totalRCAs, rcaPendientes: rcaPendientesCount, accionesValidadasEnRCAFinalizados });
       
-      // Sort and limit "Análisis en Curso"
       currentAnalysesInProgress.sort((a,b) => {
-        const rcaA = querySnapshot.docs.find(d => d.id === a.id)?.data() as RCAAnalysisDocument | undefined;
-        const rcaB = querySnapshot.docs.find(d => d.id === b.id)?.data() as RCAAnalysisDocument | undefined;
+        const rcaA = rcaSnapshot.docs.find(d => d.id === a.id)?.data() as RCAAnalysisDocument | undefined;
+        const rcaB = rcaSnapshot.docs.find(d => d.id === b.id)?.data() as RCAAnalysisDocument | undefined;
         const dateA = rcaA?.updatedAt ? parseISO(rcaA.updatedAt).getTime() : 0;
         const dateB = rcaB?.updatedAt ? parseISO(rcaB.updatedAt).getTime() : 0;
-        return dateB - dateA; // Descending by updatedAt
+        return dateB - dateA;
       });
       setAnalisisEnCurso(currentAnalysesInProgress);
 
-
-      // Sort and limit "Planes de Acción Activos"
       currentPendingActionPlans.sort((a,b) => {
           try {
               const dateAStr = a.fechaLimite.split('/').reverse().join('-');
               const dateBStr = b.fechaLimite.split('/').reverse().join('-');
               const dateA = a.fechaLimite !== 'N/A' ? parseISO(dateAStr) : null;
               const dateB = b.fechaLimite !== 'N/A' ? parseISO(dateBStr) : null;
-              if (dateA && isValid(dateA) && dateB && isValid(dateB)) return dateA.getTime() - dateB.getTime(); // Ascending by due date
+              if (dateA && isValid(dateA) && dateB && isValid(dateB)) return dateA.getTime() - dateB.getTime();
               if (dateA && isValid(dateA)) return -1; 
               if (dateB && isValid(dateB)) return 1;  
           } catch (e) { /* Silently ignore */ }
@@ -216,10 +204,33 @@ export default function DashboardRCAPage() {
       });
       setPlanesAccionPendientes(currentPendingActionPlans.slice(0, 5));
 
+      // --- Query 2: reportedEvents collection (for RCA Pendientes - events 'En análisis') ---
+      const reportedEventsQueryConstraints: QueryConstraint[] = [where("status", "==", "En análisis")];
+      if (currentFilters.site && currentFilters.site !== ALL_FILTER_VALUE) {
+        reportedEventsQueryConstraints.push(where("site", "==", currentFilters.site));
+      }
+      if (currentFilters.type && currentFilters.type !== ALL_FILTER_VALUE) {
+        reportedEventsQueryConstraints.push(where("type", "==", currentFilters.type));
+      }
+      if (currentFilters.priority && currentFilters.priority !== ALL_FILTER_VALUE) {
+        reportedEventsQueryConstraints.push(where("priority", "==", currentFilters.priority));
+      }
+      
+      const reportedEventsRef = collection(db, "reportedEvents");
+      const enAnalisisQuery = query(reportedEventsRef, ...reportedEventsQueryConstraints);
+      const enAnalisisSnapshot = await getDocs(enAnalisisQuery);
+      let currentRcaPendientesCount = enAnalisisSnapshot.size;
+
+      setRcaSummaryData({
+        totalRCAs: currentTotalRCAs,
+        rcaPendientes: currentRcaPendientesCount,
+        rcaFinalizados: currentRcaFinalizadosCount,
+      });
+
     } catch (error) {
       console.error("Error fetching dashboard data: ", error);
       setActionStatsData({ totalAcciones: 0, accionesPendientes: 0, accionesValidadas: 0 }); 
-      setRcaSummaryData({ totalRCAs: 0, rcaPendientes: 0, accionesValidadasEnRCAFinalizados: 0 });
+      setRcaSummaryData({ totalRCAs: 0, rcaPendientes: 0, rcaFinalizados: 0 });
       setAnalisisEnCurso([]);
       setPlanesAccionPendientes([]);
       toast({ title: "Error al Cargar Datos del Dashboard", description: (error as Error).message, variant: "destructive" });
@@ -253,8 +264,6 @@ export default function DashboardRCAPage() {
       const actividades: ActividadRecienteItem[] = [];
       try {
         const eventsRef = collection(db, "reportedEvents");
-        // Note: Filtering recent activity by dashboard filters might be complex due to different data structures.
-        // For now, recent activity remains unfiltered by the dashboard's main filters.
         const eventsQuery = query(eventsRef, orderBy("updatedAt", "desc"), limit(3));
         const eventsSnapshot = await getDocs(eventsQuery);
         eventsSnapshot.forEach(docSnap => {
@@ -442,7 +451,7 @@ export default function DashboardRCAPage() {
               </div>
               <div className="p-4 bg-green-400/20 rounded-lg">
                 <div className="flex items-center justify-center mb-1"><CheckSquare className="h-5 w-5 text-green-600 mr-1.5"/></div>
-                <p className="text-3xl font-bold text-green-600">{rcaSummaryData.accionesValidadasEnRCAFinalizados}</p>
+                <p className="text-3xl font-bold text-green-600">{rcaSummaryData.rcaFinalizados}</p>
                 <p className="text-sm text-muted-foreground">RCA Finalizados</p>
               </div>
               <div className="p-4 bg-blue-400/20 rounded-lg">
