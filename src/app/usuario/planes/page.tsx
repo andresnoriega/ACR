@@ -313,6 +313,8 @@ export default function UserActionPlansPage() {
   };
 
   const isLoading = isLoadingUsers || isLoadingActions;
+  const validUsersForSelect = useMemo(() => availableUsers.filter(user => user.name && user.name.trim() !== ""), [availableUsers]);
+
 
   return (
     <div className="space-y-6 py-8">
@@ -343,12 +345,19 @@ export default function UserActionPlansPage() {
                 <SelectValue placeholder="-- Seleccione un Usuario --" />
                 </SelectTrigger>
                 <SelectContent>
-                <SelectItem value={NONE_USER_VALUE}>-- Ninguno --</SelectItem>
-                {availableUsers.length > 0 ? availableUsers.map(user => (
-                    <SelectItem key={user.id} value={user.name}>
-                    {user.name} ({user.email})
-                    </SelectItem>
-                )) : <SelectItem value="" disabled>No hay usuarios para mostrar</SelectItem>}
+                  <SelectItem value={NONE_USER_VALUE}>-- Ninguno --</SelectItem>
+                  {validUsersForSelect.length > 0 
+                      ? validUsersForSelect.map(user => (
+                          <SelectItem key={user.id} value={user.name}>
+                              {user.name} ({user.email})
+                          </SelectItem>
+                      )) 
+                      : (
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">
+                              {availableUsers.length === 0 ? "No hay usuarios configurados" : "No hay usuarios con nombres válidos"}
+                          </div>
+                      )
+                  }
                 </SelectContent>
             </Select>
             {isLoadingUsers && <p className="text-xs text-muted-foreground mt-1 flex items-center"><Loader2 className="h-3 w-3 animate-spin mr-1"/>Cargando usuarios...</p>}
