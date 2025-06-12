@@ -8,18 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { PieChart, ClipboardList, ListChecks, History, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter } from 'lucide-react';
-import type { ReportedEvent, ReportedEventStatus } from '@/types/rca'; // Assuming ReportedEvent is defined in types
-
-// Simulación de datos que vendrían de Firestore para la sección de "Eventos Reportados"
-// Esta es la misma data que se usa en /eventos/page.tsx para consistencia de la simulación.
-const simulatedReportedEventsData: ReportedEvent[] = [
-  { id: 'E-001', title: 'Fuga en válvula X', site: 'Planta Norte', date: '2025-06-10', type: 'Incidente', priority: 'Alta', status: 'Pendiente', description: 'Se detectó una fuga considerable en la válvula de control principal del sector A. Requiere atención inmediata.' },
-  { id: 'E-003', title: 'Caída de operario', site: 'Centro', date: '2025-06-08', type: 'Accidente', priority: 'Alta', status: 'Pendiente', description: 'Un operario sufrió una caída desde una altura de 2 metros mientras realizaba mantenimiento en la plataforma 3. Se aplicaron primeros auxilios.' },
-  { id: 'E-005', title: 'Error eléctrico en línea 3', site: 'Planta Sur', date: '2025-06-05', type: 'Fallo', priority: 'Media', status: 'En análisis', description: 'La línea de producción 3 experimentó un fallo eléctrico intermitente, causando paradas no programadas.' },
-  { id: 'E-007', title: 'Sobrecalentamiento motor', site: 'Planta Norte', date: '2025-06-02', type: 'Incidente', priority: 'Baja', status: 'Finalizado', description: 'El motor de la bomba B-102 mostró signos de sobrecalentamiento. Se realizó mantenimiento y ya está operativo.' },
-  { id: 'E-008', title: 'Derrame químico menor', site: 'Planta Sur', date: '2025-05-28', type: 'Incidente', priority: 'Media', status: 'Pendiente', description: 'Pequeño derrame de sustancia X en el almacén de químicos. Área contenida.' },
-  { id: 'E-009', title: 'Falla en sensor de presión', site: 'Centro', date: '2025-05-25', type: 'Fallo', priority: 'Alta', status: 'En análisis', description: 'El sensor de presión PT-501 de la caldera principal está arrojando lecturas erráticas.' },
-];
+import type { ReportedEvent, ReportedEventStatus } from '@/types/rca';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, query, Timestamp, format } from "firebase/firestore"; // Added format, Timestamp
 
 interface StatsData {
   totalEventos: number;
@@ -51,28 +42,35 @@ export default function DashboardRCAPage() {
   const [isLoadingStats, setIsLoadingStats] = useState(true);
 
   useEffect(() => {
-    // Simulación de carga de datos desde Firestore
     const fetchStats = async () => {
       setIsLoadingStats(true);
-      // En una implementación real, aquí se haría la llamada a Firestore:
-      // const querySnapshot = await getDocs(collection(db, "reportedEvents"));
-      // const events = querySnapshot.docs.map(doc => doc.data() as ReportedEvent);
-      
-      // Usamos los datos simulados por ahora
-      const events: ReportedEvent[] = simulatedReportedEventsData;
-
-      const newStats: StatsData = {
-        totalEventos: events.length,
-        pendientes: events.filter(e => e.status === 'Pendiente').length,
-        enAnalisis: events.filter(e => e.status === 'En análisis').length,
-        finalizados: events.filter(e => e.status === 'Finalizado').length,
-      };
-      
-      // Simular un pequeño retraso de red
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      setStatsData(newStats);
-      setIsLoadingStats(false);
+      try {
+        const eventsCollectionRef = collection(db, "reportedEvents");
+        const querySnapshot = await getDocs(eventsCollectionRef);
+        const events = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            let eventDate = data.date;
+            if (data.date && typeof data.date.toDate === 'function') { // Firestore Timestamp
+                 // Assuming you store dates as 'yyyy-MM-dd' strings after conversion
+                eventDate = format(data.date.toDate(), 'yyyy-MM-dd');
+            }
+            return { ...data, date: eventDate } as ReportedEvent;
+        });
+        
+        const newStats: StatsData = {
+          totalEventos: events.length,
+          pendientes: events.filter(e => e.status === 'Pendiente').length,
+          enAnalisis: events.filter(e => e.status === 'En análisis').length,
+          finalizados: events.filter(e => e.status === 'Finalizado').length,
+        };
+        
+        setStatsData(newStats);
+      } catch (error) {
+        console.error("Error fetching stats for dashboard: ", error);
+        setStatsData({ totalEventos: 0, pendientes: 0, enAnalisis: 0, finalizados: 0 }); // Default on error
+      } finally {
+        setIsLoadingStats(false);
+      }
     };
 
     fetchStats();
@@ -88,7 +86,7 @@ export default function DashboardRCAPage() {
           Dashboard RCA
         </h1>
         <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-          Resumen general de la actividad de Análisis de Causa Raíz.
+          Resumen general de la actividad de Análisis de Causa Raíz desde Firestore.
         </p>
       </header>
 
