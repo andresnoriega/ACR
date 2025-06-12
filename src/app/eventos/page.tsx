@@ -17,7 +17,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { ReportedEvent, ReportedEventType, ReportedEventStatus, PriorityType } from '@/types/rca';
-import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, PlayCircle, CheckSquare, Info } from 'lucide-react';
+import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, PlayCircle, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Sample data - in a real app, this would come from a backend/state management
@@ -333,9 +333,6 @@ export default function EventosReportadosPage() {
                 disabled={!selectedEvent || selectedEvent.status !== 'Pendiente'}
              >
                 <PlayCircle className="mr-2"/> Iniciar Análisis RCA
-            </Button>
-             <Button variant="secondary" size="sm" onClick={() => toast({title: "Simulación", description: "Marcar evento como revisado."})} disabled={!selectedEvent}>
-                <CheckSquare className="mr-2"/> Marcar como Revisado
             </Button>
         </CardFooter>
       </Card>
