@@ -38,6 +38,8 @@ const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Fallo', 'Accidente'
 const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
 const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'Finalizado'];
 
+const ALL_FILTER_VALUE = "__ALL__"; // Constant for "All" option value
+
 interface Filters {
   site: string;
   date: Date | undefined;
@@ -66,7 +68,9 @@ export default function EventosReportadosPage() {
   }), [allEvents]);
 
   const handleFilterChange = (field: keyof Filters, value: any) => {
-    setFilters(prev => ({ ...prev, [field]: value }));
+    // If the selected value is ALL_FILTER_VALUE, set the filter state to empty string
+    // otherwise, use the actual value.
+    setFilters(prev => ({ ...prev, [field]: value === ALL_FILTER_VALUE ? '' : value }));
   };
   
   const handleDateChange = (date: Date | undefined) => {
@@ -104,8 +108,8 @@ export default function EventosReportadosPage() {
   const getStatusBadgeVariant = (status: ReportedEventStatus): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
       case 'Pendiente': return 'destructive';
-      case 'En análisis': return 'secondary'; // Or a custom yellow-like
-      case 'Finalizado': return 'default'; // Or a custom green-like
+      case 'En análisis': return 'secondary'; 
+      case 'Finalizado': return 'default'; 
       default: return 'outline';
     }
   };
@@ -113,14 +117,14 @@ export default function EventosReportadosPage() {
   const formatDateForDisplay = (dateString: string) => {
     if (!dateString) return 'N/A';
     try {
-      const dateObj = parseISO(dateString); // Dates are stored as YYYY-MM-DD
+      const dateObj = parseISO(dateString); 
       if (isValidDate(dateObj)) {
         return format(dateObj, 'dd/MM/yyyy');
       }
     } catch (error) {
       // If parsing fails, try to return original or a fallback
     }
-    return dateString; // Fallback for non-ISO or already formatted
+    return dateString; 
   };
 
 
@@ -138,7 +142,6 @@ export default function EventosReportadosPage() {
         </p>
       </header>
 
-      {/* Resumen Rápido */}
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -155,18 +158,17 @@ export default function EventosReportadosPage() {
             <p className="text-3xl font-bold text-destructive">{summaryData.pendientes}</p>
             <p className="text-sm text-muted-foreground">Pendientes</p>
           </div>
-          <div className="p-4 bg-yellow-400/20 rounded-lg"> {/* Custom yellow variant */}
+          <div className="p-4 bg-yellow-400/20 rounded-lg"> 
             <p className="text-3xl font-bold text-yellow-600">{summaryData.enAnalisis}</p>
             <p className="text-sm text-muted-foreground">En Análisis</p>
           </div>
-          <div className="p-4 bg-green-400/20 rounded-lg"> {/* Custom green variant */}
+          <div className="p-4 bg-green-400/20 rounded-lg"> 
             <p className="text-3xl font-bold text-green-600">{summaryData.finalizados}</p>
             <p className="text-sm text-muted-foreground">Finalizados</p>
           </div>
         </CardContent>
       </Card>
 
-      {/* Filtros de Búsqueda */}
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -177,10 +179,13 @@ export default function EventosReportadosPage() {
         <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
           <div>
             <Label htmlFor="filter-site" className="flex items-center mb-1"><Globe className="mr-1.5 h-4 w-4 text-muted-foreground"/>Sitio/Planta</Label>
-            <Select value={filters.site} onValueChange={(val) => handleFilterChange('site', val)}>
+            <Select
+              value={filters.site || ALL_FILTER_VALUE} // Use ALL_FILTER_VALUE if filter is empty
+              onValueChange={(val) => handleFilterChange('site', val)}
+            >
               <SelectTrigger id="filter-site"><SelectValue placeholder="Todos los sitios" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos los sitios</SelectItem>
+                <SelectItem value={ALL_FILTER_VALUE}>Todos los sitios</SelectItem>
                 {sampleSites.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -200,30 +205,39 @@ export default function EventosReportadosPage() {
           </div>
           <div>
             <Label htmlFor="filter-type" className="flex items-center mb-1"><AlertTriangle className="mr-1.5 h-4 w-4 text-muted-foreground"/>Tipo de Evento</Label>
-            <Select value={filters.type} onValueChange={(val) => handleFilterChange('type', val as ReportedEventType)}>
+            <Select
+              value={filters.type || ALL_FILTER_VALUE}
+              onValueChange={(val) => handleFilterChange('type', val as ReportedEventType | typeof ALL_FILTER_VALUE)}
+            >
               <SelectTrigger id="filter-type"><SelectValue placeholder="Todos los tipos" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos los tipos</SelectItem>
+                <SelectItem value={ALL_FILTER_VALUE}>Todos los tipos</SelectItem>
                 {eventTypeOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div>
             <Label htmlFor="filter-priority" className="flex items-center mb-1"><Flame className="mr-1.5 h-4 w-4 text-muted-foreground"/>Prioridad</Label>
-            <Select value={filters.priority} onValueChange={(val) => handleFilterChange('priority', val as PriorityType)}>
+            <Select
+              value={filters.priority || ALL_FILTER_VALUE}
+              onValueChange={(val) => handleFilterChange('priority', val as PriorityType | typeof ALL_FILTER_VALUE)}
+            >
               <SelectTrigger id="filter-priority"><SelectValue placeholder="Todas las prioridades" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todas las prioridades</SelectItem>
+                <SelectItem value={ALL_FILTER_VALUE}>Todas las prioridades</SelectItem>
                 {priorityOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div>
             <Label htmlFor="filter-status" className="flex items-center mb-1"><ActivityIcon className="mr-1.5 h-4 w-4 text-muted-foreground"/>Estado</Label>
-            <Select value={filters.status} onValueChange={(val) => handleFilterChange('status', val as ReportedEventStatus)}>
+            <Select
+              value={filters.status || ALL_FILTER_VALUE}
+              onValueChange={(val) => handleFilterChange('status', val as ReportedEventStatus | typeof ALL_FILTER_VALUE)}
+            >
               <SelectTrigger id="filter-status"><SelectValue placeholder="Todos los estados" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos los estados</SelectItem>
+                <SelectItem value={ALL_FILTER_VALUE}>Todos los estados</SelectItem>
                 {statusOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -235,7 +249,6 @@ export default function EventosReportadosPage() {
         </CardFooter>
       </Card>
 
-      {/* Lista de Eventos */}
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl">Lista de Eventos</CardTitle>
@@ -291,3 +304,5 @@ export default function EventosReportadosPage() {
     </div>
   );
 }
+
+    
