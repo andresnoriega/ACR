@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox'; // Import Checkbox
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -101,7 +101,7 @@ export default function EventosReportadosPage() {
       events = events.filter(e => e.status === filters.status);
     }
     setFilteredEvents(events);
-    setSelectedEvent(null); // Deseleccionar evento al aplicar filtros
+    setSelectedEvent(null); 
     setIsDetailsCardVisible(false);
     toast({ title: "Filtros Aplicados", description: `${events.length} eventos encontrados.` });
   }, [filters, allEvents, toast]);
@@ -109,7 +109,7 @@ export default function EventosReportadosPage() {
   const clearFilters = () => {
     setFilters({ site: '', date: undefined, type: '', priority: '', status: '' });
     setFilteredEvents(allEvents);
-    setSelectedEvent(null); // Deseleccionar evento al limpiar filtros
+    setSelectedEvent(null); 
     setIsDetailsCardVisible(false);
     toast({ title: "Filtros Limpiados" });
   };
@@ -138,7 +138,6 @@ export default function EventosReportadosPage() {
 
   const handleSelectEvent = (event: ReportedEvent) => {
     if (selectedEvent?.id === event.id) {
-      // Si se hace clic en el evento ya seleccionado, se deselecciona
       setSelectedEvent(null);
       setIsDetailsCardVisible(false);
     } else {
@@ -296,7 +295,7 @@ export default function EventosReportadosPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[5%]"></TableHead> {/* Column for Checkbox */}
+                <TableHead className="w-[5%]"></TableHead>
                 <TableHead className="w-[10%]">ID</TableHead>
                 <TableHead className="w-[25%]">Título</TableHead>
                 <TableHead className="w-[15%]">Sitio</TableHead>
@@ -309,7 +308,7 @@ export default function EventosReportadosPage() {
             <TableBody>
               {filteredEvents.length > 0 ? (
                 filteredEvents.map((event) => (
-                  <TableRow 
+                  <TableRow
                     key={event.id}
                     onClick={() => handleSelectEvent(event)}
                     className={cn(
@@ -318,23 +317,12 @@ export default function EventosReportadosPage() {
                         ? "bg-accent/40 hover:bg-accent/50"
                         : "hover:bg-muted/50"
                     )}
-                  >
-                    <TableCell onClick={(e) => e.stopPropagation()} className="p-2">
-                      <Checkbox
+                  ><TableCell onClick={(e) => e.stopPropagation()} className="p-2"><Checkbox
                         id={`select-event-${event.id}`}
                         checked={selectedEvent?.id === event.id}
                         onCheckedChange={() => handleSelectEvent(event)}
                         aria-label={`Seleccionar evento ${event.title}`}
-                      />
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">{event.id}</TableCell>
-                    <TableCell className="font-medium">{event.title}</TableCell>
-                    <TableCell>{event.site}</TableCell>
-                    <TableCell>{formatDateForDisplay(event.date)}</TableCell>
-                    <TableCell>{event.type}</TableCell>
-                    <TableCell>{event.priority}</TableCell>
-                    <TableCell><Badge variant={getStatusBadgeVariant(event.status)}>{event.status}</Badge></TableCell>
-                  </TableRow>
+                      /></TableCell><TableCell className="font-mono text-xs">{event.id}</TableCell><TableCell className="font-medium">{event.title}</TableCell><TableCell>{event.site}</TableCell><TableCell>{formatDateForDisplay(event.date)}</TableCell><TableCell>{event.type}</TableCell><TableCell>{event.priority}</TableCell><TableCell><Badge variant={getStatusBadgeVariant(event.status)}>{event.status}</Badge></TableCell></TableRow>
                 ))
               ) : (
                 <TableRow>
