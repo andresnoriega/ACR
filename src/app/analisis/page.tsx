@@ -610,13 +610,25 @@ export default function RCAAnalysisPage() {
         const existingValidation = prevValidations.find(v => v.actionId === pa.id);
         return existingValidation || { actionId: pa.id, eventId: pa.eventId, status: 'pending' };
       });
+      // Ensure only validations for existing planned actions are kept
       return newValidations.filter(v => plannedActions.some(pa => pa.id === v.actionId));
     });
   }, [plannedActions]);
 
+
   const handleToggleValidation = async (actionId: string) => { 
     setValidations(prev =>
-      prev.map(v => v.actionId === actionId ? { ...v, status: v.status === 'pending' ? 'validated' : 'pending' } : v)
+      prev.map(v => {
+        if (v.actionId === actionId) {
+          const newStatus = v.status === 'pending' ? 'validated' : 'pending';
+          return { 
+            ...v, 
+            status: newStatus,
+            validatedAt: newStatus === 'validated' ? new Date().toISOString() : v.validatedAt // Keep old if unvalidating, or set new if validating
+          };
+        }
+        return v;
+      })
     );
      await handleSaveAnalysisData(false); 
   };

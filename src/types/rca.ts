@@ -28,7 +28,7 @@ export interface IdentifiedRootCause {
 export interface Evidence {
   id: string;
   nombre: string; 
-  tipo: 'pdf' | 'jpg' | 'docx' | 'other';
+  tipo: 'pdf' | 'jpg' | 'jpeg' | 'png' | 'doc' | 'docx' | 'other'; // Added 'jpeg', 'png', 'doc'
 }
 
 export interface PlannedAction {
@@ -47,6 +47,7 @@ export interface Validation {
   actionId: string;
   eventId: string;
   status: 'pending' | 'validated';
+  validatedAt?: string; // ISO string, new field
 }
 
 export type AnalysisTechnique = '' | 'WhyWhy' | 'Ishikawa' | 'CTM';
