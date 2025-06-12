@@ -219,7 +219,11 @@ export default function EventosReportadosPage() {
   
   const handleViewAnalysis = () => {
     if (selectedEvent) {
-        router.push(`/analisis?id=${selectedEvent.id}`);
+        if (selectedEvent.status === 'Finalizado') {
+            router.push(`/analisis?id=${selectedEvent.id}&step=5`);
+        } else {
+            router.push(`/analisis?id=${selectedEvent.id}`);
+        }
     } else {
          toast({ title: "Ningún Evento Seleccionado", description: "Por favor, seleccione un evento.", variant: "destructive" });
     }
@@ -435,7 +439,7 @@ export default function EventosReportadosPage() {
               buttonVariant = "outline";
               buttonOnClick = handleViewAnalysis;
             } else if (selectedEvent.status === 'Pendiente') {
-              buttonText = "Iniciar Investigación";
+              buttonText = "Iniciar Investigación"; // Changed text
               ButtonIcon = PlayCircle;
               buttonOnClick = handleStartRCA;
               isDisabled = isUpdatingStatus;
@@ -444,8 +448,9 @@ export default function EventosReportadosPage() {
               buttonText = "Continuar Investigación";
               ButtonIcon = PlayCircle;
               buttonOnClick = handleViewAnalysis;
-            } else {
+            } else { // Should not happen with defined statuses
               buttonText = "Estado Inválido";
+              ButtonIcon = AlertTriangle;
               isDisabled = true;
             }
             
