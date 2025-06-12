@@ -2,16 +2,21 @@
 'use client';
 import type { FC } from 'react';
 import { useMemo } from 'react';
-import type { PlannedAction, Validation, FullUserProfile, Evidence } from '@/types/rca'; // Added Evidence
+import type { PlannedAction, Validation, FullUserProfile, Evidence } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"; // Added Accordion
-import { CheckCircle2, Circle, UserCog, Eye, FileText, ImageIcon, Paperclip } from 'lucide-react'; // Added Eye and file icons
+import {
+ Accordion, // Keep this for the main Accordion root
+ AccordionContent,
+ AccordionItem,
+} from "@/components/ui/accordion";
+import * as AccordionPrimitive from "@radix-ui/react-accordion"; // Import primitive
+import { ChevronDown, CheckCircle2, Circle, UserCog, Eye, FileText, ImageIcon, Paperclip } from 'lucide-react'; // Added ChevronDown
 import { useToast } from "@/hooks/use-toast";
-import { cn } from '@/lib/utils'; // Added cn
+import { cn } from '@/lib/utils';
 
 interface Step4ValidationProps {
   plannedActions: PlannedAction[];
@@ -27,7 +32,6 @@ interface Step4ValidationProps {
 
 const NONE_USER_VALUE = "--NONE--";
 
-// Helper function to get icon based on evidence type (replicated for simplicity)
 const getEvidenceIcon = (tipo?: Evidence['tipo']) => {
   if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
   switch (tipo) {
@@ -142,34 +146,33 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                 const status = getValidationStatus(action.id);
                 return (
                   <AccordionItem value={action.id} key={action.id} className="border-b">
-                    <Card className="shadow-none border-0 rounded-none">
-                      <AccordionTrigger className="p-4 hover:no-underline w-full">
-                        <div className="flex items-center justify-between w-full">
-                          <div className="flex-1 text-left">
-                            <h4 className="font-semibold text-primary">{action.description}</h4>
+                    <Card className="shadow-none border-0 rounded-none w-full">
+                      <AccordionPrimitive.Header className="flex items-center p-4 w-full">
+                        <AccordionPrimitive.Trigger className="flex flex-1 items-center text-left hover:underline focus:outline-none group data-[state=open]:text-primary">
+                          <div className="flex-1">
+                            <h4 className="font-semibold">{action.description}</h4>
                             <p className="text-xs text-muted-foreground">Responsable: {action.responsible} | Límite: {action.dueDate || 'N/A'} | ID: {action.id.substring(0,10)}...</p>
                           </div>
-                          <div className="flex items-center space-x-3 ml-4 shrink-0">
-                            <Label htmlFor={`validation-${action.id}`} className={cn(`flex items-center text-sm`,!canSimulatedUserValidateActions ? 'cursor-not-allowed opacity-70' : 'cursor-pointer')}
-                              onClick={(e) => e.stopPropagation()} // Prevent accordion toggle when clicking label
-                            >
-                              <Checkbox
-                                id={`validation-${action.id}`}
-                                checked={status === 'validated'}
-                                onCheckedChange={() => handleValidationToggleAttempt(action.id)}
-                                className="mr-2"
-                                disabled={!canSimulatedUserValidateActions}
-                                onClick={(e) => e.stopPropagation()} // Prevent accordion toggle
-                              />
-                              {status === 'validated' ? (
-                                <span className="text-accent font-medium flex items-center"><CheckCircle2 className="mr-1 h-5 w-5" /> Validado</span>
-                              ) : (
-                                <span className="text-muted-foreground flex items-center"><Circle className="mr-1 h-5 w-5" /> Pendiente</span>
-                              )}
-                            </Label>
-                          </div>
+                          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                        </AccordionPrimitive.Trigger>
+
+                        <div className="flex items-center space-x-3 ml-4 shrink-0 pl-2">
+                          <Label htmlFor={`validation-${action.id}`} className={cn(`flex items-center text-sm`,!canSimulatedUserValidateActions ? 'cursor-not-allowed opacity-70' : 'cursor-pointer')}>
+                            <Checkbox
+                              id={`validation-${action.id}`}
+                              checked={status === 'validated'}
+                              onCheckedChange={() => handleValidationToggleAttempt(action.id)}
+                              className="mr-2"
+                              disabled={!canSimulatedUserValidateActions}
+                            />
+                            {status === 'validated' ? (
+                              <span className="text-accent font-medium flex items-center"><CheckCircle2 className="mr-1 h-5 w-5" /> Validado</span>
+                            ) : (
+                              <span className="text-muted-foreground flex items-center"><Circle className="mr-1 h-5 w-5" /> Pendiente</span>
+                            )}
+                          </Label>
                         </div>
-                      </AccordionTrigger>
+                      </AccordionPrimitive.Header>
                       <AccordionContent className="p-4 pt-0">
                         <div className="space-y-3 text-xs pl-2 border-l-2 border-primary/30 ml-1">
                           <div>
