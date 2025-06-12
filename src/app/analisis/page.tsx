@@ -1,7 +1,7 @@
 
 'use client';
-import { useState, useEffect, useCallback } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus } from '@/types/rca';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -69,7 +69,8 @@ export default function RCAAnalysisPage() {
   const [maxCompletedStep, setMaxCompletedStep] = useState(0);
   const [isLoadingPage, setIsLoadingPage] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [lastLoadedAnalysisId, setLastLoadedAnalysisId] = useState<string | null>(null);
+  
+  const lastLoadedAnalysisIdRef = useRef<string | null>(null);
 
   const [availableSitesFromDB, setAvailableSitesFromDB] = useState<Site[]>([]);
   const [availableUsersFromDB, setAvailableUsersFromDB] = useState<FullUserProfile[]>([]);
@@ -127,7 +128,6 @@ export default function RCAAnalysisPage() {
         setIsFinalized(data.isFinalized || false);
         setAnalysisDocumentId(id);
         setMaxCompletedStep(4); 
-        setIsLoadingPage(false);
         return true;
       } else {
         toast({ title: "Análisis No Encontrado", description: `No se encontró un análisis con ID: ${id}. Iniciando nuevo análisis.`, variant: "destructive" });
@@ -149,7 +149,6 @@ export default function RCAAnalysisPage() {
         setIsFinalized(initialRCAAnalysisState.isFinalized);
         setAnalysisDocumentId(null);
         setMaxCompletedStep(0);
-        setIsLoadingPage(false);
         return false;
       }
     } catch (error) {
@@ -173,7 +172,6 @@ export default function RCAAnalysisPage() {
       setIsFinalized(initialRCAAnalysisState.isFinalized);
       setAnalysisDocumentId(null);
       setMaxCompletedStep(0);
-      setIsLoadingPage(false);
       return false;
     }
   }, [ 
@@ -181,34 +179,38 @@ export default function RCAAnalysisPage() {
     setAnalysisDetails, setPreservedFacts, setAnalysisTechnique, 
     setAnalysisTechniqueNotes, setIshikawaData, setFiveWhysData, setCtmData, 
     setIdentifiedRootCauses, setPlannedActions, setValidations, 
-    setFinalComments, setIsFinalized, setAnalysisDocumentId, setMaxCompletedStep, setIsLoadingPage
+    setFinalComments, setIsFinalized, setAnalysisDocumentId, setMaxCompletedStep
   ]);
 
+  const analysisIdFromParams = useMemo(() => searchParams.get('id'), [searchParams]);
 
   useEffect(() => {
-    const analysisIdFromParams = searchParams.get('id');
-    
     if (analysisIdFromParams) {
-      if (analysisIdFromParams !== lastLoadedAnalysisId) {
+      if (analysisIdFromParams !== lastLoadedAnalysisIdRef.current) {
         setIsLoadingPage(true);
-        loadAnalysisData(analysisIdFromParams).then(success => {
-          if (success) {
-            toast({ title: "Análisis Cargado", description: `Se cargó el análisis ID: ${analysisIdFromParams}` });
-            setLastLoadedAnalysisId(analysisIdFromParams);
-          } else {
-            // If loading failed (not found or error), reset lastLoadedAnalysisId
-            // to allow re-attempting the same ID if user navigates again.
-            setLastLoadedAnalysisId(null);
-          }
-          // setIsLoadingPage(false) is handled within loadAnalysisData
-        });
+        loadAnalysisData(analysisIdFromParams)
+          .then(success => {
+            if (success) {
+              if (lastLoadedAnalysisIdRef.current !== analysisIdFromParams) {
+                 toast({ title: "Análisis Cargado", description: `Se cargó el análisis ID: ${analysisIdFromParams}` });
+                 lastLoadedAnalysisIdRef.current = analysisIdFromParams;
+              }
+            } else {
+              // If load failed for analysisIdFromParams, ensure ref is cleared so a retry for the same ID is possible
+              if (lastLoadedAnalysisIdRef.current === analysisIdFromParams) {
+                   lastLoadedAnalysisIdRef.current = null;
+              }
+            }
+          })
+          .finally(() => {
+            setIsLoadingPage(false);
+          });
       } else {
-        setIsLoadingPage(false); // Already loaded this ID, ensure loading is false
+        setIsLoadingPage(false); // Already loaded and ref matches
       }
-    } else { // No ID in params, reset to new analysis state
-      setIsLoadingPage(true);
-      // Only reset all form states if there was a previously loaded analysis
-      if (lastLoadedAnalysisId !== null) {
+    } else { // No ID in URL
+      if (lastLoadedAnalysisIdRef.current !== null) { // If there was a previously loaded analysis
+        setIsLoadingPage(true); 
         setEventData(initialRCAAnalysisState.eventData);
         setImmediateActions(initialRCAAnalysisState.immediateActions);
         setProjectLeader(initialRCAAnalysisState.projectLeader);
@@ -225,14 +227,17 @@ export default function RCAAnalysisPage() {
         setValidations(initialRCAAnalysisState.validations);
         setFinalComments(initialRCAAnalysisState.finalComments);
         setIsFinalized(initialRCAAnalysisState.isFinalized);
-        setAnalysisDocumentId(null);
-        setMaxCompletedStep(0);
-        setLastLoadedAnalysisId(null);
+        setAnalysisDocumentId(null); 
+        setMaxCompletedStep(0);     
+        lastLoadedAnalysisIdRef.current = null; 
+        setIsLoadingPage(false); 
+      } else {
+         setIsLoadingPage(false); 
       }
-      setIsLoadingPage(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, loadAnalysisData]); // lastLoadedAnalysisId is NOT a direct dependency here.
+  }, [analysisIdFromParams, loadAnalysisData]);
+
 
   useEffect(() => {
     const fetchConfigData = async () => {
@@ -263,10 +268,10 @@ export default function RCAAnalysisPage() {
       const newEventID = `E-${String(Date.now()).slice(-5)}-${String(eventCounter).padStart(3, '0')}`;
       setEventData(prev => ({ ...prev, id: newEventID }));
       setEventCounter(prev => prev + 1);
-      setAnalysisDocumentId(newEventID); // Also set this if a new event ID is generated
+      setAnalysisDocumentId(newEventID); 
       return newEventID;
     }
-    if (!analysisDocumentId && eventData.id) { // Ensure analysisDocumentId is also set if eventData.id exists but analysisDocumentId is null
+    if (!analysisDocumentId && eventData.id) { 
         setAnalysisDocumentId(eventData.id);
     }
     return eventData.id;
@@ -575,23 +580,11 @@ export default function RCAAnalysisPage() {
         return;
     }
     
-    // Set isFinalized to true locally first to ensure it's part of the payload
     setIsFinalized(true); 
-    
-    // Then, create a temporary payload with isFinalized as true
-    const tempFinalizedPayload = {
-      eventData, immediateActions, projectLeader, detailedFacts, analysisDetails,
-      preservedFacts, analysisTechnique, analysisTechniqueNotes, ishikawaData,
-      fiveWhysData, ctmData, identifiedRootCauses, plannedActions,
-      validations, finalComments, 
-      isFinalized: true, // Explicitly true here
-    };
-    
-    // Call save with the explicit payload for finalization
-    await handleSaveAnalysisData(false); // handleSaveAnalysisData will use the current component state which includes isFinalized = true
+        
+    await handleSaveAnalysisData(false); 
 
     toast({ title: "Proceso Finalizado", description: `Análisis ${currentId} marcado como finalizado y evento reportado actualizado.`, className: "bg-primary text-primary-foreground"});
-    // setIsSaving(false); // Already handled by handleSaveAnalysisData
   };
 
 
@@ -736,8 +729,3 @@ export default function RCAAnalysisPage() {
     </>
   );
 }
-
-
-    
-
-    
