@@ -2,14 +2,14 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useRouter } from 'next/navigation'; // Import useRouter
+import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PieChart as PieChartIcon, ListChecks, History, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, Flame, Search, RefreshCcw, Percent, FileText, ListTodo, BarChart3 as RCASummaryIcon, FileDown } from 'lucide-react';
+import { PieChart as PieChartIcon, ListChecks, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, Flame, Search, RefreshCcw, Percent, FileText, ListTodo, BarChart3 as RCASummaryIcon, FileDown } from 'lucide-react';
 import type { ReportedEvent, RCAAnalysisDocument, PlannedAction, Validation, Site, ReportedEventType, PriorityType } from '@/types/rca';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, Timestamp, where, orderBy, limit, QueryConstraint } from "firebase/firestore";
@@ -24,6 +24,9 @@ import {
   Tooltip as RechartsTooltip,
   Legend as RechartsLegend,
 } from 'recharts';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
+
 
 const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Fallo', 'Accidente', 'No Conformidad'];
 const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
@@ -294,6 +297,57 @@ export default function DashboardRCAPage() {
     }
     return (actionStatsData.accionesValidadas / actionStatsData.totalAcciones) * 100;
   }, [actionStatsData]);
+
+  const handleExportToExcel = () => {
+    if (planesAccionPendientes.length === 0) {
+      toast({
+        title: "Sin Datos para Exportar",
+        description: "No hay planes de acción activos para exportar.",
+        variant: "default",
+      });
+      return;
+    }
+
+    const dataToExport = planesAccionPendientes.map(item => ({
+      'ID Evento': item.rcaId,
+      'ID Acción': item.actionId,
+      'Título RCA': item.rcaTitle,
+      'Descripción Acción': item.accion,
+      'Responsable': item.responsable,
+      'Fecha Límite': item.fechaLimite,
+      'Estado Acción': item.estado,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Planes de Acción Activos");
+
+    // Define anchos de columna
+    const columnWidths = [
+      { wch: 20 }, // ID Evento
+      { wch: 20 }, // ID Acción
+      { wch: 40 }, // Título RCA
+      { wch: 50 }, // Descripción Acción
+      { wch: 25 }, // Responsable
+      { wch: 15 }, // Fecha Límite
+      { wch: 15 }, // Estado Acción
+    ];
+    worksheet['!cols'] = columnWidths;
+
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
+    
+    const now = new Date();
+    const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const fileName = `Planes_Accion_Activos_${formattedDate}.xlsx`;
+
+    saveAs(dataBlob, fileName);
+
+    toast({
+      title: "Exportación Iniciada",
+      description: `El archivo ${fileName} ha comenzado a descargarse.`,
+    });
+  };
 
 
   return (
@@ -690,7 +744,8 @@ export default function DashboardRCAPage() {
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={() => toast({ title: "Funcionalidad no implementada", description: "La exportación a Excel de planes de acción aún no está disponible." })}
+            onClick={handleExportToExcel}
+            disabled={isLoadingData || planesAccionPendientes.length === 0}
           >
             <FileDown className="mr-1.5 h-3.5 w-3.5" /> Exportar Excel
           </Button>
@@ -700,4 +755,3 @@ export default function DashboardRCAPage() {
     </div>
   );
 }
-
