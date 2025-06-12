@@ -2,14 +2,14 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect } from 'react'; 
-import type { RCAEventData, ImmediateAction, EventType, PriorityType } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, EventType, PriorityType, FullUserProfile } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Trash2 } from 'lucide-react';
+import { PlusCircle, Trash2, Save } from 'lucide-react'; // Added Save icon
 import { useToast } from "@/hooks/use-toast";
 
 interface Step1InitiationProps {
@@ -20,8 +20,9 @@ interface Step1InitiationProps {
   onUpdateImmediateAction: (index: number, field: keyof Omit<ImmediateAction, 'eventId' | 'id'>, value: string) => void;
   onRemoveImmediateAction: (index: number) => void;
   availableSites: Array<{ id: string; name: string; }>;
-  availableUsers: Array<{ id: string; name: string; }>;
-  onNext: () => void;
+  availableUsers: FullUserProfile[]; // Changed to FullUserProfile for email access
+  onContinue: () => void; // Renamed from onNext
+  onForceEnsureEventId: () => string; // New prop
 }
 
 const EVENT_TYPES: EventType[] = ['Incidente', 'Accidente', 'Falla', 'No Conformidad'];
@@ -36,7 +37,8 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   onRemoveImmediateAction,
   availableSites,
   availableUsers,
-  onNext,
+  onContinue,
+  onForceEnsureEventId,
 }) => {
   const { toast } = useToast();
   const [clientSideMaxDate, setClientSideMaxDate] = useState<string | undefined>(undefined);
@@ -74,7 +76,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     onUpdateImmediateAction(index, 'responsible', value);
   };
 
-  const handleNextWithValidation = () => {
+  const validateFields = (): boolean => {
     const missingFields = [];
     if (!eventData.place) missingFields.push("Lugar del Evento");
     if (!eventData.date) missingFields.push("Fecha del Evento");
@@ -88,9 +90,42 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
         description: `Por favor, complete los siguientes campos: ${missingFields.join(', ')}.`,
         variant: "destructive",
       });
+      return false;
+    }
+    return true;
+  };
+
+  const handleSaveEvent = () => {
+    if (!validateFields()) {
       return;
     }
-    onNext();
+
+    const currentEventId = onForceEnsureEventId(); // Genera o confirma el ID
+
+    immediateActions.forEach(action => {
+      if (action.responsible) {
+        const responsibleUser = availableUsers.find(user => user.name === action.responsible);
+        if (responsibleUser && responsibleUser.email) {
+          toast({
+            title: "Simulación de Envío de Correo (Acción Inmediata)",
+            description: `Correo enviado a ${responsibleUser.name} (${responsibleUser.email}) sobre la acción inmediata: "${action.description.substring(0, 50)}${action.description.length > 50 ? "..." : ""}".`,
+            duration: 5000,
+          });
+        }
+      }
+    });
+
+    toast({
+      title: "Evento Guardado",
+      description: `Los detalles del evento ${currentEventId} han sido guardados.`,
+    });
+  };
+  
+  const handleContinueToNextStep = () => {
+    if (!validateFields()) {
+      return;
+    }
+    onContinue();
   };
 
   return (
@@ -206,8 +241,11 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
           </Button>
         </div>
       </CardContent>
-      <CardFooter className="flex justify-end">
-        <Button onClick={handleNextWithValidation} className="transition-transform hover:scale-105">Guardar y Continuar</Button>
+      <CardFooter className="flex justify-end space-x-2">
+        <Button onClick={handleSaveEvent} variant="outline" className="transition-transform hover:scale-105">
+          <Save className="mr-2 h-4 w-4" /> Guardar Evento
+        </Button>
+        <Button onClick={handleContinueToNextStep} className="transition-transform hover:scale-105">Continuar</Button>
       </CardFooter>
     </Card>
   );

@@ -120,15 +120,15 @@ export default function RCAAnalysisPage() {
   };
 
   const handleNextStep = () => {
-    ensureEventId(); 
+    const currentEventId = ensureEventId(); 
 
-    if (step === 3) {
+    if (step === 3) { // Correo para acciones planificadas (Paso 3)
       plannedActions.forEach(action => {
         if (action.responsible) {
           const responsibleUser = sampleUserProfiles.find(user => user.name === action.responsible);
           if (responsibleUser && responsibleUser.email) {
             toast({
-              title: "Simulación de Envío de Correo",
+              title: "Simulación de Envío de Correo (Acción Planificada)",
               description: `Correo enviado a ${responsibleUser.name} (${responsibleUser.email}) sobre la acción: "${action.description.substring(0, 50)}${action.description.length > 50 ? "..." : ""}".`,
               duration: 5000,
             });
@@ -153,13 +153,10 @@ export default function RCAAnalysisPage() {
   };
 
   const handleAddImmediateAction = () => {
-    const currentEventId = ensureEventId();
-    if (!currentEventId) {
-      toast({ title: "Error", description: "No se pudo generar/obtener ID de evento para la acción inmediata.", variant: "destructive" });
-      return;
-    }
-    const newActionId = `${currentEventId}-IMA-${String(immediateActionCounter).padStart(3, '0')}`;
-    setImmediateActions(prev => [...prev, { id: newActionId, eventId: currentEventId, description: '', responsible: '', dueDate: '' }]);
+    // ensureEventId() se llamará explícitamente en la lógica de guardado o al continuar
+    const tempEventId = eventData.id || `TEMP-${Date.now()}`; // ID temporal si aún no existe
+    const newActionId = `${tempEventId}-IMA-${String(immediateActionCounter).padStart(3, '0')}`;
+    setImmediateActions(prev => [...prev, { id: newActionId, eventId: tempEventId, description: '', responsible: '', dueDate: '' }]);
     setImmediateActionCounter(prev => prev + 1);
   };
 
@@ -341,8 +338,9 @@ export default function RCAAnalysisPage() {
             onUpdateImmediateAction={handleUpdateImmediateAction}
             onRemoveImmediateAction={handleRemoveImmediateAction}
             availableSites={sampleAvailableSites}
-            availableUsers={sampleUserProfiles.map(u => ({id: u.id, name: u.name}))} // Pass only id and name
-            onNext={handleNextStep}
+            availableUsers={sampleUserProfiles} // Pass full user profile for email access
+            onContinue={handleNextStep}
+            onForceEnsureEventId={ensureEventId} // Pass ensureEventId
           />
         )}
       </div>
@@ -351,7 +349,7 @@ export default function RCAAnalysisPage() {
         <Step2Facts
           projectLeader={projectLeader}
           onProjectLeaderChange={handleProjectLeaderChange}
-          availableUsers={sampleUserProfiles.map(u => ({id: u.id, name: u.name}))} // Pass only id and name
+          availableUsers={sampleUserProfiles.map(u => ({id: u.id, name: u.name}))} 
           detailedFacts={detailedFacts}
           onDetailedFactChange={handleDetailedFactChange}
           analysisDetails={analysisDetails}
@@ -388,7 +386,7 @@ export default function RCAAnalysisPage() {
           onAddPlannedAction={handleAddPlannedAction}
           onUpdatePlannedAction={handleUpdatePlannedAction}
           onRemovePlannedAction={handleRemovePlannedAction}
-          availableUsers={sampleUserProfiles} // Pass full user profile for email access
+          availableUsers={sampleUserProfiles} 
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
         />
@@ -401,7 +399,7 @@ export default function RCAAnalysisPage() {
           validations={validations}
           onToggleValidation={handleToggleValidation}
           projectLeader={projectLeader}
-          availableUserProfiles={sampleUserProfiles} // Pass full user profile
+          availableUserProfiles={sampleUserProfiles} 
           currentSimulatedUser={currentSimulatedUser}
           onSetCurrentSimulatedUser={setCurrentSimulatedUser}
           onPrevious={handlePreviousStep}
@@ -425,7 +423,7 @@ export default function RCAAnalysisPage() {
           finalComments={finalComments}
           onFinalCommentsChange={setFinalComments}
           onPrintReport={handlePrintReport}
-          availableUsers={sampleUserProfiles} // Pass full user profile for email dialog
+          availableUsers={sampleUserProfiles} 
           isFinalized={isFinalized}
           onMarkAsFinalized={handleMarkAsFinalized}
         />
