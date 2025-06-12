@@ -1,6 +1,7 @@
 
 'use client';
 import type { FC } from 'react';
+import { useMemo } from 'react'; // Import useMemo
 import type { PlannedAction, Validation, FullUserProfile } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,7 +23,7 @@ interface Step4ValidationProps {
   onNext: () => void;
 }
 
-const NONE_USER_VALUE = "--NONE--"; // Define a constant for the "none" value
+const NONE_USER_VALUE = "--NONE--";
 
 export const Step4Validation: FC<Step4ValidationProps> = ({
   plannedActions,
@@ -42,14 +43,19 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
     return validation ? validation.status : 'pending';
   };
 
-  const canUserValidate = (currentUserProfile: FullUserProfile | undefined): boolean => {
-    if (!currentUserProfile) return false;
-
-    const isLeader = currentUserProfile.name === projectLeader;
-    const isAdminWithTotalEdit = currentUserProfile.role === 'Admin' && currentUserProfile.permissionLevel === 'Total';
-    
+  // Memoized calculation to determine if the currently simulated user can validate
+  const canSimulatedUserValidateActions = useMemo(() => {
+    if (!currentSimulatedUser) {
+      return false; // No user selected, cannot validate
+    }
+    const userProfile = availableUserProfiles.find(u => u.name === currentSimulatedUser);
+    if (!userProfile) {
+      return false; // Should not happen if select is populated correctly
+    }
+    const isLeader = userProfile.name === projectLeader;
+    const isAdminWithTotalEdit = userProfile.role === 'Admin' && userProfile.permissionLevel === 'Total';
     return isLeader || isAdminWithTotalEdit;
-  };
+  }, [currentSimulatedUser, availableUserProfiles, projectLeader]);
 
   const handleValidationToggleAttempt = (actionId: string) => {
     if (!currentSimulatedUser) {
@@ -61,8 +67,16 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
       return;
     }
 
+    // Re-check permissions here for the toast message, even if checkbox might be disabled
     const userProfile = availableUserProfiles.find(u => u.name === currentSimulatedUser);
-    if (canUserValidate(userProfile)) {
+    let hasPermission = false;
+    if (userProfile) {
+        const isLeader = userProfile.name === projectLeader;
+        const isAdminWithTotalEdit = userProfile.role === 'Admin' && userProfile.permissionLevel === 'Total';
+        hasPermission = isLeader || isAdminWithTotalEdit;
+    }
+
+    if (hasPermission) {
       onToggleValidation(actionId);
     } else {
       toast({
@@ -122,12 +136,13 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                     <p className="text-sm text-muted-foreground">ID: {action.id}</p>
                   </div>
                   <div className="flex items-center space-x-3">
-                    <Label htmlFor={`validation-${action.id}`} className="flex items-center cursor-pointer">
+                    <Label htmlFor={`validation-${action.id}`} className={`flex items-center ${!canSimulatedUserValidateActions ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}>
                       <Checkbox
                         id={`validation-${action.id}`}
                         checked={status === 'validated'}
                         onCheckedChange={() => handleValidationToggleAttempt(action.id)}
                         className="mr-2"
+                        disabled={!canSimulatedUserValidateActions} // Checkbox is disabled if user cannot validate
                       />
                       {status === 'validated' ? (
                         <span className="text-accent font-medium flex items-center"><CheckCircle2 className="mr-1 h-5 w-5" /> Validado</span>
