@@ -442,7 +442,7 @@ export default function DashboardRCAPage() {
               <div className="p-4 bg-green-400/20 rounded-lg">
                 <div className="flex items-center justify-center mb-1"><CheckSquare className="h-5 w-5 text-green-600 mr-1.5"/></div>
                 <p className="text-3xl font-bold text-green-600">{rcaSummaryData.accionesValidadasEnRCAFinalizados}</p>
-                <p className="text-sm text-muted-foreground">Acciones Validadas (RCA Finalizados)</p>
+                <p className="text-sm text-muted-foreground">RCA Finalizados</p>
               </div>
               <div className="p-4 bg-blue-400/20 rounded-lg">
                 <div className="flex items-center justify-center mb-1"><Percent className="h-5 w-5 text-blue-600 mr-1.5"/></div>
@@ -721,3 +721,4 @@ export default function DashboardRCAPage() {
     </div>
   );
 }
+
