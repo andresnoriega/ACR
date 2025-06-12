@@ -39,6 +39,7 @@ interface RCASummaryData {
   totalRCAs: number;
   rcaPendientes: number; 
   rcaFinalizados: number; 
+  rcaCompletionRate?: number; // New: Specific RCA completion rate
 }
 
 interface AnalisisEnCursoItem {
@@ -105,28 +106,31 @@ export default function DashboardRCAPage() {
   const fetchAllDashboardData = useCallback(async (currentFilters: DashboardFilters) => {
     setIsLoadingData(true);
     
-    const rcaQueryConstraints: QueryConstraint[] = [];
-    if (currentFilters.site && currentFilters.site !== ALL_FILTER_VALUE) {
-      rcaQueryConstraints.push(where("eventData.site", "==", currentFilters.site));
-    }
-    if (currentFilters.type && currentFilters.type !== ALL_FILTER_VALUE) {
-      rcaQueryConstraints.push(where("eventData.eventType", "==", currentFilters.type));
-    }
-    if (currentFilters.priority && currentFilters.priority !== ALL_FILTER_VALUE) {
-      rcaQueryConstraints.push(where("eventData.priority", "==", currentFilters.priority));
-    }
+    let totalAcciones = 0;
+    let accionesPendientesGlobal = 0;
+    let accionesValidadasGlobal = 0;
+    const currentAnalysesInProgress: AnalisisEnCursoItem[] = [];
+    const currentPendingActionPlans: PlanAccionPendienteItem[] = [];
+    let currentRcaFinalizadosCount = 0;
+    let rcaQuerySnapshotSize = 0;
 
     try {
+      // 1. Fetch RCA Analyses for action stats, in-progress analyses, and finalized RCAs
+      const rcaQueryConstraints: QueryConstraint[] = [];
+      if (currentFilters.site && currentFilters.site !== ALL_FILTER_VALUE) {
+        rcaQueryConstraints.push(where("eventData.site", "==", currentFilters.site));
+      }
+      if (currentFilters.type && currentFilters.type !== ALL_FILTER_VALUE) {
+        rcaQueryConstraints.push(where("eventData.eventType", "==", currentFilters.type));
+      }
+      if (currentFilters.priority && currentFilters.priority !== ALL_FILTER_VALUE) {
+        rcaQueryConstraints.push(where("eventData.priority", "==", currentFilters.priority));
+      }
+
       const rcaAnalysesRef = collection(db, "rcaAnalyses");
       const rcaQueryInstance = query(rcaAnalysesRef, ...rcaQueryConstraints);
       const rcaSnapshot = await getDocs(rcaQueryInstance);
-      
-      let currentRcaFinalizadosCount = 0;
-      let totalAcciones = 0;
-      let accionesPendientesGlobal = 0;
-      let accionesValidadasGlobal = 0;
-      const currentAnalysesInProgress: AnalisisEnCursoItem[] = [];
-      const currentPendingActionPlans: PlanAccionPendienteItem[] = [];
+      rcaQuerySnapshotSize = rcaSnapshot.size;
 
       rcaSnapshot.forEach(docSnap => {
         const rcaDoc = docSnap.data() as RCAAnalysisDocument;
@@ -200,6 +204,7 @@ export default function DashboardRCAPage() {
       });
       setPlanesAccionPendientes(currentPendingActionPlans.slice(0, 5));
 
+      // 2. Fetch Reported Events for "RCA Pendientes" count
       const reportedEventsQueryConstraints: QueryConstraint[] = [where("status", "==", "En análisis")];
       if (currentFilters.site && currentFilters.site !== ALL_FILTER_VALUE) {
         reportedEventsQueryConstraints.push(where("site", "==", currentFilters.site));
@@ -214,20 +219,23 @@ export default function DashboardRCAPage() {
       const reportedEventsRef = collection(db, "reportedEvents");
       const enAnalisisQuery = query(reportedEventsRef, ...reportedEventsQueryConstraints);
       const enAnalisisSnapshot = await getDocs(enAnalisisQuery);
-      let currentRcaPendientesCount = enAnalisisSnapshot.size;
+      const currentRcaPendientesCount = enAnalisisSnapshot.size;
 
+      // 3. Calculate RCASummaryData
       const currentTotalRCAs = currentRcaPendientesCount + currentRcaFinalizadosCount;
+      const rcaCompletionRate = currentTotalRCAs > 0 ? (currentRcaFinalizadosCount / currentTotalRCAs) * 100 : 0;
 
       setRcaSummaryData({
         totalRCAs: currentTotalRCAs,
         rcaPendientes: currentRcaPendientesCount,
         rcaFinalizados: currentRcaFinalizadosCount,
+        rcaCompletionRate: rcaCompletionRate,
       });
 
     } catch (error) {
       console.error("Error fetching dashboard data: ", error);
       setActionStatsData({ totalAcciones: 0, accionesPendientes: 0, accionesValidadas: 0 }); 
-      setRcaSummaryData({ totalRCAs: 0, rcaPendientes: 0, rcaFinalizados: 0 });
+      setRcaSummaryData({ totalRCAs: 0, rcaPendientes: 0, rcaFinalizados: 0, rcaCompletionRate: 0 });
       setAnalisisEnCurso([]);
       setPlanesAccionPendientes([]);
       toast({ title: "Error al Cargar Datos del Dashboard", description: (error as Error).message, variant: "destructive" });
@@ -335,7 +343,7 @@ export default function DashboardRCAPage() {
     ].filter(item => item.value > 0); 
   }, [actionStatsData]);
 
-  const cumplimientoPorcentaje = useMemo(() => {
+  const cumplimientoPorcentajeAcciones = useMemo(() => {
     if (!actionStatsData || actionStatsData.totalAcciones === 0) {
       return 0;
     }
@@ -453,7 +461,9 @@ export default function DashboardRCAPage() {
               </div>
               <div className="p-4 bg-blue-400/20 rounded-lg">
                 <div className="flex items-center justify-center mb-1"><Percent className="h-5 w-5 text-blue-600 mr-1.5"/></div>
-                <p className="text-3xl font-bold text-blue-600">{cumplimientoPorcentaje.toFixed(1)}%</p>
+                <p className="text-3xl font-bold text-blue-600">
+                  {rcaSummaryData.rcaCompletionRate !== undefined ? rcaSummaryData.rcaCompletionRate.toFixed(1) : '0.0'}%
+                </p>
                 <p className="text-sm text-muted-foreground">Cumplimiento RCA</p>
               </div>
             </>
@@ -496,7 +506,7 @@ export default function DashboardRCAPage() {
                 <p className="text-sm text-muted-foreground">Acciones Validadas</p>
               </div>
               <div className="p-4 bg-blue-400/20 rounded-lg">
-                <p className="text-3xl font-bold text-blue-600">{cumplimientoPorcentaje.toFixed(1)}%</p>
+                <p className="text-3xl font-bold text-blue-600">{cumplimientoPorcentajeAcciones.toFixed(1)}%</p>
                 <p className="text-sm text-muted-foreground">Cumplimiento</p>
               </div>
             </>
