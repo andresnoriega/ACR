@@ -153,7 +153,7 @@ export interface FullUserProfile {
 
 // Types for Eventos Reportados page
 export type ReportedEventType = 'Incidente' | 'Fallo' | 'Accidente' | 'No Conformidad' | '';
-export type ReportedEventStatus = 'Pendiente' | 'En análisis' | 'Finalizado' | '';
+export type ReportedEventStatus = 'Pendiente' | 'En análisis' | 'En validación' | 'Finalizado' | '';
 
 export interface ReportedEvent {
   id: string;

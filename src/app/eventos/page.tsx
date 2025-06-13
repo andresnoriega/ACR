@@ -13,18 +13,18 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from "@/hooks/use-toast";
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format, parseISO, isValid as isValidDate, formatDistanceToNowStrict } from 'date-fns';
+import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
-import type { ReportedEvent, ReportedEventType, ReportedEventStatus, PriorityType, Site } from '@/types/rca';
+import type { ReportedEvent, ReportedEventType, ReportedEventStatus, PriorityType, Site, RCAAnalysisDocument } from '@/types/rca';
 import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, PlayCircle, Info, Loader2, Eye, Fingerprint } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, where, Timestamp, doc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/firestore";
 import { Input } from '@/components/ui/input';
 
 const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Fallo', 'Accidente', 'No Conformidad'];
 const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
-const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'Finalizado'];
+const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'En validación', 'Finalizado'];
 
 const ALL_FILTER_VALUE = "__ALL__"; 
 
@@ -41,6 +41,11 @@ async function updateEventStatusInFirestore(eventId: string, newStatus: Reported
   const eventRef = doc(db, "reportedEvents", eventId);
   try {
     await updateDoc(eventRef, { status: newStatus, updatedAt: new Date().toISOString() });
+    // Also update the corresponding rcaAnalysis document if setting to "Finalizado" from here
+    if (newStatus === "Finalizado") {
+        const rcaRef = doc(db, "rcaAnalyses", eventId);
+        await updateDoc(rcaRef, { isFinalized: true, updatedAt: new Date().toISOString() });
+    }
     return true;
   } catch (error) {
     console.error("Error updating event status in Firestore: ", error);
@@ -55,10 +60,11 @@ export default function EventosReportadosPage() {
   const router = useRouter();
   
   const [allEvents, setAllEvents] = useState<ReportedEvent[]>([]);
+  const [allRcaAnalyses, setAllRcaAnalyses] = useState<RCAAnalysisDocument[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<ReportedEvent[]>([]);
   const [availableSites, setAvailableSites] = useState<Site[]>([]);
   
-  const [isLoadingEvents, setIsLoadingEvents] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const [isLoadingSites, setIsLoadingSites] = useState(true);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
@@ -75,13 +81,14 @@ export default function EventosReportadosPage() {
     eventId: '',
   });
 
-  const fetchEvents = useCallback(async () => {
-    setIsLoadingEvents(true);
+  const fetchAllData = useCallback(async () => {
+    setIsLoadingData(true);
     try {
+      // Fetch Reported Events
       const eventsCollectionRef = collection(db, "reportedEvents");
-      const q = query(eventsCollectionRef, orderBy("date", "desc"));
-      const querySnapshot = await getDocs(q);
-      const eventsData = querySnapshot.docs.map(doc => {
+      const eventsQuery = query(eventsCollectionRef, orderBy("date", "desc"));
+      const eventsSnapshot = await getDocs(eventsQuery);
+      const rawEventsData = eventsSnapshot.docs.map(doc => {
         const data = doc.data();
         let eventDate = data.date;
         if (data.date && typeof data.date.toDate === 'function') { 
@@ -89,15 +96,42 @@ export default function EventosReportadosPage() {
         }
         return { id: doc.id, ...data, date: eventDate } as ReportedEvent;
       });
-      setAllEvents(eventsData);
-      setFilteredEvents(eventsData); 
+
+      // Fetch RCA Analyses
+      const rcaAnalysesCollectionRef = collection(db, "rcaAnalyses");
+      const rcaQuery = query(rcaAnalysesCollectionRef); // No specific order needed here, will map by ID
+      const rcaSnapshot = await getDocs(rcaQuery);
+      const rcaAnalysesData = rcaSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RCAAnalysisDocument));
+      setAllRcaAnalyses(rcaAnalysesData); // Store for later use
+
+      // Derive event statuses
+      const processedEvents = rawEventsData.map(event => {
+        let derivedStatus = event.status;
+        if (event.status !== 'Finalizado') {
+          const rcaDoc = rcaAnalysesData.find(rca => rca.eventData.id === event.id);
+          if (rcaDoc && rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
+            const allActionsValidated = rcaDoc.plannedActions.every(pa => {
+              const validation = rcaDoc.validations?.find(v => v.actionId === pa.id);
+              return validation?.status === 'validated';
+            });
+            if (allActionsValidated) {
+              derivedStatus = 'En validación';
+            }
+          }
+        }
+        return { ...event, status: derivedStatus };
+      });
+
+      setAllEvents(processedEvents);
+      setFilteredEvents(processedEvents); 
     } catch (error) {
-      console.error("Error fetching reported events: ", error);
-      toast({ title: "Error al Cargar Eventos", description: "No se pudieron cargar los eventos desde Firestore.", variant: "destructive" });
+      console.error("Error fetching data: ", error);
+      toast({ title: "Error al Cargar Datos", description: "No se pudieron cargar los eventos o análisis desde Firestore.", variant: "destructive" });
       setAllEvents([]);
       setFilteredEvents([]);
+      setAllRcaAnalyses([]);
     } finally {
-      setIsLoadingEvents(false);
+      setIsLoadingData(false);
     }
   }, [toast]);
 
@@ -119,15 +153,16 @@ export default function EventosReportadosPage() {
       }
     };
 
-    fetchEvents();
+    fetchAllData();
     fetchSitesData();
-  }, [fetchEvents, toast]);
+  }, [fetchAllData, toast]);
 
 
   const summaryData = useMemo(() => ({
     total: allEvents.length,
     pendientes: allEvents.filter(e => e.status === 'Pendiente').length,
     enAnalisis: allEvents.filter(e => e.status === 'En análisis').length,
+    enValidacion: allEvents.filter(e => e.status === 'En validación').length,
     finalizados: allEvents.filter(e => e.status === 'Finalizado').length,
   }), [allEvents]);
 
@@ -140,7 +175,7 @@ export default function EventosReportadosPage() {
   };
 
   const applyFilters = useCallback(() => {
-    let events = [...allEvents];
+    let events = [...allEvents]; // Use allEvents which has derived statuses
     if (filters.site) {
       events = events.filter(e => e.site === filters.site);
     }
@@ -155,7 +190,7 @@ export default function EventosReportadosPage() {
       events = events.filter(e => e.priority === filters.priority);
     }
     if (filters.status) {
-      events = events.filter(e => e.status === filters.status);
+      events = events.filter(e => e.status === filters.status); // Filter by derived status
     }
     if (filters.eventId.trim()) {
       events = events.filter(e => e.id.toLowerCase().includes(filters.eventId.trim().toLowerCase()));
@@ -168,7 +203,7 @@ export default function EventosReportadosPage() {
 
   const clearFilters = () => {
     setFilters({ site: '', date: undefined, type: '', priority: '', status: '', eventId: '' });
-    setFilteredEvents(allEvents);
+    setFilteredEvents(allEvents); // Reset to allEvents with derived statuses
     setSelectedEvent(null); 
     setIsDetailsCardVisible(false);
     toast({ title: "Filtros Limpiados" });
@@ -205,10 +240,9 @@ export default function EventosReportadosPage() {
     setIsUpdatingStatus(true);
     const success = await updateEventStatusInFirestore(selectedEvent.id, "En análisis", toast);
     if (success) {
-      const updatedEvent = { ...selectedEvent, status: "En análisis" as ReportedEventStatus, updatedAt: new Date().toISOString() };
-      setAllEvents(prevEvents => prevEvents.map(e => e.id === selectedEvent.id ? updatedEvent : e));
-      setFilteredEvents(prevEvents => prevEvents.map(e => e.id === selectedEvent.id ? updatedEvent : e));
-      setSelectedEvent(updatedEvent); 
+      // Re-fetch or update local state to reflect the new status from DB and potentially derived status
+      await fetchAllData(); // Re-fetch all data to ensure statuses are current
+      setSelectedEvent(prevSelected => prevSelected ? { ...prevSelected, status: "En análisis" } : null); 
       router.push(`/analisis?id=${selectedEvent.id}`);
     }
     setIsUpdatingStatus(false);
@@ -216,9 +250,9 @@ export default function EventosReportadosPage() {
   
   const handleViewAnalysis = () => {
     if (selectedEvent) {
-        if (selectedEvent.status === 'Finalizado') {
+        if (selectedEvent.status === 'Finalizado' || selectedEvent.status === 'En validación') {
             router.push(`/analisis?id=${selectedEvent.id}&step=5`);
-        } else {
+        } else { // 'Pendiente' or 'En análisis'
             router.push(`/analisis?id=${selectedEvent.id}`);
         }
     } else {
@@ -226,7 +260,7 @@ export default function EventosReportadosPage() {
     }
   };
 
-  const isLoading = isLoadingEvents || isLoadingSites;
+  const isLoading = isLoadingData || isLoadingSites;
 
   if (isLoading) {
     return (
@@ -242,6 +276,8 @@ export default function EventosReportadosPage() {
       return <Badge variant="destructive">{status}</Badge>;
     } else if (status === 'En análisis') {
       return <Badge variant="outline" className={cn("border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:border-yellow-500/60 dark:bg-yellow-500/20 dark:text-yellow-400")}>{status}</Badge>;
+    } else if (status === 'En validación') {
+      return <Badge variant="outline" className={cn("border-blue-500/50 bg-blue-500/10 text-blue-700 dark:border-blue-500/60 dark:bg-blue-500/20 dark:text-blue-400")}>{status}</Badge>;
     } else if (status === 'Finalizado') {
       return <Badge variant="outline" className={cn("border-green-500/50 bg-green-500/10 text-green-700 dark:border-green-500/60 dark:bg-green-500/20 dark:text-green-400")}>{status}</Badge>;
     }
@@ -269,10 +305,10 @@ export default function EventosReportadosPage() {
             <CardTitle className="text-2xl">Resumen Rápido</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+        <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
           <div className="p-4 bg-secondary/40 rounded-lg">
             <p className="text-3xl font-bold text-foreground">{summaryData.total}</p>
-            <p className="text-sm text-muted-foreground">Total de Eventos</p>
+            <p className="text-sm text-muted-foreground">Total</p>
           </div>
           <div className="p-4 bg-destructive/10 rounded-lg">
             <p className="text-3xl font-bold text-destructive">{summaryData.pendientes}</p>
@@ -281,6 +317,10 @@ export default function EventosReportadosPage() {
           <div className="p-4 bg-yellow-400/20 rounded-lg"> 
             <p className="text-3xl font-bold text-yellow-600">{summaryData.enAnalisis}</p>
             <p className="text-sm text-muted-foreground">En Análisis</p>
+          </div>
+          <div className="p-4 bg-blue-400/20 rounded-lg"> 
+            <p className="text-3xl font-bold text-blue-600">{summaryData.enValidacion}</p>
+            <p className="text-sm text-muted-foreground">En Validación</p>
           </div>
           <div className="p-4 bg-green-400/20 rounded-lg"> 
             <p className="text-3xl font-bold text-green-600">{summaryData.finalizados}</p>
@@ -406,7 +446,7 @@ export default function EventosReportadosPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoadingEvents ? (
+                {isLoadingData ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center h-24">
                       <div className="flex justify-center items-center">
@@ -457,7 +497,7 @@ export default function EventosReportadosPage() {
             let isDisabled = false;
             let showLoader = false;
 
-            if (selectedEvent.status === 'Finalizado') {
+            if (selectedEvent.status === 'Finalizado' || selectedEvent.status === 'En validación') {
               buttonText = "Revisar Investigación";
               ButtonIcon = Eye;
               buttonVariant = "outline";
@@ -518,4 +558,3 @@ export default function EventosReportadosPage() {
     </div>
   );
 }
-
