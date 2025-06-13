@@ -85,7 +85,7 @@ export const PasswordPromptDialog: React.FC<PasswordPromptDialogProps> = ({
             onKeyDown={(e) => { if (e.key === 'Enter' && !isVerifying && password.trim()) handlePasswordCheck(); }}
           />
            <p className="text-xs text-muted-foreground">
-            (Contraseña para esta demo: <code className="font-mono bg-muted px-1 py-0.5 rounded text-foreground">{DEFAULT_EXPECTED_PASSWORD}</code>)
+            (Para esta demo, la contraseña del Administrador "Andrés Noriega" es: <code className="font-mono bg-muted px-1 py-0.5 rounded text-foreground">{DEFAULT_EXPECTED_PASSWORD}</code>)
           </p>
         </div>
         <DialogFooter>
@@ -103,3 +103,4 @@ export const PasswordPromptDialog: React.FC<PasswordPromptDialogProps> = ({
     </Dialog>
   );
 };
+
