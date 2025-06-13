@@ -108,7 +108,6 @@ export default function EventosReportadosPage() {
       const processedEvents = rawEventsData.map(event => {
         let derivedStatus = event.status;
 
-        // Diagnostic log for E-77157-001
         if (event.id === "E-77157-001") {
           console.log(`[EventosPage Debug E-77157-001] Initial event status from Firestore: ${event.status}`);
         }
@@ -118,16 +117,20 @@ export default function EventosReportadosPage() {
 
           if (event.id === "E-77157-001") {
             console.log(`[EventosPage Debug E-77157-001] Found rcaDoc for event:`, rcaDoc ? 'Yes' : 'No');
-            if (rcaDoc) {
-              console.log(`[EventosPage Debug E-77157-001] rcaDoc.plannedActions count:`, rcaDoc.plannedActions ? rcaDoc.plannedActions.length : 'N/A (no plannedActions array)');
-              console.log(`[EventosPage Debug E-77157-001] rcaDoc.validations count:`, rcaDoc.validations ? rcaDoc.validations.length : 'N/A (no validations array)');
-            }
           }
           
           if (rcaDoc && Array.isArray(rcaDoc.plannedActions)) {
-            const rcaValidations = rcaDoc.validations || [];
+            const rcaValidations = rcaDoc.validations || []; 
+            if (event.id === "E-77157-001") {
+              console.log(`[EventosPage Debug E-77157-001] rcaValidations content for this rcaDoc:`, JSON.parse(JSON.stringify(rcaValidations)));
+            }
             let allActionsValidated = true; 
 
+            if (event.id === "E-77157-001") {
+              console.log(`[EventosPage Debug E-77157-001] rcaDoc.plannedActions count:`, rcaDoc.plannedActions ? rcaDoc.plannedActions.length : 'N/A (no plannedActions array)');
+              console.log(`[EventosPage Debug E-77157-001] rcaDoc.validations count (from rcaDoc object):`, rcaDoc.validations ? rcaDoc.validations.length : 'N/A (no validations array)');
+            }
+            
             if (rcaDoc.plannedActions.length === 0) { 
                 allActionsValidated = false;
                 if (event.id === "E-77157-001") {
@@ -142,9 +145,9 @@ export default function EventosReportadosPage() {
                         allActionsValidated = false;
                         break;
                     }
-                    const validation = rcaValidations.find(v => v && v.actionId === pa.id);
+                    const validation = rcaValidations.find(v => v && v.actionId === pa.id); 
                     if (event.id === "E-77157-001") {
-                        console.log(`[EventosPage Debug E-77157-001] For PA ID ${pa.id}: Found validation:`, validation, `Is it 'validated'?`, validation?.status === 'validated');
+                        console.log(`[EventosPage Debug E-77157-001] For PA ID ${pa.id}: Found validation in rcaValidations:`, validation, `Is its status 'validated'?`, validation?.status === 'validated');
                     }
                     if (!validation || validation.status !== 'validated') {
                         if (event.id === "E-77157-001") {
@@ -157,7 +160,7 @@ export default function EventosReportadosPage() {
             }
 
             if (event.id === "E-77157-001") {
-              console.log(`[EventosPage Debug E-77157-001] Result of allActionsValidated:`, allActionsValidated);
+              console.log(`[EventosPage Debug E-77157-001] Final result of allActionsValidated check:`, allActionsValidated);
             }
 
             if (allActionsValidated) {
