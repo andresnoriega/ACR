@@ -1,7 +1,7 @@
 
 'use client';
 import type { FC, ChangeEvent } from 'react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react'; // Added useMemo
 import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save } from 'lucide-react'; // Added Loader2, Save
+import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
@@ -29,13 +29,13 @@ interface Step5ResultsProps {
   ctmData: CTMData;
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
-  finalComments: string; 
+  finalComments: string;
   onFinalCommentsChange: (value: string) => void;
   onPrintReport: () => void;
-  availableUsers: FullUserProfile[]; 
+  availableUsers: FullUserProfile[];
   isFinalized: boolean;
-  onMarkAsFinalized: () => Promise<void>; // Changed to Promise for async save
-  onSaveAnalysis: (showToast?: boolean) => Promise<void>; 
+  onMarkAsFinalized: () => Promise<void>;
+  onSaveAnalysis: (showToast?: boolean) => Promise<void>;
   isSaving: boolean;
 }
 
@@ -80,6 +80,26 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   const [emailSearchTerm, setEmailSearchTerm] = useState('');
   const [isSendingEmails, setIsSendingEmails] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
+
+  const uniquePlannedActions = useMemo(() => {
+    if (!Array.isArray(plannedActions)) {
+      console.warn("Step5Results: plannedActions prop is not an array. Defaulting to empty.", plannedActions);
+      return [];
+    }
+    const seenIds = new Set<string>();
+    return plannedActions.filter(action => {
+      if (!action || !action.id) {
+        console.warn("Step5Results: Filtered out a malformed planned action (missing action or action.id)", action);
+        return false;
+      }
+      if (seenIds.has(action.id)) {
+        // console.warn(`Step5Results: Filtered out a duplicate planned action with ID: ${action.id}`);
+        return false;
+      }
+      seenIds.add(action.id);
+      return true;
+    });
+  }, [plannedActions]);
 
   const formatDetailedFacts = () => {
     return `Un evento, identificado como "${detailedFacts.que || 'QUÉ (no especificado)'}", tuvo lugar en "${detailedFacts.donde || 'DÓNDE (no especificado)'}" el "${detailedFacts.cuando || 'CUÁNDO (no especificado)'}". La desviación ocurrió de la siguiente manera: "${detailedFacts.como || 'CÓMO (no especificado)'}". El impacto o tendencia fue: "${detailedFacts.cualCuanto || 'CUÁL/CUÁNTO (no especificado)'}". Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no especificado)'}".`;
@@ -152,8 +172,8 @@ export const Step5Results: FC<Step5ResultsProps> = ({
       report += `  No se han definido causas raíz específicas.\n`;
     }
     report += `\nACCIONES RECOMENDADAS (PLAN DE ACCIÓN):\n`;
-    if (plannedActions.length > 0) {
-      plannedActions.forEach(action => {
+    if (uniquePlannedActions.length > 0) { // Use uniquePlannedActions here
+      uniquePlannedActions.forEach(action => {
         report += `  - Acción: ${action.description}\n`;
         report += `    Responsable: ${action.responsible || 'N/A'} | Fecha Límite: ${action.dueDate || 'N/A'}\n`;
         if (action.relatedRootCauseIds && action.relatedRootCauseIds.length > 0) {
@@ -169,7 +189,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     }
     return report;
   };
-  
+
   const handleOpenEmailDialog = () => {
     setSelectedUserEmails([]);
     setEmailSearchTerm('');
@@ -196,19 +216,19 @@ export const Step5Results: FC<Step5ResultsProps> = ({
       });
       if(result.success) emailsSentCount++;
     }
-    
-    toast({ 
-        title: "Envío de Informes (Simulación)", 
+
+    toast({
+        title: "Envío de Informes (Simulación)",
         description: `${emailsSentCount} de ${selectedUserEmails.length} correos fueron procesados "exitosamente". Verifique la consola del servidor.`
     });
     setIsSendingEmails(false);
     setIsEmailDialogOpen(false);
   };
-  
+
 
   const filteredUsers = useMemo(() => {
     if (!availableUsers || !Array.isArray(availableUsers)) return [];
-    return availableUsers.filter(user => 
+    return availableUsers.filter(user =>
       user.name.toLowerCase().includes(emailSearchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(emailSearchTerm.toLowerCase())
     );
@@ -237,12 +257,12 @@ export const Step5Results: FC<Step5ResultsProps> = ({
 
   const handleFinalize = async () => {
     setIsFinalizing(true);
-    await onMarkAsFinalized(); // This now handles saving isFinalized and updating ReportedEvent
+    await onMarkAsFinalized();
     setIsFinalizing(false);
   };
 
   const handleSaveFinalComments = async () => {
-    await onSaveAnalysis(); // This will save all current data including finalComments
+    await onSaveAnalysis();
   };
 
   const isBusy = isSaving || isSendingEmails || isFinalizing;
@@ -257,7 +277,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           <CardDescription>Informe Final del Análisis de Causa Raíz. Evento ID: <span className="font-semibold text-primary">{eventId || "No generado"}</span></CardDescription>
         </CardHeader>
         <CardContent className="space-y-6 px-4 md:px-6 py-6">
-          
+
           <section>
             <SectionTitle title={`Título: Análisis del Incidente "${eventData.focusEventDescription || 'No Especificado'}"`} icon={FileText}/>
             <Separator className="my-2" />
@@ -276,7 +296,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
             />
             {!isFinalized && (
                 <Button onClick={handleSaveFinalComments} size="sm" variant="outline" className="mt-2" disabled={isBusy}>
-                    {isSaving && finalComments !== (eventData as any).finalComments /* crude check */ && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isSaving && finalComments !== (eventData as any).finalComments && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     <Save className="mr-2 h-4 w-4" /> Guardar Comentarios
                 </Button>
             )}
@@ -293,13 +313,13 @@ export const Step5Results: FC<Step5ResultsProps> = ({
             </SectionContent>
           </section>
           <Separator className="my-4" />
-          
+
           <section>
             <SectionTitle title="Análisis" icon={Settings}/>
             <SectionContent>
               <p className="font-medium mb-1">Análisis Preliminar Realizado:</p>
               <p className="pl-2 mb-2 whitespace-pre-line">{analysisDetails || "No se proporcionaron detalles del análisis preliminar."}</p>
-              
+
               <p className="font-medium mb-1">Técnica de Análisis Principal Utilizada:</p>
               <p className="pl-2 mb-2 font-semibold">{analysisTechnique || "No seleccionada"}</p>
 
@@ -351,11 +371,11 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           <section>
             <SectionTitle title="Acciones Recomendadas" icon={Target}/>
             <SectionContent>
-              {plannedActions.length > 0 ? (
+              {uniquePlannedActions.length > 0 ? (
                 <>
                   <p className="font-medium mb-1">Plan de Acción Definido:</p>
                   <ul className="list-none pl-0 space-y-2">
-                    {plannedActions.map(action => (
+                    {uniquePlannedActions.map(action => ( // Use uniquePlannedActions here
                       <li key={action.id} className="border-b pb-2 mb-2">
                         <span className="font-semibold">{action.description}</span>
                         <p className="text-xs text-muted-foreground">Responsable: {action.responsible || 'N/A'} | Fecha Límite: {action.dueDate || 'N/A'}</p>
@@ -388,9 +408,9 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           <Button onClick={handleOpenEmailDialog} variant="outline" className="w-full sm:w-auto" disabled={isBusy}>
             <Send className="mr-2 h-4 w-4" /> Enviar por correo
           </Button>
-          <Button 
-            onClick={handleFinalize} 
-            variant="secondary" 
+          <Button
+            onClick={handleFinalize}
+            variant="secondary"
             className="w-full sm:w-auto"
             disabled={isFinalized || isBusy}
           >
@@ -406,16 +426,16 @@ export const Step5Results: FC<Step5ResultsProps> = ({
             <DialogTitle className="flex items-center"><Mail className="mr-2 h-5 w-5" />Enviar Informe por Correo</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <Input 
+            <Input
               placeholder="Buscar por nombre o correo..."
               value={emailSearchTerm}
               onChange={(e) => setEmailSearchTerm(e.target.value)}
             />
             <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="select-all-emails" 
+              <Checkbox
+                id="select-all-emails"
                 checked={areAllFilteredUsersSelected && filteredUsers.length > 0}
-                onCheckedChange={(checked) => handleSelectAllUsers(checked as boolean)} 
+                onCheckedChange={(checked) => handleSelectAllUsers(checked as boolean)}
                 disabled={filteredUsers.length === 0}
               />
               <Label htmlFor="select-all-emails" className="text-sm font-medium">
@@ -462,3 +482,4 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     </>
   );
 };
+
