@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Trash2, Save, Send, Mail, Loader2, Bell } from 'lucide-react'; // Added Bell
+import { PlusCircle, Trash2, Save, Send, Mail, Loader2, Bell } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { sendEmailAction } from '@/app/actions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -27,7 +27,7 @@ interface Step1InitiationProps {
   availableUsers: FullUserProfile[];
   onContinue: () => void;
   onForceEnsureEventId: () => string; 
-  onSaveAnalysis: (showToast?: boolean) => Promise<boolean>; // Updated to return boolean for success
+  onSaveAnalysis: (showToast?: boolean) => Promise<boolean>;
   isSaving: boolean;
 }
 
@@ -285,11 +285,10 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   };
 
   const handleSaveEvent = async () => {
-    onForceEnsureEventId(); // Ensures ID exists or is generated, URL updated.
-    // onSaveAnalysis will pick up the ID from analysisDocumentId or generate it if still needed.
-    const success = await onSaveAnalysis(true); // Save and show toast
+    onForceEnsureEventId(); 
+    const success = await onSaveAnalysis(true); 
     if (success) {
-        // Optionally, you can add logic here if needed after a successful save.
+        // Optional: Logic after successful save
     }
   };
   
@@ -298,12 +297,11 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
       return;
     }
     const currentEventId = onForceEnsureEventId(); 
-    // Silently save to ensure data is persisted, especially if ID was just generated
     const saveSuccess = await onSaveAnalysis(false); 
     
     if (saveSuccess) {
         setEventDetailsForNotification({
-            id: currentEventId, // Use the ensured/generated ID
+            id: currentEventId, 
             description: eventData.focusEventDescription,
             site: eventData.place
         });
@@ -323,7 +321,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     }
     if (!eventData.id) { 
       onForceEnsureEventId(); 
-      await onSaveAnalysis(false); // Silently save if new event before continuing
+      await onSaveAnalysis(false); 
     }
     onContinue();
   };
@@ -449,7 +447,13 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             <Save className="mr-2 h-4 w-4" /> Guardar Evento
           </Button>
-          <Button onClick={handlePrepareNotification} variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
+          <Button 
+            onClick={handlePrepareNotification} 
+            variant="outline" 
+            className="w-full sm:w-auto transition-transform hover:scale-105" 
+            disabled={isSaving || !!eventData.id}
+            title={!!eventData.id ? "La notificación inicial para este evento ya fue gestionada o el evento ya tiene un ID (ha sido guardado)." : "Notificar creación de este evento"}
+          >
              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             <Bell className="mr-2 h-4 w-4" /> Notificar Evento
           </Button>
@@ -473,3 +477,4 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     </>
   );
 };
+
