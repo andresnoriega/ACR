@@ -16,10 +16,11 @@ import { Calendar } from '@/components/ui/calendar';
 import { format, parseISO, isValid as isValidDate, formatDistanceToNowStrict } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { ReportedEvent, ReportedEventType, ReportedEventStatus, PriorityType, Site } from '@/types/rca';
-import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, PlayCircle, Info, Loader2, Eye } from 'lucide-react';
+import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, PlayCircle, Info, Loader2, Eye, Fingerprint } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, where, Timestamp, doc, updateDoc } from "firebase/firestore";
+import { Input } from '@/components/ui/input';
 
 const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Fallo', 'Accidente', 'No Conformidad'];
 const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
@@ -33,6 +34,7 @@ interface Filters {
   type: ReportedEventType;
   priority: PriorityType;
   status: ReportedEventStatus;
+  eventId: string;
 }
 
 async function updateEventStatusInFirestore(eventId: string, newStatus: ReportedEventStatus, toastInstance: ReturnType<typeof useToast>['toast']) {
@@ -70,6 +72,7 @@ export default function EventosReportadosPage() {
     type: '',
     priority: '',
     status: '',
+    eventId: '',
   });
 
   const fetchEvents = useCallback(async () => {
@@ -154,6 +157,9 @@ export default function EventosReportadosPage() {
     if (filters.status) {
       events = events.filter(e => e.status === filters.status);
     }
+    if (filters.eventId.trim()) {
+      events = events.filter(e => e.id.toLowerCase().includes(filters.eventId.trim().toLowerCase()));
+    }
     setFilteredEvents(events);
     setSelectedEvent(null); 
     setIsDetailsCardVisible(false);
@@ -161,7 +167,7 @@ export default function EventosReportadosPage() {
   }, [filters, allEvents, toast]);
 
   const clearFilters = () => {
-    setFilters({ site: '', date: undefined, type: '', priority: '', status: '' });
+    setFilters({ site: '', date: undefined, type: '', priority: '', status: '', eventId: '' });
     setFilteredEvents(allEvents);
     setSelectedEvent(null); 
     setIsDetailsCardVisible(false);
@@ -363,6 +369,15 @@ export default function EventosReportadosPage() {
                 {statusOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
               </SelectContent>
             </Select>
+          </div>
+          <div>
+            <Label htmlFor="filter-event-id" className="flex items-center mb-1"><Fingerprint className="mr-1.5 h-4 w-4 text-muted-foreground"/>ID del Evento</Label>
+            <Input
+              id="filter-event-id"
+              placeholder="Ej: E-12345-001"
+              value={filters.eventId}
+              onChange={(e) => handleFilterChange('eventId', e.target.value)}
+            />
           </div>
         </CardContent>
         <CardFooter className="flex justify-start gap-3 pt-4 border-t">
