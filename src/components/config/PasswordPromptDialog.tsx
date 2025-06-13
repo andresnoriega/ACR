@@ -21,25 +21,28 @@ interface PasswordPromptDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
-  expectedPassword?: string;
+  expectedPasswordFromConfig?: string; // Changed prop name
 }
 
-const DEFAULT_EXPECTED_PASSWORD = "admin123"; 
+const DEFAULT_FALLBACK_PASSWORD = "admin123"; // Fallback if admin has no password set
 
 export const PasswordPromptDialog: React.FC<PasswordPromptDialogProps> = ({
   isOpen,
   onOpenChange,
   onSuccess,
-  expectedPassword = DEFAULT_EXPECTED_PASSWORD,
+  expectedPasswordFromConfig,
 }) => {
   const [password, setPassword] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const { toast } = useToast();
 
+  const actualExpectedPassword = expectedPasswordFromConfig || DEFAULT_FALLBACK_PASSWORD;
+
   const handlePasswordCheck = () => {
     setIsVerifying(true);
+    // Simulate network delay for verification
     setTimeout(() => {
-      if (password === expectedPassword) {
+      if (password === actualExpectedPassword) {
         toast({ title: "Acceso Concedido", description: "Redirigiendo a la gestión de datos." });
         onSuccess(); 
         onOpenChange(false); 
@@ -57,7 +60,7 @@ export const PasswordPromptDialog: React.FC<PasswordPromptDialogProps> = ({
 
   const handleCloseDialog = () => {
     if (!isVerifying) {
-      setPassword('');
+      setPassword(''); // Reset password field on close
       onOpenChange(false);
     }
   };
@@ -71,7 +74,7 @@ export const PasswordPromptDialog: React.FC<PasswordPromptDialogProps> = ({
             Confirmación de Acceso
           </DialogTitle>
           <DialogDescription>
-            Por favor, ingrese la contraseña de administrador para acceder a la configuración de privacidad y datos.
+            Por favor, ingrese la contraseña de administrador ("Andrés Noriega") para acceder a la configuración de privacidad y datos.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 py-3">
@@ -85,7 +88,11 @@ export const PasswordPromptDialog: React.FC<PasswordPromptDialogProps> = ({
             onKeyDown={(e) => { if (e.key === 'Enter' && !isVerifying && password.trim()) handlePasswordCheck(); }}
           />
            <p className="text-xs text-muted-foreground">
-            (Para esta demo, la contraseña del Administrador "Andrés Noriega" es: <code className="font-mono bg-muted px-1 py-0.5 rounded text-foreground">{DEFAULT_EXPECTED_PASSWORD}</code>)
+            {expectedPasswordFromConfig 
+              ? `(Esta es la contraseña establecida para "Andrés Noriega" en 'Configuración de Usuarios'.)`
+              : `(El usuario "Andrés Noriega" no tiene una contraseña configurada o no se pudo cargar. Usando contraseña por defecto para esta demo: ${DEFAULT_FALLBACK_PASSWORD})`
+            }
+             <strong className="block mt-1 text-destructive">ADVERTENCIA (Demo): Las contraseñas se comparan en texto plano. No usar en producción.</strong>
           </p>
         </div>
         <DialogFooter>
@@ -103,4 +110,3 @@ export const PasswordPromptDialog: React.FC<PasswordPromptDialogProps> = ({
     </Dialog>
   );
 };
-

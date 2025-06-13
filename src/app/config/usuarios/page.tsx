@@ -18,6 +18,7 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch } from "firebase/firestore";
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import { sanitizeForFirestore } from '@/lib/utils';
 
 interface UserConfigProfile extends FullUserProfile {
   assignedSites?: string;
@@ -138,11 +139,15 @@ export default function ConfiguracionUsuariosPage() {
         assignedSites: userAssignedSites.trim(),
         emailNotifications: userEmailNotifications,
       };
+      if (userPassword) { // Only update password if a new one is provided
+        updatedUserData.password = userPassword;
+         toast({ title: "Nota de Seguridad (Demo)", description: "Contraseña actualizada (almacenada en texto plano para esta demo). No usar en producción.", variant: "default", duration: 7000 });
+      }
       try {
         const userRef = doc(db, "users", currentUser.id);
-        await updateDoc(userRef, updatedUserData);
+        await updateDoc(userRef, sanitizeForFirestore(updatedUserData));
         toast({ title: "Usuario Actualizado", description: `El usuario "${userName}" ha sido actualizado.` });
-        fetchUsers(); // Re-fetch to update table
+        fetchUsers(); 
       } catch (error) {
         console.error("Error updating user in Firestore: ", error);
         toast({ title: "Error al Actualizar", description: "No se pudo actualizar el usuario.", variant: "destructive" });
@@ -155,11 +160,15 @@ export default function ConfiguracionUsuariosPage() {
         permissionLevel: defaultPermissionLevel, 
         assignedSites: userAssignedSites.trim(),
         emailNotifications: userEmailNotifications,
+        password: userPassword, // Save password for new user
       };
       try {
-        await addDoc(collection(db, "users"), newUserPayload);
+        await addDoc(collection(db, "users"), sanitizeForFirestore(newUserPayload));
         toast({ title: "Usuario Añadido", description: `El usuario "${newUserPayload.name}" ha sido añadido.` });
-        fetchUsers(); // Re-fetch
+         if (userPassword) {
+           toast({ title: "Nota de Seguridad (Demo)", description: "Contraseña almacenada en texto plano para esta demo. No usar en producción.", variant: "default", duration: 7000 });
+        }
+        fetchUsers(); 
       } catch (error) {
         console.error("Error adding user to Firestore: ", error);
         toast({ title: "Error al Añadir", description: "No se pudo añadir el usuario.", variant: "destructive" });
@@ -183,7 +192,7 @@ export default function ConfiguracionUsuariosPage() {
         await deleteDoc(doc(db, "users", userToDelete.id));
         toast({ title: "Usuario Eliminado", description: `El usuario "${userToDelete.name}" ha sido eliminado.`, variant: 'destructive' });
         setUserToDelete(null);
-        fetchUsers(); // Re-fetch
+        fetchUsers(); 
       } catch (error) {
         console.error("Error deleting user from Firestore: ", error);
         toast({ title: "Error al Eliminar", description: "No se pudo eliminar el usuario.", variant: "destructive" });
@@ -206,6 +215,7 @@ export default function ConfiguracionUsuariosPage() {
       "Sitios Asignados": user.assignedSites || '',
       "Notificaciones Email": user.emailNotifications ? "Sí" : "No",
       "Nivel Permiso (Info)": user.permissionLevel,
+      // DO NOT EXPORT PASSWORDS, even if stored for demo
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -244,7 +254,6 @@ export default function ConfiguracionUsuariosPage() {
           return;
         }
         
-        // Validate headers (optional but good practice)
         const headers = XLSX.utils.sheet_to_json(worksheet, { header: 1 })[0] as string[];
         const missingHeaders = expectedUserHeaders.filter(h => !headers.includes(h) && (h === "Nombre Completo" || h === "Correo Electrónico" || h === "Rol"));
         if (missingHeaders.length > 0) {
@@ -278,7 +287,7 @@ export default function ConfiguracionUsuariosPage() {
              continue;
           }
 
-          const newUser: Omit<UserConfigProfile, 'id'> = {
+          const newUser: Omit<UserConfigProfile, 'id' | 'password'> = { // Exclude password from import
             name,
             email,
             role,
@@ -287,15 +296,14 @@ export default function ConfiguracionUsuariosPage() {
             emailNotifications: (row["Notificaciones Email"]?.toLowerCase() === 'sí' || row["Notificaciones Email"]?.toLowerCase() === 'si'),
           };
           
-          const userRef = doc(collection(db, "users")); // Create new doc ref for batch
-          batch.set(userRef, newUser);
+          const userRef = doc(collection(db, "users")); 
+          batch.set(userRef, sanitizeForFirestore(newUser));
           importedCount++;
           operationsInBatch++;
 
-          if (operationsInBatch >= 490) { // Firestore batch limit is 500
+          if (operationsInBatch >= 490) { 
             await batch.commit();
             operationsInBatch = 0;
-            // batch = writeBatch(db); // Re-initialize for next batch - This line was wrong, should be batch = writeBatch(db);
           }
         }
 
@@ -304,14 +312,14 @@ export default function ConfiguracionUsuariosPage() {
         }
 
         toast({ title: "Importación Completada", description: `${importedCount} usuarios importados. ${skippedCount} filas omitidas por datos inválidos o faltantes.` });
-        fetchUsers(); // Refresh list
+        fetchUsers(); 
       } catch (error) {
         console.error("Error importing users: ", error);
         toast({ title: "Error de Importación", description: "No se pudo procesar el archivo. Verifique el formato y los datos.", variant: "destructive" });
       } finally {
         setIsImporting(false);
         if (fileInputRef.current) {
-          fileInputRef.current.value = ""; // Reset file input
+          fileInputRef.current.value = ""; 
         }
       }
     };

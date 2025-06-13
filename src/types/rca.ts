@@ -147,6 +147,7 @@ export interface FullUserProfile {
   email: string;
   role: 'Admin' | 'Analista' | 'Revisor' | '';
   permissionLevel: 'Total' | 'Lectura' | 'Limitado' | '';
+  password?: string; // Added password field
   assignedSites?: string;
   emailNotifications?: boolean;
 }
