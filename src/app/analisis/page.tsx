@@ -104,7 +104,7 @@ export default function RCAAnalysisPage() {
 
 
   const loadAnalysisData = useCallback(async (id: string): Promise<boolean> => {
-    setIsLoadingPage(true); // Ensure loading state is true at the beginning of load
+    setIsLoadingPage(true); 
     try {
       const analysisDocRef = doc(db, "rcaAnalyses", id);
       const docSnap = await getDoc(analysisDocRef);
@@ -112,7 +112,25 @@ export default function RCAAnalysisPage() {
       if (docSnap.exists()) {
         const data = docSnap.data() as RCAAnalysisDocument;
         setEventData(data.eventData);
-        setImmediateActions(data.immediateActions || []);
+        
+        const loadedImmediateActions = data.immediateActions || [];
+        setImmediateActions(loadedImmediateActions);
+        if (loadedImmediateActions.length > 0) {
+            let maxCounter = 0;
+            loadedImmediateActions.forEach(act => {
+                const parts = act.id.split('-IMA-');
+                if (parts.length === 2) {
+                    const num = parseInt(parts[1], 10);
+                    if (!isNaN(num) && num > maxCounter) {
+                        maxCounter = num;
+                    }
+                }
+            });
+            setImmediateActionCounter(maxCounter + 1);
+        } else {
+            setImmediateActionCounter(1);
+        }
+
         setProjectLeader(data.projectLeader || '');
         setDetailedFacts(data.detailedFacts || { ...initialDetailedFacts });
         setAnalysisDetails(data.analysisDetails || '');
@@ -123,7 +141,25 @@ export default function RCAAnalysisPage() {
         setFiveWhysData(data.fiveWhysData || JSON.parse(JSON.stringify(initialFiveWhysData)));
         setCtmData(data.ctmData || JSON.parse(JSON.stringify(initialCTMData)));
         setIdentifiedRootCauses(data.identifiedRootCauses || []);
-        setPlannedActions(data.plannedActions || []);
+        
+        const loadedPlannedActions = data.plannedActions || [];
+        setPlannedActions(loadedPlannedActions);
+        if (loadedPlannedActions.length > 0) {
+            let maxCounter = 0;
+            loadedPlannedActions.forEach(pa => {
+                const parts = pa.id.split('-PA-');
+                if (parts.length === 2) {
+                    const num = parseInt(parts[1], 10);
+                    if (!isNaN(num) && num > maxCounter) {
+                        maxCounter = num;
+                    }
+                }
+            });
+            setPlannedActionCounter(maxCounter + 1);
+        } else {
+            setPlannedActionCounter(1);
+        }
+
         setValidations(data.validations || []);
         setFinalComments(data.finalComments || '');
         setIsFinalized(data.isFinalized || false);
@@ -134,6 +170,7 @@ export default function RCAAnalysisPage() {
         toast({ title: "Análisis No Encontrado", description: `No se encontró un análisis con ID: ${id}. Iniciando nuevo análisis.`, variant: "destructive" });
         setEventData(initialRCAAnalysisState.eventData);
         setImmediateActions(initialRCAAnalysisState.immediateActions);
+        setImmediateActionCounter(1);
         setProjectLeader(initialRCAAnalysisState.projectLeader);
         setDetailedFacts(initialRCAAnalysisState.detailedFacts);
         setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
@@ -145,12 +182,13 @@ export default function RCAAnalysisPage() {
         setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
         setIdentifiedRootCauses(initialRCAAnalysisState.identifiedRootCauses);
         setPlannedActions(initialRCAAnalysisState.plannedActions);
+        setPlannedActionCounter(1);
         setValidations(initialRCAAnalysisState.validations);
         setFinalComments(initialRCAAnalysisState.finalComments);
         setIsFinalized(initialRCAAnalysisState.isFinalized);
         setAnalysisDocumentId(null);
         setMaxCompletedStep(0);
-        router.replace('/analisis', undefined); // Clear ID from URL if not found
+        router.replace('/analisis', undefined); 
         return false;
       }
     } catch (error) {
@@ -158,6 +196,7 @@ export default function RCAAnalysisPage() {
       toast({ title: "Error al Cargar Análisis", description: "No se pudo cargar el análisis desde Firestore.", variant: "destructive" });
         setEventData(initialRCAAnalysisState.eventData);
         setImmediateActions(initialRCAAnalysisState.immediateActions);
+        setImmediateActionCounter(1);
         setProjectLeader(initialRCAAnalysisState.projectLeader);
         setDetailedFacts(initialRCAAnalysisState.detailedFacts);
         setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
@@ -169,6 +208,7 @@ export default function RCAAnalysisPage() {
         setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
         setIdentifiedRootCauses(initialRCAAnalysisState.identifiedRootCauses);
         setPlannedActions(initialRCAAnalysisState.plannedActions);
+        setPlannedActionCounter(1);
         setValidations(initialRCAAnalysisState.validations);
         setFinalComments(initialRCAAnalysisState.finalComments);
         setIsFinalized(initialRCAAnalysisState.isFinalized);
@@ -208,7 +248,6 @@ export default function RCAAnalysisPage() {
                     if (lastLoadedAnalysisIdRef.current === currentId) { 
                         lastLoadedAnalysisIdRef.current = null; 
                     }
-                    // router.replace('/analisis', undefined); // Already handled in loadAnalysisData failure
                     setStep(1);
                     setMaxCompletedStep(0);
                 }
@@ -230,6 +269,7 @@ export default function RCAAnalysisPage() {
             setIsLoadingPage(true); 
             setEventData(initialRCAAnalysisState.eventData);
             setImmediateActions(initialRCAAnalysisState.immediateActions);
+            setImmediateActionCounter(1);
             setProjectLeader(initialRCAAnalysisState.projectLeader);
             setDetailedFacts(initialRCAAnalysisState.detailedFacts);
             setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
@@ -241,6 +281,7 @@ export default function RCAAnalysisPage() {
             setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
             setIdentifiedRootCauses(initialRCAAnalysisState.identifiedRootCauses);
             setPlannedActions(initialRCAAnalysisState.plannedActions);
+            setPlannedActionCounter(1);
             setValidations(initialRCAAnalysisState.validations);
             setFinalComments(initialRCAAnalysisState.finalComments);
             setIsFinalized(initialRCAAnalysisState.isFinalized);
@@ -256,7 +297,7 @@ export default function RCAAnalysisPage() {
         }
     }
 // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [analysisIdFromParams, searchParams, router]); // Removed loadAnalysisData from deps as it's stable with useCallback
+}, [analysisIdFromParams, searchParams, router, loadAnalysisData]); 
 
 
   useEffect(() => {
