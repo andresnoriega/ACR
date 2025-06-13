@@ -106,27 +106,29 @@ export default function EventosReportadosPage() {
 
       // Derive event statuses
       const processedEvents = rawEventsData.map(event => {
-        let derivedStatus = event.status; // Start with the status from reportedEvents
+        let derivedStatus = event.status; 
 
-        if (event.id === "E-77157-001") { // Specific debug for this event
+        if (event.id === "E-77157-001") { 
           console.log(`[EventosPage Debug E-77157-001] Initial event status from Firestore: ${event.status}`);
         }
 
-        // Only try to derive "En validación" if the event is not already "Finalizado"
         if (event.status !== 'Finalizado') {
           const rcaDoc = rcaAnalysesData.find(rca => rca.eventData.id === event.id);
 
           if (event.id === "E-77157-001") {
             console.log(`[EventosPage Debug E-77157-001] Found rcaDoc for event:`, rcaDoc ? 'Yes' : 'No', rcaDoc ? `(RCA ID: ${rcaDoc.eventData.id})` : '');
           }
-
-          // Condition: rcaDoc exists, plannedActions is an array, AND plannedActions is NOT empty
-          if (rcaDoc && Array.isArray(rcaDoc.plannedActions) && rcaDoc.plannedActions.length > 0) {
-            const rcaValidations = rcaDoc.validations || [];
-            
+          
+          if (rcaDoc && Array.isArray(rcaDoc.plannedActions)) {
+            const rcaValidations = rcaDoc.validations || []; 
             if (event.id === "E-77157-001") {
               console.log(`[EventosPage Debug E-77157-001] rcaValidations content for this rcaDoc:`, JSON.parse(JSON.stringify(rcaValidations)));
-              console.log(`[EventosPage Debug E-77157-001] rcaDoc.plannedActions count:`, rcaDoc.plannedActions.length);
+            }
+            
+            let allActionsAreTrulyValidated = true; 
+
+            if (event.id === "E-77157-001") {
+              console.log(`[EventosPage Debug E-77157-001] rcaDoc.plannedActions count:`, rcaDoc.plannedActions ? rcaDoc.plannedActions.length : 'N/A (no plannedActions array)');
               console.log(`[EventosPage Debug E-77157-001] rcaDoc.validations count (from rcaDoc object):`, rcaDoc.validations ? rcaDoc.validations.length : 'N/A (no validations array)');
               
               const plannedActionIds = rcaDoc.plannedActions.map(p => p ? p.id : 'MALFORMED_PA_OBJECT');
@@ -135,26 +137,32 @@ export default function EventosReportadosPage() {
               console.log(`[EventosPage Debug E-77157-001] Action IDs in rcaValidations:`, validationActionIds);
             }
             
-            let allActionsAreTrulyValidated = true; // Assume true, prove false
-            for (const pa of rcaDoc.plannedActions) {
-              if (!pa || !pa.id) { // Defensive check for malformed planned action
-                if (event.id === "E-77157-001") {
-                    console.log(`[EventosPage Debug E-77157-001] Malformed planned action found:`, pa, `. Setting allActionsAreTrulyValidated to false and breaking.`);
-                }
+            if (rcaDoc.plannedActions.length === 0) { 
                 allActionsAreTrulyValidated = false;
-                break;
-              }
-              const validation = rcaValidations.find(v => v && v.actionId === pa.id);
-              if (event.id === "E-77157-001") {
-                  console.log(`[EventosPage Debug E-77157-001] For PA ID ${pa.id}: Found validation in rcaValidations:`, validation, `Is its status 'validated'?`, validation?.status === 'validated');
-              }
-              if (!validation || validation.status !== 'validated') {
                 if (event.id === "E-77157-001") {
-                    console.log(`[EventosPage Debug E-77157-001] PA ID ${pa.id} is NOT validated. Setting allActionsAreTrulyValidated to false and breaking.`);
+                    console.log(`[EventosPage Debug E-77157-001] No planned actions found (length is 0). Setting allActionsAreTrulyValidated to false.`);
                 }
-                allActionsAreTrulyValidated = false;
-                break;
-              }
+            } else {
+                for (const pa of rcaDoc.plannedActions) {
+                    if (!pa || !pa.id) { 
+                        if (event.id === "E-77157-001") {
+                            console.log(`[EventosPage Debug E-77157-001] Malformed planned action found:`, pa, `. Setting allActionsAreTrulyValidated to false and breaking.`);
+                        }
+                        allActionsAreTrulyValidated = false;
+                        break;
+                    }
+                    const validation = rcaValidations.find(v => v && v.actionId === pa.id); 
+                    if (event.id === "E-77157-001") {
+                        console.log(`[EventosPage Debug E-77157-001] For PA ID ${pa.id}: Found validation object:`, JSON.parse(JSON.stringify(validation || {})), `Actual validation status: ${validation?.status}. Required: 'validated'. Match: ${validation?.status === 'validated'}`);
+                    }
+                    if (!validation || validation.status !== 'validated') {
+                        if (event.id === "E-77157-001") {
+                            console.log(`[EventosPage Debug E-77157-001] PA ID ${pa.id} is NOT validated. Setting allActionsAreTrulyValidated to false and breaking.`);
+                        }
+                        allActionsAreTrulyValidated = false;
+                        break;
+                    }
+                }
             }
 
             if (event.id === "E-77157-001") {
@@ -162,22 +170,17 @@ export default function EventosReportadosPage() {
             }
 
             if (allActionsAreTrulyValidated) {
-              derivedStatus = 'En validación'; // Set to "En validación" ONLY if all conditions met
+              derivedStatus = 'En validación'; 
             }
-            // If not allActionsAreTrulyValidated, derivedStatus remains as it was (e.g., "En análisis" or "Pendiente")
             
           } else {
-            // This block handles cases where: rcaDoc not found, plannedActions is not an array, or plannedActions IS empty.
-            // In these cases, it cannot be "En validación" based on the "all actions validated" criteria.
-            // The derivedStatus remains the original event.status.
              if (event.id === "E-77157-001") {
-                if (!rcaDoc) console.log(`[EventosPage Debug E-77157-001] No rcaDoc found for event ${event.id}.`);
-                else if (!Array.isArray(rcaDoc.plannedActions)) console.log(`[EventosPage Debug E-77157-001] rcaDoc.plannedActions is not an array for event ${event.id}.`);
-                else if (rcaDoc.plannedActions.length === 0) console.log(`[EventosPage Debug E-77157-001] rcaDoc.plannedActions is empty for event ${event.id}.`);
+                if (!rcaDoc) console.log(`[EventosPage Debug E-77157-001] No rcaDoc found for event ${event.id}. Cannot be 'En validación'.`);
+                else if (!Array.isArray(rcaDoc.plannedActions)) console.log(`[EventosPage Debug E-77157-001] rcaDoc.plannedActions is not an array for event ${event.id}. Cannot be 'En validación'.`);
                 console.log(`[EventosPage Debug E-77157-001] Not setting to 'En validación' due to above conditions. derivedStatus will be: ${derivedStatus}`);
              }
           }
-        } // End of if (event.status !== 'Finalizado')
+        } 
 
         if (event.id === "E-77157-001") {
           console.log(`[EventosPage Debug E-77157-001] Final derivedStatus for event: ${derivedStatus}`);
@@ -620,3 +623,4 @@ export default function EventosReportadosPage() {
     </div>
   );
 }
+
