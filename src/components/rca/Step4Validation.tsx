@@ -197,6 +197,10 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
           ) : (
             <Accordion type="multiple" className="w-full">
               {uniquePlannedActions.map((action) => {
+                // --- DEBUG LOG ---
+                console.log("[Step4Validation] Processing action:", JSON.parse(JSON.stringify(action))); 
+                // --- END DEBUG LOG ---
+                
                 const status = getValidationStatus(action.id);
                 const isReadyForValidationByLeader = action.evidencias && action.evidencias.length > 0 || (action.userComments && action.userComments.trim() !== '') || action.markedAsReadyAt;
                 
@@ -301,5 +305,3 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   );
 };
 
-
-    
