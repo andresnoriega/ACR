@@ -21,7 +21,7 @@ import { es } from 'date-fns/locale';
 interface ActionPlan {
   id: string;
   accionResumen: string;
-  estado: 'Pendiente' | 'En proceso' | 'Completado';
+  estado: 'Pendiente' | 'En proceso' | 'En Validación' | 'Completado';
   plazoLimite: string;
   asignadoPor: string;
   tituloDetalle: string;
@@ -55,7 +55,7 @@ export default function UserActionPlansPage() {
 
   const [selectedPlan, setSelectedPlan] = useState<ActionPlan | null>(null);
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
-  const [evidenceComment, setEvidenceComment] = useState(''); // State for evidence comment
+  const [evidenceComment, setEvidenceComment] = useState('');
 
   const fetchUsers = useCallback(async () => {
     setIsLoadingUsers(true);
@@ -105,7 +105,7 @@ export default function UserActionPlansPage() {
       if (rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
         rcaDoc.plannedActions.forEach(pa => {
           if (pa.responsible === selectedSimulatedUserName) {
-            const uniqueKey = pa.id; // Use pa.id as it should be globally unique
+            const uniqueKey = pa.id; 
             if (!uniqueTracker.has(uniqueKey)) {
               uniqueTracker.add(uniqueKey);
 
@@ -120,7 +120,9 @@ export default function UserActionPlansPage() {
                 if (validation.validatedAt && isValidDate(parseISO(validation.validatedAt))) {
                   validationTimestamp = format(parseISO(validation.validatedAt), 'dd/MM/yyyy HH:mm', { locale: es });
                 }
-              } else if ((pa.userComments && pa.userComments.trim() !== '') || (pa.evidencias && pa.evidencias.length > 0) || pa.markedAsReadyAt) {
+              } else if (pa.evidencias && pa.evidencias.length > 0) {
+                estado = 'En Validación';
+              } else if ((pa.userComments && pa.userComments.trim() !== '') || pa.markedAsReadyAt) {
                 estado = 'En proceso';
               }
 
@@ -171,6 +173,7 @@ export default function UserActionPlansPage() {
     return {
       pendientes: currentUserActionPlans.filter(p => p.estado === 'Pendiente').length,
       enProceso: currentUserActionPlans.filter(p => p.estado === 'En proceso').length,
+      enValidacion: currentUserActionPlans.filter(p => p.estado === 'En Validación').length,
       completadas: currentUserActionPlans.filter(p => p.estado === 'Completado').length,
     };
   }, [currentUserActionPlans]);
@@ -178,7 +181,7 @@ export default function UserActionPlansPage() {
   const handleSelectPlan = (plan: ActionPlan) => {
     setSelectedPlan(plan);
     setFileToUpload(null);
-    setEvidenceComment(''); // Reset evidence comment when selecting a new plan
+    setEvidenceComment('');
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -211,7 +214,7 @@ export default function UserActionPlansPage() {
           if (actionWithOtherUpdates.evidencias && Array.isArray(actionWithOtherUpdates.evidencias)) {
             const seenEvidenceIds = new Set<string>();
             actionWithOtherUpdates.evidencias = actionWithOtherUpdates.evidencias.filter(ev => {
-              if (!ev || typeof ev.id !== 'string') return false;
+              if (!ev || typeof ev.id !== 'string') return false; 
               if (seenEvidenceIds.has(ev.id)) {
                 return false;
               }
@@ -249,12 +252,13 @@ export default function UserActionPlansPage() {
             if (validation.validatedAt && isValidDate(parseISO(validation.validatedAt))) {
               validationTimestamp = format(parseISO(validation.validatedAt), 'dd/MM/yyyy HH:mm', { locale: es });
             }
+          } else if (newSelectedPlanDataFirestore.evidencias && newSelectedPlanDataFirestore.evidencias.length > 0) {
+            newEstado = 'En Validación';
           } else if ((newSelectedPlanDataFirestore.userComments && newSelectedPlanDataFirestore.userComments.trim() !== '') ||
-            (newSelectedPlanDataFirestore.evidencias && newSelectedPlanDataFirestore.evidencias.length > 0) ||
             newSelectedPlanDataFirestore.markedAsReadyAt) {
             newEstado = 'En proceso';
           }
-
+          
           let userMarkedReadyTimestamp: string | undefined = undefined;
           if (newSelectedPlanDataFirestore.markedAsReadyAt && isValidDate(parseISO(newSelectedPlanDataFirestore.markedAsReadyAt))) {
             userMarkedReadyTimestamp = format(parseISO(newSelectedPlanDataFirestore.markedAsReadyAt), 'dd/MM/yyyy HH:mm', { locale: es });
@@ -262,8 +266,8 @@ export default function UserActionPlansPage() {
 
           setSelectedPlan(prev => prev ? ({
             ...prev,
-            evidencias: newSelectedPlanDataFirestore.evidencias || [], // Ensure evidences array is updated
-            userComments: newSelectedPlanDataFirestore.userComments || '', // Ensure comments are updated
+            evidencias: newSelectedPlanDataFirestore.evidencias || [],
+            userComments: newSelectedPlanDataFirestore.userComments || '',
             estado: newEstado,
             userMarkedReadyDate: userMarkedReadyTimestamp,
             validationDate: validationTimestamp,
@@ -305,9 +309,9 @@ export default function UserActionPlansPage() {
     });
 
     if (success) {
-      toast({ title: "Evidencia (Simulación)", description: `Archivo "${fileToUpload.name}" ${newEvidence.comment ? `con comentario "${newEvidence.comment.substring(0,20)}..." ` : ""}registrado para "${selectedPlan.tituloDetalle}".` });
+      toast({ title: "Evidencia (Simulación)", description: `Archivo "${fileToUpload.name}" ${newEvidence.comment ? `con comentario "${newEvidence.comment.substring(0,20)}..." ` : ""}registrado para "${selectedPlan.tituloDetalle}". El estado de la tarea puede haber cambiado a 'En Validación'.` });
       setFileToUpload(null);
-      setEvidenceComment(''); // Clear comment field
+      setEvidenceComment('');
       const fileInput = document.getElementById('evidence-file-input') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
     }
@@ -322,7 +326,7 @@ export default function UserActionPlansPage() {
     });
 
     if (success) {
-      toast({ title: "Evidencia Eliminada", description: `La evidencia ha sido eliminada del plan "${selectedPlan.tituloDetalle}".`, variant: 'destructive' });
+      toast({ title: "Evidencia Eliminada", description: `La evidencia ha sido eliminada del plan "${selectedPlan.tituloDetalle}". El estado de la tarea puede haber cambiado.` , variant: 'destructive' });
     }
   };
 
@@ -345,9 +349,10 @@ export default function UserActionPlansPage() {
       toast({ title: "Acción ya Completada", description: "Esta tarea ya ha sido validada y completada.", variant: "default" });
       return;
     }
+    setIsUpdatingAction(true);
 
     let commentsToSave = selectedPlan.userComments || "";
-    if (selectedPlan.estado === 'Pendiente' && !commentsToSave.trim() && (!selectedPlan.evidencias || selectedPlan.evidencias.length === 0) && !selectedPlan.userMarkedReadyDate) {
+    if (selectedPlan.estado === 'Pendiente' && !commentsToSave.trim() && (!selectedPlan.evidencias || selectedPlan.evidencias.length === 0)) {
       commentsToSave = (commentsToSave ? commentsToSave + "\n\n" : "") + `[Sistema] Tarea marcada como lista para validación por ${selectedSimulatedUserName || 'el responsable'} el ${new Date().toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}.`;
     }
 
@@ -364,6 +369,7 @@ export default function UserActionPlansPage() {
         description: `La tarea "${selectedPlan.tituloDetalle}" se ha actualizado. El Líder del Proyecto la revisará.`
       });
     }
+    setIsUpdatingAction(false);
   };
 
 
@@ -436,7 +442,7 @@ export default function UserActionPlansPage() {
         <CardHeader>
           <CardTitle className="text-lg font-semibold text-primary">Resumen Rápido (Para: {selectedSimulatedUserName || "Nadie"})</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+        <CardContent className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
           <div className="p-3 bg-secondary/40 rounded-md">
             <p className="text-2xl font-bold text-destructive">{isLoadingActions ? <Loader2 className="h-6 w-6 animate-spin inline" /> : summary.pendientes}</p>
             <p className="text-xs text-muted-foreground">Acciones Pendientes</p>
@@ -444,6 +450,10 @@ export default function UserActionPlansPage() {
           <div className="p-3 bg-secondary/40 rounded-md">
             <p className="text-2xl font-bold text-yellow-600">{isLoadingActions ? <Loader2 className="h-6 w-6 animate-spin inline" /> : summary.enProceso}</p>
             <p className="text-xs text-muted-foreground">En Proceso</p>
+          </div>
+          <div className="p-3 bg-secondary/40 rounded-md">
+            <p className="text-2xl font-bold text-blue-600">{isLoadingActions ? <Loader2 className="h-6 w-6 animate-spin inline" /> : summary.enValidacion}</p>
+            <p className="text-xs text-muted-foreground">En Validación</p>
           </div>
           <div className="p-3 bg-secondary/40 rounded-md">
             <p className="text-2xl font-bold text-green-600">{isLoadingActions ? <Loader2 className="h-6 w-6 animate-spin inline" /> : summary.completadas}</p>
@@ -493,6 +503,7 @@ export default function UserActionPlansPage() {
                         <span className={cn("px-2 py-0.5 rounded-full text-xs font-semibold",
                           plan.estado === 'Pendiente' && 'bg-red-100 text-red-700',
                           plan.estado === 'En proceso' && 'bg-yellow-100 text-yellow-700',
+                          plan.estado === 'En Validación' && 'bg-blue-100 text-blue-700',
                           plan.estado === 'Completado' && 'bg-green-100 text-green-700'
                         )}>
                           {plan.estado}
@@ -635,7 +646,7 @@ export default function UserActionPlansPage() {
                   disabled={isUpdatingAction || selectedPlan.estado === 'Completado'}
                   title={selectedPlan.estado === 'Completado' ? "Esta tarea ya ha sido validada y no puede modificarse." : "Indicar que ha completado su parte de la tarea y está lista para ser validada por el Líder del Proyecto."}
                 >
-                  {isUpdatingAction ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />}
+                  {isUpdatingAction && !fileToUpload ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />}
                   Marcar como listo para validación
                 </Button>
               </div>
@@ -660,7 +671,8 @@ export default function UserActionPlansPage() {
               <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-0.5">Nota sobre la funcionalidad</h3>
               <p className="text-xs text-blue-600 dark:text-blue-400/90">
                 Seleccione un usuario para ver sus tareas. Puede adjuntar (simulado) evidencias con comentarios opcionales y eliminar evidencias.
-                Al marcar "listo para validación", se registrará la fecha y hora actual, y si la tarea estaba 'Pendiente' y sin otros datos, se añadirá una nota automática.
+                Si sube una evidencia, el estado de la tarea cambiará a "En Validación".
+                Al marcar "listo para validación", se registrará la fecha y hora actual, y si la tarea estaba 'Pendiente' y sin otros datos, se añadirá una nota automática, y el estado pasará a "En proceso".
                 Estos cambios se guardarán en el documento de Análisis de Causa Raíz correspondiente en Firestore.
                 La validación final para el estado 'Completado' (con su propia fecha de validación) se realiza en el Paso 4 del flujo de Análisis RCA por el líder del proyecto.
               </p>
@@ -672,3 +684,4 @@ export default function UserActionPlansPage() {
     </div>
   );
 }
+
