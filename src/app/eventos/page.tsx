@@ -108,12 +108,15 @@ export default function EventosReportadosPage() {
       const processedEvents = rawEventsData.map(event => {
         let derivedStatus = event.status; // Start with the status from reportedEvents
 
+        if (event.id === "E-77157-001") { // Specific debug for this event
+          console.log(`[EventosPage Debug E-77157-001] Initial event status from Firestore: ${event.status}`);
+        }
+
         // Only try to derive "En validación" if the event is not already "Finalizado"
         if (event.status !== 'Finalizado') {
           const rcaDoc = rcaAnalysesData.find(rca => rca.eventData.id === event.id);
 
           if (event.id === "E-77157-001") {
-            console.log(`[EventosPage Debug E-77157-001] Initial event status from Firestore: ${event.status}`);
             console.log(`[EventosPage Debug E-77157-001] Found rcaDoc for event:`, rcaDoc ? 'Yes' : 'No', rcaDoc ? `(RCA ID: ${rcaDoc.eventData.id})` : '');
           }
 
@@ -125,6 +128,11 @@ export default function EventosReportadosPage() {
               console.log(`[EventosPage Debug E-77157-001] rcaValidations content for this rcaDoc:`, JSON.parse(JSON.stringify(rcaValidations)));
               console.log(`[EventosPage Debug E-77157-001] rcaDoc.plannedActions count:`, rcaDoc.plannedActions.length);
               console.log(`[EventosPage Debug E-77157-001] rcaDoc.validations count (from rcaDoc object):`, rcaDoc.validations ? rcaDoc.validations.length : 'N/A (no validations array)');
+              
+              const plannedActionIds = rcaDoc.plannedActions.map(p => p ? p.id : 'MALFORMED_PA_OBJECT');
+              const validationActionIds = rcaValidations.map(v => v ? v.actionId : 'MALFORMED_VALIDATION_OBJECT');
+              console.log(`[EventosPage Debug E-77157-001] Planned Action IDs in rcaDoc:`, plannedActionIds);
+              console.log(`[EventosPage Debug E-77157-001] Action IDs in rcaValidations:`, validationActionIds);
             }
             
             let allActionsAreTrulyValidated = true; // Assume true, prove false
