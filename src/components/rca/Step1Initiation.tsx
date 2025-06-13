@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Trash2, Save, Send, Mail, Loader2 } from 'lucide-react';
+import { PlusCircle, Trash2, Save, Send, Mail, Loader2, Bell } from 'lucide-react'; // Added Bell
 import { useToast } from "@/hooks/use-toast";
 import { sendEmailAction } from '@/app/actions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -27,7 +27,7 @@ interface Step1InitiationProps {
   availableUsers: FullUserProfile[];
   onContinue: () => void;
   onForceEnsureEventId: () => string; 
-  onSaveAnalysis: (showToast?: boolean) => Promise<void>; 
+  onSaveAnalysis: (showToast?: boolean) => Promise<boolean>; // Updated to return boolean for success
   isSaving: boolean;
 }
 
@@ -284,24 +284,37 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     return true;
   };
 
-  const handleSaveAndNotify = async () => {
+  const handleSaveEvent = async () => {
+    onForceEnsureEventId(); // Ensures ID exists or is generated, URL updated.
+    // onSaveAnalysis will pick up the ID from analysisDocumentId or generate it if still needed.
+    const success = await onSaveAnalysis(true); // Save and show toast
+    if (success) {
+        // Optionally, you can add logic here if needed after a successful save.
+    }
+  };
+  
+  const handlePrepareNotification = async () => {
     if (!validateFields()) {
       return;
     }
     const currentEventId = onForceEnsureEventId(); 
-    await onSaveAnalysis(false); 
+    // Silently save to ensure data is persisted, especially if ID was just generated
+    const saveSuccess = await onSaveAnalysis(false); 
     
-    toast({ 
-      title: "Evento Guardado",
-      description: `Los detalles del evento ${currentEventId} han sido guardados. Puede notificar a los interesados.`,
-    });
-
-    setEventDetailsForNotification({
-        id: currentEventId,
-        description: eventData.focusEventDescription,
-        site: eventData.place
-    });
-    setIsNotifyDialogOpen(true);
+    if (saveSuccess) {
+        setEventDetailsForNotification({
+            id: currentEventId, // Use the ensured/generated ID
+            description: eventData.focusEventDescription,
+            site: eventData.place
+        });
+        setIsNotifyDialogOpen(true);
+    } else {
+        toast({
+            title: "Error al Guardar",
+            description: "No se pudo guardar el evento antes de notificar. Intente guardar manualmente primero.",
+            variant: "destructive"
+        });
+    }
   };
   
   const handleContinueToNextStep = async () => {
@@ -310,7 +323,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     }
     if (!eventData.id) { 
       onForceEnsureEventId(); 
-      await onSaveAnalysis(false); 
+      await onSaveAnalysis(false); // Silently save if new event before continuing
     }
     onContinue();
   };
@@ -431,12 +444,16 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
             </Button>
           </div>
         </CardContent>
-        <CardFooter className="flex justify-end space-x-2">
-          <Button onClick={handleSaveAndNotify} variant="outline" className="transition-transform hover:scale-105" disabled={isSaving}>
+        <CardFooter className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2">
+          <Button onClick={handleSaveEvent} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            <Save className="mr-2 h-4 w-4" /> Guardar Evento y Notificar
+            <Save className="mr-2 h-4 w-4" /> Guardar Evento
           </Button>
-          <Button onClick={handleContinueToNextStep} className="transition-transform hover:scale-105" disabled={isSaving}>
+          <Button onClick={handlePrepareNotification} variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
+             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Bell className="mr-2 h-4 w-4" /> Notificar Evento
+          </Button>
+          <Button onClick={handleContinueToNextStep} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Continuar
           </Button>
