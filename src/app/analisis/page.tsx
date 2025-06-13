@@ -439,9 +439,6 @@ export default function RCAAnalysisPage() {
       saveSuccess = true; 
     } else if (step === 3) {
       saveSuccess = await handleSaveAnalysisData(false);
-      if (saveSuccess) {
-        lastLoadedAnalysisIdRef.current = null; // Force reload for Step 4
-      }
     } else { 
       saveSuccess = await handleSaveAnalysisData(false); 
     }
