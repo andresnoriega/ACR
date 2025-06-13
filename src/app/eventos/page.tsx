@@ -107,18 +107,70 @@ export default function EventosReportadosPage() {
       // Derive event statuses
       const processedEvents = rawEventsData.map(event => {
         let derivedStatus = event.status;
+
+        // Diagnostic log for E-77157-001
+        if (event.id === "E-77157-001") {
+          console.log(`[EventosPage Debug E-77157-001] Initial event status from Firestore: ${event.status}`);
+        }
+
         if (event.status !== 'Finalizado') {
           const rcaDoc = rcaAnalysesData.find(rca => rca.eventData.id === event.id);
-          if (rcaDoc && rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
-            const rcaValidations = rcaDoc.validations || []; // Default to empty array if null/undefined
-            const allActionsValidated = rcaDoc.plannedActions.every(pa => {
-              const validation = rcaValidations.find(v => v.actionId === pa.id);
-              return validation?.status === 'validated';
-            });
+
+          if (event.id === "E-77157-001") {
+            console.log(`[EventosPage Debug E-77157-001] Found rcaDoc for event:`, rcaDoc ? 'Yes' : 'No');
+            if (rcaDoc) {
+              console.log(`[EventosPage Debug E-77157-001] rcaDoc.plannedActions count:`, rcaDoc.plannedActions ? rcaDoc.plannedActions.length : 'N/A (no plannedActions array)');
+              console.log(`[EventosPage Debug E-77157-001] rcaDoc.validations count:`, rcaDoc.validations ? rcaDoc.validations.length : 'N/A (no validations array)');
+            }
+          }
+          
+          if (rcaDoc && Array.isArray(rcaDoc.plannedActions)) {
+            const rcaValidations = rcaDoc.validations || [];
+            let allActionsValidated = true; 
+
+            if (rcaDoc.plannedActions.length === 0) { 
+                allActionsValidated = false;
+                if (event.id === "E-77157-001") {
+                    console.log(`[EventosPage Debug E-77157-001] No planned actions found (length is 0). Setting allActionsValidated to false.`);
+                }
+            } else {
+                for (const pa of rcaDoc.plannedActions) {
+                    if (!pa || !pa.id) { 
+                        if (event.id === "E-77157-001") {
+                            console.log(`[EventosPage Debug E-77157-001] Malformed planned action found:`, pa, `. Setting allActionsValidated to false and breaking.`);
+                        }
+                        allActionsValidated = false;
+                        break;
+                    }
+                    const validation = rcaValidations.find(v => v && v.actionId === pa.id);
+                    if (event.id === "E-77157-001") {
+                        console.log(`[EventosPage Debug E-77157-001] For PA ID ${pa.id}: Found validation:`, validation, `Is it 'validated'?`, validation?.status === 'validated');
+                    }
+                    if (!validation || validation.status !== 'validated') {
+                        if (event.id === "E-77157-001") {
+                            console.log(`[EventosPage Debug E-77157-001] PA ID ${pa.id} is NOT validated. Setting allActionsValidated to false and breaking.`);
+                        }
+                        allActionsValidated = false;
+                        break;
+                    }
+                }
+            }
+
+            if (event.id === "E-77157-001") {
+              console.log(`[EventosPage Debug E-77157-001] Result of allActionsValidated:`, allActionsValidated);
+            }
+
             if (allActionsValidated) {
               derivedStatus = 'En validación';
             }
+          } else if (rcaDoc && !Array.isArray(rcaDoc.plannedActions)) {
+            if (event.id === "E-77157-001") {
+              console.log(`[EventosPage Debug E-77157-001] rcaDoc found, but plannedActions is not a valid array. Cannot be 'En validación'.`);
+            }
           }
+        }
+        if (event.id === "E-77157-001") {
+          console.log(`[EventosPage Debug E-77157-001] Final derivedStatus for event: ${derivedStatus}`);
         }
         return { ...event, status: derivedStatus };
       });
