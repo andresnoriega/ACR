@@ -104,6 +104,7 @@ export default function RCAAnalysisPage() {
 
 
   const loadAnalysisData = useCallback(async (id: string): Promise<boolean> => {
+    setIsLoadingPage(true); // Ensure loading state is true at the beginning of load
     try {
       const analysisDocRef = doc(db, "rcaAnalyses", id);
       const docSnap = await getDoc(analysisDocRef);
@@ -131,7 +132,6 @@ export default function RCAAnalysisPage() {
         return true;
       } else {
         toast({ title: "Análisis No Encontrado", description: `No se encontró un análisis con ID: ${id}. Iniciando nuevo análisis.`, variant: "destructive" });
-        // Reset all form states
         setEventData(initialRCAAnalysisState.eventData);
         setImmediateActions(initialRCAAnalysisState.immediateActions);
         setProjectLeader(initialRCAAnalysisState.projectLeader);
@@ -150,12 +150,12 @@ export default function RCAAnalysisPage() {
         setIsFinalized(initialRCAAnalysisState.isFinalized);
         setAnalysisDocumentId(null);
         setMaxCompletedStep(0);
+        router.replace('/analisis', undefined); // Clear ID from URL if not found
         return false;
       }
     } catch (error) {
       console.error("Error loading RCA analysis: ", error);
       toast({ title: "Error al Cargar Análisis", description: "No se pudo cargar el análisis desde Firestore.", variant: "destructive" });
-       // Reset all form states on error too
         setEventData(initialRCAAnalysisState.eventData);
         setImmediateActions(initialRCAAnalysisState.immediateActions);
         setProjectLeader(initialRCAAnalysisState.projectLeader);
@@ -175,8 +175,10 @@ export default function RCAAnalysisPage() {
         setAnalysisDocumentId(null);
         setMaxCompletedStep(0);
       return false;
+    } finally {
+        setIsLoadingPage(false);
     }
-  }, [toast]);
+  }, [toast, router]);
 
   const analysisIdFromParams = useMemo(() => searchParams.get('id'), [searchParams]);
 
@@ -185,56 +187,47 @@ export default function RCAAnalysisPage() {
     const stepParam = searchParams.get('step');
 
     if (currentId) {
-        // Only load if the ID has changed or if we haven't successfully loaded this ID yet
         if (currentId !== lastLoadedAnalysisIdRef.current) {
             setIsLoadingPage(true);
             loadAnalysisData(currentId).then(success => {
                 if (success) {
-                    // Toast only if it's a genuinely new load for this ID
                     if (lastLoadedAnalysisIdRef.current !== currentId) {
                          toast({ title: "Análisis Cargado", description: `Se cargó el análisis ID: ${currentId}` });
                          lastLoadedAnalysisIdRef.current = currentId;
                     }
-                    // Handle step parameter after successful load
                     if (stepParam) {
                         const targetStep = parseInt(stepParam, 10);
                         if (targetStep >= 1 && targetStep <= 5) {
                             setStep(targetStep);
-                            // maxCompletedStep is already set to 4 by loadAnalysisData for existing docs
-                            // If jumping, ensure it's possible by updating maxCompletedStep
                             setMaxCompletedStep(prev => Math.max(prev, targetStep -1));
                         }
                     } else {
-                         setStep(1); // Default to step 1 if no step param
+                         setStep(1); 
                     }
                 } else {
-                    // Failed to load
-                    if (lastLoadedAnalysisIdRef.current === currentId) { // If this ID was the one we tried to load
-                        lastLoadedAnalysisIdRef.current = null; // Allow retry for this ID
+                    if (lastLoadedAnalysisIdRef.current === currentId) { 
+                        lastLoadedAnalysisIdRef.current = null; 
                     }
-                    router.replace('/analisis', undefined); // Remove invalid ID from URL
+                    // router.replace('/analisis', undefined); // Already handled in loadAnalysisData failure
                     setStep(1);
                     setMaxCompletedStep(0);
                 }
             }).finally(() => {
                 setIsLoadingPage(false);
             });
-        } else { // ID is the same as last loaded, no need to reload data itself
+        } else { 
              setIsLoadingPage(false); 
-             // Still check if step param forces a step change
              if (stepParam) {
                 const targetStep = parseInt(stepParam, 10);
-                if (targetStep >= 1 && targetStep <= 5 && targetStep !== step) { // and targetStep is different from current
+                if (targetStep >= 1 && targetStep <= 5 && targetStep !== step) { 
                     setStep(targetStep);
                     setMaxCompletedStep(prev => Math.max(prev, targetStep -1));
                 }
              }
         }
     } else {
-        // No ID in URL (new analysis)
-        // Only reset if there was a previously loaded analysis (indicated by lastLoadedAnalysisIdRef.current)
         if (lastLoadedAnalysisIdRef.current !== null) { 
-            setIsLoadingPage(true); // Indicate loading while resetting form
+            setIsLoadingPage(true); 
             setEventData(initialRCAAnalysisState.eventData);
             setImmediateActions(initialRCAAnalysisState.immediateActions);
             setProjectLeader(initialRCAAnalysisState.projectLeader);
@@ -253,17 +246,17 @@ export default function RCAAnalysisPage() {
             setIsFinalized(initialRCAAnalysisState.isFinalized);
             setAnalysisDocumentId(null); 
             setMaxCompletedStep(0);     
-            setStep(1); // Start new analysis at step 1
+            setStep(1); 
             lastLoadedAnalysisIdRef.current = null; 
             setIsLoadingPage(false); 
         } else {
-             setIsLoadingPage(false); // No ID in URL and nothing was previously loaded
-             setStep(1); // Ensure step is 1 for completely new session
+             setIsLoadingPage(false); 
+             setStep(1); 
              setMaxCompletedStep(0);
         }
     }
 // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [analysisIdFromParams, loadAnalysisData, searchParams, router]); 
+}, [analysisIdFromParams, searchParams, router]); // Removed loadAnalysisData from deps as it's stable with useCallback
 
 
   useEffect(() => {
@@ -296,8 +289,7 @@ export default function RCAAnalysisPage() {
       setEventData(prev => ({ ...prev, id: newEventID }));
       setEventCounter(prev => prev + 1);
       setAnalysisDocumentId(newEventID); 
-      // Update URL without full navigation/reload if creating a new ID
-      router.replace(`/analisis?id=${newEventID}`, undefined);
+      router.replace(`/analisis?id=${newEventID}`, { scroll: false });
       return newEventID;
     }
     if (!analysisDocumentId && eventData.id) { 
@@ -330,7 +322,7 @@ export default function RCAAnalysisPage() {
       const dataToSave: RCAAnalysisDocument = {
         ...analysisDocPayload,
         updatedAt: new Date().toISOString(),
-        createdAt: rcaDocSnap.exists() ? rcaDocSnap.data().createdAt : new Date().toISOString(),
+        createdAt: rcaDocSnap.exists() && rcaDocSnap.data().createdAt ? rcaDocSnap.data().createdAt : new Date().toISOString(),
       };
       await setDoc(rcaDocRef, dataToSave, { merge: true });
 
@@ -426,9 +418,8 @@ export default function RCAAnalysisPage() {
     if (targetStep > maxCompletedStep && targetStep > step ) {
         setMaxCompletedStep(targetStep -1);
     }
-    // Update URL with step
     if (analysisDocumentId) {
-      router.replace(`/analisis?id=${analysisDocumentId}&step=${targetStep}`, undefined);
+      router.replace(`/analisis?id=${analysisDocumentId}&step=${targetStep}`, { scroll: false });
     }
   };
 
@@ -446,18 +437,22 @@ export default function RCAAnalysisPage() {
     } else if (step === 2) { 
       await handleSaveFromStep2(false); 
       saveSuccess = true; 
+    } else if (step === 3) {
+      saveSuccess = await handleSaveAnalysisData(false);
+      if (saveSuccess) {
+        lastLoadedAnalysisIdRef.current = null; // Force reload for Step 4
+      }
     } else { 
       saveSuccess = await handleSaveAnalysisData(false); 
     }
 
-    if (saveSuccess || step !== 1 && step !==2) { 
+    if (saveSuccess || (step !== 1 && step !== 2 && step !==3) ) { 
       const newStep = Math.min(step + 1, 5);
       const newMaxCompletedStep = Math.max(maxCompletedStep, step);
       setStep(newStep);
       setMaxCompletedStep(newMaxCompletedStep);
-      // Update URL with step
        if (currentId) {
-         router.replace(`/analisis?id=${currentId}&step=${newStep}`, undefined);
+         router.replace(`/analisis?id=${currentId}&step=${newStep}`, { scroll: false });
        }
     }
   };
@@ -465,13 +460,12 @@ export default function RCAAnalysisPage() {
   const handlePreviousStep = () => {
     const newStep = Math.max(step - 1, 1);
     setStep(newStep);
-    // Update URL with step
     if (analysisDocumentId) {
-      router.replace(`/analisis?id=${analysisDocumentId}&step=${newStep}`, undefined);
-    } else if (step === 1) { // Going from step 1 to nowhere essentially, clear URL if it had step
-       const currentId = searchParams.get('id');
-       if (currentId) router.replace(`/analisis?id=${currentId}`, undefined);
-       else router.replace('/analisis', undefined);
+      router.replace(`/analisis?id=${analysisDocumentId}&step=${newStep}`, { scroll: false });
+    } else if (step === 1) { 
+       const currentIdParam = searchParams.get('id');
+       if (currentIdParam) router.replace(`/analisis?id=${currentIdParam}`, { scroll: false });
+       else router.replace('/analisis', { scroll: false });
     }
   };
 
@@ -591,7 +585,8 @@ export default function RCAAnalysisPage() {
       relatedRootCauseIds: [],
       evidencias: [],
       userComments: '',
-      isNotificationSent: false, // Initialize new field
+      isNotificationSent: false, 
+      markedAsReadyAt: undefined,
     }]);
     setPlannedActionCounter(prev => prev + 1);
   };
@@ -608,9 +603,8 @@ export default function RCAAnalysisPage() {
     setValidations(prevValidations => {
       const newValidations = plannedActions.map(pa => {
         const existingValidation = prevValidations.find(v => v.actionId === pa.id);
-        return existingValidation || { actionId: pa.id, eventId: pa.eventId, status: 'pending' };
+        return existingValidation || { actionId: pa.id, eventId: pa.eventId, status: 'pending', validatedAt: undefined };
       });
-      // Ensure only validations for existing planned actions are kept
       return newValidations.filter(v => plannedActions.some(pa => pa.id === v.actionId));
     });
   }, [plannedActions]);
@@ -624,7 +618,7 @@ export default function RCAAnalysisPage() {
           return { 
             ...v, 
             status: newStatus,
-            validatedAt: newStatus === 'validated' ? new Date().toISOString() : v.validatedAt // Keep old if unvalidating, or set new if validating
+            validatedAt: newStatus === 'validated' ? new Date().toISOString() : v.validatedAt 
           };
         }
         return v;
@@ -661,6 +655,7 @@ export default function RCAAnalysisPage() {
       setIsFinalized(false); 
       toast({ title: "Error al Finalizar", description: "No se pudo guardar el estado finalizado del análisis. Intente de nuevo.", variant: "destructive" });
     }
+    setIsSaving(false);
   };
 
 
