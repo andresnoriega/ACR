@@ -107,7 +107,7 @@ export default function UserActionPlansPage() {
       if (rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
         rcaDoc.plannedActions.forEach(pa => {
           if (pa.responsible === selectedSimulatedUserName) {
-            const uniqueKey = pa.id; 
+            const uniqueKey = pa.id;
             if (!uniqueTracker.has(uniqueKey)) {
               uniqueTracker.add(uniqueKey);
 
@@ -212,7 +212,7 @@ export default function UserActionPlansPage() {
 
       const updatedPlannedActions = rcaDocData.plannedActions.map(action => {
         if (action.id === actionId) {
-          const actionWithOtherUpdates = { ...action, ...updates };
+          let actionWithOtherUpdates = { ...action, ...updates };
 
           if (actionWithOtherUpdates.evidencias && Array.isArray(actionWithOtherUpdates.evidencias)) {
             const seenEvidenceIds = new Set<string>();
@@ -375,14 +375,14 @@ export default function UserActionPlansPage() {
     if (updateSuccess) {
       let notificationMessage = `La tarea "${selectedPlan.tituloDetalle}" se ha actualizado y está lista para validación.`;
       
-      // Proceed with email notification
       const validatorProfile = availableUsers.find(u => u.name === selectedPlan.validatorName);
       if (validatorProfile && validatorProfile.email) {
         const emailSubject = `Acción Lista para Validación: ${selectedPlan.accionResumen} (RCA: ${selectedPlan.codigoRCA})`;
         
         let evidencesList = "No se adjuntaron evidencias.";
-        if (selectedPlan.evidencias && selectedPlan.evidencias.length > 0) {
-            evidencesList = selectedPlan.evidencias.map(ev => 
+        const currentActionData = allRcaDocuments.find(d => d.eventData.id === selectedPlan._originalRcaDocId)?.plannedActions.find(pa => pa.id === selectedPlan._originalActionId);
+        if (currentActionData?.evidencias && currentActionData.evidencias.length > 0) {
+            evidencesList = currentActionData.evidencias.map(ev => 
                 `- ${ev.nombre} (${ev.tipo || 'desconocido'}): ${ev.comment || "Sin comentario"}`
             ).join("\n");
         }
@@ -503,7 +503,7 @@ export default function UserActionPlansPage() {
 
       <Card className="shadow-md">
         <CardHeader>
-          <CardTitle className="text-lg font-semibold text-primary">Lista de Planes de Acción Asignados</CardTitle>
+          <CardTitle className="text-lg font-semibold text-primary">Planes de Acción Asignados y por Validar</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoadingActions ? (
@@ -530,7 +530,7 @@ export default function UserActionPlansPage() {
                 <TableBody>
                   {currentUserActionPlans.map((plan) => (
                     <TableRow
-                      key={plan.id}
+                      key={`${plan._originalRcaDocId}-${plan.id}`}
                       onClick={() => handleSelectPlan(plan)}
                       className={cn(
                         "cursor-pointer hover:bg-muted/50",
