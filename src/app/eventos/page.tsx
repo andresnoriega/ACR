@@ -37,24 +37,6 @@ interface Filters {
   eventId: string;
 }
 
-async function updateEventStatusInFirestore(eventId: string, newStatus: ReportedEventStatus, toastInstance: ReturnType<typeof useToast>['toast']) {
-  const eventRef = doc(db, "reportedEvents", eventId);
-  try {
-    await updateDoc(eventRef, { status: newStatus, updatedAt: new Date().toISOString() });
-    // Also update the corresponding rcaAnalysis document if setting to "Finalizado" from here
-    if (newStatus === "Finalizado") {
-        const rcaRef = doc(db, "rcaAnalyses", eventId);
-        await updateDoc(rcaRef, { isFinalized: true, updatedAt: new Date().toISOString() });
-    }
-    return true;
-  } catch (error) {
-    console.error("Error updating event status in Firestore: ", error);
-    toastInstance({ title: "Error al Actualizar Estado", description: "No se pudo actualizar el estado del evento en Firestore.", variant: "destructive" });
-    return false;
-  }
-}
-
-
 export default function EventosReportadosPage() {
   const { toast } = useToast();
   const router = useRouter();
@@ -66,7 +48,7 @@ export default function EventosReportadosPage() {
   
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isLoadingSites, setIsLoadingSites] = useState(true);
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  // isUpdatingStatus state is removed
 
 
   const [selectedEvent, setSelectedEvent] = useState<ReportedEvent | null>(null);
@@ -123,20 +105,14 @@ export default function EventosReportadosPage() {
             const rcaValidations = rcaDoc.validations || []; 
             if (event.id === "E-77157-001") {
               console.log(`[EventosPage Debug E-77157-001] rcaValidations content for this rcaDoc:`, JSON.parse(JSON.stringify(rcaValidations)));
-            }
-            
-            let allActionsAreTrulyValidated = true; 
-
-            if (event.id === "E-77157-001") {
-              console.log(`[EventosPage Debug E-77157-001] rcaDoc.plannedActions count:`, rcaDoc.plannedActions ? rcaDoc.plannedActions.length : 'N/A (no plannedActions array)');
-              console.log(`[EventosPage Debug E-77157-001] rcaDoc.validations count (from rcaDoc object):`, rcaDoc.validations ? rcaDoc.validations.length : 'N/A (no validations array)');
-              
               const plannedActionIds = rcaDoc.plannedActions.map(p => p ? p.id : 'MALFORMED_PA_OBJECT');
               const validationActionIds = rcaValidations.map(v => v ? v.actionId : 'MALFORMED_VALIDATION_OBJECT');
               console.log(`[EventosPage Debug E-77157-001] Planned Action IDs in rcaDoc:`, plannedActionIds);
               console.log(`[EventosPage Debug E-77157-001] Action IDs in rcaValidations:`, validationActionIds);
             }
             
+            let allActionsAreTrulyValidated = true; 
+
             if (rcaDoc.plannedActions.length === 0) { 
                 allActionsAreTrulyValidated = false;
                 if (event.id === "E-77157-001") {
@@ -153,7 +129,7 @@ export default function EventosReportadosPage() {
                     }
                     const validation = rcaValidations.find(v => v && v.actionId === pa.id); 
                     if (event.id === "E-77157-001") {
-                        console.log(`[EventosPage Debug E-77157-001] For PA ID ${pa.id}: Found validation object:`, JSON.parse(JSON.stringify(validation || {})), `Actual validation status: ${validation?.status}. Required: 'validated'. Match: ${validation?.status === 'validated'}`);
+                        console.log(`[EventosPage Debug E-77157-001] For PA ID ${pa.id}: Found validation in rcaValidations:`, JSON.parse(JSON.stringify(validation || {})), `Actual validation status: ${validation?.status}. Required: 'validated'. Match: ${validation?.status === 'validated'}`);
                     }
                     if (!validation || validation.status !== 'validated') {
                         if (event.id === "E-77157-001") {
@@ -298,19 +274,13 @@ export default function EventosReportadosPage() {
     }
   };
 
-  const handleStartRCA = async () => {
-    if (!selectedEvent || selectedEvent.status !== 'Pendiente') {
-      toast({ title: "Acción no Válida", description: "Esta acción solo es para eventos pendientes.", variant: "destructive" });
+  const handleStartRCA = () => { // Renamed from handleStartRCA, no longer updates status
+    if (!selectedEvent) {
+      toast({ title: "Acción no Válida", description: "No hay evento seleccionado.", variant: "destructive" });
       return;
     }
-    setIsUpdatingStatus(true);
-    const success = await updateEventStatusInFirestore(selectedEvent.id, "En análisis", toast);
-    if (success) {
-      await fetchAllData(); 
-      setSelectedEvent(prevSelected => prevSelected ? { ...prevSelected, status: "En análisis" } : null); 
-      router.push(`/analisis?id=${selectedEvent.id}`);
-    }
-    setIsUpdatingStatus(false);
+    // Only navigates, status change is handled in Step 2 save
+    router.push(`/analisis?id=${selectedEvent.id}`);
   };
   
   const handleViewAnalysis = () => {
@@ -560,7 +530,7 @@ export default function EventosReportadosPage() {
             let buttonVariant: "default" | "outline" = "default";
             let buttonOnClick = () => {};
             let isDisabled = false;
-            let showLoader = false;
+            // showLoader is removed
 
             if (selectedEvent.status === 'Finalizado' || selectedEvent.status === 'En validación') {
               buttonText = "Revisar Investigación";
@@ -570,9 +540,7 @@ export default function EventosReportadosPage() {
             } else if (selectedEvent.status === 'Pendiente') {
               buttonText = "Iniciar Investigación"; 
               ButtonIcon = PlayCircle;
-              buttonOnClick = handleStartRCA;
-              isDisabled = isUpdatingStatus;
-              showLoader = isUpdatingStatus;
+              buttonOnClick = handleStartRCA; // Functionality changed: only navigates
             } else if (selectedEvent.status === 'En análisis') {
               buttonText = "Continuar Investigación";
               ButtonIcon = PlayCircle;
@@ -585,7 +553,7 @@ export default function EventosReportadosPage() {
             
             return (
               <Button variant={buttonVariant} size="sm" onClick={buttonOnClick} disabled={isDisabled}>
-                {showLoader ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ButtonIcon className="mr-2 h-4 w-4" />}
+                <ButtonIcon className="mr-2 h-4 w-4" />
                 {buttonText}
               </Button>
             );
