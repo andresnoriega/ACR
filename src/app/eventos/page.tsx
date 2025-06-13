@@ -99,79 +99,78 @@ export default function EventosReportadosPage() {
 
       // Fetch RCA Analyses
       const rcaAnalysesCollectionRef = collection(db, "rcaAnalyses");
-      const rcaQuery = query(rcaAnalysesCollectionRef); // No specific order needed here, will map by ID
+      const rcaQuery = query(rcaAnalysesCollectionRef); 
       const rcaSnapshot = await getDocs(rcaQuery);
       const rcaAnalysesData = rcaSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RCAAnalysisDocument));
-      setAllRcaAnalyses(rcaAnalysesData); // Store for later use
+      setAllRcaAnalyses(rcaAnalysesData); 
 
       // Derive event statuses
       const processedEvents = rawEventsData.map(event => {
-        let derivedStatus = event.status;
+        let derivedStatus = event.status; // Start with the status from reportedEvents
 
-        if (event.id === "E-77157-001") {
-          console.log(`[EventosPage Debug E-77157-001] Initial event status from Firestore: ${event.status}`);
-        }
-
+        // Only try to derive "En validación" if the event is not already "Finalizado"
         if (event.status !== 'Finalizado') {
           const rcaDoc = rcaAnalysesData.find(rca => rca.eventData.id === event.id);
 
           if (event.id === "E-77157-001") {
-            console.log(`[EventosPage Debug E-77157-001] Found rcaDoc for event:`, rcaDoc ? 'Yes' : 'No');
+            console.log(`[EventosPage Debug E-77157-001] Initial event status from Firestore: ${event.status}`);
+            console.log(`[EventosPage Debug E-77157-001] Found rcaDoc for event:`, rcaDoc ? 'Yes' : 'No', rcaDoc ? `(RCA ID: ${rcaDoc.eventData.id})` : '');
           }
-          
-          if (rcaDoc && Array.isArray(rcaDoc.plannedActions)) {
-            const rcaValidations = rcaDoc.validations || []; 
+
+          // Condition: rcaDoc exists, plannedActions is an array, AND plannedActions is NOT empty
+          if (rcaDoc && Array.isArray(rcaDoc.plannedActions) && rcaDoc.plannedActions.length > 0) {
+            const rcaValidations = rcaDoc.validations || [];
+            
             if (event.id === "E-77157-001") {
               console.log(`[EventosPage Debug E-77157-001] rcaValidations content for this rcaDoc:`, JSON.parse(JSON.stringify(rcaValidations)));
-            }
-            let allActionsValidated = true; 
-
-            if (event.id === "E-77157-001") {
-              console.log(`[EventosPage Debug E-77157-001] rcaDoc.plannedActions count:`, rcaDoc.plannedActions ? rcaDoc.plannedActions.length : 'N/A (no plannedActions array)');
+              console.log(`[EventosPage Debug E-77157-001] rcaDoc.plannedActions count:`, rcaDoc.plannedActions.length);
               console.log(`[EventosPage Debug E-77157-001] rcaDoc.validations count (from rcaDoc object):`, rcaDoc.validations ? rcaDoc.validations.length : 'N/A (no validations array)');
             }
             
-            if (rcaDoc.plannedActions.length === 0) { 
-                allActionsValidated = false;
+            let allActionsAreTrulyValidated = true; // Assume true, prove false
+            for (const pa of rcaDoc.plannedActions) {
+              if (!pa || !pa.id) { // Defensive check for malformed planned action
                 if (event.id === "E-77157-001") {
-                    console.log(`[EventosPage Debug E-77157-001] No planned actions found (length is 0). Setting allActionsValidated to false.`);
+                    console.log(`[EventosPage Debug E-77157-001] Malformed planned action found:`, pa, `. Setting allActionsAreTrulyValidated to false and breaking.`);
                 }
-            } else {
-                for (const pa of rcaDoc.plannedActions) {
-                    if (!pa || !pa.id) { 
-                        if (event.id === "E-77157-001") {
-                            console.log(`[EventosPage Debug E-77157-001] Malformed planned action found:`, pa, `. Setting allActionsValidated to false and breaking.`);
-                        }
-                        allActionsValidated = false;
-                        break;
-                    }
-                    const validation = rcaValidations.find(v => v && v.actionId === pa.id); 
-                    if (event.id === "E-77157-001") {
-                        console.log(`[EventosPage Debug E-77157-001] For PA ID ${pa.id}: Found validation in rcaValidations:`, validation, `Is its status 'validated'?`, validation?.status === 'validated');
-                    }
-                    if (!validation || validation.status !== 'validated') {
-                        if (event.id === "E-77157-001") {
-                            console.log(`[EventosPage Debug E-77157-001] PA ID ${pa.id} is NOT validated. Setting allActionsValidated to false and breaking.`);
-                        }
-                        allActionsValidated = false;
-                        break;
-                    }
+                allActionsAreTrulyValidated = false;
+                break;
+              }
+              const validation = rcaValidations.find(v => v && v.actionId === pa.id);
+              if (event.id === "E-77157-001") {
+                  console.log(`[EventosPage Debug E-77157-001] For PA ID ${pa.id}: Found validation in rcaValidations:`, validation, `Is its status 'validated'?`, validation?.status === 'validated');
+              }
+              if (!validation || validation.status !== 'validated') {
+                if (event.id === "E-77157-001") {
+                    console.log(`[EventosPage Debug E-77157-001] PA ID ${pa.id} is NOT validated. Setting allActionsAreTrulyValidated to false and breaking.`);
                 }
+                allActionsAreTrulyValidated = false;
+                break;
+              }
             }
 
             if (event.id === "E-77157-001") {
-              console.log(`[EventosPage Debug E-77157-001] Final result of allActionsValidated check:`, allActionsValidated);
+              console.log(`[EventosPage Debug E-77157-001] Final result of allActionsAreTrulyValidated check:`, allActionsAreTrulyValidated);
             }
 
-            if (allActionsValidated) {
-              derivedStatus = 'En validación';
+            if (allActionsAreTrulyValidated) {
+              derivedStatus = 'En validación'; // Set to "En validación" ONLY if all conditions met
             }
-          } else if (rcaDoc && !Array.isArray(rcaDoc.plannedActions)) {
-            if (event.id === "E-77157-001") {
-              console.log(`[EventosPage Debug E-77157-001] rcaDoc found, but plannedActions is not a valid array. Cannot be 'En validación'.`);
-            }
+            // If not allActionsAreTrulyValidated, derivedStatus remains as it was (e.g., "En análisis" or "Pendiente")
+            
+          } else {
+            // This block handles cases where: rcaDoc not found, plannedActions is not an array, or plannedActions IS empty.
+            // In these cases, it cannot be "En validación" based on the "all actions validated" criteria.
+            // The derivedStatus remains the original event.status.
+             if (event.id === "E-77157-001") {
+                if (!rcaDoc) console.log(`[EventosPage Debug E-77157-001] No rcaDoc found for event ${event.id}.`);
+                else if (!Array.isArray(rcaDoc.plannedActions)) console.log(`[EventosPage Debug E-77157-001] rcaDoc.plannedActions is not an array for event ${event.id}.`);
+                else if (rcaDoc.plannedActions.length === 0) console.log(`[EventosPage Debug E-77157-001] rcaDoc.plannedActions is empty for event ${event.id}.`);
+                console.log(`[EventosPage Debug E-77157-001] Not setting to 'En validación' due to above conditions. derivedStatus will be: ${derivedStatus}`);
+             }
           }
-        }
+        } // End of if (event.status !== 'Finalizado')
+
         if (event.id === "E-77157-001") {
           console.log(`[EventosPage Debug E-77157-001] Final derivedStatus for event: ${derivedStatus}`);
         }
@@ -231,7 +230,7 @@ export default function EventosReportadosPage() {
   };
 
   const applyFilters = useCallback(() => {
-    let events = [...allEvents]; // Use allEvents which has derived statuses
+    let events = [...allEvents]; 
     if (filters.site) {
       events = events.filter(e => e.site === filters.site);
     }
@@ -246,7 +245,7 @@ export default function EventosReportadosPage() {
       events = events.filter(e => e.priority === filters.priority);
     }
     if (filters.status) {
-      events = events.filter(e => e.status === filters.status); // Filter by derived status
+      events = events.filter(e => e.status === filters.status); 
     }
     if (filters.eventId.trim()) {
       events = events.filter(e => e.id.toLowerCase().includes(filters.eventId.trim().toLowerCase()));
@@ -259,7 +258,7 @@ export default function EventosReportadosPage() {
 
   const clearFilters = () => {
     setFilters({ site: '', date: undefined, type: '', priority: '', status: '', eventId: '' });
-    setFilteredEvents(allEvents); // Reset to allEvents with derived statuses
+    setFilteredEvents(allEvents); 
     setSelectedEvent(null); 
     setIsDetailsCardVisible(false);
     toast({ title: "Filtros Limpiados" });
@@ -296,8 +295,7 @@ export default function EventosReportadosPage() {
     setIsUpdatingStatus(true);
     const success = await updateEventStatusInFirestore(selectedEvent.id, "En análisis", toast);
     if (success) {
-      // Re-fetch or update local state to reflect the new status from DB and potentially derived status
-      await fetchAllData(); // Re-fetch all data to ensure statuses are current
+      await fetchAllData(); 
       setSelectedEvent(prevSelected => prevSelected ? { ...prevSelected, status: "En análisis" } : null); 
       router.push(`/analisis?id=${selectedEvent.id}`);
     }
@@ -308,7 +306,7 @@ export default function EventosReportadosPage() {
     if (selectedEvent) {
         if (selectedEvent.status === 'Finalizado' || selectedEvent.status === 'En validación') {
             router.push(`/analisis?id=${selectedEvent.id}&step=5`);
-        } else { // 'Pendiente' or 'En análisis'
+        } else { 
             router.push(`/analisis?id=${selectedEvent.id}`);
         }
     } else {
@@ -614,4 +612,3 @@ export default function EventosReportadosPage() {
     </div>
   );
 }
-
