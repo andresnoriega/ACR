@@ -60,6 +60,21 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   const { toast } = useToast();
   const [isSavingLocally, setIsSavingLocally] = useState(false); // Local saving state for this step's button
 
+  const uniquePlannedActions = useMemo(() => {
+    const seenIds = new Set<string>();
+    return plannedActions.filter(action => {
+      if (seenIds.has(action.id)) {
+        return false;
+      }
+      seenIds.add(action.id);
+      return true;
+    });
+  }, [plannedActions]);
+
+  const validUsersForSelect = useMemo(() => {
+    return availableUserProfiles.filter(user => user.name && user.name.trim() !== "");
+  }, [availableUserProfiles]);
+
   const getValidationStatus = (actionId: string) => {
     const validation = validations.find(v => v.actionId === actionId);
     return validation ? validation.status : 'pending';
@@ -123,16 +138,6 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
 
   const isStepSaving = isSaving || isSavingLocally;
 
-  const uniquePlannedActions = useMemo(() => {
-    const seenIds = new Set<string>();
-    return plannedActions.filter(action => {
-      if (seenIds.has(action.id)) {
-        return false;
-      }
-      seenIds.add(action.id);
-      return true;
-    });
-  }, [plannedActions]);
 
   return (
     <Card>
@@ -157,11 +162,17 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={NONE_USER_VALUE}>-- Ninguno --</SelectItem>
-              {availableUserProfiles.length > 0 ? availableUserProfiles.map(user => (
-                <SelectItem key={user.id} value={user.name}>
-                  {user.name} ({user.role} - Edición: {user.permissionLevel})
-                </SelectItem>
-              )) : <SelectItem value="" disabled>No hay usuarios configurados</SelectItem>}
+              {validUsersForSelect.length > 0 ? (
+                validUsersForSelect.map(user => (
+                  <SelectItem key={user.id} value={user.name}>
+                    {user.name} ({user.role} - Edición: {user.permissionLevel})
+                  </SelectItem>
+                ))
+              ) : (
+                <div className="p-2 text-sm text-muted-foreground text-center">
+                  {availableUserProfiles.length === 0 ? "No hay usuarios configurados" : "No hay usuarios con nombres válidos para seleccionar"}
+                </div>
+              )}
             </SelectContent>
           </Select>
            <p className="text-xs text-muted-foreground">
