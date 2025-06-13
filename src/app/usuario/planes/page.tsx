@@ -23,15 +23,16 @@ interface ActionPlan {
   accionResumen: string;
   estado: 'Pendiente' | 'En proceso' | 'En Validación' | 'Completado';
   plazoLimite: string;
-  asignadoPor: string;
+  asignadoPor: string; // User who assigned or system (project leader of RCA)
+  validatorName?: string; // User responsible for validation (project leader of RCA)
   tituloDetalle: string;
   descripcionDetallada: string;
   responsableDetalle: string;
   codigoRCA: string;
   evidencias: FirestoreEvidence[];
   userComments?: string;
-  userMarkedReadyDate?: string;
-  validationDate?: string;
+  userMarkedReadyDate?: string; // Date when user marked task as ready
+  validationDate?: string; // Date when leader validated the task
   ultimaActualizacion: {
     usuario: string;
     mensaje: string;
@@ -105,14 +106,14 @@ export default function UserActionPlansPage() {
       if (rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
         rcaDoc.plannedActions.forEach(pa => {
           if (pa.responsible === selectedSimulatedUserName) {
-            const uniqueKey = pa.id; 
+            const uniqueKey = pa.id;
             if (!uniqueTracker.has(uniqueKey)) {
               uniqueTracker.add(uniqueKey);
 
               let estado: ActionPlan['estado'] = 'Pendiente';
-              let validationTimestamp: string | undefined = undefined;
               let userMarkedReadyTimestamp: string | undefined = undefined;
-
+              let validationTimestamp: string | undefined = undefined;
+              
               const validation = rcaDoc.validations?.find(v => v.actionId === pa.id);
 
               if (validation?.status === 'validated') {
@@ -125,7 +126,7 @@ export default function UserActionPlansPage() {
               } else if ((pa.userComments && pa.userComments.trim() !== '') || pa.markedAsReadyAt) {
                 estado = 'En proceso';
               }
-
+              
               if (pa.markedAsReadyAt && isValidDate(parseISO(pa.markedAsReadyAt))) {
                 userMarkedReadyTimestamp = format(parseISO(pa.markedAsReadyAt), 'dd/MM/yyyy HH:mm', { locale: es });
               }
@@ -138,6 +139,7 @@ export default function UserActionPlansPage() {
                 estado,
                 plazoLimite: pa.dueDate && isValidDate(parseISO(pa.dueDate)) ? format(parseISO(pa.dueDate), 'dd/MM/yyyy', { locale: es }) : 'N/A',
                 asignadoPor: rcaDoc.projectLeader || 'Sistema',
+                validatorName: rcaDoc.projectLeader || 'N/A',
                 tituloDetalle: rcaDoc.eventData.focusEventDescription || 'Sin título',
                 descripcionDetallada: pa.description,
                 responsableDetalle: pa.responsible,
@@ -147,8 +149,8 @@ export default function UserActionPlansPage() {
                 userMarkedReadyDate: userMarkedReadyTimestamp,
                 validationDate: validationTimestamp,
                 ultimaActualizacion: {
-                  usuario: 'Sistema',
-                  mensaje: 'Actualizado',
+                  usuario: 'Sistema', // Could be improved if audit trail is implemented
+                  mensaje: 'Actualizado', // Generic message
                   fechaRelativa: rcaDoc.updatedAt && isValidDate(parseISO(rcaDoc.updatedAt)) ? format(parseISO(rcaDoc.updatedAt), 'dd/MM/yyyy HH:mm', { locale: es }) : 'N/A',
                 }
               });
@@ -481,10 +483,10 @@ export default function UserActionPlansPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[35%]">Acción (Resumen)</TableHead>
+                    <TableHead className="w-[25%]">Acción (Resumen)</TableHead>
                     <TableHead className="w-[15%]">Estado</TableHead>
                     <TableHead className="w-[15%]">Plazo Límite</TableHead>
-                    <TableHead className="w-[20%]">Asignado Por (Líder RCA)</TableHead>
+                    <TableHead className="w-[20%]">Validador</TableHead>
                     <TableHead className="w-[15%]">ID RCA</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -510,7 +512,7 @@ export default function UserActionPlansPage() {
                         </span>
                       </TableCell>
                       <TableCell>{plan.plazoLimite}</TableCell>
-                      <TableCell>{plan.asignadoPor}</TableCell>
+                      <TableCell>{plan.validatorName || 'N/A'}</TableCell>
                       <TableCell className="font-mono text-xs">{plan.codigoRCA.substring(0, 8)}...</TableCell>
                     </TableRow>
                   ))}
@@ -537,6 +539,7 @@ export default function UserActionPlansPage() {
               <p className="whitespace-pre-line bg-muted/20 p-2 rounded-md">{selectedPlan.descripcionDetallada}</p>
             </div>
             <div><Label className="font-semibold">Responsable:</Label> <p>{selectedPlan.responsableDetalle}</p></div>
+            <div><Label className="font-semibold">Validador Asignado:</Label> <p>{selectedPlan.validatorName || 'No asignado'}</p></div>
             <div><Label className="font-semibold">Estado Actual:</Label> <p>{selectedPlan.estado}</p></div>
             <div><Label className="font-semibold">Plazo límite:</Label> <p>{selectedPlan.plazoLimite}</p></div>
 
@@ -672,9 +675,9 @@ export default function UserActionPlansPage() {
               <p className="text-xs text-blue-600 dark:text-blue-400/90">
                 Seleccione un usuario para ver sus tareas. Puede adjuntar (simulado) evidencias con comentarios opcionales y eliminar evidencias.
                 Si sube una evidencia, el estado de la tarea cambiará a "En Validación".
-                Al marcar "listo para validación", se registrará la fecha y hora actual, y si la tarea estaba 'Pendiente' y sin otros datos, se añadirá una nota automática, y el estado pasará a "En proceso".
+                Al marcar "listo para validación", se registrará la fecha y hora actual en "Marcado como Listo el:", y si la tarea estaba 'Pendiente' y sin otros datos, se añadirá una nota automática, y el estado pasará a "En proceso".
                 Estos cambios se guardarán en el documento de Análisis de Causa Raíz correspondiente en Firestore.
-                La validación final para el estado 'Completado' (con su propia fecha de validación) se realiza en el Paso 4 del flujo de Análisis RCA por el líder del proyecto.
+                La validación final para el estado 'Completado' (con su propia "Fecha de Validación Final") se realiza en el Paso 4 del flujo de Análisis RCA por el líder del proyecto.
               </p>
             </div>
           </div>
