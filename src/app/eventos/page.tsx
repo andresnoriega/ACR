@@ -110,8 +110,9 @@ export default function EventosReportadosPage() {
         if (event.status !== 'Finalizado') {
           const rcaDoc = rcaAnalysesData.find(rca => rca.eventData.id === event.id);
           if (rcaDoc && rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
+            const rcaValidations = rcaDoc.validations || []; // Default to empty array if null/undefined
             const allActionsValidated = rcaDoc.plannedActions.every(pa => {
-              const validation = rcaDoc.validations?.find(v => v.actionId === pa.id);
+              const validation = rcaValidations.find(v => v.actionId === pa.id);
               return validation?.status === 'validated';
             });
             if (allActionsValidated) {
@@ -558,3 +559,4 @@ export default function EventosReportadosPage() {
     </div>
   );
 }
+
