@@ -343,6 +343,19 @@ export default function UserActionPlansPage() {
   };
 
 
+  const handleUserCommentsChangeAndSave = async () => {
+    if (!selectedPlan || !selectedPlan.userComments?.trim()) {
+      toast({ title: "Sin Comentarios", description: "No hay comentarios para guardar o están vacíos.", variant: "default" });
+      return;
+    }
+    const success = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, {
+      userComments: selectedPlan.userComments
+    });
+    if (success) {
+      toast({ title: "Comentarios Guardados", description: `Comentarios para "${selectedPlan.tituloDetalle}" guardados.` });
+    }
+  };
+
   const handleSignalTaskReadyForValidation = async () => {
     if (!selectedPlan) return;
     if (selectedPlan.estado === 'Completado') {
@@ -405,19 +418,6 @@ export default function UserActionPlansPage() {
       toast({ title: "Error", description: "No se pudo actualizar la tarea. Intente de nuevo.", variant: "destructive" });
     }
     setIsUpdatingAction(false);
-  };
-
-  const handleUserCommentsChangeAndSave = async () => {
-    if (!selectedPlan || !selectedPlan.userComments?.trim()) {
-      toast({ title: "Sin Comentarios", description: "No hay comentarios para guardar o están vacíos.", variant: "default" });
-      return;
-    }
-    const success = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, {
-      userComments: selectedPlan.userComments
-    });
-    if (success) {
-      toast({ title: "Comentarios Guardados", description: `Comentarios para "${selectedPlan.tituloDetalle}" guardados.` });
-    }
   };
 
 
@@ -529,10 +529,11 @@ export default function UserActionPlansPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[25%]">Acción (Resumen)</TableHead>
+                    <TableHead className="w-[20%]">Acción (Resumen)</TableHead>
+                    <TableHead className="w-[15%]">ID Acción</TableHead>
                     <TableHead className="w-[15%]">Estado</TableHead>
                     <TableHead className="w-[15%]">Plazo Límite</TableHead>
-                    <TableHead className="w-[20%]">Validador</TableHead>
+                    <TableHead className="w-[15%]">Validador</TableHead>
                     <TableHead className="w-[15%]">ID RCA</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -547,6 +548,7 @@ export default function UserActionPlansPage() {
                       )}
                     >
                       <TableCell className="font-medium">{plan.accionResumen}</TableCell>
+                      <TableCell className="font-mono text-xs">{plan.id.substring(0,15)}{plan.id.length > 15 ? "..." : ""}</TableCell>
                       <TableCell>
                         <span className={cn("px-2 py-0.5 rounded-full text-xs font-semibold",
                           plan.estado === 'Pendiente' && 'bg-red-100 text-red-700',
