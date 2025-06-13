@@ -15,6 +15,7 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
 import { Loader2 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { sanitizeForFirestore } from '@/lib/utils';
 
 const initialIshikawaData: IshikawaData = [
   { id: 'manpower', name: 'Mano de Obra', causes: [] },
@@ -168,7 +169,7 @@ export default function RCAAnalysisPage() {
         setFinalComments(data.finalComments || '');
         setIsFinalized(data.isFinalized || false);
         setAnalysisDocumentId(id);
-        setMaxCompletedStep(4);
+        setMaxCompletedStep(4); 
         return true;
       } else {
         toast({ title: "Análisis No Encontrado", description: `No se encontró un análisis con ID: ${id}. Iniciando nuevo análisis.`, variant: "destructive" });
@@ -249,7 +250,7 @@ export default function RCAAnalysisPage() {
                          setStep(1);
                     }
                 } else {
-                    if (lastLoadedAnalysisIdRef.current === currentId) {
+                    if (lastLoadedAnalysisIdRef.current === currentId) { // Only reset if we failed to load the same ID again
                         lastLoadedAnalysisIdRef.current = null;
                     }
                     setStep(1);
@@ -259,7 +260,7 @@ export default function RCAAnalysisPage() {
                 setIsLoadingPage(false);
             });
         } else {
-             setIsLoadingPage(false);
+             setIsLoadingPage(false); // Already loaded this ID
              if (stepParam) {
                 const targetStep = parseInt(stepParam, 10);
                 if (targetStep >= 1 && targetStep <= 5 && targetStep !== step) {
@@ -268,9 +269,9 @@ export default function RCAAnalysisPage() {
                 }
              }
         }
-    } else {
-        if (lastLoadedAnalysisIdRef.current !== null) {
-            setIsLoadingPage(true);
+    } else { // No ID in params, reset everything for a new analysis
+        if (lastLoadedAnalysisIdRef.current !== null) { // If we were previously on an existing analysis
+            setIsLoadingPage(true); // Show loader briefly for reset
             setEventData(initialRCAAnalysisState.eventData);
             setImmediateActions(initialRCAAnalysisState.immediateActions);
             setImmediateActionCounter(1);
@@ -294,7 +295,7 @@ export default function RCAAnalysisPage() {
             setStep(1);
             lastLoadedAnalysisIdRef.current = null;
             setIsLoadingPage(false);
-        } else {
+        } else { // Already in a new/reset state
              setIsLoadingPage(false);
              setStep(1);
              setMaxCompletedStep(0);
@@ -333,11 +334,11 @@ export default function RCAAnalysisPage() {
       const newEventID = `E-${String(Date.now()).slice(-5)}-${String(eventCounter).padStart(3, '0')}`;
       setEventData(prev => ({ ...prev, id: newEventID }));
       setEventCounter(prev => prev + 1);
-      setAnalysisDocumentId(newEventID);
-      router.replace(`/analisis?id=${newEventID}`, { scroll: false });
+      setAnalysisDocumentId(newEventID); // Also set the main document ID state
+      router.replace(`/analisis?id=${newEventID}`, { scroll: false }); // Update URL immediately
       return newEventID;
     }
-    if (!analysisDocumentId && eventData.id) {
+    if (!analysisDocumentId && eventData.id) { // Sync if eventData.id exists but analysisDocumentId is null
         setAnalysisDocumentId(eventData.id);
     }
     return eventData.id;
@@ -356,7 +357,7 @@ export default function RCAAnalysisPage() {
     // Ensure eventData.id is consistent with the document ID before saving
     const consistentEventData = { ...eventData, id: currentId };
 
-    const analysisDocPayload: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedAt'> & Partial<Pick<RCAAnalysisDocument, 'createdAt'>> = {
+    const analysisDocPayload: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedAt' | 'createdBy'> = {
       eventData: consistentEventData, immediateActions, projectLeader, detailedFacts, analysisDetails,
       preservedFacts, analysisTechnique, analysisTechniqueNotes, ishikawaData,
       fiveWhysData, ctmData, identifiedRootCauses, plannedActions,
@@ -368,11 +369,14 @@ export default function RCAAnalysisPage() {
       const rcaDocSnap = await getDoc(rcaDocRef);
 
       const dataToSave: RCAAnalysisDocument = {
-        ...analysisDocPayload,
+        ...(analysisDocPayload as RCAAnalysisDocument), // Cast since we are fulfilling all required fields
         updatedAt: new Date().toISOString(),
         createdAt: rcaDocSnap.exists() && rcaDocSnap.data().createdAt ? rcaDocSnap.data().createdAt : new Date().toISOString(),
+        // createdBy could be added here if needed
       };
-      await setDoc(rcaDocRef, dataToSave, { merge: true });
+      
+      const sanitizedDataToSave = sanitizeForFirestore(dataToSave);
+      await setDoc(rcaDocRef, sanitizedDataToSave, { merge: true });
 
       const reportedEventRef = doc(db, "reportedEvents", currentId);
       const reportedEventSnap = await getDoc(reportedEventRef);
@@ -384,7 +388,7 @@ export default function RCAAnalysisPage() {
       } else if (reportedEventSnap.exists()) {
         statusForReportedEvent = reportedEventSnap.data().status;
       } else {
-        statusForReportedEvent = "Pendiente";
+        statusForReportedEvent = "Pendiente"; // Default if new
       }
 
       const reportedEventPayload: ReportedEvent = {
@@ -398,20 +402,24 @@ export default function RCAAnalysisPage() {
         description: consistentEventData.focusEventDescription || "Sin descripción detallada.",
         updatedAt: new Date().toISOString(),
       };
+      
+      const sanitizedReportedEventPayload = sanitizeForFirestore(reportedEventPayload);
 
       if (!reportedEventSnap.exists()) {
-        await setDoc(reportedEventRef, { ...reportedEventPayload, status: "Pendiente", createdAt: new Date().toISOString() });
+        await setDoc(reportedEventRef, { ...sanitizedReportedEventPayload, status: "Pendiente", createdAt: new Date().toISOString() });
       } else {
-        await updateDoc(reportedEventRef, {
-            title: reportedEventPayload.title,
-            site: reportedEventPayload.site,
-            date: reportedEventPayload.date,
-            type: reportedEventPayload.type,
-            priority: reportedEventPayload.priority,
-            description: reportedEventPayload.description,
-            status: statusForReportedEvent,
+        // Prepare update object, only include fields that might change
+        const updatePayload: Partial<ReportedEvent> = {
+            title: sanitizedReportedEventPayload.title,
+            site: sanitizedReportedEventPayload.site,
+            date: sanitizedReportedEventPayload.date,
+            type: sanitizedReportedEventPayload.type,
+            priority: sanitizedReportedEventPayload.priority,
+            description: sanitizedReportedEventPayload.description,
+            status: statusForReportedEvent, // This status is critical
             updatedAt: new Date().toISOString(),
-        });
+        };
+        await updateDoc(reportedEventRef, sanitizeForFirestore(updatePayload));
       }
 
       if (showToast) {
@@ -421,7 +429,7 @@ export default function RCAAnalysisPage() {
     } catch (error) {
       console.error("Error saving data to Firestore: ", error);
       if (showToast) {
-        toast({ title: "Error al Guardar", description: "No se pudo guardar la información. Verifique la consola.", variant: "destructive" });
+        toast({ title: "Error al Guardar", description: `No se pudo guardar la información. Error: ${(error as Error).message}`, variant: "destructive" });
       }
       return false;
     } finally {
@@ -439,7 +447,7 @@ export default function RCAAnalysisPage() {
         const reportedEventRef = doc(db, "reportedEvents", analysisDocumentId);
         const reportedEventSnap = await getDoc(reportedEventRef);
         if (reportedEventSnap.exists() && reportedEventSnap.data().status === "Pendiente") {
-          await updateDoc(reportedEventRef, { status: "En análisis", updatedAt: new Date().toISOString() });
+          await updateDoc(reportedEventRef, sanitizeForFirestore({ status: "En análisis", updatedAt: new Date().toISOString() }));
           if (showToast) {
             toast({ title: "Estado Actualizado", description: `El evento ${analysisDocumentId} ahora está "En análisis".` });
           }
@@ -457,49 +465,53 @@ export default function RCAAnalysisPage() {
 
   const handleGoToStep = (targetStep: number) => {
     if (targetStep > step && targetStep > maxCompletedStep + 1 && targetStep !== 1) {
+      // Prevent skipping steps not yet enabled, unless going back to step 1
       return;
     }
-    if (targetStep >=1 && !eventData.id && targetStep > 1 ) {
+    if (targetStep >=1 && !eventData.id && targetStep > 1 ) { // ensure ID if moving past step 1
         ensureEventId();
     }
     setStep(targetStep);
-    if (targetStep > maxCompletedStep && targetStep > step ) {
+    if (targetStep > maxCompletedStep && targetStep > step ) { // If moving forward to a new step
         setMaxCompletedStep(targetStep -1);
     }
+    // Update URL if analysis ID exists
     if (analysisDocumentId) {
       router.replace(`/analisis?id=${analysisDocumentId}&step=${targetStep}`, { scroll: false });
     }
   };
 
   const handleNextStep = async () => {
-    const currentId = analysisDocumentId || ensureEventId();
-    if (!currentId && step >= 1) {
+    const currentId = analysisDocumentId || ensureEventId(); // Ensure ID if we are on step 1 and trying to move
+    if (!currentId && step >= 1) { // Should generally not happen if ensureEventId is called correctly
         toast({ title: "Error de Sincronización", description: "Por favor, complete el Paso 1 para generar un ID antes de continuar.", variant: "destructive"});
-        setStep(1);
+        setStep(1); // Force back to step 1 if ID somehow missing
         return;
     }
 
     let saveSuccess = false;
     if (step === 1) {
-      saveSuccess = await handleSaveAnalysisData(false);
+      saveSuccess = await handleSaveAnalysisData(false); // Save silently
     } else if (step === 2) {
-      await handleSaveFromStep2(false);
-      saveSuccess = true;
+      await handleSaveFromStep2(false); // This already saves analysisData and updates reportedEvent status
+      saveSuccess = true; // Assume success for now, as it handles its own toasts for critical errors
     } else if (step === 3) {
       saveSuccess = await handleSaveAnalysisData(false);
     } else if (step === 4) {
         saveSuccess = await handleSaveAnalysisData(false);
     }
+    // For step 5, no save is strictly needed on "next" as it's the last step.
+    // Saving is handled by "Finalizar" or explicit save buttons.
     else {
-      saveSuccess = await handleSaveAnalysisData(false);
+      saveSuccess = true; // Allow moving from step 5 (though there's no "next")
     }
 
     if (saveSuccess || (step !== 1 && step !== 2 && step !==3 && step !==4) ) { // Allow moving forward if save was not strictly required or succeeded
       const newStep = Math.min(step + 1, 5);
-      const newMaxCompletedStep = Math.max(maxCompletedStep, step);
+      const newMaxCompletedStep = Math.max(maxCompletedStep, step); // Current step is now completed
       setStep(newStep);
       setMaxCompletedStep(newMaxCompletedStep);
-       if (currentId) {
+       if (currentId) { // currentId should be valid here
          router.replace(`/analisis?id=${currentId}&step=${newStep}`, { scroll: false });
        }
     }
@@ -510,10 +522,10 @@ export default function RCAAnalysisPage() {
     setStep(newStep);
     if (analysisDocumentId) {
       router.replace(`/analisis?id=${analysisDocumentId}&step=${newStep}`, { scroll: false });
-    } else if (step === 1) {
+    } else if (step === 1) { // If on step 1 and going previous (conceptually, to dashboard or new analysis)
        const currentIdParam = searchParams.get('id');
-       if (currentIdParam) router.replace(`/analisis?id=${currentIdParam}`, { scroll: false });
-       else router.replace('/analisis', { scroll: false });
+       if (currentIdParam) router.replace(`/analisis?id=${currentIdParam}`, { scroll: false }); // Stay on current ID if exists (e.g. user typed URL)
+       else router.replace('/analisis', { scroll: false }); // Go to base /analisis (new)
     }
   };
 
@@ -522,7 +534,7 @@ export default function RCAAnalysisPage() {
   };
 
   const handleAddImmediateAction = () => {
-    const tempEventId = eventData.id || ensureEventId();
+    const tempEventId = eventData.id || ensureEventId(); // Ensure an ID exists
     const newActionId = `${tempEventId}-IMA-${String(immediateActionCounter).padStart(3, '0')}`;
     setImmediateActions(prev => [...prev, { id: newActionId, eventId: tempEventId, description: '', responsible: '', dueDate: '' }]);
     setImmediateActionCounter(prev => prev + 1);
@@ -567,17 +579,17 @@ export default function RCAAnalysisPage() {
 
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);
-    setAnalysisTechniqueNotes('');
+    setAnalysisTechniqueNotes(''); // Reset notes when technique changes
     if (value === 'Ishikawa') {
-      setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
+      setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData))); // Reset to initial state
     } else if (value === 'WhyWhy') {
       const newFiveWhysData = JSON.parse(JSON.stringify(initialFiveWhysData));
-       if (eventData.focusEventDescription) {
+       if (eventData.focusEventDescription) { // Pre-fill first "why" if event description exists
          newFiveWhysData[0].why = `¿Por qué ocurrió: "${eventData.focusEventDescription.substring(0,70)}${eventData.focusEventDescription.length > 70 ? "..." : ""}"?`;
        }
       setFiveWhysData(newFiveWhysData);
     } else if (value === 'CTM') {
-      setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
+      setCtmData(JSON.parse(JSON.stringify(initialCTMData))); // Reset CTM
     }
   };
 
@@ -624,7 +636,7 @@ export default function RCAAnalysisPage() {
       return;
     }
     const newActionId = `${currentEventId}-PA-${String(plannedActionCounter).padStart(3, '0')}`;
-    setPlannedActions(prev => [...prev, {
+    const newAction: PlannedAction = {
       id: newActionId,
       eventId: currentEventId,
       description: '',
@@ -634,8 +646,9 @@ export default function RCAAnalysisPage() {
       evidencias: [],
       userComments: '',
       isNotificationSent: false,
-      markedAsReadyAt: undefined,
-    }]);
+      // markedAsReadyAt is not set initially
+    };
+    setPlannedActions(prev => [...prev, newAction]);
     setPlannedActionCounter(prev => prev + 1);
   };
 
@@ -651,7 +664,7 @@ export default function RCAAnalysisPage() {
     setValidations(prevValidations => {
       const newValidations = plannedActions.map(pa => {
         const existingValidation = prevValidations.find(v => v.actionId === pa.id);
-        return existingValidation || { actionId: pa.id, eventId: pa.eventId, status: 'pending', validatedAt: undefined };
+        return existingValidation || { actionId: pa.id, eventId: pa.eventId, status: 'pending' /* validatedAt ommitted */ };
       });
       // Ensure only validations for existing planned actions are kept
       return newValidations.filter(v => plannedActions.some(pa => pa.id === v.actionId));
@@ -664,16 +677,17 @@ export default function RCAAnalysisPage() {
       prev.map(v => {
         if (v.actionId === actionId) {
           const newStatus = v.status === 'pending' ? 'validated' : 'pending';
+          const newValidatedAt = newStatus === 'validated' ? new Date().toISOString() : v.validatedAt;
           return {
             ...v,
             status: newStatus,
-            validatedAt: newStatus === 'validated' ? new Date().toISOString() : v.validatedAt
+            validatedAt: newValidatedAt
           };
         }
         return v;
       })
     );
-     await handleSaveAnalysisData(false);
+     await handleSaveAnalysisData(false); // Save changes silently after toggling
   };
 
   const handlePrintReport = () => {
@@ -685,8 +699,8 @@ export default function RCAAnalysisPage() {
 
   const handleMarkAsFinalized = async () => {
     const currentEventIdUsedForToast = analysisDocumentId || eventData.id;
-    setIsSaving(true);
-    const currentId = analysisDocumentId || ensureEventId();
+    setIsSaving(true); // Use isSaving for this operation as well
+    const currentId = analysisDocumentId || ensureEventId(); // Ensure we have an ID
 
     if (!currentId) {
         toast({ title: "Error", description: "No se pudo obtener el ID del análisis para finalizar.", variant: "destructive" });
@@ -694,14 +708,14 @@ export default function RCAAnalysisPage() {
         return;
     }
 
-    setIsFinalized(true);
+    setIsFinalized(true); // Optimistically set state
 
-    const success = await handleSaveAnalysisData(false, true);
+    const success = await handleSaveAnalysisData(false, true); // Pass finalizedOverride as true
 
     if (success) {
       toast({ title: "Proceso Finalizado", description: `Análisis ${currentEventIdUsedForToast || currentId} marcado como finalizado y evento reportado actualizado.`, className: "bg-primary text-primary-foreground"});
     } else {
-      setIsFinalized(false);
+      setIsFinalized(false); // Revert if save failed
       toast({ title: "Error al Finalizar", description: "No se pudo guardar el estado finalizado del análisis. Intente de nuevo.", variant: "destructive" });
     }
     setIsSaving(false);
@@ -709,11 +723,13 @@ export default function RCAAnalysisPage() {
 
 
   useEffect(() => {
+    // This effect ensures maxCompletedStep is at least the current step minus one.
+    // Useful if landing on a step directly via URL.
     if (step > maxCompletedStep) {
       setMaxCompletedStep(step -1);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // Ran once on mount, potentially adjusted by other logic later
 
   if (isLoadingPage) {
     return (

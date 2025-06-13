@@ -18,6 +18,7 @@ import { collection, getDocs, doc, updateDoc, query, orderBy } from "firebase/fi
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { sendEmailAction } from '@/app/actions';
+import { sanitizeForFirestore } from '@/lib/utils';
 
 interface ActionPlan {
   id: string;
@@ -229,11 +230,14 @@ export default function UserActionPlansPage() {
         }
         return action;
       });
-
-      await updateDoc(rcaDocRef, {
+      
+      const dataToUpdate = {
         plannedActions: updatedPlannedActions,
         updatedAt: new Date().toISOString()
-      });
+      };
+      const sanitizedDataToUpdate = sanitizeForFirestore(dataToUpdate);
+      await updateDoc(rcaDocRef, sanitizedDataToUpdate);
+
 
       setAllRcaDocuments(prevDocs =>
         prevDocs.map(d =>
@@ -287,7 +291,7 @@ export default function UserActionPlansPage() {
       return true;
     } catch (error) {
       console.error("Error updating action in Firestore: ", error);
-      toast({ title: "Error al Actualizar", description: "No se pudo actualizar la acción en la base de datos.", variant: "destructive" });
+      toast({ title: "Error al Actualizar", description: `No se pudo actualizar la acción en la base de datos. Error: ${(error as Error).message}`, variant: "destructive" });
       return false;
     } finally {
       setIsUpdatingAction(false);
@@ -301,20 +305,23 @@ export default function UserActionPlansPage() {
       return;
     }
 
-    const newEvidence: FirestoreEvidence = {
+    const newEvidencePayload: FirestoreEvidence = {
       id: `ev-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       nombre: fileToUpload.name,
       tipo: (fileToUpload.name.split('.').pop()?.toLowerCase() as FirestoreEvidence['tipo']) || 'other',
-      comment: evidenceComment.trim() || undefined,
     };
+    const trimmedComment = evidenceComment.trim();
+    if (trimmedComment) {
+      newEvidencePayload.comment = trimmedComment;
+    }
 
     const currentEvidences = selectedPlan.evidencias || [];
     const success = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, {
-      evidencias: [...currentEvidences, newEvidence]
+      evidencias: [...currentEvidences, newEvidencePayload]
     });
 
     if (success) {
-      toast({ title: "Evidencia (Simulación)", description: `Archivo "${fileToUpload.name}" ${newEvidence.comment ? `con comentario "${newEvidence.comment.substring(0,20)}..." ` : ""}registrado para "${selectedPlan.tituloDetalle}". El estado de la tarea puede haber cambiado a 'En Validación'.` });
+      toast({ title: "Evidencia (Simulación)", description: `Archivo "${fileToUpload.name}" ${trimmedComment ? `con comentario "${trimmedComment.substring(0,20)}..." ` : ""}registrado para "${selectedPlan.tituloDetalle}". El estado de la tarea puede haber cambiado a 'En Validación'.` });
       setFileToUpload(null);
       setEvidenceComment('');
       const fileInput = document.getElementById('evidence-file-input') as HTMLInputElement;
