@@ -1,3 +1,4 @@
+
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useCallback, useEffect } from 'react'; // Added useCallback & useEffect
@@ -206,16 +207,40 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const [isNotifyTasksDialogOpen, setIsNotifyTasksDialogOpen] = useState(false);
   const [actionsForNotificationDialog, setActionsForNotificationDialog] = useState<PlannedAction[]>([]);
 
+  const uniquePlannedActions = useMemo(() => {
+    const seenIds = new Set<string>();
+    return plannedActions.filter(action => {
+      if (seenIds.has(action.id)) {
+        return false;
+      }
+      seenIds.add(action.id);
+      return true;
+    });
+  }, [plannedActions]);
+
   const handleActionChange = (index: number, field: keyof Omit<PlannedAction, 'eventId' | 'id'>, value: string) => {
-    onUpdatePlannedAction(index, field, value);
+    // Find the original index in the plannedActions prop array
+    const originalAction = uniquePlannedActions[index];
+    if (!originalAction) return;
+    const originalIndex = plannedActions.findIndex(pa => pa.id === originalAction.id);
+    if (originalIndex === -1) return;
+    onUpdatePlannedAction(originalIndex, field, value);
   };
 
   const handleActionResponsibleChange = (index: number, value: string) => {
-    onUpdatePlannedAction(index, 'responsible', value);
+    const originalAction = uniquePlannedActions[index];
+    if (!originalAction) return;
+    const originalIndex = plannedActions.findIndex(pa => pa.id === originalAction.id);
+    if (originalIndex === -1) return;
+    onUpdatePlannedAction(originalIndex, 'responsible', value);
   };
 
   const handleToggleRootCauseForAction = (actionIndex: number, rootCauseId: string, checked: boolean) => {
-    const action = plannedActions[actionIndex];
+    const action = uniquePlannedActions[actionIndex]; // Use the action from the unique list for related IDs
+    if (!action) return;
+    const originalIndex = plannedActions.findIndex(pa => pa.id === action.id);
+    if (originalIndex === -1) return;
+
     const currentRelatedIds = action.relatedRootCauseIds || [];
     let newRelatedIds: string[];
 
@@ -224,7 +249,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     } else {
       newRelatedIds = currentRelatedIds.filter(id => id !== rootCauseId);
     }
-    onUpdatePlannedAction(actionIndex, 'relatedRootCauseIds', newRelatedIds);
+    onUpdatePlannedAction(originalIndex, 'relatedRootCauseIds', newRelatedIds);
   };
 
   const getPlaceholderForNotes = () => {
@@ -263,9 +288,9 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
       }
     }
 
-    if (plannedActions.length > 0) {
-      for (let i = 0; i < plannedActions.length; i++) {
-        const action = plannedActions[i];
+    if (uniquePlannedActions.length > 0) {
+      for (let i = 0; i < uniquePlannedActions.length; i++) {
+        const action = uniquePlannedActions[i];
         const actionLabel = action.description.trim() ? `"${action.description.substring(0,30)}..."` : `Nº ${i + 1}`;
         
         if (!action.description.trim()) {
@@ -316,7 +341,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     const isTechniqueSelected = analysisTechnique !== '';
     const hasNotes = analysisTechniqueNotes.trim() !== '';
     const hasRootCauses = identifiedRootCauses.length > 0;
-    const hasPlannedActions = plannedActions.length > 0;
+    const hasPlannedActions = uniquePlannedActions.length > 0;
 
     const isIshikawaEdited = ishikawaData.some(cat => cat.causes.some(c => c.description.trim() !== ''));
     const isFiveWhysEdited = fiveWhysData.length > 1 || 
@@ -354,7 +379,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const handleOpenSendTasksDialog = async () => {
     await onSaveAnalysis(false); // Save current state before opening dialog
 
-    const actionsToNotify = plannedActions.filter(
+    const actionsToNotify = uniquePlannedActions.filter(
       action =>
         action && // Ensure action object exists
         action.responsible &&
@@ -381,7 +406,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     let tasksIncompleteCount = 0; 
 
     for (const actionId of selectedActionIds) {
-      const actionIndex = plannedActions.findIndex(a => a.id === actionId);
+      const actionIndex = plannedActions.findIndex(a => a.id === actionId); // Use original plannedActions for index
       if (actionIndex === -1) {
           console.warn(`Action with ID ${actionId} not found in plannedActions.`);
           tasksFailedCount++; 
@@ -438,7 +463,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     }
     await onSaveAnalysis(false); 
 
-    if (plannedActions.length === 0 && identifiedRootCauses.length > 0 && identifiedRootCauses.every(rc => rc.description.trim())) {
+    if (uniquePlannedActions.length === 0 && identifiedRootCauses.length > 0 && identifiedRootCauses.every(rc => rc.description.trim())) {
         toast({
             title: "Advertencia: Sin Plan de Acción",
             description: "Ha identificado causas raíz pero no ha definido un plan de acción. ¿Desea continuar?",
@@ -547,7 +572,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
 
         <div className="space-y-4">
           <h3 className="text-lg font-semibold font-headline">Plan de Acción Correctiva</h3>
-          {plannedActions.map((action, index) => (
+          {uniquePlannedActions.map((action, index) => (
             <Card key={action.id} className="p-4 space-y-3 bg-secondary/50">
                <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
@@ -556,7 +581,10 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                         <span className="text-xs text-green-600 bg-green-100 px-1.5 py-0.5 rounded-full">Notificada</span>
                     )}
                 </div>
-                 <Button variant="ghost" size="icon" onClick={() => onRemovePlannedAction(index)} aria-label="Eliminar acción planificada">
+                 <Button variant="ghost" size="icon" onClick={() => {
+                    const originalIndex = plannedActions.findIndex(pa => pa.id === action.id);
+                    if (originalIndex !== -1) onRemovePlannedAction(originalIndex);
+                 }} aria-label="Eliminar acción planificada">
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </div>
@@ -632,7 +660,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Save className="mr-2 h-4 w-4" /> Guardar Avance
             </Button>
-            <Button onClick={handleOpenSendTasksDialog} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || plannedActions.length === 0}>
+            <Button onClick={handleOpenSendTasksDialog} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || uniquePlannedActions.length === 0}>
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Send className="mr-2 h-4 w-4" /> Enviar Tareas
             </Button>
