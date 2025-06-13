@@ -28,7 +28,7 @@ interface Step4ValidationProps {
   onSetCurrentSimulatedUser: (userName: string | null) => void;
   onPrevious: () => void;
   onNext: () => void;
-  onSaveAnalysis: (showToast?: boolean) => Promise<void>; // New prop for saving
+  onSaveAnalysis: (showToast?: boolean) => Promise<void>;
   isSaving: boolean;
 }
 
@@ -38,8 +38,8 @@ const getEvidenceIcon = (tipo?: Evidence['tipo']) => {
   if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
   switch (tipo) {
     case 'pdf': return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
-    case 'jpg': return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
-    case 'docx': return <Paperclip className="h-4 w-4 mr-2 flex-shrink-0 text-sky-700" />;
+    case 'jpg': case 'jpeg': case 'png': return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
+    case 'doc': case 'docx': return <Paperclip className="h-4 w-4 mr-2 flex-shrink-0 text-sky-700" />;
     default: return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
   }
 };
@@ -58,12 +58,23 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   isSaving,
 }) => {
   const { toast } = useToast();
-  const [isSavingLocally, setIsSavingLocally] = useState(false); // Local saving state for this step's button
+  const [isSavingLocally, setIsSavingLocally] = useState(false);
 
   const uniquePlannedActions = useMemo(() => {
+    // Explicitly check if plannedActions is an array, for added robustness.
+    if (!Array.isArray(plannedActions)) {
+      console.warn("Step4Validation: plannedActions prop is not an array. Defaulting to empty.", plannedActions);
+      return [];
+    }
+
     const seenIds = new Set<string>();
     return plannedActions.filter(action => {
+      if (!action || !action.id) { 
+        console.warn("Step4Validation: Filtered out a malformed planned action (missing action or action.id)", action);
+        return false;
+      }
       if (seenIds.has(action.id)) {
+        console.warn(`Step4Validation: Filtered out a duplicate planned action with ID: ${action.id}`);
         return false;
       }
       seenIds.add(action.id);
@@ -72,6 +83,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   }, [plannedActions]);
 
   const validUsersForSelect = useMemo(() => {
+    if (!Array.isArray(availableUserProfiles)) return [];
     return availableUserProfiles.filter(user => user.name && user.name.trim() !== "");
   }, [availableUserProfiles]);
 
@@ -112,8 +124,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
     }
 
     if (hasPermission) {
-      onToggleValidation(actionId); // This updates local state
-      // onSaveAnalysis(false); // Then save the change to Firestore silently
+      onToggleValidation(actionId); 
     } else {
       toast({
         title: "Permiso Denegado",
@@ -125,13 +136,13 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
 
   const handleSaveProgressLocal = async () => {
     setIsSavingLocally(true);
-    await onSaveAnalysis(); // Call parent save function which handles Firestore
+    await onSaveAnalysis(); 
     setIsSavingLocally(false);
   };
 
   const handleNextLocal = async () => {
     setIsSavingLocally(true);
-    await onSaveAnalysis(false); // Save silently before moving to next step
+    await onSaveAnalysis(false); 
     setIsSavingLocally(false);
     onNext();
   };
@@ -169,8 +180,8 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                   </SelectItem>
                 ))
               ) : (
-                <div className="p-2 text-sm text-muted-foreground text-center">
-                  {availableUserProfiles.length === 0 ? "No hay usuarios configurados" : "No hay usuarios con nombres válidos para seleccionar"}
+                 <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">
+                  {Array.isArray(availableUserProfiles) && availableUserProfiles.length === 0 ? "No hay usuarios configurados" : "No hay usuarios con nombres válidos"}
                 </div>
               )}
             </SelectContent>
