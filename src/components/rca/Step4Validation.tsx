@@ -1,7 +1,7 @@
 
 'use client';
 import type { FC } from 'react';
-import { useMemo, useState } from 'react'; // Added useState
+import { useMemo, useState } from 'react';
 import type { PlannedAction, Validation, FullUserProfile, Evidence } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,9 +14,11 @@ import {
  AccordionItem,
 } from "@/components/ui/accordion";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
-import { ChevronDown, CheckCircle2, Circle, UserCog, Eye, FileText, ImageIcon, Paperclip, Loader2, Save } from 'lucide-react'; // Added Loader2, Save
+import { ChevronDown, CheckCircle2, Circle, UserCog, Eye, FileText, ImageIcon, Paperclip, Loader2, Save, MessageSquare, CalendarCheck, History } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
+import { format, parseISO, isValid as isValidDate } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 interface Step4ValidationProps {
   plannedActions: PlannedAction[];
@@ -34,11 +36,11 @@ interface Step4ValidationProps {
 
 const NONE_USER_VALUE = "--NONE--";
 
-const getEvidenceIcon = (tipo?: Evidence['tipo']) => {
+const getEvidenceIconLocal = (tipo?: Evidence['tipo']) => {
   if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
-  switch (tipo) {
+  switch (tipo.toLowerCase()) {
     case 'pdf': return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
-    case 'jpg': case 'jpeg': case 'png': return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
+    case 'jpg': case 'jpeg': case 'png': case 'gif': return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
     case 'doc': case 'docx': return <Paperclip className="h-4 w-4 mr-2 flex-shrink-0 text-sky-700" />;
     default: return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
   }
@@ -61,7 +63,6 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   const [isSavingLocally, setIsSavingLocally] = useState(false);
 
   const uniquePlannedActions = useMemo(() => {
-    // Explicitly check if plannedActions is an array, for added robustness.
     if (!Array.isArray(plannedActions)) {
       console.warn("Step4Validation: plannedActions prop is not an array. Defaulting to empty.", plannedActions);
       return [];
@@ -74,7 +75,6 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
         return false;
       }
       if (seenIds.has(action.id)) {
-        console.warn(`Step4Validation: Filtered out a duplicate planned action with ID: ${action.id}`);
         return false;
       }
       seenIds.add(action.id);
@@ -198,6 +198,8 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
             <Accordion type="multiple" className="w-full">
               {uniquePlannedActions.map((action) => {
                 const status = getValidationStatus(action.id);
+                const isReadyForValidationByLeader = action.evidencias && action.evidencias.length > 0 || (action.userComments && action.userComments.trim() !== '') || action.markedAsReadyAt;
+                
                 return (
                   <AccordionItem value={action.id} key={action.id} className="border-b">
                     <Card className="shadow-none border-0 rounded-none w-full">
@@ -228,35 +230,50 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                         </div>
                       </AccordionPrimitive.Header>
                       <AccordionContent className="p-4 pt-0">
-                        <div className="space-y-3 text-xs pl-2 border-l-2 border-primary/30 ml-1">
+                        <div className="space-y-4 text-xs pl-2 border-l-2 border-primary/30 ml-1">
+                          {action.markedAsReadyAt && isValidDate(parseISO(action.markedAsReadyAt)) && (
+                            <div>
+                              <h5 className="font-semibold text-primary/90 mb-0.5 flex items-center"><History className="mr-1.5 h-3.5 w-3.5" />Marcado como Listo el:</h5>
+                              <p className="ml-5">{format(parseISO(action.markedAsReadyAt), 'dd/MM/yyyy HH:mm', { locale: es })}</p>
+                            </div>
+                          )}
+
                           <div>
-                            <h5 className="font-semibold text-primary/90 mb-1">Evidencias Adjuntas:</h5>
+                            <h5 className="font-semibold text-primary/90 mb-0.5 flex items-center"><MessageSquare className="mr-1.5 h-3.5 w-3.5" />Comentarios del Usuario (Responsable):</h5>
+                            {action.userComments && action.userComments.trim() ? (
+                              <p className="whitespace-pre-wrap p-1.5 bg-muted/30 rounded-sm ml-5">{action.userComments}</p>
+                            ) : (
+                              <p className="text-muted-foreground ml-5">No hay comentarios del usuario.</p>
+                            )}
+                          </div>
+                          
+                          <div>
+                            <h5 className="font-semibold text-primary/90 mb-0.5 flex items-center"><FileText className="mr-1.5 h-3.5 w-3.5" />Evidencias Adjuntas:</h5>
                             {action.evidencias && action.evidencias.length > 0 ? (
-                              <ul className="space-y-1">
+                              <ul className="space-y-1 ml-5">
                                 {action.evidencias.map(ev => (
                                   <li key={ev.id} className="flex items-center justify-between bg-muted/30 p-1.5 rounded-sm">
                                     <div className="flex items-center">
-                                      {getEvidenceIcon(ev.tipo)}
-                                      <span>{ev.nombre}</span>
+                                      {getEvidenceIconLocal(ev.tipo)}
+                                      <span className="text-xs">{ev.nombre}</span>
                                     </div>
-                                    <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={() => toast({title: "Simulación", description: `Visualizar/Descargar archivo ${ev.nombre}`})}>
-                                      <Eye className="mr-1 h-3 w-3"/>Ver/Descargar
+                                    <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={() => toast({title: "Visualización Simulada", description: `Se visualizaría el archivo: ${ev.nombre}`})}>
+                                      <Eye className="mr-1 h-3 w-3"/>Ver
                                     </Button>
                                   </li>
                                 ))}
                               </ul>
                             ) : (
-                              <p className="text-muted-foreground">No hay evidencias adjuntas para esta acción.</p>
+                              <p className="text-muted-foreground ml-5">No hay evidencias adjuntas.</p>
                             )}
                           </div>
-                          <div>
-                            <h5 className="font-semibold text-primary/90 mb-1">Comentarios del Usuario (Responsable):</h5>
-                            {action.userComments && action.userComments.trim() ? (
-                              <p className="whitespace-pre-wrap p-1.5 bg-muted/30 rounded-sm">{action.userComments}</p>
-                            ) : (
-                              <p className="text-muted-foreground">No hay comentarios del usuario para esta acción.</p>
-                            )}
-                          </div>
+                          
+                          {!isReadyForValidationByLeader && status !== 'validated' && (
+                             <p className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded-md border border-yellow-200 ml-5">
+                                Esta acción aún no ha sido marcada como lista por el responsable (no tiene evidencias, comentarios ni fecha de "listo").
+                             </p>
+                          )}
+
                         </div>
                       </AccordionContent>
                     </Card>
@@ -283,3 +300,6 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
     </Card>
   );
 };
+
+
+    
