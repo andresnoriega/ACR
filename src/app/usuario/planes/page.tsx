@@ -375,7 +375,6 @@ export default function UserActionPlansPage() {
         const emailSubject = `Acción Lista para Validación: ${selectedPlan.accionResumen || selectedPlan.descripcionDetallada.substring(0,30)+"..."} (RCA: ${selectedPlan.codigoRCA})`;
         
         let evidencesList = "No se adjuntaron evidencias.";
-        // Re-fetch the action data as it might have changed after updateActionInFirestore
         const currentActionData = allRcaDocuments.find(d => d.eventData.id === selectedPlan._originalRcaDocId)?.plannedActions.find(pa => pa.id === selectedPlan._originalActionId);
 
         if (currentActionData?.evidencias && currentActionData.evidencias.length > 0) {
@@ -406,6 +405,19 @@ export default function UserActionPlansPage() {
       toast({ title: "Error", description: "No se pudo actualizar la tarea. Intente de nuevo.", variant: "destructive" });
     }
     setIsUpdatingAction(false);
+  };
+
+  const handleUserCommentsChangeAndSave = async () => {
+    if (!selectedPlan || !selectedPlan.userComments?.trim()) {
+      toast({ title: "Sin Comentarios", description: "No hay comentarios para guardar o están vacíos.", variant: "default" });
+      return;
+    }
+    const success = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, {
+      userComments: selectedPlan.userComments
+    });
+    if (success) {
+      toast({ title: "Comentarios Guardados", description: `Comentarios para "${selectedPlan.tituloDetalle}" guardados.` });
+    }
   };
 
 
@@ -650,10 +662,21 @@ export default function UserActionPlansPage() {
             </div>
 
             <div className="pt-2">
-              <h4 className="font-semibold text-primary mb-1 flex items-center">
-                <MessageSquare className="mr-1.5 h-4 w-4" />
-                [Mis Comentarios Generales para la Tarea]
-              </h4>
+              <div className="flex justify-between items-center mb-1">
+                <h4 className="font-semibold text-primary flex items-center">
+                  <MessageSquare className="mr-1.5 h-4 w-4" />
+                  [Mis Comentarios Generales para la Tarea]
+                </h4>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleUserCommentsChangeAndSave}
+                  disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || !selectedPlan.userComments?.trim()}
+                >
+                  {isUpdatingAction && selectedPlan.userComments ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
+                  Guardar Comentarios
+                </Button>
+              </div>
               <Textarea
                 value={selectedPlan.userComments || ''}
                 onChange={(e) => setSelectedPlan(prev => prev ? { ...prev, userComments: e.target.value } : null)}
