@@ -343,18 +343,6 @@ export default function UserActionPlansPage() {
   };
 
 
-  const handleUserCommentsChangeAndSave = async (comments: string) => {
-    if (!selectedPlan) return;
-
-    const success = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, {
-      userComments: comments
-    });
-
-    if (success) {
-      toast({ title: "Comentarios Guardados", description: `Se guardaron los comentarios para el plan "${selectedPlan.tituloDetalle}".` });
-    }
-  };
-
   const handleSignalTaskReadyForValidation = async () => {
     if (!selectedPlan) return;
     if (selectedPlan.estado === 'Completado') {
@@ -380,14 +368,16 @@ export default function UserActionPlansPage() {
     const updateSuccess = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, updatesForAction);
 
     if (updateSuccess) {
-      let notificationMessage = `La tarea "${selectedPlan.tituloDetalle}" se ha actualizado y está lista para validación.`;
+      let notificationMessage = `La tarea "${selectedPlan.accionResumen || selectedPlan.descripcionDetallada.substring(0,30)+"..."}" se ha actualizado y está lista para validación.`;
       
       const validatorProfile = availableUsers.find(u => u.name === selectedPlan.validatorName);
       if (validatorProfile && validatorProfile.email) {
-        const emailSubject = `Acción Lista para Validación: ${selectedPlan.accionResumen} (RCA: ${selectedPlan.codigoRCA})`;
+        const emailSubject = `Acción Lista para Validación: ${selectedPlan.accionResumen || selectedPlan.descripcionDetallada.substring(0,30)+"..."} (RCA: ${selectedPlan.codigoRCA})`;
         
         let evidencesList = "No se adjuntaron evidencias.";
+        // Re-fetch the action data as it might have changed after updateActionInFirestore
         const currentActionData = allRcaDocuments.find(d => d.eventData.id === selectedPlan._originalRcaDocId)?.plannedActions.find(pa => pa.id === selectedPlan._originalActionId);
+
         if (currentActionData?.evidencias && currentActionData.evidencias.length > 0) {
             evidencesList = currentActionData.evidencias.map(ev => 
                 `- ${ev.nombre} (${ev.tipo || 'desconocido'}): ${ev.comment || "Sin comentario"}`
@@ -405,7 +395,7 @@ export default function UserActionPlansPage() {
         if (emailResult.success) {
           notificationMessage += ` Se envió una notificación por correo a ${validatorProfile.name}.`;
         } else {
-          notificationMessage += ` No se pudo enviar la notificación por correo a ${validatorProfile.name}.`;
+          notificationMessage += ` No se pudo enviar la notificación por correo a ${validatorProfile.name} (${emailResult.message}).`;
         }
       } else {
         notificationMessage += ` No se encontró el correo del validador (${selectedPlan.validatorName || 'No asignado'}) para enviar la notificación.`;
@@ -672,15 +662,6 @@ export default function UserActionPlansPage() {
                 className="text-sm"
                 disabled={isUpdatingAction || selectedPlan.estado === 'Completado'}
               />
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleUserCommentsChangeAndSave(selectedPlan.userComments || '')}
-                className="mt-2"
-                disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || selectedPlan.userComments === (allRcaDocuments.find(d => d.eventData.id === selectedPlan._originalRcaDocId)?.plannedActions.find(pa => pa.id === selectedPlan._originalActionId)?.userComments || '')}
-              >
-                {isUpdatingAction && selectedPlan.userComments !== (allRcaDocuments.find(d => d.eventData.id === selectedPlan._originalRcaDocId)?.plannedActions.find(pa => pa.id === selectedPlan._originalActionId)?.userComments || '') ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />} Guardar Comentarios
-              </Button>
             </div>
 
             <div className="pt-2">
