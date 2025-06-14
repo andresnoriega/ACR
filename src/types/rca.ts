@@ -145,7 +145,7 @@ export interface FullUserProfile {
   id: string;
   name: string;
   email: string;
-  role: 'Admin' | 'Analista' | 'Revisor' | '';
+  role: 'Admin' | 'Analista' | 'Revisor' | 'Super User' | '';
   permissionLevel: 'Total' | 'Lectura' | 'Limitado' | '';
   password?: string; // Added password field
   assignedSites?: string;
@@ -206,3 +206,4 @@ export interface RCAAnalysisDocument {
   updatedAt: string; // ISO string
   createdBy?: string; // User ID or name
 }
+

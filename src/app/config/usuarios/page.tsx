@@ -25,7 +25,7 @@ interface UserConfigProfile extends FullUserProfile {
   emailNotifications: boolean;
 }
 
-const userRoles: FullUserProfile['role'][] = ['Admin', 'Analista', 'Revisor', ''];
+const userRoles: FullUserProfile['role'][] = ['Admin', 'Analista', 'Revisor', 'Super User', ''];
 const defaultPermissionLevel: FullUserProfile['permissionLevel'] = 'Lectura';
 
 // Define expected headers for Excel import
@@ -507,3 +507,4 @@ export default function ConfiguracionUsuariosPage() {
     </div>
   );
 }
+
