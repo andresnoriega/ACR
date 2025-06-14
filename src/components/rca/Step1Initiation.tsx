@@ -304,6 +304,9 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   };
 
   const handleSaveEvent = async () => {
+    if (!validateFields()) { // Added validation call
+      return;
+    }
     onForceEnsureEventId(); 
     const success = await onSaveAnalysis(true); 
     if (success) {
