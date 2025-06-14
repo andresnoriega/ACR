@@ -14,7 +14,7 @@ import {
  AccordionItem,
 } from "@/components/ui/accordion";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
-import { ChevronDown, CheckCircle2, Circle, UserCog, Eye, FileText, ImageIcon, Paperclip, Loader2, Save, MessageSquare, CalendarCheck, History } from 'lucide-react';
+import { ChevronDown, CheckCircle2, Circle, UserCog, Eye, FileText, ImageIcon, Paperclip, Loader2, Save, MessageSquare, CalendarCheck, History, Info } from 'lucide-react'; // Added Eye and Info icons
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
@@ -197,9 +197,15 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
           ) : (
             <Accordion type="multiple" className="w-full">
               {uniquePlannedActions.map((action) => {
-                // console.log("[Step4Validation] Processing action:", JSON.parse(JSON.stringify(action)));
-                
                 const status = getValidationStatus(action.id);
+                
+                const hasInformationToVisualize = 
+                  (action.evidencias && action.evidencias.length > 0) || 
+                  (action.userComments && action.userComments.trim() !== '') || 
+                  action.markedAsReadyAt;
+
+                const shouldShowVisualIndicator = hasInformationToVisualize && status !== 'validated';
+                
                 const isReadyForValidationByLeader = 
                   (action.evidencias && action.evidencias.length > 0) || 
                   (action.userComments && action.userComments.trim() !== '') || 
@@ -208,12 +214,11 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                 const showNotReadyWarning = !isReadyForValidationByLeader && status !== 'validated';
 
                 let computedCheckboxDisabled = isStepSaving;
-                if (!computedCheckboxDisabled) { // if not already disabled by saving step
+                if (!computedCheckboxDisabled) {
                   if (!canSimulatedUserValidateActions) {
-                    computedCheckboxDisabled = true; // disable if user cannot validate generally
+                    computedCheckboxDisabled = true; 
                   } else {
-                    // User can validate, now check if this specific action should be disabled
-                    if (showNotReadyWarning) { // This means action is not ready AND not already validated
+                    if (showNotReadyWarning) { 
                       computedCheckboxDisabled = true;
                     }
                   }
@@ -223,6 +228,13 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                   <AccordionItem value={action.id} key={action.id} className="border-b">
                     <Card className="shadow-none border-0 rounded-none w-full">
                       <AccordionPrimitive.Header className="flex items-center p-4 w-full">
+                        <div className="flex-shrink-0 pr-3" title={shouldShowVisualIndicator ? "Esta acción tiene información adjunta (evidencias/comentarios) y está pendiente de validación." : undefined}>
+                          {shouldShowVisualIndicator ? (
+                            <Info className="h-5 w-5 text-blue-500" />
+                          ) : (
+                            <div className="w-5 h-5"></div> // Placeholder for alignment
+                          )}
+                        </div>
                         <AccordionPrimitive.Trigger className="flex flex-1 items-center text-left hover:underline focus:outline-none group data-[state=open]:text-primary">
                           <div className="flex-1">
                             <h4 className="font-semibold">{action.description}</h4>
@@ -320,3 +332,5 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   );
 };
 
+
+    
