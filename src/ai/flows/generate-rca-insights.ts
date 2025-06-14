@@ -9,7 +9,7 @@
  */
 
 import {ai} from '@/ai/genkit'; // ai is now a placeholder
-import {z} from 'genkit';
+import { z } from 'zod'; // Changed from 'genkit' to 'zod'
 
 const GenerateRcaInsightsInputSchema = z.object({
   focusEventDescription: z.string().describe('The main description of the event being analyzed.'),
