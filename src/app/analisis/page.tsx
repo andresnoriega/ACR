@@ -189,8 +189,8 @@ export default function RCAAnalysisPage() {
         setRejectionDetails(data.rejectionDetails);
         setAnalysisDocumentId(id);
 
-        if (lastLoadedAnalysisIdRef.current !== id) {
-            toast({ title: "Análisis Cargado", description: `Se cargó el análisis ID: ${id}` });
+        if (lastLoadedAnalysisIdRef.current !== null && lastLoadedAnalysisIdRef.current !== id) {
+          toast({ title: "Análisis Cargado", description: `Se cargó el análisis ID: ${id}` });
         }
         lastLoadedAnalysisIdRef.current = id;
         setMaxCompletedStep(prevMax => Math.max(prevMax, data.isFinalized ? 5 : (data.validations?.length > 0 && data.plannedActions?.every(pa => data.validations.find(v => v.actionId === pa.id)?.status === 'validated') ? 4 : (data.identifiedRootCauses?.length > 0 ? 3 : (data.projectLeader ? 2 : 1)))));
@@ -614,7 +614,7 @@ export default function RCAAnalysisPage() {
     } else if (step === 4) {
         if (plannedActions.length > 0) {
             const allValidated = plannedActions.every(pa => {
-                if (!pa || !pa.id) return true;
+                if (!pa || !pa.id) return true; // Skip if action is malformed or has no ID
                 const validationEntry = validations.find(v => v && v.actionId === pa.id);
                 return validationEntry && validationEntry.status === 'validated';
             });
@@ -625,12 +625,12 @@ export default function RCAAnalysisPage() {
                     description: "Todas las acciones planificadas deben estar validadas para continuar al Paso 5.",
                     variant: "destructive",
                 });
-                return;
+                return; 
             }
         }
         saveSuccess = await handleSaveAnalysisData(false);
     } else {
-      saveSuccess = true;
+      saveSuccess = true; 
     }
 
     if (saveSuccess || (step !== 1 && step !== 2 && step !==3 && step !==4) ) {
@@ -910,7 +910,7 @@ export default function RCAAnalysisPage() {
             onSetCurrentSimulatedUser={setCurrentSimulatedUser}
             canCurrentUserReject={canCurrentUserReject}
             onRejectEvent={() => {
-              setRejectionReason(''); // Limpiar motivo antes de abrir el diálogo
+              setRejectionReason(''); 
               setIsRejectConfirmOpen(true);
             }}
             isEventFinalized={isFinalized}
@@ -1039,7 +1039,7 @@ export default function RCAAnalysisPage() {
               onClick={() => {
                 if (!isSaving) {
                   setRejectionReason('');
-                  setIsRejectConfirmOpen(false); // Explicitly close on Cancel click if not saving
+                  setIsRejectConfirmOpen(false); 
                 }
               }}
               disabled={isSaving}
@@ -1059,3 +1059,4 @@ export default function RCAAnalysisPage() {
     </>
   );
 }
+
