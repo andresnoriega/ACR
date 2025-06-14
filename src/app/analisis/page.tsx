@@ -117,13 +117,13 @@ export default function RCAAnalysisPage() {
     try {
       const analysisDocRef = doc(db, "rcaAnalyses", id);
       const docSnap = await getDoc(analysisDocRef);
-      
-      const reportedEventRef = doc(db, "reportedEvents", id); 
+
+      const reportedEventRef = doc(db, "reportedEvents", id);
       const reportedEventSnap = await getDoc(reportedEventRef);
       if (reportedEventSnap.exists()) {
         setCurrentEventStatus(reportedEventSnap.data().status as ReportedEventStatus);
       } else {
-        setCurrentEventStatus('Pendiente'); 
+        setCurrentEventStatus('Pendiente');
       }
 
 
@@ -163,7 +163,7 @@ export default function RCAAnalysisPage() {
         setIdentifiedRootCauses(data.identifiedRootCauses || []);
 
         const loadedPlannedActions = data.plannedActions || [];
-        setPlannedActions(loadedPlannedActions); 
+        setPlannedActions(loadedPlannedActions);
         if (loadedPlannedActions.length > 0) {
             let maxCounter = 0;
             loadedPlannedActions.forEach(pa => {
@@ -187,7 +187,7 @@ export default function RCAAnalysisPage() {
         setIsFinalized(data.isFinalized || false);
         setRejectionDetails(data.rejectionDetails);
         setAnalysisDocumentId(id);
-        
+
         if (lastLoadedAnalysisIdRef.current !== id) {
             toast({ title: "Análisis Cargado", description: `Se cargó el análisis ID: ${id}` });
         }
@@ -252,7 +252,7 @@ export default function RCAAnalysisPage() {
         setIsLoadingPage(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast, router]); 
+  }, [toast, router]);
 
   const analysisIdFromParams = useMemo(() => searchParams.get('id'), [searchParams]);
 
@@ -262,7 +262,7 @@ export default function RCAAnalysisPage() {
     const previousLoadedId = lastLoadedAnalysisIdRef.current;
 
     if (currentId) {
-        setIsLoadingPage(true); 
+        setIsLoadingPage(true);
         loadAnalysisData(currentId).then(success => {
             if (success) {
                 if (stepParam) {
@@ -273,9 +273,9 @@ export default function RCAAnalysisPage() {
                 } else if (previousLoadedId === currentId) {
                     setStep(prevStep => (prevStep >= 1 && prevStep <= 5 ? prevStep : 1));
                 } else {
-                    setStep(1); 
+                    setStep(1);
                 }
-            } else { 
+            } else {
                 if (currentId !== previousLoadedId) {
                     setStep(1);
                     setMaxCompletedStep(0);
@@ -284,9 +284,9 @@ export default function RCAAnalysisPage() {
         }).finally(() => {
             setIsLoadingPage(false);
         });
-    } else { 
+    } else {
         if (lastLoadedAnalysisIdRef.current !== null) {
-            setIsLoadingPage(true); 
+            setIsLoadingPage(true);
             setEventData(initialRCAAnalysisState.eventData);
             setImmediateActions(initialRCAAnalysisState.immediateActions);
             setImmediateActionCounter(1);
@@ -314,12 +314,12 @@ export default function RCAAnalysisPage() {
             setIsLoadingPage(false);
         } else {
              setIsLoadingPage(false);
-             setStep(1); 
+             setStep(1);
              setMaxCompletedStep(0);
         }
     }
 // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [analysisIdFromParams, searchParams]); 
+}, [analysisIdFromParams, searchParams]);
 
 
   useEffect(() => {
@@ -357,22 +357,22 @@ export default function RCAAnalysisPage() {
       const newEventID = `E-${String(Date.now()).slice(-5)}-${String(eventCounter).padStart(3, '0')}`;
       setEventData(prev => ({ ...prev, id: newEventID }));
       setEventCounter(prev => prev + 1);
-      setAnalysisDocumentId(newEventID); 
-      router.replace(`/analisis?id=${newEventID}`, { scroll: false }); 
+      setAnalysisDocumentId(newEventID);
+      router.replace(`/analisis?id=${newEventID}`, { scroll: false });
       return newEventID;
     }
-    if (!analysisDocumentId && eventData.id) { 
+    if (!analysisDocumentId && eventData.id) {
         setAnalysisDocumentId(eventData.id);
     }
     return eventData.id;
   }, [eventData.id, eventCounter, analysisDocumentId, router]);
 
  const handleSaveAnalysisData = async (
-    showToast: boolean = true, 
-    finalizedOverride?: boolean, 
+    showToast: boolean = true,
+    finalizedOverride?: boolean,
     statusOverride?: ReportedEventStatus,
-    currentRejectionReason?: string, 
-    rejectedByUserName?: string | null 
+    currentRejectionReason?: string,
+    rejectedByUserName?: string | null
   ): Promise<boolean> => {
     const currentId = analysisDocumentId || ensureEventId();
     if (!currentId) {
@@ -403,25 +403,25 @@ export default function RCAAnalysisPage() {
     try {
       const rcaDocRef = doc(db, "rcaAnalyses", currentId);
       const rcaDocSnap = await getDoc(rcaDocRef);
-      
+
       let finalCommentsToSave = finalComments;
-      if (statusOverride === "Rechazado") {
+      if (statusOverride === "Rechazado" && currentRejectionReason) {
           const rejecterName = rejectedByUserName || (availableUsersFromDB.find(u => u.name === currentSimulatedUser)?.name || "Usuario desconocido");
           let baseRejectMsg = `Evento Rechazado por ${rejecterName} el ${new Date().toLocaleDateString('es-CL')}.`;
-          if (currentRejectionReason) {
+          if (currentRejectionReason) { // Solo añadir motivo si existe
             baseRejectMsg += `\nMotivo: ${currentRejectionReason}`;
           }
-          finalCommentsToSave = `${baseRejectMsg}${finalCommentsToSave ? `\nComentarios adicionales previos: ${finalCommentsToSave}` : ''}`;
+          finalCommentsToSave = `${baseRejectMsg}${finalComments ? `\n\nComentarios Adicionales Previos:\n${finalComments}` : ''}`;
       }
 
 
       const dataToSave: RCAAnalysisDocument = {
-        ...(rcaDocPayload as Omit<RCAAnalysisDocument, 'createdAt' | 'updatedAt' | 'createdBy'>), 
+        ...(rcaDocPayload as Omit<RCAAnalysisDocument, 'createdAt' | 'updatedAt' | 'createdBy'>),
         finalComments: finalCommentsToSave,
         updatedAt: new Date().toISOString(),
         createdAt: rcaDocSnap.exists() && rcaDocSnap.data().createdAt ? rcaDocSnap.data().createdAt : new Date().toISOString(),
       };
-      
+
       const sanitizedDataToSave = sanitizeForFirestore(dataToSave);
       await setDoc(rcaDocRef, sanitizedDataToSave, { merge: true });
 
@@ -452,7 +452,7 @@ export default function RCAAnalysisPage() {
         statusForReportedEvent = "Finalizado";
       } else if (reportedEventSnap.exists()) {
         statusForReportedEvent = reportedEventSnap.data().status;
-        const rcaData = sanitizedDataToSave; 
+        const rcaData = sanitizedDataToSave;
         if (rcaData.plannedActions && rcaData.plannedActions.length > 0) {
             const allActionsValidatedInSave = rcaData.plannedActions.every(pa => {
                 const validationEntry = rcaData.validations.find(v => v.actionId === pa.id);
@@ -468,7 +468,7 @@ export default function RCAAnalysisPage() {
         }
 
       } else {
-        statusForReportedEvent = "Pendiente"; 
+        statusForReportedEvent = "Pendiente";
       }
       setCurrentEventStatus(statusForReportedEvent);
 
@@ -484,7 +484,7 @@ export default function RCAAnalysisPage() {
         description: consistentEventData.focusEventDescription || "Sin descripción detallada.",
         updatedAt: new Date().toISOString(),
       };
-      
+
       const sanitizedReportedEventPayload = sanitizeForFirestore(reportedEventPayload);
 
       if (!reportedEventSnap.exists()) {
@@ -548,35 +548,46 @@ export default function RCAAnalysisPage() {
   const handleRejectEvent = async () => {
     if (!analysisDocumentId) {
       toast({ title: "Error", description: "No se puede rechazar un evento sin ID.", variant: "destructive" });
-      setIsRejectConfirmOpen(false);
+      setIsRejectConfirmOpen(false); // Asegurarse de que el diálogo se cierre si hay un error temprano
       return;
     }
-    if (!rejectionReason.trim()) {
+    if (!rejectionReason.trim()) { // Validar que el motivo no esté vacío o solo espacios
         toast({ title: "Motivo Requerido", description: "Por favor, ingrese un motivo para el rechazo.", variant: "destructive" });
-        return; 
+        return; // Mantener el diálogo abierto para que el usuario ingrese el motivo
     }
 
     setIsSaving(true);
-    setIsRejectConfirmOpen(false); 
-    const success = await handleSaveAnalysisData(false, true, "Rechazado", rejectionReason, currentSimulatedUser);
+    // No cerrar el diálogo aquí. Se cerrará después de éxito o explícitamente en Cancelar.
+
+    const success = await handleSaveAnalysisData(
+      false, // showToast for save
+      true,  // finalizedOverride (true para rechazo)
+      "Rechazado", // statusOverride
+      rejectionReason, // currentRejectionReason
+      currentSimulatedUser // rejectedByUserName
+    );
+
     if (success) {
       toast({ title: "Evento Rechazado", description: `El evento ${analysisDocumentId} ha sido marcado como rechazado.` });
-      setRejectionReason(''); 
+      setRejectionReason(''); // Limpiar el motivo
+      setIsRejectConfirmOpen(false); // Cerrar el diálogo tras éxito
     } else {
       toast({ title: "Error al Rechazar", description: "No se pudo actualizar el estado del evento.", variant: "destructive" });
+      // Dejar el diálogo abierto si el guardado falla, para que el usuario pueda reintentar o cancelar.
     }
     setIsSaving(false);
   };
+
 
   const handleGoToStep = (targetStep: number) => {
     if (targetStep > step && targetStep > maxCompletedStep + 1 && targetStep !== 1) {
       return;
     }
-    if (targetStep >=1 && !eventData.id && targetStep > 1 ) { 
+    if (targetStep >=1 && !eventData.id && targetStep > 1 ) {
         ensureEventId();
     }
     setStep(targetStep);
-    if (targetStep > maxCompletedStep && targetStep > step ) { 
+    if (targetStep > maxCompletedStep && targetStep > step ) {
         setMaxCompletedStep(targetStep -1);
     }
     if (analysisDocumentId) {
@@ -585,25 +596,25 @@ export default function RCAAnalysisPage() {
   };
 
   const handleNextStep = async () => {
-    const currentId = analysisDocumentId || ensureEventId(); 
-    if (!currentId && step >= 1) { 
+    const currentId = analysisDocumentId || ensureEventId();
+    if (!currentId && step >= 1) {
         toast({ title: "Error de Sincronización", description: "Por favor, complete el Paso 1 para generar un ID antes de continuar.", variant: "destructive"});
-        setStep(1); 
+        setStep(1);
         return;
     }
 
     let saveSuccess = false;
     if (step === 1) {
-      saveSuccess = await handleSaveAnalysisData(false); 
+      saveSuccess = await handleSaveAnalysisData(false);
     } else if (step === 2) {
-      await handleSaveFromStep2(false); 
-      saveSuccess = true; 
+      await handleSaveFromStep2(false);
+      saveSuccess = true;
     } else if (step === 3) {
       saveSuccess = await handleSaveAnalysisData(false);
     } else if (step === 4) {
         if (plannedActions.length > 0) {
             const allValidated = plannedActions.every(pa => {
-                if (!pa || !pa.id) return true; 
+                if (!pa || !pa.id) return true;
                 const validationEntry = validations.find(v => v && v.actionId === pa.id);
                 return validationEntry && validationEntry.status === 'validated';
             });
@@ -618,16 +629,16 @@ export default function RCAAnalysisPage() {
             }
         }
         saveSuccess = await handleSaveAnalysisData(false);
-    } else { 
-      saveSuccess = true; 
+    } else {
+      saveSuccess = true;
     }
 
-    if (saveSuccess || (step !== 1 && step !== 2 && step !==3 && step !==4) ) { 
+    if (saveSuccess || (step !== 1 && step !== 2 && step !==3 && step !==4) ) {
       const newStep = Math.min(step + 1, 5);
-      const newMaxCompletedStep = Math.max(maxCompletedStep, step); 
+      const newMaxCompletedStep = Math.max(maxCompletedStep, step);
       setStep(newStep);
       setMaxCompletedStep(newMaxCompletedStep);
-       if (currentId) { 
+       if (currentId) {
          router.replace(`/analisis?id=${currentId}&step=${newStep}`, { scroll: false });
        }
     }
@@ -638,10 +649,10 @@ export default function RCAAnalysisPage() {
     setStep(newStep);
     if (analysisDocumentId) {
       router.replace(`/analisis?id=${analysisDocumentId}&step=${newStep}`, { scroll: false });
-    } else if (step === 1) { 
+    } else if (step === 1) {
        const currentIdParam = searchParams.get('id');
-       if (currentIdParam) router.replace(`/analisis?id=${currentIdParam}`, { scroll: false }); 
-       else router.replace('/analisis', { scroll: false }); 
+       if (currentIdParam) router.replace(`/analisis?id=${currentIdParam}`, { scroll: false });
+       else router.replace('/analisis', { scroll: false });
     }
   };
 
@@ -650,7 +661,7 @@ export default function RCAAnalysisPage() {
   };
 
   const handleAddImmediateAction = () => {
-    const tempEventId = eventData.id || ensureEventId(); 
+    const tempEventId = eventData.id || ensureEventId();
     const newActionId = `${tempEventId}-IMA-${String(immediateActionCounter).padStart(3, '0')}`;
     setImmediateActions(prev => [...prev, { id: newActionId, eventId: tempEventId, description: '', responsible: '', dueDate: '' }]);
     setImmediateActionCounter(prev => prev + 1);
@@ -695,17 +706,17 @@ export default function RCAAnalysisPage() {
 
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);
-    setAnalysisTechniqueNotes(''); 
+    setAnalysisTechniqueNotes('');
     if (value === 'Ishikawa') {
-      setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData))); 
+      setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
     } else if (value === 'WhyWhy') {
       const newFiveWhysData = JSON.parse(JSON.stringify(initialFiveWhysData));
-       if (eventData.focusEventDescription) { 
+       if (eventData.focusEventDescription) {
          newFiveWhysData[0].why = `¿Por qué ocurrió: "${eventData.focusEventDescription.substring(0,70)}${eventData.focusEventDescription.length > 70 ? "..." : ""}"?`;
        }
       setFiveWhysData(newFiveWhysData);
     } else if (value === 'CTM') {
-      setCtmData(JSON.parse(JSON.stringify(initialCTMData))); 
+      setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
     }
   };
 
@@ -801,7 +812,7 @@ export default function RCAAnalysisPage() {
         return v;
       })
     );
-     await handleSaveAnalysisData(false); 
+     await handleSaveAnalysisData(false);
   };
 
   const handlePrintReport = () => {
@@ -813,8 +824,8 @@ export default function RCAAnalysisPage() {
 
   const handleMarkAsFinalized = async () => {
     const currentEventIdUsedForToast = analysisDocumentId || eventData.id;
-    setIsSaving(true); 
-    const currentId = analysisDocumentId || ensureEventId(); 
+    setIsSaving(true);
+    const currentId = analysisDocumentId || ensureEventId();
 
     if (!currentId) {
         toast({ title: "Error", description: "No se pudo obtener el ID del análisis para finalizar.", variant: "destructive" });
@@ -822,14 +833,14 @@ export default function RCAAnalysisPage() {
         return;
     }
 
-    setIsFinalized(true); 
+    setIsFinalized(true);
 
-    const success = await handleSaveAnalysisData(false, true, "Finalizado"); 
+    const success = await handleSaveAnalysisData(false, true, "Finalizado");
 
     if (success) {
       toast({ title: "Proceso Finalizado", description: `Análisis ${currentEventIdUsedForToast || currentId} marcado como finalizado y evento reportado actualizado.`, className: "bg-primary text-primary-foreground"});
     } else {
-      setIsFinalized(false); 
+      setIsFinalized(false);
       toast({ title: "Error al Finalizar", description: "No se pudo guardar el estado finalizado del análisis. Intente de nuevo.", variant: "destructive" });
     }
     setIsSaving(false);
@@ -841,7 +852,7 @@ export default function RCAAnalysisPage() {
       setMaxCompletedStep(step -1);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+  }, []);
 
   const canCurrentUserReject = useMemo(() => {
     if (!currentSimulatedUser) return false;
@@ -996,7 +1007,12 @@ export default function RCAAnalysisPage() {
           isSaving={isSaving}
         />
       )}
-      <AlertDialog open={isRejectConfirmOpen} onOpenChange={(open) => { if(!isSaving) { setIsRejectConfirmOpen(open); if (!open) setRejectionReason('');}}}>
+      <AlertDialog open={isRejectConfirmOpen} onOpenChange={(open) => {
+        if(!isSaving) {
+          setIsRejectConfirmOpen(open);
+          if (!open) setRejectionReason(''); // Limpiar motivo si se cierra el diálogo (Cancelar/Esc)
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Rechazo de Evento</AlertDialogTitle>
@@ -1016,11 +1032,21 @@ export default function RCAAnalysisPage() {
             />
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => { setIsRejectConfirmOpen(false); setRejectionReason(''); }} disabled={isSaving}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleRejectEvent} 
-              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" 
-              disabled={isSaving || !rejectionReason.trim()}
+            <AlertDialogCancel
+              onClick={() => {
+                // No es necesario setIsRejectConfirmOpen(false) explícitamente aquí porque onOpenChange lo hará
+                if (!isSaving) {
+                  setRejectionReason('');
+                }
+              }}
+              disabled={isSaving}
+            >
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRejectEvent}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              disabled={isSaving || !rejectionReason.trim()} // Deshabilitar si está guardando o el motivo está vacío/solo espacios
             >
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sí, Rechazar Evento"}
             </AlertDialogAction>
@@ -1030,3 +1056,5 @@ export default function RCAAnalysisPage() {
     </>
   );
 }
+
+    
