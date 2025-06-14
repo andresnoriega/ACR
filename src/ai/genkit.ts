@@ -1,5 +1,5 @@
 
-import genkit from 'genkit'; // Changed to default import
+import genkitModule from 'genkit'; // Changed to default import, renamed for clarity
 import type { GenkitConfig } from 'genkit'; // Type import remains named
 
 // Define Genkit configuration
@@ -22,6 +22,7 @@ const genkitConfig: GenkitConfig = {
 };
 
 // Initialize Genkit with the configuration
-const ai = genkit(genkitConfig);
+// Attempt to call 'genkit' as a property of the default imported module
+const ai = genkitModule.genkit(genkitConfig);
 
 export {ai, genkitConfig};
