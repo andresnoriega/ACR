@@ -179,6 +179,12 @@ export interface Site {
   description?: string;
 }
 
+export interface RejectionDetails {
+  reason: string;
+  rejectedBy: string;
+  rejectedAt: string; // ISO string
+}
+
 // Document structure for an RCA Analysis in Firestore
 export interface RCAAnalysisDocument {
   // From Step 1
@@ -202,6 +208,7 @@ export interface RCAAnalysisDocument {
   // From Step 5
   finalComments: string;
   isFinalized: boolean;
+  rejectionDetails?: RejectionDetails; // Nuevo campo
   // Metadata
   createdAt: string; // ISO string
   updatedAt: string; // ISO string

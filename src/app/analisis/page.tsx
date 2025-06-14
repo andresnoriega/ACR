@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -17,6 +17,8 @@ import { Loader2 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { sanitizeForFirestore } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
 const initialIshikawaData: IshikawaData = [
   { id: 'manpower', name: 'Mano de Obra', causes: [] },
@@ -59,6 +61,7 @@ const initialRCAAnalysisState: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedA
   validations: [],
   finalComments: '',
   isFinalized: false,
+  rejectionDetails: undefined,
 };
 
 
@@ -84,7 +87,7 @@ export default function RCAAnalysisPage() {
   const [immediateActionCounter, setImmediateActionCounter] = useState(1);
 
   const [projectLeader, setProjectLeader] = useState(initialRCAAnalysisState.projectLeader);
-  const [currentSimulatedUser, setCurrentSimulatedUser] = useState<string | null>(null); // Used in Step 4 & Step 1 for reject
+  const [currentSimulatedUser, setCurrentSimulatedUser] = useState<string | null>(null);
   const [detailedFacts, setDetailedFacts] = useState<DetailedFacts>(initialRCAAnalysisState.detailedFacts);
   const [analysisDetails, setAnalysisDetails] = useState(initialRCAAnalysisState.analysisDetails);
   const [preservedFacts, setPreservedFacts] = useState<PreservedFact[]>(initialRCAAnalysisState.preservedFacts);
@@ -104,7 +107,9 @@ export default function RCAAnalysisPage() {
   const [isFinalized, setIsFinalized] = useState(initialRCAAnalysisState.isFinalized);
   const [analysisDocumentId, setAnalysisDocumentId] = useState<string | null>(null);
   const [isRejectConfirmOpen, setIsRejectConfirmOpen] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
   const [currentEventStatus, setCurrentEventStatus] = useState<ReportedEventStatus>('Pendiente');
+  const [rejectionDetails, setRejectionDetails] = useState<RejectionDetails | undefined>(initialRCAAnalysisState.rejectionDetails);
 
 
   const loadAnalysisData = useCallback(async (id: string): Promise<boolean> => {
@@ -113,12 +118,12 @@ export default function RCAAnalysisPage() {
       const analysisDocRef = doc(db, "rcaAnalyses", id);
       const docSnap = await getDoc(analysisDocRef);
       
-      const reportedEventRef = doc(db, "reportedEvents", id); // Also load reported event for status
+      const reportedEventRef = doc(db, "reportedEvents", id); 
       const reportedEventSnap = await getDoc(reportedEventRef);
       if (reportedEventSnap.exists()) {
         setCurrentEventStatus(reportedEventSnap.data().status as ReportedEventStatus);
       } else {
-        setCurrentEventStatus('Pendiente'); // Default if no reported event found yet
+        setCurrentEventStatus('Pendiente'); 
       }
 
 
@@ -180,6 +185,7 @@ export default function RCAAnalysisPage() {
         setValidations(data.validations || []);
         setFinalComments(data.finalComments || '');
         setIsFinalized(data.isFinalized || false);
+        setRejectionDetails(data.rejectionDetails);
         setAnalysisDocumentId(id);
         
         if (lastLoadedAnalysisIdRef.current !== id) {
@@ -208,6 +214,7 @@ export default function RCAAnalysisPage() {
         setValidations(initialRCAAnalysisState.validations);
         setFinalComments(initialRCAAnalysisState.finalComments);
         setIsFinalized(initialRCAAnalysisState.isFinalized);
+        setRejectionDetails(initialRCAAnalysisState.rejectionDetails);
         setAnalysisDocumentId(null);
         setMaxCompletedStep(0);
         setCurrentEventStatus('Pendiente');
@@ -236,6 +243,7 @@ export default function RCAAnalysisPage() {
         setValidations(initialRCAAnalysisState.validations);
         setFinalComments(initialRCAAnalysisState.finalComments);
         setIsFinalized(initialRCAAnalysisState.isFinalized);
+        setRejectionDetails(initialRCAAnalysisState.rejectionDetails);
         setCurrentEventStatus('Pendiente');
         setAnalysisDocumentId(null);
         setMaxCompletedStep(0);
@@ -297,6 +305,7 @@ export default function RCAAnalysisPage() {
             setValidations(initialRCAAnalysisState.validations);
             setFinalComments(initialRCAAnalysisState.finalComments);
             setIsFinalized(initialRCAAnalysisState.isFinalized);
+            setRejectionDetails(initialRCAAnalysisState.rejectionDetails);
             setCurrentEventStatus('Pendiente');
             setAnalysisDocumentId(null);
             setMaxCompletedStep(0);
@@ -327,7 +336,7 @@ export default function RCAAnalysisPage() {
         const usersSnapshot = await getDocs(usersQuery);
         const usersData = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FullUserProfile));
         setAvailableUsersFromDB(usersData);
-        // Set a default simulated user if none is set, e.g., the first admin or first user
+
         if (!currentSimulatedUser && usersData.length > 0) {
             const adminUser = usersData.find(u => u.role === 'Admin');
             setCurrentSimulatedUser(adminUser ? adminUser.name : usersData[0].name);
@@ -358,7 +367,13 @@ export default function RCAAnalysisPage() {
     return eventData.id;
   }, [eventData.id, eventCounter, analysisDocumentId, router]);
 
- const handleSaveAnalysisData = async (showToast: boolean = true, finalizedOverride?: boolean, statusOverride?: ReportedEventStatus): Promise<boolean> => {
+ const handleSaveAnalysisData = async (
+    showToast: boolean = true, 
+    finalizedOverride?: boolean, 
+    statusOverride?: ReportedEventStatus,
+    currentRejectionReason?: string, 
+    rejectedByUserName?: string | null 
+  ): Promise<boolean> => {
     const currentId = analysisDocumentId || ensureEventId();
     if (!currentId) {
       if (showToast) toast({ title: "Error Crítico", description: "No se pudo obtener o generar un ID para el análisis.", variant: "destructive" });
@@ -369,27 +384,39 @@ export default function RCAAnalysisPage() {
     const currentIsFinalized = finalizedOverride !== undefined ? finalizedOverride : isFinalized;
     const consistentEventData = { ...eventData, id: currentId };
 
-    const analysisDocPayload: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedAt' | 'createdBy'> = {
+    const rcaDocPayload: Partial<RCAAnalysisDocument> = {
       eventData: consistentEventData, immediateActions, projectLeader, detailedFacts, analysisDetails,
       preservedFacts, analysisTechnique, analysisTechniqueNotes, ishikawaData,
       fiveWhysData, ctmData, identifiedRootCauses, plannedActions,
       validations, finalComments, isFinalized: currentIsFinalized,
     };
 
+    if (statusOverride === "Rechazado" && currentRejectionReason) {
+      rcaDocPayload.rejectionDetails = {
+        reason: currentRejectionReason,
+        rejectedBy: rejectedByUserName || "Usuario desconocido",
+        rejectedAt: new Date().toISOString(),
+      };
+    }
+
+
     try {
       const rcaDocRef = doc(db, "rcaAnalyses", currentId);
       const rcaDocSnap = await getDoc(rcaDocRef);
       
       let finalCommentsToSave = finalComments;
-      if (statusOverride === "Rechazado" && !finalCommentsToSave.includes("Evento Rechazado")) {
-          const simulatedUser = availableUsersFromDB.find(u => u.name === currentSimulatedUser);
-          const rejecterName = simulatedUser ? simulatedUser.name : "Usuario desconocido";
-          finalCommentsToSave = `Evento Rechazado por ${rejecterName} el ${new Date().toLocaleDateString('es-CL')}. ${finalCommentsToSave ? `\nComentarios adicionales: ${finalCommentsToSave}` : ''}`;
+      if (statusOverride === "Rechazado") {
+          const rejecterName = rejectedByUserName || (availableUsersFromDB.find(u => u.name === currentSimulatedUser)?.name || "Usuario desconocido");
+          let baseRejectMsg = `Evento Rechazado por ${rejecterName} el ${new Date().toLocaleDateString('es-CL')}.`;
+          if (currentRejectionReason) {
+            baseRejectMsg += `\nMotivo: ${currentRejectionReason}`;
+          }
+          finalCommentsToSave = `${baseRejectMsg}${finalCommentsToSave ? `\nComentarios adicionales previos: ${finalCommentsToSave}` : ''}`;
       }
 
 
       const dataToSave: RCAAnalysisDocument = {
-        ...(analysisDocPayload as RCAAnalysisDocument), 
+        ...(rcaDocPayload as Omit<RCAAnalysisDocument, 'createdAt' | 'updatedAt' | 'createdBy'>), 
         finalComments: finalCommentsToSave,
         updatedAt: new Date().toISOString(),
         createdAt: rcaDocSnap.exists() && rcaDocSnap.data().createdAt ? rcaDocSnap.data().createdAt : new Date().toISOString(),
@@ -409,6 +436,9 @@ export default function RCAAnalysisPage() {
       }
       if (finalizedOverride !== undefined && isFinalized !== finalizedOverride) {
         setIsFinalized(finalizedOverride);
+      }
+      if (statusOverride === "Rechazado" && rcaDocPayload.rejectionDetails) {
+        setRejectionDetails(rcaDocPayload.rejectionDetails);
       }
 
 
@@ -521,13 +551,17 @@ export default function RCAAnalysisPage() {
       setIsRejectConfirmOpen(false);
       return;
     }
+    if (!rejectionReason.trim()) {
+        toast({ title: "Motivo Requerido", description: "Por favor, ingrese un motivo para el rechazo.", variant: "destructive" });
+        return; 
+    }
+
     setIsSaving(true);
-    setIsRejectConfirmOpen(false);
-    const success = await handleSaveAnalysisData(false, true, "Rechazado");
+    setIsRejectConfirmOpen(false); 
+    const success = await handleSaveAnalysisData(false, true, "Rechazado", rejectionReason, currentSimulatedUser);
     if (success) {
       toast({ title: "Evento Rechazado", description: `El evento ${analysisDocumentId} ha sido marcado como rechazado.` });
-      // Optionally, navigate away or reset the form if a rejected event shouldn't be editable.
-      // For now, it stays on the page, but the status is updated.
+      setRejectionReason(''); 
     } else {
       toast({ title: "Error al Rechazar", description: "No se pudo actualizar el estado del evento.", variant: "destructive" });
     }
@@ -567,7 +601,6 @@ export default function RCAAnalysisPage() {
     } else if (step === 3) {
       saveSuccess = await handleSaveAnalysisData(false);
     } else if (step === 4) {
-        // Validation for all planned actions being validated before proceeding from Step 4
         if (plannedActions.length > 0) {
             const allValidated = plannedActions.every(pa => {
                 if (!pa || !pa.id) return true; 
@@ -581,11 +614,11 @@ export default function RCAAnalysisPage() {
                     description: "Todas las acciones planificadas deben estar validadas para continuar al Paso 5.",
                     variant: "destructive",
                 });
-                return; // Prevent moving to next step
+                return;
             }
         }
-        saveSuccess = await handleSaveAnalysisData(false); // Save if all validated or no actions
-    } else { // Step 5 or other (no specific save tied to next step action)
+        saveSuccess = await handleSaveAnalysisData(false);
+    } else { 
       saveSuccess = true; 
     }
 
@@ -963,18 +996,32 @@ export default function RCAAnalysisPage() {
           isSaving={isSaving}
         />
       )}
-      <AlertDialog open={isRejectConfirmOpen} onOpenChange={setIsRejectConfirmOpen}>
+      <AlertDialog open={isRejectConfirmOpen} onOpenChange={(open) => { if(!isSaving) { setIsRejectConfirmOpen(open); if (!open) setRejectionReason('');}}}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Rechazo de Evento</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Está seguro de que desea rechazar este evento (ID: {analysisDocumentId || 'N/A'})? 
-              Esta acción marcará el evento como rechazado y finalizado. No podrá ser modificado posteriormente.
+              ID Evento: {analysisDocumentId || 'N/A'}. Esta acción marcará el evento como rechazado y finalizado. No podrá ser modificado posteriormente.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-2 my-4">
+            <Label htmlFor="rejectionReasonDialog">Motivo del Rechazo <span className="text-destructive">*</span></Label>
+            <Textarea
+              id="rejectionReasonDialog"
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder="Explique por qué se rechaza este evento..."
+              rows={3}
+              disabled={isSaving}
+            />
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setIsRejectConfirmOpen(false)} disabled={isSaving}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRejectEvent} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" disabled={isSaving}>
+            <AlertDialogCancel onClick={() => { setIsRejectConfirmOpen(false); setRejectionReason(''); }} disabled={isSaving}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleRejectEvent} 
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" 
+              disabled={isSaving || !rejectionReason.trim()}
+            >
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sí, Rechazar Evento"}
             </AlertDialogAction>
           </AlertDialogFooter>
