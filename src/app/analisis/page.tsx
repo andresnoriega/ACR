@@ -109,6 +109,12 @@ export default function RCAAnalysisPage() {
     try {
       const analysisDocRef = doc(db, "rcaAnalyses", id);
       const docSnap = await getDoc(analysisDocRef);
+       if (id === "E-98817-001" || id === "E-68445-001") { 
+         console.log(`[AnalisisPage loadAnalysisData for ${id}] Fetched data from Firestore:`, JSON.parse(JSON.stringify(docSnap.data())));
+         if (docSnap.exists()) {
+            console.log(`[AnalisisPage loadAnalysisData for ${id}] Fetched plannedActions from Firestore:`, JSON.parse(JSON.stringify(docSnap.data().plannedActions || [])));
+         }
+       }
 
       if (docSnap.exists()) {
         const data = docSnap.data() as RCAAnalysisDocument;
@@ -146,7 +152,7 @@ export default function RCAAnalysisPage() {
         setIdentifiedRootCauses(data.identifiedRootCauses || []);
 
         const loadedPlannedActions = data.plannedActions || [];
-        setPlannedActions(loadedPlannedActions); // This is where plannedActions state is updated
+        setPlannedActions(loadedPlannedActions); 
         if (loadedPlannedActions.length > 0) {
             let maxCounter = 0;
             loadedPlannedActions.forEach(pa => {
@@ -169,16 +175,15 @@ export default function RCAAnalysisPage() {
         setFinalComments(data.finalComments || '');
         setIsFinalized(data.isFinalized || false);
         setAnalysisDocumentId(id);
-        // Only toast if it's a genuinely new load, not just a step change or refresh of same ID
+        
         if (lastLoadedAnalysisIdRef.current !== id) {
             toast({ title: "Análisis Cargado", description: `Se cargó el análisis ID: ${id}` });
         }
         lastLoadedAnalysisIdRef.current = id;
-        setMaxCompletedStep(prevMax => Math.max(prevMax, data.isFinalized ? 5 : (data.validations?.length > 0 ? 4 : (data.identifiedRootCauses?.length > 0 ? 3 : (data.projectLeader ? 2 : 1)))));
+        setMaxCompletedStep(prevMax => Math.max(prevMax, data.isFinalized ? 5 : (data.validations?.length > 0 && data.plannedActions?.every(pa => data.validations.find(v => v.actionId === pa.id)?.status === 'validated') ? 4 : (data.identifiedRootCauses?.length > 0 ? 3 : (data.projectLeader ? 2 : 1)))));
         return true;
       } else {
         toast({ title: "Análisis No Encontrado", description: `No se encontró un análisis con ID: ${id}. Iniciando nuevo análisis.`, variant: "destructive" });
-        // Reset all state fields to initial values
         setEventData(initialRCAAnalysisState.eventData);
         setImmediateActions(initialRCAAnalysisState.immediateActions);
         setImmediateActionCounter(1);
@@ -231,7 +236,7 @@ export default function RCAAnalysisPage() {
         setIsLoadingPage(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast, router]); // lastLoadedAnalysisIdRef removed from deps, managed inside
+  }, [toast, router]); 
 
   const analysisIdFromParams = useMemo(() => searchParams.get('id'), [searchParams]);
 
@@ -241,26 +246,20 @@ export default function RCAAnalysisPage() {
     const previousLoadedId = lastLoadedAnalysisIdRef.current;
 
     if (currentId) {
-        setIsLoadingPage(true); // Always indicate loading when currentId is present
+        setIsLoadingPage(true); 
         loadAnalysisData(currentId).then(success => {
             if (success) {
                 if (stepParam) {
                     const targetStep = parseInt(stepParam, 10);
                     if (targetStep >= 1 && targetStep <= 5) {
                         setStep(targetStep);
-                        // maxCompletedStep is now set within loadAnalysisData based on fetched data
                     }
                 } else if (previousLoadedId === currentId) {
-                    // If ID hasn't changed and no step param, likely a refresh or navigation back.
-                    // Keep current step, or default to 1 if somehow step is invalid.
                     setStep(prevStep => (prevStep >= 1 && prevStep <= 5 ? prevStep : 1));
                 } else {
-                    setStep(1); // Default to step 1 for newly loaded analysis
+                    setStep(1); 
                 }
-            } else { // Load failed
-                // Reset handled within loadAnalysisData on failure to find doc
-                // If it was a new ID that failed, it routes to /analisis (new)
-                // If it was an existing ID attempt that failed critically (e.g. firestore error), reset state
+            } else { 
                 if (currentId !== previousLoadedId) {
                     setStep(1);
                     setMaxCompletedStep(0);
@@ -269,9 +268,9 @@ export default function RCAAnalysisPage() {
         }).finally(() => {
             setIsLoadingPage(false);
         });
-    } else { // No ID in params, reset everything for a new analysis
+    } else { 
         if (lastLoadedAnalysisIdRef.current !== null) {
-            setIsLoadingPage(true); // Show loader briefly for reset
+            setIsLoadingPage(true); 
             setEventData(initialRCAAnalysisState.eventData);
             setImmediateActions(initialRCAAnalysisState.immediateActions);
             setImmediateActionCounter(1);
@@ -297,12 +296,12 @@ export default function RCAAnalysisPage() {
             setIsLoadingPage(false);
         } else {
              setIsLoadingPage(false);
-             setStep(1); // Ensure step is 1 for new analysis
+             setStep(1); 
              setMaxCompletedStep(0);
         }
     }
 // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [analysisIdFromParams, searchParams]); // loadAnalysisData and router removed as they are stable or handled
+}, [analysisIdFromParams, searchParams]); 
 
 
   useEffect(() => {
@@ -334,11 +333,11 @@ export default function RCAAnalysisPage() {
       const newEventID = `E-${String(Date.now()).slice(-5)}-${String(eventCounter).padStart(3, '0')}`;
       setEventData(prev => ({ ...prev, id: newEventID }));
       setEventCounter(prev => prev + 1);
-      setAnalysisDocumentId(newEventID); // Also set the main document ID state
-      router.replace(`/analisis?id=${newEventID}`, { scroll: false }); // Update URL immediately
+      setAnalysisDocumentId(newEventID); 
+      router.replace(`/analisis?id=${newEventID}`, { scroll: false }); 
       return newEventID;
     }
-    if (!analysisDocumentId && eventData.id) { // Sync if eventData.id exists but analysisDocumentId is null
+    if (!analysisDocumentId && eventData.id) { 
         setAnalysisDocumentId(eventData.id);
     }
     return eventData.id;
@@ -353,8 +352,6 @@ export default function RCAAnalysisPage() {
 
     setIsSaving(true);
     const currentIsFinalized = finalizedOverride !== undefined ? finalizedOverride : isFinalized;
-
-    // Ensure eventData.id is consistent with the document ID before saving
     const consistentEventData = { ...eventData, id: currentId };
 
     const analysisDocPayload: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedAt' | 'createdBy'> = {
@@ -392,16 +389,19 @@ export default function RCAAnalysisPage() {
         statusForReportedEvent = "Finalizado";
       } else if (reportedEventSnap.exists()) {
         statusForReportedEvent = reportedEventSnap.data().status;
-         // If all actions are validated, status should be 'En validación'
-        const rcaData = sanitizedDataToSave; // use the data we are saving
+        const rcaData = sanitizedDataToSave; 
         if (rcaData.plannedActions && rcaData.plannedActions.length > 0) {
-            const allValidated = rcaData.plannedActions.every(pa => {
+            const allActionsValidatedInSave = rcaData.plannedActions.every(pa => {
                 const validationEntry = rcaData.validations.find(v => v.actionId === pa.id);
                 return validationEntry && validationEntry.status === 'validated';
             });
-            if (allValidated) {
+            if (allActionsValidatedInSave) {
                 statusForReportedEvent = "En validación";
+            } else if (statusForReportedEvent === "Pendiente" && (rcaData.projectLeader || rcaData.identifiedRootCauses?.length > 0)) {
+                 statusForReportedEvent = "En análisis";
             }
+        } else if (statusForReportedEvent === "Pendiente" && (rcaData.projectLeader || rcaData.identifiedRootCauses?.length > 0)) {
+            statusForReportedEvent = "En análisis";
         }
 
       } else {
@@ -512,8 +512,25 @@ export default function RCAAnalysisPage() {
     } else if (step === 3) {
       saveSuccess = await handleSaveAnalysisData(false);
     } else if (step === 4) {
-        saveSuccess = await handleSaveAnalysisData(false);
-    } else {
+        // Validation for all planned actions being validated before proceeding from Step 4
+        if (plannedActions.length > 0) {
+            const allValidated = plannedActions.every(pa => {
+                if (!pa || !pa.id) return true; 
+                const validationEntry = validations.find(v => v && v.actionId === pa.id);
+                return validationEntry && validationEntry.status === 'validated';
+            });
+
+            if (!allValidated) {
+                toast({
+                    title: "Acciones Pendientes",
+                    description: "Todas las acciones planificadas deben estar validadas para continuar al Paso 5.",
+                    variant: "destructive",
+                });
+                return; // Prevent moving to next step
+            }
+        }
+        saveSuccess = await handleSaveAnalysisData(false); // Save if all validated or no actions
+    } else { // Step 5 or other (no specific save tied to next step action)
       saveSuccess = true; 
     }
 
