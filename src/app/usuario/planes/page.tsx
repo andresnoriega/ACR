@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { ListTodo, FileText, ImageIcon, Paperclip, UploadCloud, CheckCircle2, Save, Info, MessageSquare, UserCog, Loader2, CalendarCheck, History, Trash2, Mail } from 'lucide-react';
+import { ListTodo, FileText, ImageIcon, Paperclip, UploadCloud, CheckCircle2, Save, Info, MessageSquare, UserCog, Loader2, CalendarCheck, History, Trash2, Mail, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
@@ -44,6 +44,13 @@ interface ActionPlan {
   _originalActionId: string;
 }
 
+type SortableActionPlanKey = 'accionResumen' | 'id' | 'estado' | 'plazoLimite' | 'validatorName' | 'codigoRCA';
+
+interface SortConfig {
+  key: SortableActionPlanKey | null;
+  direction: 'ascending' | 'descending';
+}
+
 const NONE_USER_VALUE = "--NONE--";
 
 export default function UserActionPlansPage() {
@@ -59,6 +66,8 @@ export default function UserActionPlansPage() {
   const [selectedPlan, setSelectedPlan] = useState<ActionPlan | null>(null);
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
   const [evidenceComment, setEvidenceComment] = useState('');
+  
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'plazoLimite', direction: 'ascending' });
 
   const fetchUsers = useCallback(async () => {
     setIsLoadingUsers(true);
@@ -161,16 +170,60 @@ export default function UserActionPlansPage() {
         });
       }
     });
-    return plans.sort((a, b) => {
-      const dateA = a.plazoLimite !== 'N/A' ? parseISO(a.plazoLimite.split('/').reverse().join('-')) : null;
-      const dateB = b.plazoLimite !== 'N/A' ? parseISO(b.plazoLimite.split('/').reverse().join('-')) : null;
-      if (dateA && dateB) {
-        if (dateA.getTime() !== dateB.getTime()) return dateA.getTime() - dateB.getTime();
-      } else if (dateA) return -1;
-      else if (dateB) return 1;
-      return a.tituloDetalle.localeCompare(b.tituloDetalle);
-    });
+    return plans;
   }, [selectedSimulatedUserName, allRcaDocuments]);
+
+  const requestSort = (key: SortableActionPlanKey) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedActionPlans = useMemo(() => {
+    let sortableItems = [...currentUserActionPlans];
+    if (sortConfig.key) {
+      sortableItems.sort((a, b) => {
+        const valA = a[sortConfig.key!];
+        const valB = b[sortConfig.key!];
+  
+        if (sortConfig.key === 'plazoLimite') {
+          const dateAStr = String(valA);
+          const dateBStr = String(valB);
+          const dateA = dateAStr === 'N/A' ? null : parseISO(dateAStr.split('/').reverse().join('-'));
+          const dateB = dateBStr === 'N/A' ? null : parseISO(dateBStr.split('/').reverse().join('-'));
+  
+          if (dateA === null && dateB === null) return 0;
+          if (dateA === null) return 1; 
+          if (dateB === null) return -1;
+          if (isValidDate(dateA) && isValidDate(dateB)) {
+            return dateA.getTime() - dateB.getTime();
+          }
+          return 0;
+        }
+  
+        if (typeof valA === 'string' && typeof valB === 'string') {
+          return valA.localeCompare(valB);
+        }
+        if (typeof valA === 'number' && typeof valB === 'number') { // Should not happen with current keys
+          return valA - valB;
+        }
+        
+        // Fallback for undefined (e.g. validatorName) or other types
+        const strA = String(valA ?? '').toLowerCase();
+        const strB = String(valB ?? '').toLowerCase();
+        if (strA < strB) return -1;
+        if (strA > strB) return 1;
+        return 0;
+      });
+  
+      if (sortConfig.direction === 'descending') {
+        sortableItems.reverse();
+      }
+    }
+    return sortableItems;
+  }, [currentUserActionPlans, sortConfig]);
 
 
   const summary = useMemo(() => {
@@ -434,6 +487,12 @@ export default function UserActionPlansPage() {
   const isLoading = isLoadingUsers || isLoadingActions;
   const validUsersForSelect = useMemo(() => availableUsers.filter(user => user.name && user.name.trim() !== ""), [availableUsers]);
 
+  const renderSortIcon = (columnKey: SortableActionPlanKey) => {
+    if (sortConfig.key === columnKey) {
+      return sortConfig.direction === 'ascending' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+    }
+    return <ChevronsUpDown className="h-3 w-3 opacity-30" />;
+  };
 
   return (
     <div className="space-y-6 py-8">
@@ -522,23 +581,37 @@ export default function UserActionPlansPage() {
             </div>
           ) : !selectedSimulatedUserName ? (
             <p className="text-center text-muted-foreground py-10">Por favor, seleccione un usuario para ver sus tareas asignadas.</p>
+          ) : sortedActionPlans.length === 0 && currentUserActionPlans.length > 0 ? (
+            <p className="text-center text-muted-foreground py-10">No hay planes de acción que coincidan con los criterios de ordenamiento actuales (aunque existen para el usuario).</p>
           ) : currentUserActionPlans.length === 0 ? (
-            <p className="text-center text-muted-foreground py-10">No hay planes de acción asignados a {selectedSimulatedUserName}.</p>
+             <p className="text-center text-muted-foreground py-10">No hay planes de acción asignados a {selectedSimulatedUserName}.</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[20%]">Acción (Resumen)</TableHead>
-                    <TableHead className="w-[15%]">ID Acción</TableHead>
-                    <TableHead className="w-[15%]">Estado</TableHead>
-                    <TableHead className="w-[15%]">Plazo Límite</TableHead>
-                    <TableHead className="w-[15%]">Validador</TableHead>
-                    <TableHead className="w-[15%]">ID RCA</TableHead>
+                    <TableHead className="w-[20%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSort('accionResumen')}>
+                      <div className="flex items-center gap-1">Acción (Resumen) {renderSortIcon('accionResumen')}</div>
+                    </TableHead>
+                    <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSort('id')}>
+                      <div className="flex items-center gap-1">ID Acción {renderSortIcon('id')}</div>
+                    </TableHead>
+                    <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSort('estado')}>
+                      <div className="flex items-center gap-1">Estado {renderSortIcon('estado')}</div>
+                    </TableHead>
+                    <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSort('plazoLimite')}>
+                      <div className="flex items-center gap-1">Plazo Límite {renderSortIcon('plazoLimite')}</div>
+                    </TableHead>
+                    <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSort('validatorName')}>
+                      <div className="flex items-center gap-1">Validador {renderSortIcon('validatorName')}</div>
+                    </TableHead>
+                    <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSort('codigoRCA')}>
+                      <div className="flex items-center gap-1">ID RCA {renderSortIcon('codigoRCA')}</div>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {currentUserActionPlans.map((plan) => (
+                  {sortedActionPlans.map((plan) => (
                     <TableRow
                       key={`${plan._originalRcaDocId}-${plan.id}`}
                       onClick={() => handleSelectPlan(plan)}
