@@ -11,11 +11,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save } from 'lucide-react';
+import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Wand2 } from 'lucide-react'; // Added Wand2
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
 import { sendEmailAction } from '@/app/actions';
+import { generateRcaInsights, type GenerateRcaInsightsInput } from '@/ai/flows/generate-rca-insights'; // AI Flow
 
 interface Step5ResultsProps {
   eventId: string;
@@ -80,6 +81,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   const [emailSearchTerm, setEmailSearchTerm] = useState('');
   const [isSendingEmails, setIsSendingEmails] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
+  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false); // AI State
 
   const uniquePlannedActions = useMemo(() => {
     if (!Array.isArray(plannedActions)) {
@@ -93,7 +95,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
         return false;
       }
       if (seenIds.has(action.id)) {
-        // console.warn(`Step5Results: Filtered out a duplicate planned action with ID: ${action.id}`);
         return false;
       }
       seenIds.add(action.id);
@@ -172,7 +173,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
       report += `  No se han definido causas raíz específicas.\n`;
     }
     report += `\nACCIONES RECOMENDADAS (PLAN DE ACCIÓN):\n`;
-    if (uniquePlannedActions.length > 0) { // Use uniquePlannedActions here
+    if (uniquePlannedActions.length > 0) { 
       uniquePlannedActions.forEach(action => {
         report += `  - Acción: ${action.description}\n`;
         report += `    Responsable: ${action.responsible || 'N/A'} | Fecha Límite: ${action.dueDate || 'N/A'}\n`;
@@ -188,6 +189,40 @@ export const Step5Results: FC<Step5ResultsProps> = ({
       report += `  No se han definido acciones planificadas.\n`;
     }
     return report;
+  };
+
+  const handleGenerateInsights = async () => {
+    setIsGeneratingInsights(true);
+    try {
+      const factsSummary = formatDetailedFacts();
+      const rootCauses = identifiedRootCauses.map(rc => rc.description).filter(desc => desc.trim() !== '');
+      const actionsSummary = uniquePlannedActions.map(pa => pa.description).filter(desc => desc.trim() !== '');
+
+      const input: GenerateRcaInsightsInput = {
+        focusEventDescription: eventData.focusEventDescription || "No especificado",
+        detailedFactsSummary: factsSummary,
+        analysisTechnique: analysisTechnique || undefined,
+        analysisTechniqueNotes: analysisTechniqueNotes || undefined,
+        identifiedRootCauses: rootCauses.length > 0 ? rootCauses : ["No se identificaron causas raíz específicas."],
+        plannedActionsSummary: actionsSummary.length > 0 ? actionsSummary : ["No se definieron acciones planificadas específicas."],
+      };
+
+      const result = await generateRcaInsights(input);
+      onFinalCommentsChange(result.summary);
+      toast({
+        title: "Resumen Generado con IA",
+        description: "El borrador del resumen ha sido insertado en 'Comentarios Finales'. Por favor, revíselo y edítelo según sea necesario.",
+      });
+    } catch (error) {
+      console.error("Error generating RCA insights:", error);
+      toast({
+        title: "Error al Generar Resumen con IA",
+        description: (error as Error).message || "No se pudo generar el resumen. Inténtelo de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingInsights(false);
+    }
   };
 
   const handleOpenEmailDialog = () => {
@@ -265,7 +300,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     await onSaveAnalysis();
   };
 
-  const isBusy = isSaving || isSendingEmails || isFinalizing;
+  const isBusy = isSaving || isSendingEmails || isFinalizing || isGeneratingInsights;
 
   return (
     <>
@@ -284,13 +319,27 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           </section>
 
           <section>
-            <SectionTitle title="Introducción / Comentarios Finales" icon={BarChart3}/>
+            <div className="flex justify-between items-center mb-2">
+              <SectionTitle title="Introducción / Comentarios Finales" icon={BarChart3} className="mb-0"/>
+              {!isFinalized && (
+                <Button 
+                  onClick={handleGenerateInsights} 
+                  size="sm" 
+                  variant="outline" 
+                  disabled={isBusy}
+                  className="ml-auto"
+                >
+                  {isGeneratingInsights ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                  Generar Borrador con IA
+                </Button>
+              )}
+            </div>
             <Textarea
               id="finalComments"
               value={finalComments}
               onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onFinalCommentsChange(e.target.value)}
               placeholder="Escriba aquí la introducción, resumen ejecutivo o comentarios finales del análisis..."
-              rows={5}
+              rows={8}
               className="text-sm"
               disabled={isFinalized || isBusy}
             />
@@ -375,7 +424,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                 <>
                   <p className="font-medium mb-1">Plan de Acción Definido:</p>
                   <ul className="list-none pl-0 space-y-2">
-                    {uniquePlannedActions.map(action => ( // Use uniquePlannedActions here
+                    {uniquePlannedActions.map(action => ( 
                       <li key={action.id} className="border-b pb-2 mb-2">
                         <span className="font-semibold">{action.description}</span>
                         <p className="text-xs text-muted-foreground">Responsable: {action.responsible || 'N/A'} | Fecha Límite: {action.dueDate || 'N/A'}</p>
@@ -482,4 +531,3 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     </>
   );
 };
-
