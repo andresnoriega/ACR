@@ -154,7 +154,8 @@ export interface FullUserProfile {
 
 // Types for Eventos Reportados page
 export type ReportedEventType = 'Incidente' | 'Fallo' | 'Accidente' | 'No Conformidad' | '';
-export type ReportedEventStatus = 'Pendiente' | 'En análisis' | 'En validación' | 'Finalizado' | '';
+export type ReportedEventStatus = 'Pendiente' | 'En análisis' | 'En validación' | 'Finalizado' | 'Rechazado' | '';
+
 
 export interface ReportedEvent {
   id: string;
@@ -206,4 +207,3 @@ export interface RCAAnalysisDocument {
   updatedAt: string; // ISO string
   createdBy?: string; // User ID or name
 }
-

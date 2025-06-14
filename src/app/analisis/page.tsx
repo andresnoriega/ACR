@@ -16,6 +16,7 @@ import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, updateDoc } f
 import { Loader2 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { sanitizeForFirestore } from '@/lib/utils';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 const initialIshikawaData: IshikawaData = [
   { id: 'manpower', name: 'Mano de Obra', causes: [] },
@@ -83,7 +84,7 @@ export default function RCAAnalysisPage() {
   const [immediateActionCounter, setImmediateActionCounter] = useState(1);
 
   const [projectLeader, setProjectLeader] = useState(initialRCAAnalysisState.projectLeader);
-  const [currentSimulatedUser, setCurrentSimulatedUser] = useState<string | null>(null);
+  const [currentSimulatedUser, setCurrentSimulatedUser] = useState<string | null>(null); // Used in Step 4 & Step 1 for reject
   const [detailedFacts, setDetailedFacts] = useState<DetailedFacts>(initialRCAAnalysisState.detailedFacts);
   const [analysisDetails, setAnalysisDetails] = useState(initialRCAAnalysisState.analysisDetails);
   const [preservedFacts, setPreservedFacts] = useState<PreservedFact[]>(initialRCAAnalysisState.preservedFacts);
@@ -102,6 +103,8 @@ export default function RCAAnalysisPage() {
   const [finalComments, setFinalComments] = useState(initialRCAAnalysisState.finalComments);
   const [isFinalized, setIsFinalized] = useState(initialRCAAnalysisState.isFinalized);
   const [analysisDocumentId, setAnalysisDocumentId] = useState<string | null>(null);
+  const [isRejectConfirmOpen, setIsRejectConfirmOpen] = useState(false);
+  const [currentEventStatus, setCurrentEventStatus] = useState<ReportedEventStatus>('Pendiente');
 
 
   const loadAnalysisData = useCallback(async (id: string): Promise<boolean> => {
@@ -109,12 +112,15 @@ export default function RCAAnalysisPage() {
     try {
       const analysisDocRef = doc(db, "rcaAnalyses", id);
       const docSnap = await getDoc(analysisDocRef);
-       if (id === "E-98817-001" || id === "E-68445-001") { 
-         console.log(`[AnalisisPage loadAnalysisData for ${id}] Fetched data from Firestore:`, JSON.parse(JSON.stringify(docSnap.data())));
-         if (docSnap.exists()) {
-            console.log(`[AnalisisPage loadAnalysisData for ${id}] Fetched plannedActions from Firestore:`, JSON.parse(JSON.stringify(docSnap.data().plannedActions || [])));
-         }
-       }
+      
+      const reportedEventRef = doc(db, "reportedEvents", id); // Also load reported event for status
+      const reportedEventSnap = await getDoc(reportedEventRef);
+      if (reportedEventSnap.exists()) {
+        setCurrentEventStatus(reportedEventSnap.data().status as ReportedEventStatus);
+      } else {
+        setCurrentEventStatus('Pendiente'); // Default if no reported event found yet
+      }
+
 
       if (docSnap.exists()) {
         const data = docSnap.data() as RCAAnalysisDocument;
@@ -204,6 +210,7 @@ export default function RCAAnalysisPage() {
         setIsFinalized(initialRCAAnalysisState.isFinalized);
         setAnalysisDocumentId(null);
         setMaxCompletedStep(0);
+        setCurrentEventStatus('Pendiente');
         lastLoadedAnalysisIdRef.current = null;
         router.replace('/analisis', { scroll: false });
         return false;
@@ -229,6 +236,7 @@ export default function RCAAnalysisPage() {
         setValidations(initialRCAAnalysisState.validations);
         setFinalComments(initialRCAAnalysisState.finalComments);
         setIsFinalized(initialRCAAnalysisState.isFinalized);
+        setCurrentEventStatus('Pendiente');
         setAnalysisDocumentId(null);
         setMaxCompletedStep(0);
       return false;
@@ -289,6 +297,7 @@ export default function RCAAnalysisPage() {
             setValidations(initialRCAAnalysisState.validations);
             setFinalComments(initialRCAAnalysisState.finalComments);
             setIsFinalized(initialRCAAnalysisState.isFinalized);
+            setCurrentEventStatus('Pendiente');
             setAnalysisDocumentId(null);
             setMaxCompletedStep(0);
             setStep(1);
@@ -318,6 +327,12 @@ export default function RCAAnalysisPage() {
         const usersSnapshot = await getDocs(usersQuery);
         const usersData = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FullUserProfile));
         setAvailableUsersFromDB(usersData);
+        // Set a default simulated user if none is set, e.g., the first admin or first user
+        if (!currentSimulatedUser && usersData.length > 0) {
+            const adminUser = usersData.find(u => u.role === 'Admin');
+            setCurrentSimulatedUser(adminUser ? adminUser.name : usersData[0].name);
+        }
+
 
       } catch (error) {
         console.error("Error fetching config data for RCA Analysis: ", error);
@@ -325,7 +340,7 @@ export default function RCAAnalysisPage() {
       }
     };
     fetchConfigData();
-  }, [toast]);
+  }, [toast, currentSimulatedUser]);
 
 
   const ensureEventId = useCallback((): string => {
@@ -343,7 +358,7 @@ export default function RCAAnalysisPage() {
     return eventData.id;
   }, [eventData.id, eventCounter, analysisDocumentId, router]);
 
- const handleSaveAnalysisData = async (showToast: boolean = true, finalizedOverride?: boolean): Promise<boolean> => {
+ const handleSaveAnalysisData = async (showToast: boolean = true, finalizedOverride?: boolean, statusOverride?: ReportedEventStatus): Promise<boolean> => {
     const currentId = analysisDocumentId || ensureEventId();
     if (!currentId) {
       if (showToast) toast({ title: "Error Crítico", description: "No se pudo obtener o generar un ID para el análisis.", variant: "destructive" });
@@ -364,9 +379,18 @@ export default function RCAAnalysisPage() {
     try {
       const rcaDocRef = doc(db, "rcaAnalyses", currentId);
       const rcaDocSnap = await getDoc(rcaDocRef);
+      
+      let finalCommentsToSave = finalComments;
+      if (statusOverride === "Rechazado" && !finalCommentsToSave.includes("Evento Rechazado")) {
+          const simulatedUser = availableUsersFromDB.find(u => u.name === currentSimulatedUser);
+          const rejecterName = simulatedUser ? simulatedUser.name : "Usuario desconocido";
+          finalCommentsToSave = `Evento Rechazado por ${rejecterName} el ${new Date().toLocaleDateString('es-CL')}. ${finalCommentsToSave ? `\nComentarios adicionales: ${finalCommentsToSave}` : ''}`;
+      }
+
 
       const dataToSave: RCAAnalysisDocument = {
         ...(analysisDocPayload as RCAAnalysisDocument), 
+        finalComments: finalCommentsToSave,
         updatedAt: new Date().toISOString(),
         createdAt: rcaDocSnap.exists() && rcaDocSnap.data().createdAt ? rcaDocSnap.data().createdAt : new Date().toISOString(),
       };
@@ -380,12 +404,21 @@ export default function RCAAnalysisPage() {
       if (!analysisDocumentId && currentId) {
         setAnalysisDocumentId(currentId);
       }
+      if (finalCommentsToSave !== finalComments) {
+          setFinalComments(finalCommentsToSave);
+      }
+      if (finalizedOverride !== undefined && isFinalized !== finalizedOverride) {
+        setIsFinalized(finalizedOverride);
+      }
+
 
       const reportedEventRef = doc(db, "reportedEvents", currentId);
       const reportedEventSnap = await getDoc(reportedEventRef);
       let statusForReportedEvent: ReportedEventStatus;
 
-      if (currentIsFinalized) {
+      if(statusOverride) {
+        statusForReportedEvent = statusOverride;
+      } else if (currentIsFinalized) {
         statusForReportedEvent = "Finalizado";
       } else if (reportedEventSnap.exists()) {
         statusForReportedEvent = reportedEventSnap.data().status;
@@ -407,6 +440,8 @@ export default function RCAAnalysisPage() {
       } else {
         statusForReportedEvent = "Pendiente"; 
       }
+      setCurrentEventStatus(statusForReportedEvent);
+
 
       const reportedEventPayload: ReportedEvent = {
         id: currentId,
@@ -439,7 +474,7 @@ export default function RCAAnalysisPage() {
       }
 
       if (showToast) {
-        toast({ title: "Progreso Guardado", description: `Análisis ${currentId} guardado. Evento reportado actualizado.` });
+        toast({ title: "Progreso Guardado", description: `Análisis ${currentId} guardado. Evento reportado actualizado a estado: ${statusForReportedEvent}.` });
       }
       return true;
     } catch (error) {
@@ -464,6 +499,7 @@ export default function RCAAnalysisPage() {
         const reportedEventSnap = await getDoc(reportedEventRef);
         if (reportedEventSnap.exists() && reportedEventSnap.data().status === "Pendiente") {
           await updateDoc(reportedEventRef, sanitizeForFirestore({ status: "En análisis", updatedAt: new Date().toISOString() }));
+          setCurrentEventStatus("En análisis");
           if (showToast) {
             toast({ title: "Estado Actualizado", description: `El evento ${analysisDocumentId} ahora está "En análisis".` });
           }
@@ -477,6 +513,25 @@ export default function RCAAnalysisPage() {
         setIsSaving(false);
       }
     }
+  };
+
+  const handleRejectEvent = async () => {
+    if (!analysisDocumentId) {
+      toast({ title: "Error", description: "No se puede rechazar un evento sin ID.", variant: "destructive" });
+      setIsRejectConfirmOpen(false);
+      return;
+    }
+    setIsSaving(true);
+    setIsRejectConfirmOpen(false);
+    const success = await handleSaveAnalysisData(false, true, "Rechazado");
+    if (success) {
+      toast({ title: "Evento Rechazado", description: `El evento ${analysisDocumentId} ha sido marcado como rechazado.` });
+      // Optionally, navigate away or reset the form if a rejected event shouldn't be editable.
+      // For now, it stays on the page, but the status is updated.
+    } else {
+      toast({ title: "Error al Rechazar", description: "No se pudo actualizar el estado del evento.", variant: "destructive" });
+    }
+    setIsSaving(false);
   };
 
   const handleGoToStep = (targetStep: number) => {
@@ -736,7 +791,7 @@ export default function RCAAnalysisPage() {
 
     setIsFinalized(true); 
 
-    const success = await handleSaveAnalysisData(false, true); 
+    const success = await handleSaveAnalysisData(false, true, "Finalizado"); 
 
     if (success) {
       toast({ title: "Proceso Finalizado", description: `Análisis ${currentEventIdUsedForToast || currentId} marcado como finalizado y evento reportado actualizado.`, className: "bg-primary text-primary-foreground"});
@@ -755,6 +810,12 @@ export default function RCAAnalysisPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
 
+  const canCurrentUserReject = useMemo(() => {
+    if (!currentSimulatedUser) return false;
+    const userProfile = availableUsersFromDB.find(u => u.name === currentSimulatedUser);
+    return userProfile?.role === 'Admin';
+  }, [currentSimulatedUser, availableUsersFromDB]);
+
   if (isLoadingPage) {
     return (
       <div className="flex flex-col justify-center items-center min-h-[calc(100vh-10rem)] text-center">
@@ -768,7 +829,17 @@ export default function RCAAnalysisPage() {
     <>
       <header className="text-center mb-8 no-print">
         <h1 className="text-3xl sm:text-4xl font-bold font-headline text-primary">Analizador RCA Avanzado</h1>
-        <p className="text-muted-foreground mt-1">Herramienta de Análisis de Causa Raíz con gráficos. ID Análisis: <span className="font-semibold text-primary">{analysisDocumentId || "Nuevo Análisis"}</span></p>
+        <p className="text-muted-foreground mt-1">
+          Herramienta de Análisis de Causa Raíz con gráficos. ID Análisis: <span className="font-semibold text-primary">{analysisDocumentId || "Nuevo Análisis"}</span>
+          {analysisDocumentId && currentEventStatus && (
+            <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                currentEventStatus === 'Rechazado' ? 'bg-destructive text-destructive-foreground' :
+                currentEventStatus === 'Finalizado' ? 'bg-green-500 text-green-50' :
+                'bg-secondary text-secondary-foreground'}`}>
+                Estado: {currentEventStatus}
+            </span>
+          )}
+        </p>
       </header>
 
       <div className="no-print">
@@ -791,6 +862,12 @@ export default function RCAAnalysisPage() {
             onForceEnsureEventId={ensureEventId}
             onSaveAnalysis={handleSaveAnalysisData}
             isSaving={isSaving}
+            currentSimulatedUser={currentSimulatedUser}
+            onSetCurrentSimulatedUser={setCurrentSimulatedUser}
+            canCurrentUserReject={canCurrentUserReject}
+            onRejectEvent={() => setIsRejectConfirmOpen(true)}
+            isEventFinalized={isFinalized}
+            currentEventStatus={currentEventStatus}
           />
         )}
       </div>
@@ -886,7 +963,23 @@ export default function RCAAnalysisPage() {
           isSaving={isSaving}
         />
       )}
+      <AlertDialog open={isRejectConfirmOpen} onOpenChange={setIsRejectConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Rechazo de Evento</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Está seguro de que desea rechazar este evento (ID: {analysisDocumentId || 'N/A'})? 
+              Esta acción marcará el evento como rechazado y finalizado. No podrá ser modificado posteriormente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsRejectConfirmOpen(false)} disabled={isSaving}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRejectEvent} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" disabled={isSaving}>
+              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sí, Rechazar Evento"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
-

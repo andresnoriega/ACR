@@ -2,14 +2,14 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect, useMemo } from 'react'; 
-import type { RCAEventData, ImmediateAction, EventType, PriorityType, FullUserProfile, Site } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, EventType, PriorityType, FullUserProfile, Site, ReportedEventStatus } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Trash2, Save, Send, Mail, Loader2, Bell } from 'lucide-react';
+import { PlusCircle, Trash2, Save, Send, Mail, Loader2, Bell, UserCog, XCircle } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { sendEmailAction } from '@/app/actions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -29,10 +29,17 @@ interface Step1InitiationProps {
   onForceEnsureEventId: () => string; 
   onSaveAnalysis: (showToast?: boolean) => Promise<boolean>;
   isSaving: boolean;
+  currentSimulatedUser: string | null;
+  onSetCurrentSimulatedUser: (userName: string | null) => void;
+  canCurrentUserReject: boolean;
+  onRejectEvent: () => Promise<void>;
+  isEventFinalized: boolean;
+  currentEventStatus: ReportedEventStatus;
 }
 
 const EVENT_TYPES: EventType[] = ['Incidente', 'Accidente', 'Falla', 'No Conformidad'];
 const PRIORITIES: PriorityType[] = ['Alta', 'Media', 'Baja'];
+const NONE_USER_VALUE = "--NONE--";
 
 // --- NotifyEventCreationDialog Component ---
 interface NotifyEventCreationDialogProps {
@@ -226,11 +233,23 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   onForceEnsureEventId,
   onSaveAnalysis,
   isSaving,
+  currentSimulatedUser,
+  onSetCurrentSimulatedUser,
+  canCurrentUserReject,
+  onRejectEvent,
+  isEventFinalized,
+  currentEventStatus,
 }) => {
   const { toast } = useToast();
   const [clientSideMaxDate, setClientSideMaxDate] = useState<string | undefined>(undefined);
   const [isNotifyDialogOpen, setIsNotifyDialogOpen] = useState(false);
   const [eventDetailsForNotification, setEventDetailsForNotification] = useState<{id: string, description: string, site: string} | null>(null);
+  
+  const validUsersForSelect = useMemo(() => {
+    if (!Array.isArray(availableUsers)) return [];
+    return availableUsers.filter(user => user.name && user.name.trim() !== "");
+  }, [availableUsers]);
+
 
   useEffect(() => {
     const getTodayDateString = () => {
@@ -316,6 +335,10 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   };
   
   const handleContinueToNextStep = async () => {
+    if (currentEventStatus === 'Rechazado') {
+      toast({title: "Evento Rechazado", description: "Este evento ha sido rechazado y no puede continuar el análisis.", variant: "destructive"});
+      return;
+    }
     if (!validateFields()) {
       return;
     }
@@ -326,6 +349,9 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     onContinue();
   };
 
+  const isRejectButtonDisabled = !eventData.id || isEventFinalized || currentEventStatus === 'Rechazado' || isSaving || !canCurrentUserReject;
+
+
   return (
     <>
       <Card>
@@ -334,6 +360,26 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
           <CardDescription>Información básica del evento y acciones inmediatas. ID Evento: <span className="font-semibold text-primary">{eventData.id || "Pendiente (se generará al guardar)"}</span></CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="simulatedUserStep1" className="flex items-center">
+                <UserCog className="mr-2 h-4 w-4 text-primary" />
+                Actuar como (Simulación de Usuario):
+            </Label>
+            <Select
+                value={currentSimulatedUser || NONE_USER_VALUE}
+                onValueChange={(value) => onSetCurrentSimulatedUser(value === NONE_USER_VALUE ? null : value)}
+            >
+                <SelectTrigger id="simulatedUserStep1">
+                <SelectValue placeholder="-- Seleccione un perfil --" />
+                </SelectTrigger>
+                <SelectContent>
+                <SelectItem value={NONE_USER_VALUE}>-- Ninguno --</SelectItem>
+                {validUsersForSelect.map(user => (
+                    <SelectItem key={user.id} value={user.name}>{user.name} ({user.role})</SelectItem>
+                ))}
+                </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="place">Lugar del Evento <span className="text-destructive">*</span></Label>
             <Select onValueChange={(value) => handleSelectChange(value, 'place')} value={eventData.place}>
@@ -443,7 +489,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
           </div>
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2">
-          <Button onClick={handleSaveEvent} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
+          <Button onClick={handleSaveEvent} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || currentEventStatus === 'Rechazado' || isEventFinalized}>
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             <Save className="mr-2 h-4 w-4" /> Guardar Evento
           </Button>
@@ -451,13 +497,29 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
             onClick={handlePrepareNotification} 
             variant="outline" 
             className="w-full sm:w-auto transition-transform hover:scale-105" 
-            disabled={isSaving || !!eventData.id}
-            title={!!eventData.id ? "La notificación inicial para este evento ya fue gestionada o el evento ya tiene un ID (ha sido guardado)." : "Notificar creación de este evento"}
+            disabled={isSaving || !eventData.id || currentEventStatus === 'Rechazado' || isEventFinalized}
+            title={!eventData.id ? "Guarde el evento primero para habilitar la notificación." : (currentEventStatus === 'Rechazado' || isEventFinalized) ? "Evento rechazado o finalizado." : "Notificar creación de este evento"}
           >
              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             <Bell className="mr-2 h-4 w-4" /> Notificar Evento
           </Button>
-          <Button onClick={handleContinueToNextStep} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
+          <Button 
+            onClick={onRejectEvent} 
+            variant="destructive" 
+            className="w-full sm:w-auto transition-transform hover:scale-105" 
+            disabled={isRejectButtonDisabled}
+            title={
+              !eventData.id ? "El evento debe guardarse primero para poder rechazarlo." 
+              : isEventFinalized ? "El evento ya está finalizado." 
+              : currentEventStatus === 'Rechazado' ? "El evento ya está rechazado." 
+              : !canCurrentUserReject ? "Solo un Administrador puede rechazar el evento."
+              : "Rechazar este reporte de evento"
+            }
+          >
+            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <XCircle className="mr-2 h-4 w-4" /> Rechazar Reporte
+          </Button>
+          <Button onClick={handleContinueToNextStep} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || currentEventStatus === 'Rechazado' || isEventFinalized}>
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Continuar
           </Button>
@@ -477,4 +539,3 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     </>
   );
 };
-

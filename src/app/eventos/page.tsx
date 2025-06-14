@@ -16,7 +16,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { ReportedEvent, ReportedEventType, ReportedEventStatus, PriorityType, Site, RCAAnalysisDocument } from '@/types/rca';
-import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, PlayCircle, Info, Loader2, Eye, Fingerprint, FileDown, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
+import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, PlayCircle, Info, Loader2, Eye, Fingerprint, FileDown, ArrowUp, ArrowDown, ChevronsUpDown, XCircle, ShieldAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/firestore";
@@ -26,7 +26,8 @@ import { saveAs } from 'file-saver';
 
 const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Fallo', 'Accidente', 'No Conformidad'];
 const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
-const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'En validación', 'Finalizado'];
+const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'En validación', 'Finalizado', 'Rechazado'];
+
 
 const ALL_FILTER_VALUE = "__ALL__"; 
 
@@ -98,7 +99,7 @@ export default function EventosReportadosPage() {
 
       const processedEvents = rawEventsData.map(event => {
         let derivedStatus = event.status; 
-        if (event.status !== 'Finalizado') {
+        if (event.status !== 'Finalizado' && event.status !== 'Rechazado') { // Added 'Rechazado'
           const rcaDoc = rcaAnalysesData.find(rca => rca.eventData.id === event.id);
           if (rcaDoc && Array.isArray(rcaDoc.plannedActions) && rcaDoc.plannedActions.length > 0) {
             const rcaValidations = rcaDoc.validations || []; 
@@ -157,6 +158,7 @@ export default function EventosReportadosPage() {
     enAnalisis: allEvents.filter(e => e.status === 'En análisis').length,
     enValidacion: allEvents.filter(e => e.status === 'En validación').length,
     finalizados: allEvents.filter(e => e.status === 'Finalizado').length,
+    rechazados: allEvents.filter(e => e.status === 'Rechazado').length,
   }), [allEvents]);
 
   const handleFilterChange = (field: keyof Filters, value: any) => {
@@ -235,8 +237,8 @@ export default function EventosReportadosPage() {
   
   const handleViewAnalysis = () => {
     if (selectedEvent) {
-        if (selectedEvent.status === 'Finalizado' || selectedEvent.status === 'En validación') {
-            router.push(`/analisis?id=${selectedEvent.id}&step=5`);
+        if (selectedEvent.status === 'Finalizado' || selectedEvent.status === 'En validación' || selectedEvent.status === 'Rechazado') {
+            router.push(`/analisis?id=${selectedEvent.id}&step=5`); // Step 5 is results, good for rejected too for now.
         } else { 
             router.push(`/analisis?id=${selectedEvent.id}`);
         }
@@ -354,6 +356,8 @@ export default function EventosReportadosPage() {
       return <Badge variant="outline" className={cn("border-blue-500/50 bg-blue-500/10 text-blue-700 dark:border-blue-500/60 dark:bg-blue-500/20 dark:text-blue-400")}>{status}</Badge>;
     } else if (status === 'Finalizado') {
       return <Badge variant="outline" className={cn("border-green-500/50 bg-green-500/10 text-green-700 dark:border-green-500/60 dark:bg-green-500/20 dark:text-green-400")}>{status}</Badge>;
+    } else if (status === 'Rechazado') {
+      return <Badge variant="outline" className={cn("border-slate-500/50 bg-slate-500/10 text-slate-700 dark:border-slate-500/60 dark:bg-slate-500/20 dark:text-slate-400")}>{status}</Badge>;
     }
     return <Badge variant="outline">{status}</Badge>;
   };
@@ -379,7 +383,7 @@ export default function EventosReportadosPage() {
             <CardTitle className="text-2xl">Resumen Rápido</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+        <CardContent className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 text-center">
           <div className="p-4 bg-secondary/40 rounded-lg">
             <p className="text-3xl font-bold text-foreground">{summaryData.total}</p>
             <p className="text-sm text-muted-foreground">Total</p>
@@ -399,6 +403,10 @@ export default function EventosReportadosPage() {
           <div className="p-4 bg-green-400/20 rounded-lg"> 
             <p className="text-3xl font-bold text-green-600">{summaryData.finalizados}</p>
             <p className="text-sm text-muted-foreground">Finalizados</p>
+          </div>
+          <div className="p-4 bg-slate-400/20 rounded-lg"> 
+            <p className="text-3xl font-bold text-slate-600">{summaryData.rechazados}</p>
+            <p className="text-sm text-muted-foreground">Rechazados</p>
           </div>
         </CardContent>
       </Card>
@@ -580,7 +588,7 @@ export default function EventosReportadosPage() {
 
             let buttonText = "";
             let ButtonIcon = PlayCircle; 
-            let buttonVariant: "default" | "outline" = "default";
+            let buttonVariant: "default" | "outline" | "destructive" = "default";
             let buttonOnClick = () => {};
             let isDisabled = false;
             
@@ -597,9 +605,15 @@ export default function EventosReportadosPage() {
               buttonText = "Continuar Investigación";
               ButtonIcon = PlayCircle;
               buttonOnClick = handleViewAnalysis;
+            } else if (selectedEvent.status === 'Rechazado') {
+              buttonText = "Evento Rechazado";
+              ButtonIcon = XCircle;
+              buttonVariant = "destructive";
+              isDisabled = true; // Or handleViewAnalysis to see details
+              buttonOnClick = handleViewAnalysis; 
             } else { 
-              buttonText = "Estado Inválido";
-              ButtonIcon = AlertTriangle;
+              buttonText = "Estado Desconocido";
+              ButtonIcon = ShieldAlert;
               isDisabled = true;
             }
             
@@ -652,4 +666,3 @@ export default function EventosReportadosPage() {
     </div>
   );
 }
-

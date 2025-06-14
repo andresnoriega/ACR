@@ -68,7 +68,7 @@ async function deleteAllDocsInCollection(collectionName: string): Promise<{ succ
 
 const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Fallo', 'Accidente', 'No Conformidad'];
 const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
-const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'En validación', 'Finalizado'];
+const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'En validación', 'Finalizado', 'Rechazado'];
 const ALL_FILTER_VALUE = "__ALL__";
 const NO_SITES_PLACEHOLDER_VALUE = "__NO_SITES_CONFIGURED__"; 
 
@@ -276,6 +276,7 @@ export default function ConfiguracionPrivacidadPage() {
     if (status === 'En análisis') return <Badge variant="outline" className={cn("border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:border-yellow-500/60 dark:bg-yellow-500/20 dark:text-yellow-400")}>{status}</Badge>;
     if (status === 'En validación') return <Badge variant="outline" className={cn("border-blue-500/50 bg-blue-500/10 text-blue-700 dark:border-blue-500/60 dark:bg-blue-500/20 dark:text-blue-400")}>{status}</Badge>;
     if (status === 'Finalizado') return <Badge variant="outline" className={cn("border-green-500/50 bg-green-500/10 text-green-700 dark:border-green-500/60 dark:bg-green-500/20 dark:text-green-400")}>{status}</Badge>;
+    if (status === 'Rechazado') return <Badge variant="outline" className={cn("border-slate-500/50 bg-slate-500/10 text-slate-700 dark:border-slate-500/60 dark:bg-slate-500/20 dark:text-slate-400")}>{status}</Badge>;
     return <Badge variant="outline">{status}</Badge>;
   };
   
@@ -556,8 +557,3 @@ export default function ConfiguracionPrivacidadPage() {
   );
 }
     
-
-    
-
-
-
