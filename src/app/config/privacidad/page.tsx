@@ -1,15 +1,28 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ShieldCheck, DatabaseZap, AlertTriangle, Trash2, Loader2 } from 'lucide-react';
+import { ShieldCheck, DatabaseZap, AlertTriangle, Trash2, Loader2, ListOrdered, ListFilter, Globe, CalendarDays, Flame, ActivityIcon, Search, RefreshCcw, Fingerprint, FileDown, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, deleteDoc, doc, WriteBatch, writeBatch } from "firebase/firestore";
+import { collection, getDocs, deleteDoc, doc, WriteBatch, writeBatch, query, orderBy as firestoreOrderBy } from "firebase/firestore"; // Renamed orderBy to firestoreOrderBy
+import type { ReportedEvent, ReportedEventType, ReportedEventStatus, PriorityType, Site } from '@/types/rca';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format, parseISO, isValid as isValidDate } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 async function deleteAllDocsInCollection(collectionName: string): Promise<{ success: boolean, docsDeleted: number, error?: any }> {
   try {
@@ -21,8 +34,6 @@ async function deleteAllDocsInCollection(collectionName: string): Promise<{ succ
       return { success: true, docsDeleted: 0 };
     }
 
-    // Firestore permite hasta 500 operaciones en un batch.
-    // Dividiremos las eliminaciones en múltiples batches si es necesario.
     const batches: WriteBatch[] = [];
     let currentBatch = writeBatch(db);
     let operationsInCurrentBatch = 0;
@@ -31,7 +42,7 @@ async function deleteAllDocsInCollection(collectionName: string): Promise<{ succ
       currentBatch.delete(doc(db, collectionName, documentSnapshot.id));
       operationsInCurrentBatch++;
       docsDeleted++;
-      if (operationsInCurrentBatch === 499) { // Dejar un pequeño margen por si acaso
+      if (operationsInCurrentBatch === 499) {
         batches.push(currentBatch);
         currentBatch = writeBatch(db);
         operationsInCurrentBatch = 0;
@@ -53,77 +64,231 @@ async function deleteAllDocsInCollection(collectionName: string): Promise<{ succ
   }
 }
 
+const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Fallo', 'Accidente', 'No Conformidad'];
+const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
+const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'En validación', 'Finalizado'];
+const ALL_FILTER_VALUE = "__ALL__";
+
+interface Filters {
+  site: string;
+  date: Date | undefined;
+  type: ReportedEventType;
+  priority: PriorityType;
+  status: ReportedEventStatus;
+  eventId: string;
+}
+
+type SortableReportedEventKey = 'id' | 'title' | 'site' | 'date' | 'type' | 'priority' | 'status';
+
+interface SortConfigReportedEvent {
+  key: SortableReportedEventKey | null;
+  direction: 'ascending' | 'descending';
+}
 
 export default function ConfiguracionPrivacidadPage() {
   const { toast } = useToast();
   const [isResetting, setIsResetting] = useState(false);
+
+  // States for event listing
+  const [allEvents, setAllEvents] = useState<ReportedEvent[]>([]);
+  const [filteredEvents, setFilteredEvents] = useState<ReportedEvent[]>([]);
+  const [availableSites, setAvailableSites] = useState<Site[]>([]);
+  
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isLoadingSites, setIsLoadingSites] = useState(true);
+  
+  const [filters, setFilters] = useState<Filters>({
+    site: '',
+    date: undefined,
+    type: '',
+    priority: '',
+    status: '',
+    eventId: '',
+  });
+
+  const [sortConfigEvents, setSortConfigEvents] = useState<SortConfigReportedEvent>({ key: 'date', direction: 'descending' });
+
+  const fetchAllEventData = useCallback(async () => {
+    setIsLoadingData(true);
+    try {
+      const eventsCollectionRef = collection(db, "reportedEvents");
+      const eventsQuery = query(eventsCollectionRef, firestoreOrderBy("date", "desc")); 
+      const eventsSnapshot = await getDocs(eventsQuery);
+      const rawEventsData = eventsSnapshot.docs.map(docSnap => {
+        const data = docSnap.data();
+        let eventDate = data.date;
+        if (data.date && typeof data.date.toDate === 'function') { 
+          eventDate = format(data.date.toDate(), 'yyyy-MM-dd');
+        }
+        return { id: docSnap.id, ...data, date: eventDate } as ReportedEvent;
+      });
+      setAllEvents(rawEventsData);
+      setFilteredEvents(rawEventsData);
+    } catch (error) {
+      console.error("Error fetching event data: ", error);
+      toast({ title: "Error al Cargar Eventos", description: "No se pudieron cargar los eventos desde Firestore.", variant: "destructive" });
+      setAllEvents([]);
+      setFilteredEvents([]);
+    } finally {
+      setIsLoadingData(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    const fetchSitesData = async () => {
+      setIsLoadingSites(true);
+      try {
+        const sitesCollectionRef = collection(db, "sites");
+        const q = query(sitesCollectionRef, firestoreOrderBy("name", "asc"));
+        const querySnapshot = await getDocs(q);
+        const sitesData = querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Site));
+        setAvailableSites(sitesData);
+      } catch (error) {
+        console.error("Error fetching sites: ", error);
+        toast({ title: "Error al Cargar Sitios", description: "No se pudieron cargar los sitios para el filtro.", variant: "destructive" });
+        setAvailableSites([]);
+      } finally {
+        setIsLoadingSites(false);
+      }
+    };
+
+    fetchAllEventData();
+    fetchSitesData();
+  }, [fetchAllEventData, toast]);
+
+  const handleFilterChange = (field: keyof Filters, value: any) => {
+    setFilters(prev => ({ ...prev, [field]: value === ALL_FILTER_VALUE ? '' : value }));
+  };
+  
+  const handleDateChange = (date: Date | undefined) => {
+    handleFilterChange('date', date);
+  };
+
+  const applyFilters = useCallback(() => {
+    let events = [...allEvents]; 
+    if (filters.site) {
+      events = events.filter(e => e.site === filters.site);
+    }
+    if (filters.date) {
+      const filterDateStr = format(filters.date, 'yyyy-MM-dd');
+      events = events.filter(e => e.date === filterDateStr);
+    }
+    if (filters.type) {
+      events = events.filter(e => e.type === filters.type);
+    }
+    if (filters.priority) {
+      events = events.filter(e => e.priority === filters.priority);
+    }
+    if (filters.status) {
+      events = events.filter(e => e.status === filters.status); 
+    }
+    if (filters.eventId.trim()) {
+      events = events.filter(e => e.id.toLowerCase().includes(filters.eventId.trim().toLowerCase()));
+    }
+    setFilteredEvents(events);
+    toast({ title: "Filtros Aplicados", description: `${events.length} eventos encontrados.` });
+  }, [filters, allEvents, toast]);
+
+  const clearFilters = () => {
+    setFilters({ site: '', date: undefined, type: '', priority: '', status: '', eventId: '' });
+    setFilteredEvents(allEvents); 
+    toast({ title: "Filtros Limpiados" });
+  };
+  
+  const formatDateForDisplay = (dateString: string) => {
+    if (!dateString) return 'N/A';
+    try {
+      const dateObj = parseISO(dateString); 
+      if (isValidDate(dateObj)) {
+        return format(dateObj, 'dd/MM/yyyy', { locale: es });
+      }
+    } catch (error) {}
+    return dateString; 
+  };
+
+  const handleExportToExcel = () => {
+    if (sortedFilteredEvents.length === 0) {
+      toast({ title: "Sin Datos para Exportar", description: "No hay eventos en la tabla para exportar.", variant: "default" });
+      return;
+    }
+    const dataToExport = sortedFilteredEvents.map(event => ({
+      'ID Evento': event.id, 'Título': event.title, 'Sitio/Planta': event.site,
+      'Fecha': formatDateForDisplay(event.date), 'Tipo': event.type, 'Prioridad': event.priority,
+      'Estado': event.status, 'Descripción Detallada': event.description || 'N/A',
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    XLSX.utils.book_append_sheet(XLSX.utils.book_new(), worksheet, "Eventos Reportados");
+    worksheet['!cols'] = [ { wch: 15 }, { wch: 40 }, { wch: 25 }, { wch: 12 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 50 } ];
+    const excelBuffer = XLSX.write(XLSX.utils.book_new(), { bookType: 'xlsx', type: 'array', Sheets: { "Eventos Reportados": worksheet } });
+    saveAs(new Blob([excelBuffer], {type:"application/octet-stream"}), `Eventos_Reportados_RCA_Privacidad_${new Date().toISOString().split('T')[0]}.xlsx`);
+    toast({ title: "Exportación Iniciada", description: "El archivo de eventos ha comenzado a descargarse." });
+  };
+
+  const requestSortEvents = (key: SortableReportedEventKey) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfigEvents.key === key && sortConfigEvents.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfigEvents({ key, direction });
+  };
+
+  const sortedFilteredEvents = useMemo(() => {
+    let sortableItems = [...filteredEvents];
+    if (sortConfigEvents.key) {
+      sortableItems.sort((a, b) => {
+        const valA = a[sortConfigEvents.key!];
+        const valB = b[sortConfigEvents.key!];
+        if (sortConfigEvents.key === 'date') {
+          const dateA = valA ? parseISO(valA).getTime() : 0;
+          const dateB = valB ? parseISO(valB).getTime() : 0;
+          return dateA - dateB;
+        }
+        if (typeof valA === 'string' && typeof valB === 'string') return valA.localeCompare(valB);
+        const strA = String(valA ?? '').toLowerCase();
+        const strB = String(valB ?? '').toLowerCase();
+        if (strA < strB) return -1; if (strA > strB) return 1; return 0;
+      });
+      if (sortConfigEvents.direction === 'descending') sortableItems.reverse();
+    }
+    return sortableItems;
+  }, [filteredEvents, sortConfigEvents]);
+
+  const renderSortIconEvents = (columnKey: SortableReportedEventKey) => {
+    if (sortConfigEvents.key === columnKey) {
+      return sortConfigEvents.direction === 'ascending' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+    }
+    return <ChevronsUpDown className="h-3 w-3 opacity-30" />;
+  };
+
+  const renderStatusBadge = (status: ReportedEventStatus) => {
+    if (status === 'Pendiente') return <Badge variant="destructive">{status}</Badge>;
+    if (status === 'En análisis') return <Badge variant="outline" className={cn("border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:border-yellow-500/60 dark:bg-yellow-500/20 dark:text-yellow-400")}>{status}</Badge>;
+    if (status === 'En validación') return <Badge variant="outline" className={cn("border-blue-500/50 bg-blue-500/10 text-blue-700 dark:border-blue-500/60 dark:bg-blue-500/20 dark:text-blue-400")}>{status}</Badge>;
+    if (status === 'Finalizado') return <Badge variant="outline" className={cn("border-green-500/50 bg-green-500/10 text-green-700 dark:border-green-500/60 dark:bg-green-500/20 dark:text-green-400")}>{status}</Badge>;
+    return <Badge variant="outline">{status}</Badge>;
+  };
   
   const handleResetData = async (dataType: string) => {
     setIsResetting(true);
-    
     if (dataType === "TODOS los Datos RCA") {
-      let rcaAnalysesDeleted = 0;
-      let reportedEventsDeleted = 0;
-      let success = true;
-
-      toast({
-        title: "Reseteo en Progreso...",
-        description: "Eliminando análisis RCA y eventos reportados. Esto puede tardar unos momentos.",
-        duration: 7000,
-      });
-
+      let rcaAnalysesDeleted = 0; let reportedEventsDeleted = 0; let success = true;
+      toast({ title: "Reseteo en Progreso...", description: "Eliminando análisis RCA y eventos reportados...", duration: 7000 });
       const analysesResult = await deleteAllDocsInCollection('rcaAnalyses');
-      if (analysesResult.success) {
-        rcaAnalysesDeleted = analysesResult.docsDeleted;
-      } else {
-        success = false;
-        toast({
-          title: "Error al Resetear Análisis",
-          description: `No se pudieron eliminar los análisis RCA. Error: ${analysesResult.error?.message || 'Desconocido'}`,
-          variant: "destructive",
-        });
-      }
-
-      if (success) { // Solo proceder si la eliminación anterior fue exitosa
-        const eventsResult = await deleteAllDocsInCollection('reportedEvents');
-        if (eventsResult.success) {
-          reportedEventsDeleted = eventsResult.docsDeleted;
-        } else {
-          success = false;
-          toast({
-            title: "Error al Resetear Eventos Reportados",
-            description: `No se pudieron eliminar los eventos reportados. Error: ${eventsResult.error?.message || 'Desconocido'}`,
-            variant: "destructive",
-          });
-        }
-      }
-
+      if (analysesResult.success) rcaAnalysesDeleted = analysesResult.docsDeleted;
+      else { success = false; toast({ title: "Error al Resetear Análisis", description: `Error: ${analysesResult.error?.message || 'Desconocido'}`, variant: "destructive" }); }
       if (success) {
-        toast({
-          title: "Reseteo Completado",
-          description: `Se eliminaron ${rcaAnalysesDeleted} análisis y ${reportedEventsDeleted} eventos reportados.`,
-          variant: "destructive", 
-          duration: 5000,
-        });
-      } else {
-         toast({
-          title: "Reseteo Parcial o Fallido",
-          description: "Algunos datos podrían no haber sido eliminados. Revise la consola para más detalles.",
-          variant: "destructive",
-        });
+        const eventsResult = await deleteAllDocsInCollection('reportedEvents');
+        if (eventsResult.success) reportedEventsDeleted = eventsResult.docsDeleted;
+        else { success = false; toast({ title: "Error al Resetear Eventos Reportados", description: `Error: ${eventsResult.error?.message || 'Desconocido'}`, variant: "destructive" }); }
       }
-
+      if (success) {
+        toast({ title: "Reseteo Completado", description: `Se eliminaron ${rcaAnalysesDeleted} análisis y ${reportedEventsDeleted} eventos.`, variant: "destructive", duration: 5000 });
+        fetchAllEventData(); // Refresh event list
+      } else toast({ title: "Reseteo Parcial o Fallido", description: "Algunos datos podrían no haber sido eliminados.", variant: "destructive" });
     } else {
-      // Simulación para otros tipos de datos (si los hubiera)
       await new Promise(resolve => setTimeout(resolve, 1500)); 
-      toast({
-        title: `Reseteo Simulado: ${dataType}`,
-        description: `Los datos de "${dataType}" han sido reseteados (simulación).`,
-        variant: "destructive",
-        duration: 5000,
-      });
+      toast({ title: `Reseteo Simulado: ${dataType}`, description: `Los datos de "${dataType}" han sido reseteados (simulación).`, variant: "destructive", duration: 5000 });
     }
-    
     setIsResetting(false);
   };
 
@@ -147,9 +312,7 @@ export default function ConfiguracionPrivacidadPage() {
             <DatabaseZap className="h-6 w-6 text-primary" />
             <CardTitle className="text-2xl">Gestión de Datos de Análisis</CardTitle>
           </div>
-          <CardDescription>
-            Opciones para gestionar los datos generados por los análisis de causa raíz.
-          </CardDescription>
+          <CardDescription>Opciones para gestionar los datos generados por los análisis de causa raíz.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Alert variant="destructive" className="bg-destructive/10 border-destructive/30">
@@ -159,7 +322,6 @@ export default function ConfiguracionPrivacidadPage() {
               Las acciones de reseteo son irreversibles y eliminarán permanentemente los datos seleccionados. Proceda con extrema precaución.
             </AlertDescription>
           </Alert>
-
           <div className="flex flex-col sm:flex-row justify-between items-center p-4 border rounded-md">
             <div>
               <h4 className="font-semibold">Resetear Todos los Datos de RCA</h4>
@@ -175,28 +337,148 @@ export default function ConfiguracionPrivacidadPage() {
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>¿CONFIRMAR RESETEO TOTAL?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                   ¡ADVERTENCIA! Esta acción eliminará TODOS los eventos y análisis RCA del sistema (colecciones 'reportedEvents' y 'rcaAnalyses'). Esta acción es IRREVERSIBLE y no se puede deshacer.
-                  </AlertDialogDescription>
+                  <AlertDialogDescription>¡ADVERTENCIA! Esta acción eliminará TODOS los eventos y análisis RCA del sistema. Esta acción es IRREVERSIBLE.</AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel disabled={isResetting}>Cancelar</AlertDialogCancel>
                   <AlertDialogAction onClick={() => handleResetData("TODOS los Datos RCA")} disabled={isResetting} className="bg-destructive hover:bg-destructive/90">
-                     {isResetting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    SÍ, ESTOY SEGURO, RESETEAR TODO
+                     {isResetting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} SÍ, ESTOY SEGURO
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
           </div>
         </CardContent>
-        <CardFooter>
-            <p className="text-xs text-muted-foreground">
-                Funcionalidades como la exportación de datos, configuración de políticas de retención o integración con sistemas de backup se implementarían aquí.
-            </p>
+        <CardFooter><p className="text-xs text-muted-foreground">Otras opciones de gestión de datos (exportación, retención) podrían añadirse aquí.</p></CardFooter>
+      </Card>
+
+      {/* Filtros de Búsqueda de Eventos */}
+      <Card className="shadow-lg mt-8">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <ListFilter className="h-6 w-6 text-primary" />
+            <CardTitle className="text-2xl">Filtros de Eventos Registrados</CardTitle>
+          </div>
+          <CardDescription>Filtre los eventos para visualizarlos en la tabla de abajo.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+          <div>
+            <Label htmlFor="filter-site-priv" className="flex items-center mb-1"><Globe className="mr-1.5 h-4 w-4 text-muted-foreground"/>Sitio/Planta</Label>
+            <Select value={filters.site || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('site', val)} disabled={isLoadingSites}>
+              <SelectTrigger id="filter-site-priv"><SelectValue placeholder="Todos los sitios" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_FILTER_VALUE}>Todos los sitios</SelectItem>
+                {availableSites.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                {availableSites.length === 0 && <SelectItem value="" disabled>No hay sitios</SelectItem>}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="filter-date-priv" className="flex items-center mb-1"><CalendarDays className="mr-1.5 h-4 w-4 text-muted-foreground"/>Fecha</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button id="filter-date-priv" variant="outline" className="w-full justify-start text-left font-normal" disabled={isLoadingData}>
+                  {filters.date ? format(filters.date, "PPP", { locale: es }) : <span>Seleccione fecha</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={filters.date} onSelect={handleDateChange} initialFocus locale={es} disabled={{ after: new Date() }} /></PopoverContent>
+            </Popover>
+          </div>
+          <div>
+            <Label htmlFor="filter-type-priv" className="flex items-center mb-1"><AlertTriangle className="mr-1.5 h-4 w-4 text-muted-foreground"/>Tipo</Label>
+            <Select value={filters.type || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('type', val as ReportedEventType | typeof ALL_FILTER_VALUE)} disabled={isLoadingData}>
+              <SelectTrigger id="filter-type-priv"><SelectValue placeholder="Todos los tipos" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_FILTER_VALUE}>Todos los tipos</SelectItem>
+                {eventTypeOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="filter-priority-priv" className="flex items-center mb-1"><Flame className="mr-1.5 h-4 w-4 text-muted-foreground"/>Prioridad</Label>
+            <Select value={filters.priority || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('priority', val as PriorityType | typeof ALL_FILTER_VALUE)} disabled={isLoadingData}>
+              <SelectTrigger id="filter-priority-priv"><SelectValue placeholder="Todas" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_FILTER_VALUE}>Todas</SelectItem>
+                {priorityOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="filter-status-priv" className="flex items-center mb-1"><ActivityIcon className="mr-1.5 h-4 w-4 text-muted-foreground"/>Estado</Label>
+            <Select value={filters.status || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('status', val as ReportedEventStatus | typeof ALL_FILTER_VALUE)} disabled={isLoadingData}>
+              <SelectTrigger id="filter-status-priv"><SelectValue placeholder="Todos" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_FILTER_VALUE}>Todos</SelectItem>
+                {statusOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="filter-event-id-priv" className="flex items-center mb-1"><Fingerprint className="mr-1.5 h-4 w-4 text-muted-foreground"/>ID Evento</Label>
+            <Input id="filter-event-id-priv" placeholder="Ej: E-12345-001" value={filters.eventId} onChange={(e) => handleFilterChange('eventId', e.target.value)} disabled={isLoadingData}/>
+          </div>
+        </CardContent>
+        <CardFooter className="flex justify-start gap-3 pt-4 border-t">
+          <Button onClick={applyFilters} disabled={isLoadingData}><Search className="mr-2"/>Aplicar Filtros</Button>
+          <Button onClick={clearFilters} variant="outline" disabled={isLoadingData}><RefreshCcw className="mr-2"/>Limpiar Filtros</Button>
+        </CardFooter>
+      </Card>
+
+      {/* Lista de Eventos */}
+      <Card className="shadow-lg mt-8">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <ListOrdered className="h-6 w-6 text-primary" />
+            <CardTitle className="text-2xl">Eventos Registrados en el Sistema</CardTitle>
+          </div>
+          <CardDescription>Visualice los eventos. Use los filtros de arriba para refinar la búsqueda.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('id')}><div className="flex items-center gap-1">ID {renderSortIconEvents('id')}</div></TableHead>
+                  <TableHead className="w-[25%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('title')}><div className="flex items-center gap-1">Título {renderSortIconEvents('title')}</div></TableHead>
+                  <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('site')}><div className="flex items-center gap-1">Sitio {renderSortIconEvents('site')}</div></TableHead>
+                  <TableHead className="w-[10%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('date')}><div className="flex items-center gap-1">Fecha {renderSortIconEvents('date')}</div></TableHead>
+                  <TableHead className="w-[10%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('type')}><div className="flex items-center gap-1">Tipo {renderSortIconEvents('type')}</div></TableHead>
+                  <TableHead className="w-[10%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('priority')}><div className="flex items-center gap-1">Prioridad {renderSortIconEvents('priority')}</div></TableHead>
+                  <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('status')}><div className="flex items-center gap-1">Estado {renderSortIconEvents('status')}</div></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoadingData ? (
+                  <TableRow><TableCell colSpan={7} className="text-center h-24"><Loader2 className="h-6 w-6 animate-spin inline mr-2" />Cargando...</TableCell></TableRow>
+                ) : sortedFilteredEvents.length > 0 ? (
+                  sortedFilteredEvents.map((event) => (
+                    <TableRow key={event.id}>
+                      <TableCell className="font-mono text-xs">{event.id}</TableCell>
+                      <TableCell className="font-medium">{event.title}</TableCell>
+                      <TableCell>{event.site}</TableCell>
+                      <TableCell>{formatDateForDisplay(event.date)}</TableCell>
+                      <TableCell>{event.type}</TableCell>
+                      <TableCell>{event.priority}</TableCell>
+                      <TableCell>{renderStatusBadge(event.status)}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground h-24">No hay eventos que coincidan.</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+        <CardFooter className="flex justify-end pt-4 border-t">
+          <Button variant="outline" size="sm" onClick={handleExportToExcel} disabled={isLoadingData || sortedFilteredEvents.length === 0}>
+            <FileDown className="mr-1.5 h-3.5 w-3.5" /> Exportar a Excel
+          </Button>
         </CardFooter>
       </Card>
     </div>
   );
 }
+    
+
     
