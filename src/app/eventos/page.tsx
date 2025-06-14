@@ -16,11 +16,13 @@ import { Calendar } from '@/components/ui/calendar';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { ReportedEvent, ReportedEventType, ReportedEventStatus, PriorityType, Site, RCAAnalysisDocument } from '@/types/rca';
-import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, PlayCircle, Info, Loader2, Eye, Fingerprint } from 'lucide-react';
+import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, PlayCircle, Info, Loader2, Eye, Fingerprint, FileDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/firestore";
 import { Input } from '@/components/ui/input';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Fallo', 'Accidente', 'No Conformidad'];
 const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
@@ -48,9 +50,7 @@ export default function EventosReportadosPage() {
   
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isLoadingSites, setIsLoadingSites] = useState(true);
-  // isUpdatingStatus state is removed
-
-
+  
   const [selectedEvent, setSelectedEvent] = useState<ReportedEvent | null>(null);
   const [isDetailsCardVisible, setIsDetailsCardVisible] = useState(false);
   
@@ -66,7 +66,6 @@ export default function EventosReportadosPage() {
   const fetchAllData = useCallback(async () => {
     setIsLoadingData(true);
     try {
-      // Fetch Reported Events
       const eventsCollectionRef = collection(db, "reportedEvents");
       const eventsQuery = query(eventsCollectionRef, orderBy("date", "desc"));
       const eventsSnapshot = await getDocs(eventsQuery);
@@ -79,88 +78,28 @@ export default function EventosReportadosPage() {
         return { id: doc.id, ...data, date: eventDate } as ReportedEvent;
       });
 
-      // Fetch RCA Analyses
       const rcaAnalysesCollectionRef = collection(db, "rcaAnalyses");
       const rcaQuery = query(rcaAnalysesCollectionRef); 
       const rcaSnapshot = await getDocs(rcaQuery);
       const rcaAnalysesData = rcaSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RCAAnalysisDocument));
       setAllRcaAnalyses(rcaAnalysesData); 
 
-      // Derive event statuses
       const processedEvents = rawEventsData.map(event => {
         let derivedStatus = event.status; 
-
-        if (event.id === "E-77157-001") { 
-          console.log(`[EventosPage Debug E-77157-001] Initial event status from Firestore: ${event.status}`);
-        }
-
         if (event.status !== 'Finalizado') {
           const rcaDoc = rcaAnalysesData.find(rca => rca.eventData.id === event.id);
-
-          if (event.id === "E-77157-001") {
-            console.log(`[EventosPage Debug E-77157-001] Found rcaDoc for event:`, rcaDoc ? 'Yes' : 'No', rcaDoc ? `(RCA ID: ${rcaDoc.eventData.id})` : '');
-          }
-          
-          if (rcaDoc && Array.isArray(rcaDoc.plannedActions)) {
+          if (rcaDoc && Array.isArray(rcaDoc.plannedActions) && rcaDoc.plannedActions.length > 0) {
             const rcaValidations = rcaDoc.validations || []; 
-            if (event.id === "E-77157-001") {
-              console.log(`[EventosPage Debug E-77157-001] rcaValidations content for this rcaDoc:`, JSON.parse(JSON.stringify(rcaValidations)));
-              const plannedActionIds = rcaDoc.plannedActions.map(p => p ? p.id : 'MALFORMED_PA_OBJECT');
-              const validationActionIds = rcaValidations.map(v => v ? v.actionId : 'MALFORMED_VALIDATION_OBJECT');
-              console.log(`[EventosPage Debug E-77157-001] Planned Action IDs in rcaDoc:`, plannedActionIds);
-              console.log(`[EventosPage Debug E-77157-001] Action IDs in rcaValidations:`, validationActionIds);
-            }
-            
-            let allActionsAreTrulyValidated = true; 
-
-            if (rcaDoc.plannedActions.length === 0) { 
-                allActionsAreTrulyValidated = false;
-                if (event.id === "E-77157-001") {
-                    console.log(`[EventosPage Debug E-77157-001] No planned actions found (length is 0). Setting allActionsAreTrulyValidated to false.`);
-                }
-            } else {
-                for (const pa of rcaDoc.plannedActions) {
-                    if (!pa || !pa.id) { 
-                        if (event.id === "E-77157-001") {
-                            console.log(`[EventosPage Debug E-77157-001] Malformed planned action found:`, pa, `. Setting allActionsAreTrulyValidated to false and breaking.`);
-                        }
-                        allActionsAreTrulyValidated = false;
-                        break;
-                    }
-                    const validation = rcaValidations.find(v => v && v.actionId === pa.id); 
-                    if (event.id === "E-77157-001") {
-                        console.log(`[EventosPage Debug E-77157-001] For PA ID ${pa.id}: Found validation in rcaValidations:`, JSON.parse(JSON.stringify(validation || {})), `Actual validation status: ${validation?.status}. Required: 'validated'. Match: ${validation?.status === 'validated'}`);
-                    }
-                    if (!validation || validation.status !== 'validated') {
-                        if (event.id === "E-77157-001") {
-                            console.log(`[EventosPage Debug E-77157-001] PA ID ${pa.id} is NOT validated. Setting allActionsAreTrulyValidated to false and breaking.`);
-                        }
-                        allActionsAreTrulyValidated = false;
-                        break;
-                    }
-                }
-            }
-
-            if (event.id === "E-77157-001") {
-              console.log(`[EventosPage Debug E-77157-001] Final result of allActionsAreTrulyValidated check:`, allActionsAreTrulyValidated);
-            }
-
+            const allActionsAreTrulyValidated = rcaDoc.plannedActions.every(pa => {
+                if (!pa || !pa.id) return false;
+                const validation = rcaValidations.find(v => v && v.actionId === pa.id); 
+                return validation && validation.status === 'validated';
+            });
             if (allActionsAreTrulyValidated) {
               derivedStatus = 'En validación'; 
             }
-            
-          } else {
-             if (event.id === "E-77157-001") {
-                if (!rcaDoc) console.log(`[EventosPage Debug E-77157-001] No rcaDoc found for event ${event.id}. Cannot be 'En validación'.`);
-                else if (!Array.isArray(rcaDoc.plannedActions)) console.log(`[EventosPage Debug E-77157-001] rcaDoc.plannedActions is not an array for event ${event.id}. Cannot be 'En validación'.`);
-                console.log(`[EventosPage Debug E-77157-001] Not setting to 'En validación' due to above conditions. derivedStatus will be: ${derivedStatus}`);
-             }
           }
         } 
-
-        if (event.id === "E-77157-001") {
-          console.log(`[EventosPage Debug E-77157-001] Final derivedStatus for event: ${derivedStatus}`);
-        }
         return { ...event, status: derivedStatus };
       });
 
@@ -274,12 +213,11 @@ export default function EventosReportadosPage() {
     }
   };
 
-  const handleStartRCA = () => { // Renamed from handleStartRCA, no longer updates status
+  const handleStartRCA = () => { 
     if (!selectedEvent) {
       toast({ title: "Acción no Válida", description: "No hay evento seleccionado.", variant: "destructive" });
       return;
     }
-    // Only navigates, status change is handled in Step 2 save
     router.push(`/analisis?id=${selectedEvent.id}`);
   };
   
@@ -293,6 +231,55 @@ export default function EventosReportadosPage() {
     } else {
          toast({ title: "Ningún Evento Seleccionado", description: "Por favor, seleccione un evento.", variant: "destructive" });
     }
+  };
+
+  const handleExportToExcel = () => {
+    if (filteredEvents.length === 0) {
+      toast({
+        title: "Sin Datos para Exportar",
+        description: "No hay eventos en la tabla para exportar.",
+        variant: "default",
+      });
+      return;
+    }
+
+    const dataToExport = filteredEvents.map(event => ({
+      'ID Evento': event.id,
+      'Título': event.title,
+      'Sitio/Planta': event.site,
+      'Fecha': formatDateForDisplay(event.date),
+      'Tipo': event.type,
+      'Prioridad': event.priority,
+      'Estado': event.status,
+      'Descripción Detallada': event.description || 'N/A',
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Eventos Reportados");
+
+    // Define anchos de columna (opcional, para mejor visualización)
+    worksheet['!cols'] = [
+      { wch: 15 }, // ID Evento
+      { wch: 40 }, // Título
+      { wch: 25 }, // Sitio/Planta
+      { wch: 12 }, // Fecha
+      { wch: 15 }, // Tipo
+      { wch: 10 }, // Prioridad
+      { wch: 15 }, // Estado
+      { wch: 50 }, // Descripción Detallada
+    ];
+    
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
+    
+    const fileName = `Eventos_Reportados_RCA_${new Date().toISOString().split('T')[0]}.xlsx`;
+    saveAs(dataBlob, fileName);
+
+    toast({
+      title: "Exportación Iniciada",
+      description: `El archivo ${fileName} ha comenzado a descargarse.`,
+    });
   };
 
   const isLoading = isLoadingData || isLoadingSites;
@@ -519,7 +506,7 @@ export default function EventosReportadosPage() {
             </Table>
           </div>
         </CardContent>
-        <CardFooter className="flex justify-start gap-2 pt-4 border-t">
+        <CardFooter className="flex items-center gap-3 pt-4 border-t"> {/* Default justify-start for flex */}
           {(() => {
             if (!selectedEvent) {
               return <Button variant="default" size="sm" disabled><PlayCircle className="mr-2 h-4 w-4" /> Seleccione un evento</Button>;
@@ -530,8 +517,7 @@ export default function EventosReportadosPage() {
             let buttonVariant: "default" | "outline" = "default";
             let buttonOnClick = () => {};
             let isDisabled = false;
-            // showLoader is removed
-
+            
             if (selectedEvent.status === 'Finalizado' || selectedEvent.status === 'En validación') {
               buttonText = "Revisar Investigación";
               ButtonIcon = Eye;
@@ -540,7 +526,7 @@ export default function EventosReportadosPage() {
             } else if (selectedEvent.status === 'Pendiente') {
               buttonText = "Iniciar Investigación"; 
               ButtonIcon = PlayCircle;
-              buttonOnClick = handleStartRCA; // Functionality changed: only navigates
+              buttonOnClick = handleStartRCA; 
             } else if (selectedEvent.status === 'En análisis') {
               buttonText = "Continuar Investigación";
               ButtonIcon = PlayCircle;
@@ -558,6 +544,16 @@ export default function EventosReportadosPage() {
               </Button>
             );
           })()}
+          {/* NEW EXPORT BUTTON */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportToExcel}
+            disabled={isLoadingData || filteredEvents.length === 0}
+            className="ml-auto" 
+          >
+            <FileDown className="mr-1.5 h-3.5 w-3.5" /> Exportar a Excel
+          </Button>
         </CardFooter>
       </Card>
 
