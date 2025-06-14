@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PieChart as PieChartIcon, ListChecks, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, Flame, Search, RefreshCcw, Percent, FileText, ListTodo, BarChart3 as RCASummaryIcon, FileDown } from 'lucide-react';
+import { PieChart as PieChartIcon, ListChecks, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, Flame, Search, RefreshCcw, Percent, FileText, ListTodo, BarChart3 as RCASummaryIcon, FileDown, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
 import type { ReportedEvent, RCAAnalysisDocument, PlannedAction, Validation, Site, ReportedEventType, PriorityType } from '@/types/rca';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, Timestamp, where, orderBy, limit, QueryConstraint } from "firebase/firestore";
@@ -51,6 +51,7 @@ interface AnalisisEnCursoItem {
   proyecto: string;
   currentStep: number;
   progreso: number;
+  updatedAt: string; // ISO string for sorting
 }
 
 interface PlanAccionPendienteItem {
@@ -58,7 +59,7 @@ interface PlanAccionPendienteItem {
   actionId: string;
   accion: string;
   responsable: string;
-  fechaLimite: string;
+  fechaLimite: string; // 'dd/MM/yyyy' or 'N/A'
   estado: 'Activa' | 'Validada';
   rcaTitle: string;
 }
@@ -67,6 +68,18 @@ interface DashboardFilters {
   site: string;
   type: ReportedEventType;
   priority: PriorityType;
+}
+
+type SortableAnalisisEnCursoKey = 'proyecto' | 'currentStep' | 'progreso' | 'updatedAt';
+interface SortConfigAnalisisEnCurso {
+  key: SortableAnalisisEnCursoKey | null;
+  direction: 'ascending' | 'descending';
+}
+
+type SortablePlanesAccionKey = 'rcaId' | 'actionId' | 'accion' | 'rcaTitle' | 'responsable' | 'fechaLimite' | 'estado';
+interface SortConfigPlanesAccion {
+  key: SortablePlanesAccionKey | null;
+  direction: 'ascending' | 'descending';
 }
 
 export default function DashboardRCAPage() {
@@ -88,6 +101,10 @@ export default function DashboardRCAPage() {
     priority: '' as PriorityType,
   });
 
+  const [sortConfigAnalisis, setSortConfigAnalisis] = useState<SortConfigAnalisisEnCurso>({ key: 'updatedAt', direction: 'descending' });
+  const [sortConfigPlanes, setSortConfigPlanes] = useState<SortConfigPlanesAccion>({ key: 'fechaLimite', direction: 'ascending' });
+
+
   const fetchAllDashboardData = useCallback(async (currentFilters: DashboardFilters) => {
     setIsLoadingData(true);
 
@@ -99,7 +116,6 @@ export default function DashboardRCAPage() {
     let currentRcaFinalizadosCount = 0;
 
     try {
-      // Query for RCA Analyses (used for total RCAs, finalized RCAs, and action stats)
       const rcaQueryConstraints: QueryConstraint[] = [];
       if (currentFilters.site && currentFilters.site !== ALL_FILTER_VALUE) {
         rcaQueryConstraints.push(where("eventData.site", "==", currentFilters.site));
@@ -158,36 +174,21 @@ export default function DashboardRCAPage() {
             else if (rcaDoc.projectLeader || (rcaDoc.detailedFacts && Object.values(rcaDoc.detailedFacts).some(v => !!v)) || (rcaDoc.analysisDetails && rcaDoc.analysisDetails.trim() !== '') || (rcaDoc.preservedFacts && rcaDoc.preservedFacts.length > 0)) currentStep = 2;
 
             const progreso = Math.round((currentStep / 5) * 100);
-            currentAnalysesInProgress.push({ id: rcaId, proyecto, currentStep, progreso });
+            currentAnalysesInProgress.push({ 
+              id: rcaId, 
+              proyecto, 
+              currentStep, 
+              progreso,
+              updatedAt: rcaDoc.updatedAt || new Date(0).toISOString() 
+            });
         }
       });
 
       setActionStatsData({ totalAcciones: totalAccionesGlobal, accionesPendientes: accionesPendientesGlobal, accionesValidadas: accionesValidadasGlobal });
+      setAnalisisEnCurso(currentAnalysesInProgress); // Initial sort handled by `sortedAnalisisEnCurso`
+      setPlanesAccionPendientes(currentPendingActionPlans); // Initial sort handled by `sortedPlanesAccionPendientes`
 
-      currentAnalysesInProgress.sort((a,b) => {
-        const rcaA = rcaSnapshot.docs.find(d => d.id === a.id)?.data() as RCAAnalysisDocument | undefined;
-        const rcaB = rcaSnapshot.docs.find(d => d.id === b.id)?.data() as RCAAnalysisDocument | undefined;
-        const dateA = rcaA?.updatedAt ? parseISO(rcaA.updatedAt).getTime() : 0;
-        const dateB = rcaB?.updatedAt ? parseISO(rcaB.updatedAt).getTime() : 0;
-        return dateB - dateA;
-      });
-      setAnalisisEnCurso(currentAnalysesInProgress);
 
-      currentPendingActionPlans.sort((a,b) => {
-          try {
-              const dateAStr = a.fechaLimite.split('/').reverse().join('-');
-              const dateBStr = b.fechaLimite.split('/').reverse().join('-');
-              const dateA = a.fechaLimite !== 'N/A' ? parseISO(dateAStr) : null;
-              const dateB = b.fechaLimite !== 'N/A' ? parseISO(dateBStr) : null;
-              if (dateA && isValid(dateA) && dateB && isValid(dateB)) return dateA.getTime() - dateB.getTime();
-              if (dateA && isValid(dateA)) return -1;
-              if (dateB && isValid(dateB)) return 1;
-          } catch (e) { /* Silently ignore */ }
-          return 0;
-      });
-      setPlanesAccionPendientes(currentPendingActionPlans.slice(0, 5));
-
-      // Query for Reported Events (used for "RCA Pendientes")
       const reportedEventsQueryConstraints: QueryConstraint[] = [where("status", "==", "En análisis")];
       if (currentFilters.site && currentFilters.site !== ALL_FILTER_VALUE) {
         reportedEventsQueryConstraints.push(where("site", "==", currentFilters.site));
@@ -298,8 +299,94 @@ export default function DashboardRCAPage() {
     return (actionStatsData.accionesValidadas / actionStatsData.totalAcciones) * 100;
   }, [actionStatsData]);
 
+  const requestSortAnalisis = (key: SortableAnalisisEnCursoKey) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfigAnalisis.key === key && sortConfigAnalisis.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfigAnalisis({ key, direction });
+  };
+
+  const sortedAnalisisEnCurso = useMemo(() => {
+    let sortableItems = [...analisisEnCurso];
+    if (sortConfigAnalisis.key) {
+      sortableItems.sort((a, b) => {
+        const valA = a[sortConfigAnalisis.key!];
+        const valB = b[sortConfigAnalisis.key!];
+
+        if (sortConfigAnalisis.key === 'updatedAt') {
+          return (parseISO(valA as string).getTime() || 0) - (parseISO(valB as string).getTime() || 0);
+        }
+        if (typeof valA === 'number' && typeof valB === 'number') {
+          return valA - valB;
+        }
+        if (typeof valA === 'string' && typeof valB === 'string') {
+          return valA.localeCompare(valB);
+        }
+        return 0;
+      });
+      if (sortConfigAnalisis.direction === 'descending') {
+        sortableItems.reverse();
+      }
+    }
+    return sortableItems;
+  }, [analisisEnCurso, sortConfigAnalisis]);
+
+  const renderSortIconAnalisis = (columnKey: SortableAnalisisEnCursoKey) => {
+    if (sortConfigAnalisis.key === columnKey) {
+      return sortConfigAnalisis.direction === 'ascending' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+    }
+    return <ChevronsUpDown className="h-3 w-3 opacity-30" />;
+  };
+
+  const requestSortPlanes = (key: SortablePlanesAccionKey) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfigPlanes.key === key && sortConfigPlanes.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfigPlanes({ key, direction });
+  };
+
+  const sortedPlanesAccionPendientes = useMemo(() => {
+    let sortableItems = [...planesAccionPendientes];
+    if (sortConfigPlanes.key) {
+      sortableItems.sort((a, b) => {
+        const valA = a[sortConfigPlanes.key!];
+        const valB = b[sortConfigPlanes.key!];
+
+        if (sortConfigPlanes.key === 'fechaLimite') {
+          const dateAStr = String(valA);
+          const dateBStr = String(valB);
+          const dateA = dateAStr === 'N/A' ? null : parseISO(dateAStr.split('/').reverse().join('-'));
+          const dateB = dateBStr === 'N/A' ? null : parseISO(dateBStr.split('/').reverse().join('-'));
+          if (dateA === null && dateB === null) return 0;
+          if (dateA === null) return 1;
+          if (dateB === null) return -1;
+          if (isValid(dateA) && isValid(dateB)) return dateA.getTime() - dateB.getTime();
+          return 0;
+        }
+        if (typeof valA === 'string' && typeof valB === 'string') {
+          return valA.localeCompare(valB);
+        }
+        return 0;
+      });
+      if (sortConfigPlanes.direction === 'descending') {
+        sortableItems.reverse();
+      }
+    }
+    return sortableItems;
+  }, [planesAccionPendientes, sortConfigPlanes]);
+  
+  const renderSortIconPlanes = (columnKey: SortablePlanesAccionKey) => {
+    if (sortConfigPlanes.key === columnKey) {
+      return sortConfigPlanes.direction === 'ascending' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+    }
+    return <ChevronsUpDown className="h-3 w-3 opacity-30" />;
+  };
+
+
   const handleExportToExcel = () => {
-    if (planesAccionPendientes.length === 0) {
+    if (sortedPlanesAccionPendientes.length === 0) {
       toast({
         title: "Sin Datos para Exportar",
         description: "No hay planes de acción activos para exportar.",
@@ -308,7 +395,7 @@ export default function DashboardRCAPage() {
       return;
     }
 
-    const dataToExport = planesAccionPendientes.map(item => ({
+    const dataToExport = sortedPlanesAccionPendientes.map(item => ({
       'ID Evento': item.rcaId,
       'ID Acción': item.actionId,
       'Título RCA': item.rcaTitle,
@@ -322,15 +409,9 @@ export default function DashboardRCAPage() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Planes de Acción Activos");
 
-    // Define anchos de columna
     const columnWidths = [
-      { wch: 20 }, // ID Evento
-      { wch: 20 }, // ID Acción
-      { wch: 40 }, // Título RCA
-      { wch: 50 }, // Descripción Acción
-      { wch: 25 }, // Responsable
-      { wch: 15 }, // Fecha Límite
-      { wch: 15 }, // Estado Acción
+      { wch: 20 }, { wch: 20 }, { wch: 40 }, { wch: 50 },
+      { wch: 25 }, { wch: 15 }, { wch: 15 },
     ];
     worksheet['!cols'] = columnWidths;
 
@@ -656,13 +737,19 @@ export default function DashboardRCAPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[40%]">Proyecto/Evento</TableHead>
-                  <TableHead className="w-[30%]">Paso Actual</TableHead>
-                  <TableHead className="w-[30%]">Progreso Estimado</TableHead>
+                  <TableHead className="w-[40%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAnalisis('proyecto')}>
+                    <div className="flex items-center gap-1">Proyecto/Evento {renderSortIconAnalisis('proyecto')}</div>
+                  </TableHead>
+                  <TableHead className="w-[30%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAnalisis('currentStep')}>
+                    <div className="flex items-center gap-1">Paso Actual {renderSortIconAnalisis('currentStep')}</div>
+                  </TableHead>
+                  <TableHead className="w-[30%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAnalisis('progreso')}>
+                    <div className="flex items-center gap-1">Progreso Estimado {renderSortIconAnalisis('progreso')}</div>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {analisisEnCurso.length > 0 ? analisisEnCurso.map((item) => (
+                {sortedAnalisisEnCurso.length > 0 ? sortedAnalisisEnCurso.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">{item.proyecto}</TableCell>
                     <TableCell>Paso {item.currentStep} de 5</TableCell>
@@ -704,16 +791,28 @@ export default function DashboardRCAPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[15%] text-xs">ID Evento</TableHead>
-                  <TableHead className="w-[15%] text-xs">ID Acción</TableHead>
-                  <TableHead className="w-[25%]">Acción (Análisis: <span className="italic text-xs">Título RCA</span>)</TableHead>
-                  <TableHead className="w-[15%]">Responsable</TableHead>
-                  <TableHead className="w-[15%]">Fecha Límite</TableHead>
-                  <TableHead className="w-[15%]">Estado Acción</TableHead>
+                  <TableHead className="w-[15%] text-xs cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('rcaId')}>
+                    <div className="flex items-center gap-1">ID Evento {renderSortIconPlanes('rcaId')}</div>
+                  </TableHead>
+                  <TableHead className="w-[15%] text-xs cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('actionId')}>
+                     <div className="flex items-center gap-1">ID Acción {renderSortIconPlanes('actionId')}</div>
+                  </TableHead>
+                  <TableHead className="w-[25%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('accion')}>
+                    <div className="flex items-center gap-1">Acción (Análisis: <span className="italic text-xs">Título RCA</span>) {renderSortIconPlanes('accion')}</div>
+                  </TableHead>
+                  <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('responsable')}>
+                    <div className="flex items-center gap-1">Responsable {renderSortIconPlanes('responsable')}</div>
+                  </TableHead>
+                  <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('fechaLimite')}>
+                    <div className="flex items-center gap-1">Fecha Límite {renderSortIconPlanes('fechaLimite')}</div>
+                  </TableHead>
+                  <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('estado')}>
+                    <div className="flex items-center gap-1">Estado Acción {renderSortIconPlanes('estado')}</div>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {planesAccionPendientes.length > 0 ? planesAccionPendientes.map((item) => (
+                {sortedPlanesAccionPendientes.length > 0 ? sortedPlanesAccionPendientes.slice(0,5).map((item) => ( // Only show top 5
                   <TableRow key={`${item.rcaId}-${item.actionId}`}>
                     <TableCell className="font-mono text-xs">{item.rcaId.substring(0, 8)}...</TableCell>
                     <TableCell className="font-mono text-xs">{item.actionId.substring(0, 8)}...</TableCell>
@@ -745,9 +844,9 @@ export default function DashboardRCAPage() {
             variant="outline" 
             size="sm" 
             onClick={handleExportToExcel}
-            disabled={isLoadingData || planesAccionPendientes.length === 0}
+            disabled={isLoadingData || sortedPlanesAccionPendientes.length === 0}
           >
-            <FileDown className="mr-1.5 h-3.5 w-3.5" /> Exportar Excel
+            <FileDown className="mr-1.5 h-3.5 w-3.5" /> Exportar Excel (Todos los Activos)
           </Button>
         </CardFooter>
       </Card>
@@ -755,3 +854,4 @@ export default function DashboardRCAPage() {
     </div>
   );
 }
+

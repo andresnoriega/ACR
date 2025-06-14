@@ -16,7 +16,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { ReportedEvent, ReportedEventType, ReportedEventStatus, PriorityType, Site, RCAAnalysisDocument } from '@/types/rca';
-import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, PlayCircle, Info, Loader2, Eye, Fingerprint, FileDown } from 'lucide-react';
+import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, PlayCircle, Info, Loader2, Eye, Fingerprint, FileDown, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/firestore";
@@ -38,6 +38,14 @@ interface Filters {
   status: ReportedEventStatus;
   eventId: string;
 }
+
+type SortableReportedEventKey = 'id' | 'title' | 'site' | 'date' | 'type' | 'priority' | 'status';
+
+interface SortConfigReportedEvent {
+  key: SortableReportedEventKey | null;
+  direction: 'ascending' | 'descending';
+}
+
 
 export default function EventosReportadosPage() {
   const { toast } = useToast();
@@ -63,11 +71,15 @@ export default function EventosReportadosPage() {
     eventId: '',
   });
 
+  const [sortConfigEvents, setSortConfigEvents] = useState<SortConfigReportedEvent>({ key: 'date', direction: 'descending' });
+
+
   const fetchAllData = useCallback(async () => {
     setIsLoadingData(true);
     try {
       const eventsCollectionRef = collection(db, "reportedEvents");
-      const eventsQuery = query(eventsCollectionRef, orderBy("date", "desc"));
+      // Initial sort from Firestore by date descending
+      const eventsQuery = query(eventsCollectionRef, orderBy("date", "desc")); 
       const eventsSnapshot = await getDocs(eventsQuery);
       const rawEventsData = eventsSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -234,7 +246,7 @@ export default function EventosReportadosPage() {
   };
 
   const handleExportToExcel = () => {
-    if (filteredEvents.length === 0) {
+    if (sortedFilteredEvents.length === 0) { // Use sortedFilteredEvents
       toast({
         title: "Sin Datos para Exportar",
         description: "No hay eventos en la tabla para exportar.",
@@ -243,7 +255,7 @@ export default function EventosReportadosPage() {
       return;
     }
 
-    const dataToExport = filteredEvents.map(event => ({
+    const dataToExport = sortedFilteredEvents.map(event => ({ // Use sortedFilteredEvents
       'ID Evento': event.id,
       'Título': event.title,
       'Sitio/Planta': event.site,
@@ -258,16 +270,9 @@ export default function EventosReportadosPage() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Eventos Reportados");
 
-    // Define anchos de columna (opcional, para mejor visualización)
     worksheet['!cols'] = [
-      { wch: 15 }, // ID Evento
-      { wch: 40 }, // Título
-      { wch: 25 }, // Sitio/Planta
-      { wch: 12 }, // Fecha
-      { wch: 15 }, // Tipo
-      { wch: 10 }, // Prioridad
-      { wch: 15 }, // Estado
-      { wch: 50 }, // Descripción Detallada
+      { wch: 15 }, { wch: 40 }, { wch: 25 }, { wch: 12 },
+      { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 50 },
     ];
     
     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
@@ -280,6 +285,53 @@ export default function EventosReportadosPage() {
       title: "Exportación Iniciada",
       description: `El archivo ${fileName} ha comenzado a descargarse.`,
     });
+  };
+
+  const requestSortEvents = (key: SortableReportedEventKey) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfigEvents.key === key && sortConfigEvents.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfigEvents({ key, direction });
+  };
+
+  const sortedFilteredEvents = useMemo(() => {
+    let sortableItems = [...filteredEvents];
+    if (sortConfigEvents.key) {
+      sortableItems.sort((a, b) => {
+        const valA = a[sortConfigEvents.key!];
+        const valB = b[sortConfigEvents.key!];
+
+        if (sortConfigEvents.key === 'date') {
+          const dateA = valA ? parseISO(valA).getTime() : 0;
+          const dateB = valB ? parseISO(valB).getTime() : 0;
+          return dateA - dateB;
+        }
+        
+        // For other string-based fields
+        if (typeof valA === 'string' && typeof valB === 'string') {
+          return valA.localeCompare(valB);
+        }
+        // Fallback for other types or mixed types, though not expected for these keys
+        const strA = String(valA ?? '').toLowerCase();
+        const strB = String(valB ?? '').toLowerCase();
+        if (strA < strB) return -1;
+        if (strA > strB) return 1;
+        return 0;
+      });
+
+      if (sortConfigEvents.direction === 'descending') {
+        sortableItems.reverse();
+      }
+    }
+    return sortableItems;
+  }, [filteredEvents, sortConfigEvents]);
+
+  const renderSortIconEvents = (columnKey: SortableReportedEventKey) => {
+    if (sortConfigEvents.key === columnKey) {
+      return sortConfigEvents.direction === 'ascending' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+    }
+    return <ChevronsUpDown className="h-3 w-3 opacity-30" />;
   };
 
   const isLoading = isLoadingData || isLoadingSites;
@@ -458,13 +510,27 @@ export default function EventosReportadosPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[5%]"></TableHead>
-                  <TableHead className="w-[10%]">ID</TableHead>
-                  <TableHead className="w-[25%]">Título</TableHead>
-                  <TableHead className="w-[15%]">Sitio</TableHead>
-                  <TableHead className="w-[10%]">Fecha</TableHead>
-                  <TableHead className="w-[10%]">Tipo</TableHead>
-                  <TableHead className="w-[10%]">Prioridad</TableHead>
-                  <TableHead className="w-[15%]">Estado</TableHead>
+                  <TableHead className="w-[10%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortEvents('id')}>
+                    <div className="flex items-center gap-1">ID {renderSortIconEvents('id')}</div>
+                  </TableHead>
+                  <TableHead className="w-[25%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortEvents('title')}>
+                    <div className="flex items-center gap-1">Título {renderSortIconEvents('title')}</div>
+                  </TableHead>
+                  <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortEvents('site')}>
+                    <div className="flex items-center gap-1">Sitio {renderSortIconEvents('site')}</div>
+                  </TableHead>
+                  <TableHead className="w-[10%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortEvents('date')}>
+                    <div className="flex items-center gap-1">Fecha {renderSortIconEvents('date')}</div>
+                  </TableHead>
+                  <TableHead className="w-[10%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortEvents('type')}>
+                    <div className="flex items-center gap-1">Tipo {renderSortIconEvents('type')}</div>
+                  </TableHead>
+                  <TableHead className="w-[10%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortEvents('priority')}>
+                    <div className="flex items-center gap-1">Prioridad {renderSortIconEvents('priority')}</div>
+                  </TableHead>
+                  <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortEvents('status')}>
+                    <div className="flex items-center gap-1">Estado {renderSortIconEvents('status')}</div>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -477,8 +543,8 @@ export default function EventosReportadosPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ) : filteredEvents.length > 0 ? (
-                  filteredEvents.map((event) => (
+                ) : sortedFilteredEvents.length > 0 ? (
+                  sortedFilteredEvents.map((event) => (
                     <TableRow
                       key={event.id}
                       onClick={() => handleSelectEvent(event)}
@@ -544,12 +610,11 @@ export default function EventosReportadosPage() {
               </Button>
             );
           })()}
-          {/* NEW EXPORT BUTTON */}
           <Button
             variant="outline"
             size="sm"
             onClick={handleExportToExcel}
-            disabled={isLoadingData || filteredEvents.length === 0}
+            disabled={isLoadingData || sortedFilteredEvents.length === 0}
             className="ml-auto" 
           >
             <FileDown className="mr-1.5 h-3.5 w-3.5" /> Exportar a Excel
