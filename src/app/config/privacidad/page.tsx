@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ShieldCheck, DatabaseZap, AlertTriangle, Trash2, Loader2, ListOrdered, ListFilter, Globe, CalendarDays, Flame, ActivityIcon, Search, RefreshCcw, Fingerprint, FileDown, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
+import { ShieldCheck, DatabaseZap, AlertTriangle, Trash2, Loader2, ListOrdered, ListFilter, Globe, CalendarDays, Flame, ActivityIcon, Search, RefreshCcw, Fingerprint, FileDown, ArrowUp, ArrowDown, ChevronsUpDown, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, deleteDoc, doc, WriteBatch, writeBatch, query, orderBy as firestoreOrderBy } from "firebase/firestore"; // Renamed orderBy to firestoreOrderBy
@@ -68,7 +68,7 @@ const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Fallo', 'Accidente'
 const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
 const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'En validación', 'Finalizado'];
 const ALL_FILTER_VALUE = "__ALL__";
-const NO_SITES_PLACEHOLDER_VALUE = "__NO_SITES_CONFIGURED__"; // Added constant
+const NO_SITES_PLACEHOLDER_VALUE = "__NO_SITES_CONFIGURED__"; 
 
 interface Filters {
   site: string;
@@ -108,6 +108,8 @@ export default function ConfiguracionPrivacidadPage() {
   });
 
   const [sortConfigEvents, setSortConfigEvents] = useState<SortConfigReportedEvent>({ key: 'date', direction: 'descending' });
+  const [showEventManagementUI, setShowEventManagementUI] = useState(false);
+
 
   const fetchAllEventData = useCallback(async () => {
     setIsLoadingData(true);
@@ -353,134 +355,150 @@ export default function ConfiguracionPrivacidadPage() {
         <CardFooter><p className="text-xs text-muted-foreground">Otras opciones de gestión de datos (exportación, retención) podrían añadirse aquí.</p></CardFooter>
       </Card>
 
-      {/* Filtros de Búsqueda de Eventos */}
-      <Card className="shadow-lg mt-8">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <ListFilter className="h-6 w-6 text-primary" />
-            <CardTitle className="text-2xl">Filtros de Eventos Registrados</CardTitle>
-          </div>
-          <CardDescription>Filtre los eventos para visualizarlos en la tabla de abajo.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
-          <div>
-            <Label htmlFor="filter-site-priv" className="flex items-center mb-1"><Globe className="mr-1.5 h-4 w-4 text-muted-foreground"/>Sitio/Planta</Label>
-            <Select value={filters.site || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('site', val)} disabled={isLoadingSites}>
-              <SelectTrigger id="filter-site-priv"><SelectValue placeholder="Todos los sitios" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_FILTER_VALUE}>Todos los sitios</SelectItem>
-                {availableSites.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
-                {availableSites.length === 0 && <SelectItem value={NO_SITES_PLACEHOLDER_VALUE} disabled>No hay sitios configurados</SelectItem>}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="filter-date-priv" className="flex items-center mb-1"><CalendarDays className="mr-1.5 h-4 w-4 text-muted-foreground"/>Fecha</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button id="filter-date-priv" variant="outline" className="w-full justify-start text-left font-normal" disabled={isLoadingData}>
-                  {filters.date ? format(filters.date, "PPP", { locale: es }) : <span>Seleccione fecha</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={filters.date} onSelect={handleDateChange} initialFocus locale={es} disabled={{ after: new Date() }} /></PopoverContent>
-            </Popover>
-          </div>
-          <div>
-            <Label htmlFor="filter-type-priv" className="flex items-center mb-1"><AlertTriangle className="mr-1.5 h-4 w-4 text-muted-foreground"/>Tipo</Label>
-            <Select value={filters.type || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('type', val as ReportedEventType | typeof ALL_FILTER_VALUE)} disabled={isLoadingData}>
-              <SelectTrigger id="filter-type-priv"><SelectValue placeholder="Todos los tipos" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_FILTER_VALUE}>Todos los tipos</SelectItem>
-                {eventTypeOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="filter-priority-priv" className="flex items-center mb-1"><Flame className="mr-1.5 h-4 w-4 text-muted-foreground"/>Prioridad</Label>
-            <Select value={filters.priority || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('priority', val as PriorityType | typeof ALL_FILTER_VALUE)} disabled={isLoadingData}>
-              <SelectTrigger id="filter-priority-priv"><SelectValue placeholder="Todas" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_FILTER_VALUE}>Todas</SelectItem>
-                {priorityOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="filter-status-priv" className="flex items-center mb-1"><ActivityIcon className="mr-1.5 h-4 w-4 text-muted-foreground"/>Estado</Label>
-            <Select value={filters.status || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('status', val as ReportedEventStatus | typeof ALL_FILTER_VALUE)} disabled={isLoadingData}>
-              <SelectTrigger id="filter-status-priv"><SelectValue placeholder="Todos" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_FILTER_VALUE}>Todos</SelectItem>
-                {statusOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="filter-event-id-priv" className="flex items-center mb-1"><Fingerprint className="mr-1.5 h-4 w-4 text-muted-foreground"/>ID Evento</Label>
-            <Input id="filter-event-id-priv" placeholder="Ej: E-12345-001" value={filters.eventId} onChange={(e) => handleFilterChange('eventId', e.target.value)} disabled={isLoadingData}/>
-          </div>
-        </CardContent>
-        <CardFooter className="flex justify-start gap-3 pt-4 border-t">
-          <Button onClick={applyFilters} disabled={isLoadingData}><Search className="mr-2"/>Aplicar Filtros</Button>
-          <Button onClick={clearFilters} variant="outline" disabled={isLoadingData}><RefreshCcw className="mr-2"/>Limpiar Filtros</Button>
-        </CardFooter>
-      </Card>
+      <div className="mt-8 text-center">
+        <Button 
+          variant="outline" 
+          onClick={() => setShowEventManagementUI(prev => !prev)}
+          className="w-full max-w-md mx-auto"
+        >
+          {showEventManagementUI ? <ChevronUp className="mr-2 h-5 w-5" /> : <ChevronDown className="mr-2 h-5 w-5" />}
+          {showEventManagementUI ? 'Ocultar Filtros y Lista de Eventos' : 'Mostrar Filtros y Lista de Eventos'}
+        </Button>
+      </div>
+      
+      {showEventManagementUI && (
+        <>
+          {/* Filtros de Búsqueda de Eventos */}
+          <Card className="shadow-lg mt-6 animate-in fade-in-50 duration-300">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <ListFilter className="h-6 w-6 text-primary" />
+                <CardTitle className="text-2xl">Filtros de Eventos Registrados</CardTitle>
+              </div>
+              <CardDescription>Filtre los eventos para visualizarlos en la tabla de abajo.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+              <div>
+                <Label htmlFor="filter-site-priv" className="flex items-center mb-1"><Globe className="mr-1.5 h-4 w-4 text-muted-foreground"/>Sitio/Planta</Label>
+                <Select value={filters.site || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('site', val)} disabled={isLoadingSites}>
+                  <SelectTrigger id="filter-site-priv"><SelectValue placeholder="Todos los sitios" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_FILTER_VALUE}>Todos los sitios</SelectItem>
+                    {availableSites.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                    {availableSites.length === 0 && <SelectItem value={NO_SITES_PLACEHOLDER_VALUE} disabled>No hay sitios configurados</SelectItem>}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="filter-date-priv" className="flex items-center mb-1"><CalendarDays className="mr-1.5 h-4 w-4 text-muted-foreground"/>Fecha</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button id="filter-date-priv" variant="outline" className="w-full justify-start text-left font-normal" disabled={isLoadingData}>
+                      {filters.date ? format(filters.date, "PPP", { locale: es }) : <span>Seleccione fecha</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={filters.date} onSelect={handleDateChange} initialFocus locale={es} disabled={{ after: new Date() }} /></PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label htmlFor="filter-type-priv" className="flex items-center mb-1"><AlertTriangle className="mr-1.5 h-4 w-4 text-muted-foreground"/>Tipo</Label>
+                <Select value={filters.type || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('type', val as ReportedEventType | typeof ALL_FILTER_VALUE)} disabled={isLoadingData}>
+                  <SelectTrigger id="filter-type-priv"><SelectValue placeholder="Todos los tipos" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_FILTER_VALUE}>Todos los tipos</SelectItem>
+                    {eventTypeOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="filter-priority-priv" className="flex items-center mb-1"><Flame className="mr-1.5 h-4 w-4 text-muted-foreground"/>Prioridad</Label>
+                <Select value={filters.priority || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('priority', val as PriorityType | typeof ALL_FILTER_VALUE)} disabled={isLoadingData}>
+                  <SelectTrigger id="filter-priority-priv"><SelectValue placeholder="Todas" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_FILTER_VALUE}>Todas</SelectItem>
+                    {priorityOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="filter-status-priv" className="flex items-center mb-1"><ActivityIcon className="mr-1.5 h-4 w-4 text-muted-foreground"/>Estado</Label>
+                <Select value={filters.status || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('status', val as ReportedEventStatus | typeof ALL_FILTER_VALUE)} disabled={isLoadingData}>
+                  <SelectTrigger id="filter-status-priv"><SelectValue placeholder="Todos" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_FILTER_VALUE}>Todos</SelectItem>
+                    {statusOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="filter-event-id-priv" className="flex items-center mb-1"><Fingerprint className="mr-1.5 h-4 w-4 text-muted-foreground"/>ID Evento</Label>
+                <Input id="filter-event-id-priv" placeholder="Ej: E-12345-001" value={filters.eventId} onChange={(e) => handleFilterChange('eventId', e.target.value)} disabled={isLoadingData}/>
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-start gap-3 pt-4 border-t">
+              <Button onClick={applyFilters} disabled={isLoadingData}><Search className="mr-2"/>Aplicar Filtros</Button>
+              <Button onClick={clearFilters} variant="outline" disabled={isLoadingData}><RefreshCcw className="mr-2"/>Limpiar Filtros</Button>
+            </CardFooter>
+          </Card>
 
-      {/* Lista de Eventos */}
-      <Card className="shadow-lg mt-8">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <ListOrdered className="h-6 w-6 text-primary" />
-            <CardTitle className="text-2xl">Eventos Registrados en el Sistema</CardTitle>
-          </div>
-          <CardDescription>Visualice los eventos. Use los filtros de arriba para refinar la búsqueda.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('id')}><div className="flex items-center gap-1">ID {renderSortIconEvents('id')}</div></TableHead>
-                  <TableHead className="w-[25%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('title')}><div className="flex items-center gap-1">Título {renderSortIconEvents('title')}</div></TableHead>
-                  <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('site')}><div className="flex items-center gap-1">Sitio {renderSortIconEvents('site')}</div></TableHead>
-                  <TableHead className="w-[10%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('date')}><div className="flex items-center gap-1">Fecha {renderSortIconEvents('date')}</div></TableHead>
-                  <TableHead className="w-[10%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('type')}><div className="flex items-center gap-1">Tipo {renderSortIconEvents('type')}</div></TableHead>
-                  <TableHead className="w-[10%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('priority')}><div className="flex items-center gap-1">Prioridad {renderSortIconEvents('priority')}</div></TableHead>
-                  <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('status')}><div className="flex items-center gap-1">Estado {renderSortIconEvents('status')}</div></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoadingData ? (
-                  <TableRow><TableCell colSpan={7} className="text-center h-24"><Loader2 className="h-6 w-6 animate-spin inline mr-2" />Cargando...</TableCell></TableRow>
-                ) : sortedFilteredEvents.length > 0 ? (
-                  sortedFilteredEvents.map((event) => (
-                    <TableRow key={event.id}>
-                      <TableCell className="font-mono text-xs">{event.id}</TableCell>
-                      <TableCell className="font-medium">{event.title}</TableCell>
-                      <TableCell>{event.site}</TableCell>
-                      <TableCell>{formatDateForDisplay(event.date)}</TableCell>
-                      <TableCell>{event.type}</TableCell>
-                      <TableCell>{event.priority}</TableCell>
-                      <TableCell>{renderStatusBadge(event.status)}</TableCell>
+          {/* Lista de Eventos */}
+          <Card className="shadow-lg mt-6 animate-in fade-in-50 duration-300">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <ListOrdered className="h-6 w-6 text-primary" />
+                <CardTitle className="text-2xl">Eventos Registrados en el Sistema</CardTitle>
+              </div>
+              <CardDescription>Visualice los eventos. Use los filtros de arriba para refinar la búsqueda.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('id')}><div className="flex items-center gap-1">ID {renderSortIconEvents('id')}</div></TableHead>
+                      <TableHead className="w-[25%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('title')}><div className="flex items-center gap-1">Título {renderSortIconEvents('title')}</div></TableHead>
+                      <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('site')}><div className="flex items-center gap-1">Sitio {renderSortIconEvents('site')}</div></TableHead>
+                      <TableHead className="w-[10%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('date')}><div className="flex items-center gap-1">Fecha {renderSortIconEvents('date')}</div></TableHead>
+                      <TableHead className="w-[10%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('type')}><div className="flex items-center gap-1">Tipo {renderSortIconEvents('type')}</div></TableHead>
+                      <TableHead className="w-[10%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('priority')}><div className="flex items-center gap-1">Prioridad {renderSortIconEvents('priority')}</div></TableHead>
+                      <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('status')}><div className="flex items-center gap-1">Estado {renderSortIconEvents('status')}</div></TableHead>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground h-24">No hay eventos que coincidan.</TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-        <CardFooter className="flex justify-end pt-4 border-t">
-          <Button variant="outline" size="sm" onClick={handleExportToExcel} disabled={isLoadingData || sortedFilteredEvents.length === 0}>
-            <FileDown className="mr-1.5 h-3.5 w-3.5" /> Exportar a Excel
-          </Button>
-        </CardFooter>
-      </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoadingData ? (
+                      <TableRow><TableCell colSpan={7} className="text-center h-24"><Loader2 className="h-6 w-6 animate-spin inline mr-2" />Cargando...</TableCell></TableRow>
+                    ) : sortedFilteredEvents.length > 0 ? (
+                      sortedFilteredEvents.map((event) => (
+                        <TableRow key={event.id}>
+                          <TableCell className="font-mono text-xs">{event.id}</TableCell>
+                          <TableCell className="font-medium">{event.title}</TableCell>
+                          <TableCell>{event.site}</TableCell>
+                          <TableCell>{formatDateForDisplay(event.date)}</TableCell>
+                          <TableCell>{event.type}</TableCell>
+                          <TableCell>{event.priority}</TableCell>
+                          <TableCell>{renderStatusBadge(event.status)}</TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground h-24">No hay eventos que coincidan.</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-end pt-4 border-t">
+              <Button variant="outline" size="sm" onClick={handleExportToExcel} disabled={isLoadingData || sortedFilteredEvents.length === 0}>
+                <FileDown className="mr-1.5 h-3.5 w-3.5" /> Exportar a Excel
+              </Button>
+            </CardFooter>
+          </Card>
+        </>
+      )}
     </div>
   );
 }
     
 
     
+
 
