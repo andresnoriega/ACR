@@ -68,6 +68,7 @@ const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Fallo', 'Accidente'
 const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
 const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'En validación', 'Finalizado'];
 const ALL_FILTER_VALUE = "__ALL__";
+const NO_SITES_PLACEHOLDER_VALUE = "__NO_SITES_CONFIGURED__"; // Added constant
 
 interface Filters {
   site: string;
@@ -369,7 +370,7 @@ export default function ConfiguracionPrivacidadPage() {
               <SelectContent>
                 <SelectItem value={ALL_FILTER_VALUE}>Todos los sitios</SelectItem>
                 {availableSites.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
-                {availableSites.length === 0 && <SelectItem value="" disabled>No hay sitios</SelectItem>}
+                {availableSites.length === 0 && <SelectItem value={NO_SITES_PLACEHOLDER_VALUE} disabled>No hay sitios configurados</SelectItem>}
               </SelectContent>
             </Select>
           </div>
@@ -482,3 +483,4 @@ export default function ConfiguracionPrivacidadPage() {
     
 
     
+
