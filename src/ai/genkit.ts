@@ -1,11 +1,11 @@
 
-import {genkit, type GenkitConfig} from 'genkit';
-// import {googleAI} from '@google-cloud/genkit-google-ai'; // Temporarily removed due to install issues
+import genkit from 'genkit'; // Changed to default import
+import type { GenkitConfig } from 'genkit'; // Type import remains named
 
 // Define Genkit configuration
 const genkitConfig: GenkitConfig = {
   plugins: [
-    // googleAI(), // Temporarily removed
+    // googleAI(), // Temporarily removed due to install issues
   ],
   // flowStateStore: 'firebase', // Optional: Store flow states in Firestore
   // traceStore: 'firebase',     // Optional: Store traces in Firestore
