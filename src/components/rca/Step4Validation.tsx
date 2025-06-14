@@ -197,12 +197,27 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
           ) : (
             <Accordion type="multiple" className="w-full">
               {uniquePlannedActions.map((action) => {
-                // --- DEBUG LOG ---
-                console.log("[Step4Validation] Processing action:", JSON.parse(JSON.stringify(action))); 
-                // --- END DEBUG LOG ---
+                // console.log("[Step4Validation] Processing action:", JSON.parse(JSON.stringify(action)));
                 
                 const status = getValidationStatus(action.id);
-                const isReadyForValidationByLeader = action.evidencias && action.evidencias.length > 0 || (action.userComments && action.userComments.trim() !== '') || action.markedAsReadyAt;
+                const isReadyForValidationByLeader = 
+                  (action.evidencias && action.evidencias.length > 0) || 
+                  (action.userComments && action.userComments.trim() !== '') || 
+                  action.markedAsReadyAt;
+                
+                const showNotReadyWarning = !isReadyForValidationByLeader && status !== 'validated';
+
+                let computedCheckboxDisabled = isStepSaving;
+                if (!computedCheckboxDisabled) { // if not already disabled by saving step
+                  if (!canSimulatedUserValidateActions) {
+                    computedCheckboxDisabled = true; // disable if user cannot validate generally
+                  } else {
+                    // User can validate, now check if this specific action should be disabled
+                    if (showNotReadyWarning) { // This means action is not ready AND not already validated
+                      computedCheckboxDisabled = true;
+                    }
+                  }
+                }
                 
                 return (
                   <AccordionItem value={action.id} key={action.id} className="border-b">
@@ -217,13 +232,13 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                         </AccordionPrimitive.Trigger>
 
                         <div className="flex items-center space-x-3 ml-4 shrink-0 pl-2">
-                          <Label htmlFor={`validation-${action.id}`} className={cn(`flex items-center text-sm`,!canSimulatedUserValidateActions ? 'cursor-not-allowed opacity-70' : 'cursor-pointer')}>
+                          <Label htmlFor={`validation-${action.id}`} className={cn(`flex items-center text-sm`, computedCheckboxDisabled || !canSimulatedUserValidateActions ? 'cursor-not-allowed opacity-70' : 'cursor-pointer')}>
                             <Checkbox
                               id={`validation-${action.id}`}
                               checked={status === 'validated'}
                               onCheckedChange={() => handleValidationToggleAttempt(action.id)}
                               className="mr-2"
-                              disabled={!canSimulatedUserValidateActions || isStepSaving}
+                              disabled={computedCheckboxDisabled}
                             />
                             {status === 'validated' ? (
                               <span className="text-accent font-medium flex items-center"><CheckCircle2 className="mr-1 h-5 w-5" /> Validado</span>
@@ -272,7 +287,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                             )}
                           </div>
                           
-                          {!isReadyForValidationByLeader && status !== 'validated' && (
+                          {showNotReadyWarning && (
                              <p className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded-md border border-yellow-200 ml-5">
                                 Esta acción aún no ha sido marcada como lista por el responsable (no tiene evidencias, comentarios ni fecha de "listo").
                              </p>
