@@ -8,7 +8,7 @@
  * - GenerateRcaInsightsOutput - The return type for the generateRcaInsights function.
  */
 
-import {ai} from '@/ai/genkit';
+import {ai} from '@/ai/genkit'; // ai is now a placeholder
 import {z} from 'genkit';
 
 const GenerateRcaInsightsInputSchema = z.object({
@@ -27,9 +27,15 @@ const GenerateRcaInsightsOutputSchema = z.object({
 export type GenerateRcaInsightsOutput = z.infer<typeof GenerateRcaInsightsOutputSchema>;
 
 export async function generateRcaInsights(input: GenerateRcaInsightsInput): Promise<GenerateRcaInsightsOutput> {
-  return generateRcaInsightsFlow(input);
+  // return generateRcaInsightsFlow(input); // Original call to the flow
+  console.warn("AI Insight generation is temporarily disabled due to Genkit initialization issues.");
+  return {
+    summary: "[Resumen IA Deshabilitado Temporalmente] Por favor, revise los datos manualmente y redacte los comentarios finales."
+  };
 }
 
+/*
+// Original prompt definition - Commented out as 'ai.definePrompt' might not be available
 const prompt = ai.definePrompt({
   name: 'generateRcaInsightsPrompt',
   input: {schema: GenerateRcaInsightsInputSchema},
@@ -70,7 +76,10 @@ const prompt = ai.definePrompt({
     Generate the summary below:
   `,
 });
+*/
 
+/*
+// Original flow definition - Commented out as 'ai.defineFlow' might not be available
 const generateRcaInsightsFlow = ai.defineFlow(
   {
     name: 'generateRcaInsightsFlow',
@@ -78,10 +87,12 @@ const generateRcaInsightsFlow = ai.defineFlow(
     outputSchema: GenerateRcaInsightsOutputSchema,
   },
   async (input) => {
-    const {output} = await prompt(input);
-    if (!output) {
-      throw new Error("The AI model did not return an output.");
-    }
-    return output;
+    // const {output} = await prompt(input); // prompt is also commented out
+    // if (!output) {
+    //   throw new Error("The AI model did not return an output.");
+    // }
+    // return output;
+    return { summary: "[AI Flow Disabled] Placeholder summary."};
   }
 );
+*/
