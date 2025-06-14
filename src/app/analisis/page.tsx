@@ -106,6 +106,7 @@ export default function RCAAnalysisPage() {
   const [finalComments, setFinalComments] = useState(initialRCAAnalysisState.finalComments);
   const [isFinalized, setIsFinalized] = useState(initialRCAAnalysisState.isFinalized);
   const [analysisDocumentId, setAnalysisDocumentId] = useState<string | null>(null);
+  
   const [isRejectConfirmOpen, setIsRejectConfirmOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [currentEventStatus, setCurrentEventStatus] = useState<ReportedEventStatus>('Pendiente');
@@ -384,21 +385,22 @@ export default function RCAAnalysisPage() {
     const currentIsFinalized = finalizedOverride !== undefined ? finalizedOverride : isFinalized;
     const consistentEventData = { ...eventData, id: currentId };
 
-    const rcaDocPayload: Partial<RCAAnalysisDocument> = {
-      eventData: consistentEventData, immediateActions, projectLeader, detailedFacts, analysisDetails,
-      preservedFacts, analysisTechnique, analysisTechniqueNotes, ishikawaData,
-      fiveWhysData, ctmData, identifiedRootCauses, plannedActions,
-      validations, finalComments, isFinalized: currentIsFinalized,
-    };
-
+    let currentRejectionDetails = rejectionDetails;
     if (statusOverride === "Rechazado" && currentRejectionReason) {
-      rcaDocPayload.rejectionDetails = {
+      currentRejectionDetails = {
         reason: currentRejectionReason,
         rejectedBy: rejectedByUserName || "Usuario desconocido",
         rejectedAt: new Date().toISOString(),
       };
     }
 
+    const rcaDocPayload: Partial<RCAAnalysisDocument> = {
+      eventData: consistentEventData, immediateActions, projectLeader, detailedFacts, analysisDetails,
+      preservedFacts, analysisTechnique, analysisTechniqueNotes, ishikawaData,
+      fiveWhysData, ctmData, identifiedRootCauses, plannedActions,
+      validations, finalComments, isFinalized: currentIsFinalized,
+      rejectionDetails: currentRejectionDetails,
+    };
 
     try {
       const rcaDocRef = doc(db, "rcaAnalyses", currentId);
@@ -408,10 +410,10 @@ export default function RCAAnalysisPage() {
       if (statusOverride === "Rechazado" && currentRejectionReason) {
           const rejecterName = rejectedByUserName || (availableUsersFromDB.find(u => u.name === currentSimulatedUser)?.name || "Usuario desconocido");
           let baseRejectMsg = `Evento Rechazado por ${rejecterName} el ${new Date().toLocaleDateString('es-CL')}.`;
-          if (currentRejectionReason) { // Solo añadir motivo si existe
+          if (currentRejectionReason) {
             baseRejectMsg += `\nMotivo: ${currentRejectionReason}`;
           }
-          finalCommentsToSave = `${baseRejectMsg}${finalComments ? `\n\nComentarios Adicionales Previos:\n${finalComments}` : ''}`;
+          finalCommentsToSave = `${baseRejectMsg}${finalComments && !finalComments.startsWith('Evento Rechazado') ? `\n\nComentarios Adicionales Previos:\n${finalComments}` : ''}`;
       }
 
 
@@ -548,32 +550,30 @@ export default function RCAAnalysisPage() {
   const handleRejectEvent = async () => {
     if (!analysisDocumentId) {
       toast({ title: "Error", description: "No se puede rechazar un evento sin ID.", variant: "destructive" });
-      setIsRejectConfirmOpen(false); // Asegurarse de que el diálogo se cierre si hay un error temprano
+      setIsRejectConfirmOpen(false);
+      setRejectionReason('');
       return;
     }
-    if (!rejectionReason.trim()) { // Validar que el motivo no esté vacío o solo espacios
+    if (!rejectionReason.trim()) {
         toast({ title: "Motivo Requerido", description: "Por favor, ingrese un motivo para el rechazo.", variant: "destructive" });
-        return; // Mantener el diálogo abierto para que el usuario ingrese el motivo
+        return; 
     }
 
     setIsSaving(true);
-    // No cerrar el diálogo aquí. Se cerrará después de éxito o explícitamente en Cancelar.
-
     const success = await handleSaveAnalysisData(
-      false, // showToast for save
-      true,  // finalizedOverride (true para rechazo)
-      "Rechazado", // statusOverride
-      rejectionReason, // currentRejectionReason
-      currentSimulatedUser // rejectedByUserName
+      false, 
+      true,  
+      "Rechazado", 
+      rejectionReason, 
+      currentSimulatedUser 
     );
 
     if (success) {
       toast({ title: "Evento Rechazado", description: `El evento ${analysisDocumentId} ha sido marcado como rechazado.` });
-      setRejectionReason(''); // Limpiar el motivo
-      setIsRejectConfirmOpen(false); // Cerrar el diálogo tras éxito
+      setRejectionReason(''); 
+      setIsRejectConfirmOpen(false); 
     } else {
       toast({ title: "Error al Rechazar", description: "No se pudo actualizar el estado del evento.", variant: "destructive" });
-      // Dejar el diálogo abierto si el guardado falla, para que el usuario pueda reintentar o cancelar.
     }
     setIsSaving(false);
   };
@@ -909,7 +909,10 @@ export default function RCAAnalysisPage() {
             currentSimulatedUser={currentSimulatedUser}
             onSetCurrentSimulatedUser={setCurrentSimulatedUser}
             canCurrentUserReject={canCurrentUserReject}
-            onRejectEvent={() => setIsRejectConfirmOpen(true)}
+            onRejectEvent={() => {
+              setRejectionReason(''); // Limpiar motivo antes de abrir el diálogo
+              setIsRejectConfirmOpen(true);
+            }}
             isEventFinalized={isFinalized}
             currentEventStatus={currentEventStatus}
           />
@@ -1010,7 +1013,7 @@ export default function RCAAnalysisPage() {
       <AlertDialog open={isRejectConfirmOpen} onOpenChange={(open) => {
         if(!isSaving) {
           setIsRejectConfirmOpen(open);
-          if (!open) setRejectionReason(''); // Limpiar motivo si se cierra el diálogo (Cancelar/Esc)
+          if (!open) setRejectionReason(''); 
         }
       }}>
         <AlertDialogContent>
@@ -1034,9 +1037,9 @@ export default function RCAAnalysisPage() {
           <AlertDialogFooter>
             <AlertDialogCancel
               onClick={() => {
-                // No es necesario setIsRejectConfirmOpen(false) explícitamente aquí porque onOpenChange lo hará
                 if (!isSaving) {
                   setRejectionReason('');
+                  setIsRejectConfirmOpen(false); // Explicitly close on Cancel click if not saving
                 }
               }}
               disabled={isSaving}
@@ -1046,7 +1049,7 @@ export default function RCAAnalysisPage() {
             <AlertDialogAction
               onClick={handleRejectEvent}
               className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-              disabled={isSaving || !rejectionReason.trim()} // Deshabilitar si está guardando o el motivo está vacío/solo espacios
+              disabled={isSaving || !rejectionReason.trim()} 
             >
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sí, Rechazar Evento"}
             </AlertDialogAction>
@@ -1056,5 +1059,3 @@ export default function RCAAnalysisPage() {
     </>
   );
 }
-
-    
