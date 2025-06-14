@@ -227,10 +227,14 @@ export default function ConfiguracionPrivacidadPage() {
       'Fecha': formatDateForDisplay(event.date), 'Tipo': event.type, 'Prioridad': event.priority,
       'Estado': event.status, 'Descripción Detallada': event.description || 'N/A',
     }));
+
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    XLSX.utils.book_append_sheet(XLSX.utils.book_new(), worksheet, "Eventos Reportados");
     worksheet['!cols'] = [ { wch: 15 }, { wch: 40 }, { wch: 25 }, { wch: 12 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 50 } ];
-    const excelBuffer = XLSX.write(XLSX.utils.book_new(), { bookType: 'xlsx', type: 'array', Sheets: { "Eventos Reportados": worksheet } });
+    
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Eventos Reportados");
+    
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
     saveAs(new Blob([excelBuffer], {type:"application/octet-stream"}), `Eventos_Reportados_RCA_Privacidad_${new Date().toISOString().split('T')[0]}.xlsx`);
     toast({ title: "Exportación Iniciada", description: "El archivo de eventos ha comenzado a descargarse." });
   };
@@ -556,4 +560,6 @@ export default function ConfiguracionPrivacidadPage() {
     </div>
   );
 }
+    
+
     
