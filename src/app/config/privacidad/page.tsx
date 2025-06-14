@@ -6,11 +6,11 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ShieldCheck, DatabaseZap, AlertTriangle, Trash2, Loader2, ListOrdered, ListFilter, Globe, CalendarDays, Flame, ActivityIcon, Search, RefreshCcw, Fingerprint, FileDown, ArrowUp, ArrowDown, ChevronsUpDown, ChevronDown, ChevronUp } from 'lucide-react';
+import { ShieldCheck, DatabaseZap, AlertTriangle, Trash2, Loader2, ListOrdered, ListFilter, Globe, CalendarDays, Flame, ActivityIcon, Search, RefreshCcw, Fingerprint, FileDown, ArrowUp, ArrowDown, ChevronsUpDown, ChevronDown, ChevronUp, Edit2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, deleteDoc, doc, WriteBatch, writeBatch, query, orderBy as firestoreOrderBy } from "firebase/firestore"; // Renamed orderBy to firestoreOrderBy
-import type { ReportedEvent, ReportedEventType, ReportedEventStatus, PriorityType, Site } from '@/types/rca';
+import { collection, getDocs, deleteDoc, doc, WriteBatch, writeBatch, query, orderBy as firestoreOrderBy } from "firebase/firestore";
+import type { ReportedEvent, ReportedEventType, ReportedEventStatus, PriorityType, Site, RCAAnalysisDocument } from '@/types/rca';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -23,6 +23,8 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import { useRouter } from 'next/navigation';
+
 
 async function deleteAllDocsInCollection(collectionName: string): Promise<{ success: boolean, docsDeleted: number, error?: any }> {
   try {
@@ -88,7 +90,9 @@ interface SortConfigReportedEvent {
 
 export default function ConfiguracionPrivacidadPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [isResetting, setIsResetting] = useState(false);
+  const [isDeletingEvent, setIsDeletingEvent] = useState(false);
 
   // States for event listing
   const [allEvents, setAllEvents] = useState<ReportedEvent[]>([]);
@@ -109,6 +113,10 @@ export default function ConfiguracionPrivacidadPage() {
 
   const [sortConfigEvents, setSortConfigEvents] = useState<SortConfigReportedEvent>({ key: 'date', direction: 'descending' });
   const [showEventManagementUI, setShowEventManagementUI] = useState(false);
+
+  // State for delete confirmation dialog
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<ReportedEvent | null>(null);
 
 
   const fetchAllEventData = useCallback(async () => {
@@ -286,13 +294,39 @@ export default function ConfiguracionPrivacidadPage() {
       }
       if (success) {
         toast({ title: "Reseteo Completado", description: `Se eliminaron ${rcaAnalysesDeleted} análisis y ${reportedEventsDeleted} eventos.`, variant: "destructive", duration: 5000 });
-        fetchAllEventData(); // Refresh event list
+        fetchAllEventData(); 
       } else toast({ title: "Reseteo Parcial o Fallido", description: "Algunos datos podrían no haber sido eliminados.", variant: "destructive" });
     } else {
       await new Promise(resolve => setTimeout(resolve, 1500)); 
       toast({ title: `Reseteo Simulado: ${dataType}`, description: `Los datos de "${dataType}" han sido reseteados (simulación).`, variant: "destructive", duration: 5000 });
     }
     setIsResetting(false);
+  };
+
+  const openDeleteEventDialog = (event: ReportedEvent) => {
+    setEventToDelete(event);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteEvent = async () => {
+    if (!eventToDelete) return;
+    setIsDeletingEvent(true);
+    try {
+      // Delete from reportedEvents
+      await deleteDoc(doc(db, "reportedEvents", eventToDelete.id));
+      // Delete from rcaAnalyses
+      await deleteDoc(doc(db, "rcaAnalyses", eventToDelete.id));
+      
+      toast({ title: "Evento Eliminado", description: `El evento "${eventToDelete.title}" (ID: ${eventToDelete.id}) y su análisis asociado han sido eliminados.`, variant: "destructive" });
+      setEventToDelete(null);
+      fetchAllEventData(); // Refresh list
+    } catch (error) {
+      console.error("Error deleting event and its analysis: ", error);
+      toast({ title: "Error al Eliminar", description: "No se pudo eliminar el evento o su análisis asociado.", variant: "destructive" });
+    } finally {
+      setIsDeletingEvent(false);
+      setIsDeleteConfirmOpen(false);
+    }
   };
 
   return (
@@ -322,7 +356,7 @@ export default function ConfiguracionPrivacidadPage() {
             <AlertTriangle className="h-5 w-5 !text-destructive" />
             <AlertTitle className="text-destructive">¡Atención! Operaciones Destructivas</AlertTitle>
             <AlertDescription className="text-destructive/90">
-              Las acciones de reseteo son irreversibles y eliminarán permanentemente los datos seleccionados. Proceda con extrema precaución.
+              Las acciones de reseteo y eliminación son irreversibles y eliminarán permanentemente los datos seleccionados. Proceda con extrema precaución.
             </AlertDescription>
           </Alert>
           <div className="flex flex-col sm:flex-row justify-between items-center p-4 border rounded-md">
@@ -332,7 +366,7 @@ export default function ConfiguracionPrivacidadPage() {
             </div>
              <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="mt-2 sm:mt-0" disabled={isResetting}>
+                <Button variant="destructive" className="mt-2 sm:mt-0" disabled={isResetting || isDeletingEvent}>
                   {isResetting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} 
                   Resetear Todo
                 </Button>
@@ -368,7 +402,6 @@ export default function ConfiguracionPrivacidadPage() {
       
       {showEventManagementUI && (
         <>
-          {/* Filtros de Búsqueda de Eventos */}
           <Card className="shadow-lg mt-6 animate-in fade-in-50 duration-300">
             <CardHeader>
               <div className="flex items-center gap-3">
@@ -380,7 +413,7 @@ export default function ConfiguracionPrivacidadPage() {
             <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
               <div>
                 <Label htmlFor="filter-site-priv" className="flex items-center mb-1"><Globe className="mr-1.5 h-4 w-4 text-muted-foreground"/>Sitio/Planta</Label>
-                <Select value={filters.site || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('site', val)} disabled={isLoadingSites}>
+                <Select value={filters.site || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('site', val)} disabled={isLoadingSites || isDeletingEvent}>
                   <SelectTrigger id="filter-site-priv"><SelectValue placeholder="Todos los sitios" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value={ALL_FILTER_VALUE}>Todos los sitios</SelectItem>
@@ -393,7 +426,7 @@ export default function ConfiguracionPrivacidadPage() {
                 <Label htmlFor="filter-date-priv" className="flex items-center mb-1"><CalendarDays className="mr-1.5 h-4 w-4 text-muted-foreground"/>Fecha</Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button id="filter-date-priv" variant="outline" className="w-full justify-start text-left font-normal" disabled={isLoadingData}>
+                    <Button id="filter-date-priv" variant="outline" className="w-full justify-start text-left font-normal" disabled={isLoadingData || isDeletingEvent}>
                       {filters.date ? format(filters.date, "PPP", { locale: es }) : <span>Seleccione fecha</span>}
                     </Button>
                   </PopoverTrigger>
@@ -402,7 +435,7 @@ export default function ConfiguracionPrivacidadPage() {
               </div>
               <div>
                 <Label htmlFor="filter-type-priv" className="flex items-center mb-1"><AlertTriangle className="mr-1.5 h-4 w-4 text-muted-foreground"/>Tipo</Label>
-                <Select value={filters.type || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('type', val as ReportedEventType | typeof ALL_FILTER_VALUE)} disabled={isLoadingData}>
+                <Select value={filters.type || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('type', val as ReportedEventType | typeof ALL_FILTER_VALUE)} disabled={isLoadingData || isDeletingEvent}>
                   <SelectTrigger id="filter-type-priv"><SelectValue placeholder="Todos los tipos" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value={ALL_FILTER_VALUE}>Todos los tipos</SelectItem>
@@ -412,7 +445,7 @@ export default function ConfiguracionPrivacidadPage() {
               </div>
               <div>
                 <Label htmlFor="filter-priority-priv" className="flex items-center mb-1"><Flame className="mr-1.5 h-4 w-4 text-muted-foreground"/>Prioridad</Label>
-                <Select value={filters.priority || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('priority', val as PriorityType | typeof ALL_FILTER_VALUE)} disabled={isLoadingData}>
+                <Select value={filters.priority || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('priority', val as PriorityType | typeof ALL_FILTER_VALUE)} disabled={isLoadingData || isDeletingEvent}>
                   <SelectTrigger id="filter-priority-priv"><SelectValue placeholder="Todas" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value={ALL_FILTER_VALUE}>Todas</SelectItem>
@@ -422,7 +455,7 @@ export default function ConfiguracionPrivacidadPage() {
               </div>
               <div>
                 <Label htmlFor="filter-status-priv" className="flex items-center mb-1"><ActivityIcon className="mr-1.5 h-4 w-4 text-muted-foreground"/>Estado</Label>
-                <Select value={filters.status || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('status', val as ReportedEventStatus | typeof ALL_FILTER_VALUE)} disabled={isLoadingData}>
+                <Select value={filters.status || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('status', val as ReportedEventStatus | typeof ALL_FILTER_VALUE)} disabled={isLoadingData || isDeletingEvent}>
                   <SelectTrigger id="filter-status-priv"><SelectValue placeholder="Todos" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value={ALL_FILTER_VALUE}>Todos</SelectItem>
@@ -432,23 +465,22 @@ export default function ConfiguracionPrivacidadPage() {
               </div>
               <div>
                 <Label htmlFor="filter-event-id-priv" className="flex items-center mb-1"><Fingerprint className="mr-1.5 h-4 w-4 text-muted-foreground"/>ID Evento</Label>
-                <Input id="filter-event-id-priv" placeholder="Ej: E-12345-001" value={filters.eventId} onChange={(e) => handleFilterChange('eventId', e.target.value)} disabled={isLoadingData}/>
+                <Input id="filter-event-id-priv" placeholder="Ej: E-12345-001" value={filters.eventId} onChange={(e) => handleFilterChange('eventId', e.target.value)} disabled={isLoadingData || isDeletingEvent}/>
               </div>
             </CardContent>
             <CardFooter className="flex justify-start gap-3 pt-4 border-t">
-              <Button onClick={applyFilters} disabled={isLoadingData}><Search className="mr-2"/>Aplicar Filtros</Button>
-              <Button onClick={clearFilters} variant="outline" disabled={isLoadingData}><RefreshCcw className="mr-2"/>Limpiar Filtros</Button>
+              <Button onClick={applyFilters} disabled={isLoadingData || isDeletingEvent}><Search className="mr-2"/>Aplicar Filtros</Button>
+              <Button onClick={clearFilters} variant="outline" disabled={isLoadingData || isDeletingEvent}><RefreshCcw className="mr-2"/>Limpiar Filtros</Button>
             </CardFooter>
           </Card>
 
-          {/* Lista de Eventos */}
           <Card className="shadow-lg mt-6 animate-in fade-in-50 duration-300">
             <CardHeader>
               <div className="flex items-center gap-3">
                 <ListOrdered className="h-6 w-6 text-primary" />
                 <CardTitle className="text-2xl">Eventos Registrados en el Sistema</CardTitle>
               </div>
-              <CardDescription>Visualice los eventos. Use los filtros de arriba para refinar la búsqueda.</CardDescription>
+              <CardDescription>Visualice los eventos. Use los filtros de arriba para refinar la búsqueda. Puede eliminar eventos individualmente.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -456,17 +488,18 @@ export default function ConfiguracionPrivacidadPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('id')}><div className="flex items-center gap-1">ID {renderSortIconEvents('id')}</div></TableHead>
-                      <TableHead className="w-[25%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('title')}><div className="flex items-center gap-1">Título {renderSortIconEvents('title')}</div></TableHead>
+                      <TableHead className="w-[20%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('title')}><div className="flex items-center gap-1">Título {renderSortIconEvents('title')}</div></TableHead>
                       <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('site')}><div className="flex items-center gap-1">Sitio {renderSortIconEvents('site')}</div></TableHead>
                       <TableHead className="w-[10%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('date')}><div className="flex items-center gap-1">Fecha {renderSortIconEvents('date')}</div></TableHead>
                       <TableHead className="w-[10%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('type')}><div className="flex items-center gap-1">Tipo {renderSortIconEvents('type')}</div></TableHead>
                       <TableHead className="w-[10%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('priority')}><div className="flex items-center gap-1">Prioridad {renderSortIconEvents('priority')}</div></TableHead>
-                      <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('status')}><div className="flex items-center gap-1">Estado {renderSortIconEvents('status')}</div></TableHead>
+                      <TableHead className="w-[10%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEvents('status')}><div className="flex items-center gap-1">Estado {renderSortIconEvents('status')}</div></TableHead>
+                      <TableHead className="w-[10%] text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {isLoadingData ? (
-                      <TableRow><TableCell colSpan={7} className="text-center h-24"><Loader2 className="h-6 w-6 animate-spin inline mr-2" />Cargando...</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={8} className="text-center h-24"><Loader2 className="h-6 w-6 animate-spin inline mr-2" />Cargando...</TableCell></TableRow>
                     ) : sortedFilteredEvents.length > 0 ? (
                       sortedFilteredEvents.map((event) => (
                         <TableRow key={event.id}>
@@ -477,28 +510,54 @@ export default function ConfiguracionPrivacidadPage() {
                           <TableCell>{event.type}</TableCell>
                           <TableCell>{event.priority}</TableCell>
                           <TableCell>{renderStatusBadge(event.status)}</TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="ghost" size="icon" className="mr-1 hover:text-primary" onClick={() => router.push(`/analisis?id=${event.id}`)} title="Ver/Editar Análisis">
+                                <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="hover:text-destructive" onClick={() => openDeleteEventDialog(event)} disabled={isDeletingEvent || isResetting} title="Eliminar Evento y Análisis">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))
                     ) : (
-                      <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground h-24">No hay eventos que coincidan.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground h-24">No hay eventos que coincidan.</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
               </div>
             </CardContent>
             <CardFooter className="flex justify-end pt-4 border-t">
-              <Button variant="outline" size="sm" onClick={handleExportToExcel} disabled={isLoadingData || sortedFilteredEvents.length === 0}>
+              <Button variant="outline" size="sm" onClick={handleExportToExcel} disabled={isLoadingData || isDeletingEvent || sortedFilteredEvents.length === 0}>
                 <FileDown className="mr-1.5 h-3.5 w-3.5" /> Exportar a Excel
               </Button>
             </CardFooter>
           </Card>
         </>
       )}
+
+      <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Eliminación de Evento</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Está seguro de que desea eliminar el evento "{eventToDelete?.title}" (ID: {eventToDelete?.id}) y todo su análisis RCA asociado? Esta acción es IRREVERSIBLE.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setEventToDelete(null)} disabled={isDeletingEvent}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteEvent} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" disabled={isDeletingEvent}>
+              {isDeletingEvent ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
     
 
     
+
 
 
