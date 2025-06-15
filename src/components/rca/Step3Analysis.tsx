@@ -271,23 +271,14 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const minDateForPlannedActions = getTodayDateString();
 
   const validateFieldsForNext = (): boolean => {
-    if (identifiedRootCauses.length === 0) {
+    // Only one root cause is allowed, so we check identifiedRootCauses[0]
+    if (identifiedRootCauses.length === 0 || !identifiedRootCauses[0].description.trim()) {
       toast({
         title: "Campo Obligatorio Faltante",
-        description: "Debe añadir al menos una Causa Raíz Identificada.",
+        description: "Debe definir una Causa Raíz Identificada con su descripción.",
         variant: "destructive",
       });
       return false;
-    }
-    for (const rc of identifiedRootCauses) {
-      if (!rc.description.trim()) {
-        toast({
-          title: "Campo Obligatorio Faltante",
-          description: `La Causa Raíz ID: ${rc.id.substring(0,7)}... debe tener una descripción.`,
-          variant: "destructive",
-        });
-        return false;
-      }
     }
 
     if (uniquePlannedActions.length > 0) {
@@ -303,10 +294,11 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
           });
           return false;
         }
-        if (!action.relatedRootCauseIds || action.relatedRootCauseIds.length === 0) {
+        // Since there's only one root cause, all actions must relate to it if defined.
+        if (identifiedRootCauses.length > 0 && (!action.relatedRootCauseIds || !action.relatedRootCauseIds.includes(identifiedRootCauses[0].id))) {
           toast({
             title: "Campo Obligatorio Faltante",
-            description: `La Acción Planificada ${actionLabel} debe abordar al menos una Causa Raíz.`,
+            description: `La Acción Planificada ${actionLabel} debe abordar la Causa Raíz definida.`,
             variant: "destructive",
           });
           return false;
@@ -342,7 +334,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const handleSaveProgressLocal = async () => {
     const isTechniqueSelected = analysisTechnique !== '';
     const hasNotes = analysisTechniqueNotes.trim() !== '';
-    const hasRootCauses = identifiedRootCauses.length > 0;
+    const hasRootCause = identifiedRootCauses.length > 0 && identifiedRootCauses[0].description.trim() !== '';
     const hasPlannedActions = uniquePlannedActions.length > 0;
 
     const isIshikawaEdited = ishikawaData.some(cat => cat.causes.some(c => c.description.trim() !== ''));
@@ -362,7 +354,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     if (
       !isTechniqueSelected &&
       !hasNotes &&
-      !hasRootCauses &&
+      !hasRootCause &&
       !hasPlannedActions &&
       !isIshikawaEdited &&
       !isFiveWhysEdited &&
@@ -431,7 +423,9 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
       }
 
       const emailSubject = `Tarea Asignada (RCA ${eventData.id || 'Evento Actual'}): ${action.description.substring(0,30)}...`;
-      const emailBody = `Estimado/a ${responsibleUser.name},\n\nSe le ha asignado la siguiente tarea como parte del análisis de causa raíz para el evento "${eventData.focusEventDescription || 'No especificado'}":\n\nTarea: ${action.description}\nFecha Límite: ${action.dueDate}\nCausas Raíz Relacionadas: ${(action.relatedRootCauseIds && action.relatedRootCauseIds.length > 0) ? action.relatedRootCauseIds.map(rcId => identifiedRootCauses.find(rc => rc.id === rcId)?.description || rcId).join(', ') : 'N/A'}\n\nPor favor, acceda al sistema RCA Assistant para más detalles y para actualizar el estado de esta tarea.\n\nSaludos,\nSistema RCA Assistant`;
+      // Only one root cause possible, so use identifiedRootCauses[0]
+      const rootCauseDescription = (identifiedRootCauses.length > 0 && identifiedRootCauses[0].description) ? identifiedRootCauses[0].description : 'N/A';
+      const emailBody = `Estimado/a ${responsibleUser.name},\n\nSe le ha asignado la siguiente tarea como parte del análisis de causa raíz para el evento "${eventData.focusEventDescription || 'No especificado'}":\n\nTarea: ${action.description}\nFecha Límite: ${action.dueDate}\nCausa Raíz Relacionada: ${rootCauseDescription}\n\nPor favor, acceda al sistema RCA Assistant para más detalles y para actualizar el estado de esta tarea.\n\nSaludos,\nSistema RCA Assistant`;
       
       const result = await sendEmailAction({
         to: responsibleUser.email,
@@ -465,10 +459,10 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     }
     await onSaveAnalysis(false); 
 
-    if (uniquePlannedActions.length === 0 && identifiedRootCauses.length > 0 && identifiedRootCauses.every(rc => rc.description.trim())) {
+    if (uniquePlannedActions.length === 0 && identifiedRootCauses.length > 0 && identifiedRootCauses[0].description.trim()) {
         toast({
             title: "Advertencia: Sin Plan de Acción",
-            description: "Ha identificado causas raíz pero no ha definido un plan de acción. ¿Desea continuar?",
+            description: "Ha identificado la causa raíz pero no ha definido un plan de acción. ¿Desea continuar?",
             action: (
                 <Button onClick={onNext} size="sm">Sí, continuar</Button>
             ),
@@ -599,7 +593,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold font-headline flex items-center">
                 <MessageSquare className="mr-2 h-5 w-5 text-primary" />
-                Causas Raíz Identificadas <span className="text-destructive text-xs ml-1">(Al menos una, con descripción) *</span>
+                Causa Raíz Identificada <span className="text-destructive text-xs ml-1">(Requerida)</span>
             </h3>
             <Button
                 onClick={handleSuggestRootCausesClick}
@@ -612,29 +606,33 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                 Sugerir Causas Latentes con IA
             </Button>
            </div>
-          {identifiedRootCauses.map((rc, index) => (
-            <Card key={rc.id} className="p-4 bg-card shadow-sm">
+
+          {identifiedRootCauses.length === 0 && (
+            <Button onClick={onAddIdentifiedRootCause} variant="outline" className="w-full">
+              <PlusCircle className="mr-2 h-4 w-4" /> Añadir Causa Raíz
+            </Button>
+          )}
+
+          {identifiedRootCauses.length > 0 && identifiedRootCauses[0] && (
+            <Card key={identifiedRootCauses[0].id} className="p-4 bg-card shadow-sm">
               <div className="flex justify-between items-center mb-2">
-                <Label htmlFor={`rc-desc-${rc.id}`} className="font-medium text-primary">
-                  Causa Raíz #{index + 1} <span className="text-destructive">*</span>
+                <Label htmlFor={`rc-desc-${identifiedRootCauses[0].id}`} className="font-medium text-primary">
+                  Causa Raíz #1 <span className="text-destructive">*</span>
                 </Label>
-                <Button variant="ghost" size="icon" onClick={() => onRemoveIdentifiedRootCause(rc.id)} aria-label="Eliminar causa raíz" className="h-7 w-7">
+                <Button variant="ghost" size="icon" onClick={() => onRemoveIdentifiedRootCause(identifiedRootCauses[0].id)} aria-label="Eliminar causa raíz" className="h-7 w-7">
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </div>
               <Textarea
-                id={`rc-desc-${rc.id}`}
-                value={rc.description}
-                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onUpdateIdentifiedRootCause(rc.id, e.target.value)}
-                placeholder={`Describa la causa raíz #${index + 1}...`}
+                id={`rc-desc-${identifiedRootCauses[0].id}`}
+                value={identifiedRootCauses[0].description}
+                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onUpdateIdentifiedRootCause(identifiedRootCauses[0].id, e.target.value)}
+                placeholder={`Describa la causa raíz #1...`}
                 rows={3}
                 className="w-full"
               />
             </Card>
-          ))}
-          <Button onClick={onAddIdentifiedRootCause} variant="outline" className="w-full">
-            <PlusCircle className="mr-2 h-4 w-4" /> Añadir Causa Raíz
-          </Button>
+          )}
         </div>
 
         {aiSuggestedRootCausesList.length > 0 && (
@@ -642,7 +640,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
               <CardHeader>
                 <CardTitle className="text-md font-semibold text-primary">Sugerencias de Causa Raíz Latente por IA</CardTitle>
                 <CardDescription className="text-xs">
-                  Estas son sugerencias de causas raíz latentes basadas en la información proporcionada. Revíselas y cópielas a la sección 'Causas Raíz Identificadas' si son apropiadas.
+                  Estas son sugerencias de causas raíz latentes basadas en la información proporcionada. Revíselas y cópielas al cuadro de "Causa Raíz Identificada" si son apropiadas.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -706,29 +704,24 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
               </div>
               
               <div className="space-y-2">
-                <Label className="flex items-center"><Link2 className="mr-2 h-4 w-4" />Causas Raíz Abordadas <span className="text-destructive">*</span></Label>
+                <Label className="flex items-center"><Link2 className="mr-2 h-4 w-4" />Causa Raíz Abordada <span className="text-destructive">*</span></Label>
                 <div className="space-y-1.5 max-h-32 overflow-y-auto p-2 border rounded-md bg-background/50">
-                  {identifiedRootCauses.length > 0 ? (
-                    identifiedRootCauses.filter(rc => rc.description.trim() !== '').map(rc => (
-                      <div key={rc.id} className="flex items-center space-x-2">
+                  {identifiedRootCauses.length > 0 && identifiedRootCauses[0].description.trim() ? (
+                      <div className="flex items-center space-x-2">
                         <Checkbox
-                          id={`pa-${action.id}-rc-${rc.id}`}
-                          checked={action.relatedRootCauseIds?.includes(rc.id)}
+                          id={`pa-${action.id}-rc-${identifiedRootCauses[0].id}`}
+                          checked={action.relatedRootCauseIds?.includes(identifiedRootCauses[0].id)}
                           onCheckedChange={(checked) => {
-                            handleToggleRootCauseForAction(index, rc.id, checked as boolean);
+                            handleToggleRootCauseForAction(index, identifiedRootCauses[0].id, checked as boolean);
                           }}
                         />
-                        <Label htmlFor={`pa-${action.id}-rc-${rc.id}`} className="text-xs font-normal cursor-pointer flex-grow">
-                          {rc.description.substring(0, 60) || `Causa Raíz (ID: ${rc.id.substring(0,5)}... )`}
-                          {rc.description.length > 60 ? "..." : ""}
+                        <Label htmlFor={`pa-${action.id}-rc-${identifiedRootCauses[0].id}`} className="text-xs font-normal cursor-pointer flex-grow">
+                          {identifiedRootCauses[0].description.substring(0, 60) || `Causa Raíz (ID: ${identifiedRootCauses[0].id.substring(0,5)}... )`}
+                          {identifiedRootCauses[0].description.length > 60 ? "..." : ""}
                         </Label>
                       </div>
-                    ))
                   ) : (
-                    <p className="text-xs text-muted-foreground">No hay causas raíz identificadas (con descripción) para vincular.</p>
-                  )}
-                   {identifiedRootCauses.length > 0 && identifiedRootCauses.every(rc => !rc.description.trim()) && (
-                    <p className="text-xs text-muted-foreground">Añada descripciones a las causas raíz para poder vincularlas.</p>
+                    <p className="text-xs text-muted-foreground">Defina y describa la Causa Raíz #1 para poder vincularla.</p>
                   )}
                 </div>
               </div>
@@ -798,3 +791,4 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   );
 };
 
+    
