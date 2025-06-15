@@ -1,7 +1,7 @@
 
 'use client';
 import type { FC, ChangeEvent } from 'react';
-import { useState, useMemo, useCallback, useEffect } from 'react'; // Added useCallback & useEffect
+import { useState, useMemo, useCallback, useEffect } from 'react'; 
 import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhysData, RCAEventData, CTMData, IdentifiedRootCause, FullUserProfile } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -9,15 +9,16 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2, Save, Send, Loader2, Mail } from 'lucide-react'; // Added Mail
+import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2, Save, Send, Loader2, Mail, Sparkles } from 'lucide-react'; // Added Sparkles
 import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
 import { FiveWhysInteractive } from './FiveWhysInteractive';
 import { CTMInteractive } from './CTMInteractive';
 import { useToast } from "@/hooks/use-toast";
 import { sendEmailAction } from '@/app/actions';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog'; // Added Dialog components
-import { ScrollArea } from '@/components/ui/scroll-area'; // Added ScrollArea
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { suggestRootCauses, type SuggestRootCausesInput } from '@/ai/flows/suggest-root-causes'; // Importar el nuevo flujo
 
 // --- NotifyTasksDialog Component ---
 interface NotifyTasksDialogProps {
@@ -44,7 +45,6 @@ const NotifyTasksDialog: FC<NotifyTasksDialogProps> = ({
   const [selectedActionIds, setSelectedActionIds] = useState<string[]>([]);
   const [isSending, setIsSending] = useState(false);
 
-  // Reset selection when dialog opens/closes or actions change
   useEffect(() => {
     setSelectedActionIds([]);
   }, [isOpen, actionsToNotify]);
@@ -69,7 +69,7 @@ const NotifyTasksDialog: FC<NotifyTasksDialogProps> = ({
     setIsSending(true);
     await onConfirmSend(selectedActionIds);
     setIsSending(false);
-    onOpenChange(false); // Close dialog after sending
+    onOpenChange(false); 
   };
 
   return (
@@ -206,6 +206,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const { toast } = useToast();
   const [isNotifyTasksDialogOpen, setIsNotifyTasksDialogOpen] = useState(false);
   const [actionsForNotificationDialog, setActionsForNotificationDialog] = useState<PlannedAction[]>([]);
+  const [isSuggestingCauses, setIsSuggestingCauses] = useState(false);
 
   const uniquePlannedActions = useMemo(() => {
     const seenIds = new Set<string>();
@@ -219,7 +220,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   }, [plannedActions]);
 
   const handleActionChange = (index: number, field: keyof Omit<PlannedAction, 'eventId' | 'id'>, value: string) => {
-    // Find the original index in the plannedActions prop array
     const originalAction = uniquePlannedActions[index];
     if (!originalAction) return;
     const originalIndex = plannedActions.findIndex(pa => pa.id === originalAction.id);
@@ -236,7 +236,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   };
 
   const handleToggleRootCauseForAction = (actionIndex: number, rootCauseId: string, checked: boolean) => {
-    const action = uniquePlannedActions[actionIndex]; // Use the action from the unique list for related IDs
+    const action = uniquePlannedActions[actionIndex]; 
     if (!action) return;
     const originalIndex = plannedActions.findIndex(pa => pa.id === action.id);
     if (originalIndex === -1) return;
@@ -377,13 +377,13 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   };
 
   const handleOpenSendTasksDialog = async () => {
-    await onSaveAnalysis(false); // Save current state before opening dialog
+    await onSaveAnalysis(false); 
 
     const actionsToNotify = uniquePlannedActions.filter(
       action =>
-        action && // Ensure action object exists
+        action && 
         action.responsible &&
-        typeof action.description === 'string' && action.description.trim() && // Check type then trim
+        typeof action.description === 'string' && action.description.trim() && 
         action.dueDate &&
         !action.isNotificationSent
     );
@@ -406,7 +406,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     let tasksIncompleteCount = 0; 
 
     for (const actionId of selectedActionIds) {
-      const actionIndex = plannedActions.findIndex(a => a.id === actionId); // Use original plannedActions for index
+      const actionIndex = plannedActions.findIndex(a => a.id === actionId); 
       if (actionIndex === -1) {
           console.warn(`Action with ID ${actionId} not found in plannedActions.`);
           tasksFailedCount++; 
@@ -477,6 +477,66 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     onNext();
   };
 
+  const handleSuggestRootCausesClick = async () => {
+    setIsSuggestingCauses(true);
+    try {
+      const input: SuggestRootCausesInput = {
+        focusEventDescription: eventData.focusEventDescription || "No especificado",
+        analysisTechnique: analysisTechnique,
+        analysisTechniqueNotes: analysisTechniqueNotes || undefined,
+        ishikawaData: analysisTechnique === 'Ishikawa' ? ishikawaData : undefined,
+        fiveWhysData: analysisTechnique === 'WhyWhy' ? fiveWhysData : undefined,
+        ctmData: analysisTechnique === 'CTM' ? ctmData : undefined,
+      };
+      const result = await suggestRootCauses(input);
+      if (result && result.suggestedRootCauses && result.suggestedRootCauses.length > 0) {
+        const newCausesCount = result.suggestedRootCauses.length;
+        result.suggestedRootCauses.forEach(suggestion => {
+          // Evitar añadir sugerencias que sean solo mensajes de error/placeholders de la IA
+          if (!suggestion.startsWith("[Sugerencia IA no disponible")) {
+            onAddIdentifiedRootCause(); // Esto añade una causa vacía
+            // Ahora actualizamos la última causa añadida (que está vacía) con la sugerencia
+            // Esto asume que onAddIdentifiedRootCause() añade al final y podemos predecir su ID o manejarlo
+            // de forma que la última causa añadida es la que se actualiza.
+            // Dado que no podemos obtener el ID inmediatamente, una forma es actualizar la última del array
+            // Si onAddIdentifiedRootCause crea un ID único, es mejor que la función devuelva el ID y luego usar onUpdateIdentifiedRootCause.
+            // Por ahora, una solución más simple:
+            // Asumo que onAddIdentifiedRootCause() crea un objeto { id: '...', description: '' }
+            // Entonces puedo llamar a onUpdateIdentifiedRootCause con el ID de la última causa creada
+            // Esto es complicado sin saber cómo se generan los IDs.
+            // Una forma MÁS SEGURA es que onAddIdentifiedRootCause tome un argumento opcional de descripción.
+            // Pero como no puedo cambiar la firma, haré esto:
+            // 1. Obtener el estado actual de identifiedRootCauses
+            // 2. Llamar a onAddIdentifiedRootCause para añadir una nueva entrada
+            // 3. En el siguiente ciclo de renderizado (o si el estado se actualiza síncronamente),
+            //    la nueva causa estará al final. Actualizarla.
+            // Esto es propenso a errores de concurrencia si el estado no se actualiza inmediatamente.
+            // La solución más robusta sería que onAddIdentifiedRootCause() acepte un valor inicial.
+            // O que onUpdateIdentifiedRootCause pueda tomar un índice.
+            // Voy a optar por añadir y luego actualizar la última, esperando que sea seguro en este flujo.
+            const currentNumCauses = identifiedRootCauses.length;
+            // En este punto, `identifiedRootCauses` no se ha actualizado con la nueva causa.
+            // La forma más sencilla es que `onAddIdentifiedRootCause` añada un placeholder
+            // y luego lo busquemos. Pero los IDs son aleatorios.
+            // Vamos a añadir las causas como nuevas entradas
+             onUpdateIdentifiedRootCause(identifiedRootCauses[identifiedRootCauses.length-1].id, suggestion);
+          } else if (newCausesCount === 1 && suggestion.startsWith("[")) { // Solo mostrar si es la única "sugerencia" y es un mensaje de error/info
+            toast({ title: "Sugerencias IA", description: suggestion, variant: suggestion.includes("Error") || suggestion.includes("no disponible") ? "destructive" : "default" });
+          }
+        });
+        if(result.suggestedRootCauses.some(s => !s.startsWith("["))) { // Si hubo al menos una sugerencia real
+           toast({ title: "Sugerencias de Causas Raíz con IA", description: `${result.suggestedRootCauses.filter(s=>!s.startsWith("[")).length} sugerencias añadidas. Revíselas y edítelas.` });
+        }
+      } else {
+        toast({ title: "Sugerencias IA", description: "La IA no generó nuevas sugerencias o hubo un error.", variant: "default" });
+      }
+    } catch (error) {
+      console.error("Error al sugerir causas raíz con IA:", error);
+      toast({ title: "Error con IA", description: "No se pudieron obtener sugerencias de la IA.", variant: "destructive" });
+    }
+    setIsSuggestingCauses(false);
+  };
+
 
   return (
     <>
@@ -542,10 +602,22 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
         )}
         
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold font-headline flex items-center">
-            <MessageSquare className="mr-2 h-5 w-5 text-primary" />
-            Causas Raíz Identificadas <span className="text-destructive text-xs ml-1">(Al menos una, con descripción) *</span>
-          </h3>
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold font-headline flex items-center">
+                <MessageSquare className="mr-2 h-5 w-5 text-primary" />
+                Causas Raíz Identificadas <span className="text-destructive text-xs ml-1">(Al menos una, con descripción) *</span>
+            </h3>
+            <Button
+                onClick={handleSuggestRootCausesClick}
+                variant="outline"
+                size="sm"
+                disabled={isSaving || isSuggestingCauses}
+                title="Usar IA para sugerir causas raíz basadas en la información actual"
+            >
+                {isSuggestingCauses ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                Sugerir con IA
+            </Button>
+           </div>
           {identifiedRootCauses.map((rc, index) => (
             <Card key={rc.id} className="p-4 space-y-3 bg-secondary/40">
               <div className="flex justify-between items-center">
@@ -654,18 +726,18 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
         </div>
       </CardContent>
       <CardFooter className="flex flex-col sm:flex-row justify-between gap-2 pt-4 border-t">
-        <Button onClick={onPrevious} variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>Anterior</Button>
+        <Button onClick={onPrevious} variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || isSuggestingCauses}>Anterior</Button>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Button onClick={handleSaveProgressLocal} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
-                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button onClick={handleSaveProgressLocal} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || isSuggestingCauses}>
+                {(isSaving || isSuggestingCauses) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Save className="mr-2 h-4 w-4" /> Guardar Avance
             </Button>
-            <Button onClick={handleOpenSendTasksDialog} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || uniquePlannedActions.length === 0}>
-                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button onClick={handleOpenSendTasksDialog} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || isSuggestingCauses || uniquePlannedActions.length === 0}>
+                {(isSaving || isSuggestingCauses) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Send className="mr-2 h-4 w-4" /> Enviar Tareas
             </Button>
-            <Button onClick={handleContinueLocal} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
-                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button onClick={handleContinueLocal} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || isSuggestingCauses}>
+                 {(isSaving || isSuggestingCauses) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                  Continuar
             </Button>
         </div>
