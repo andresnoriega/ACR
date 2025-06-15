@@ -211,11 +211,10 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const [currentAiSuggestionIndex, setCurrentAiSuggestionIndex] = useState(0);
 
   useEffect(() => {
-    // Ensure there's at least one root cause object to bind the UI to.
     if (identifiedRootCauses.length === 0) {
       onAddIdentifiedRootCause();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
 
 
@@ -278,7 +277,9 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const minDateForPlannedActions = getTodayDateString();
 
   const validateFieldsForNext = (): boolean => {
-    if (identifiedRootCauses.length === 0 || !identifiedRootCauses[0] || !identifiedRootCauses[0].description.trim()) {
+    const describedRootCauses = identifiedRootCauses.filter(rc => rc.description && rc.description.trim() !== '');
+
+    if (describedRootCauses.length === 0) {
       toast({
         title: "Campo Obligatorio Faltante",
         description: "Debe definir y describir al menos la Causa Raíz Principal #1.",
@@ -287,16 +288,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
       return false;
     }
     
-    const describedRootCauses = identifiedRootCauses.filter(rc => rc.description && rc.description.trim() !== '');
-    if (describedRootCauses.length === 0) { 
-        toast({
-            title: "Descripción Requerida",
-            description: `La Causa Raíz Principal #1 (y cualquier otra añadida a datos que desee vincular) requiere una descripción.`,
-            variant: "destructive",
-        });
-        return false;
-    }
-
     if (uniquePlannedActions.length > 0) {
       for (let i = 0; i < uniquePlannedActions.length; i++) {
         const action = uniquePlannedActions[i];
@@ -364,7 +355,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
         });
         return false;
     }
-
 
     return true;
   }
@@ -645,38 +635,48 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                     <MessageSquare className="mr-2 h-5 w-5 text-primary" />
                     Causas Raíz Identificadas
                 </h3>
+                <Button
+                    onClick={handleSuggestRootCausesClick}
+                    variant="outline"
+                    size="sm"
+                    disabled={isSaving || isSuggestingCauses}
+                    title="Sugerir posibles causas raíz latentes usando IA basado en la información del análisis actual."
+                >
+                    {isSuggestingCauses ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                    Sugerir con IA
+                </Button>
             </div>
 
-            {identifiedRootCauses.length > 0 && identifiedRootCauses[0] && (
-              <Card className="p-4 bg-card shadow-sm">
+            {identifiedRootCauses.map((rc, index) => (
+              <Card key={rc.id} className="p-4 bg-card shadow-sm">
                 <div className="flex justify-between items-center mb-2">
-                    <Label htmlFor={`rc-desc-${identifiedRootCauses[0].id}`} className="font-medium text-primary">
-                        Causa Raíz Principal #1 <span className="text-destructive">*</span>
-                    </Label>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onRemoveIdentifiedRootCause(identifiedRootCauses[0].id)}
-                        aria-label={`Eliminar causa raíz principal #1`}
-                        className="h-7 w-7"
-                        disabled={isSaving}
-                    >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                  <Label htmlFor={`rc-desc-${rc.id}`} className="font-medium text-primary">
+                    Causa Raíz #{index + 1} <span className="text-destructive">*</span>
+                  </Label>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onRemoveIdentifiedRootCause(rc.id)}
+                    aria-label={`Eliminar causa raíz #${index + 1}`}
+                    className="h-7 w-7"
+                    disabled={isSaving}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
                 </div>
                 <Textarea
-                    id={`rc-desc-${identifiedRootCauses[0].id}`}
-                    value={identifiedRootCauses[0].description}
-                    onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
-                        onUpdateIdentifiedRootCause(identifiedRootCauses[0].id, e.target.value)
-                    }
-                    placeholder={`Causa Raíz Principal #1: Describa la causa raíz...`}
-                    rows={3}
-                    className="w-full"
-                    disabled={isSaving}
+                  id={`rc-desc-${rc.id}`}
+                  value={rc.description}
+                  onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
+                    onUpdateIdentifiedRootCause(rc.id, e.target.value)
+                  }
+                  placeholder={`Causa Raíz #${index + 1}: Describa la causa raíz...`}
+                  rows={3}
+                  className="w-full"
+                  disabled={isSaving}
                 />
               </Card>
-            )}
+            ))}
             
             <Button
                 onClick={onAddIdentifiedRootCause}
@@ -685,13 +685,8 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                 disabled={isSaving}
             >
                 <PlusCircle className="mr-2 h-4 w-4" />
-                Añadir Otra Causa Raíz (a Datos)
+                {identifiedRootCauses.length === 0 ? "Añadir Primera Causa Raíz" : "Añadir Otra Causa Raíz"}
             </Button>
-            {identifiedRootCauses.length > 1 && (
-                <p className="text-xs text-muted-foreground text-center mt-1">
-                    {identifiedRootCauses.length -1} otra(s) causa(s) raíz definida(s) en datos (no editables aquí directamente).
-                </p>
-            )}
         </div>
 
 
@@ -700,7 +695,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
               <CardHeader>
                 <CardTitle className="text-md font-semibold text-primary">Sugerencias de Causa Raíz Latente por IA</CardTitle>
                 <CardDescription className="text-xs">
-                  Estas son sugerencias de causas raíz latentes basadas en la información proporcionada. Revíselas y cópielas a la "Causa Raíz Principal #1" si es apropiada, o úselas como inspiración.
+                  Estas son sugerencias de causas raíz latentes basadas en la información proporcionada. Revíselas y cópielas a una de las "Causas Raíz Identificadas" si es apropiada, o úselas como inspiración.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -860,5 +855,3 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     </>
   );
 };
-
-    
