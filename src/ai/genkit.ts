@@ -1,10 +1,10 @@
 import {genkit, type GenkitConfig} from 'genkit';
-// import {googleAI} from '@genkit/google-ai'; // Temporarily disabled
+// import {googleAI} from '@genkit/google-ai'; // Deshabilitado debido a problemas de instalación
 
 // Define Genkit configuration
 const genkitConfig: GenkitConfig = {
   plugins: [
-    // googleAI(), // Temporarily disabled
+    // googleAI(), // Deshabilitado temporalmente
   ],
   // flowStateStore: 'firebase', // Optional: Store flow states in Firestore
   // traceStore: 'firebase',     // Optional: Store traces in Firestore
@@ -34,14 +34,15 @@ try {
       console.warn(`Genkit flow '${config.name}' called but AI is mocked. Input will be passed to the mock function.`);
       return async (input: any) => {
         if (config.name === 'generateRcaInsightsFlow') {
+          // Specific mock for generateRcaInsightsFlow to return the disabled message
           return { summary: "[Resumen IA Deshabilitado por problemas de Genkit]" };
         }
+        // For other flows, attempt to call the original function if it doesn't rely on 'ai'
         try {
-            // Attempt to call the original function even if AI is mocked,
-            // if it doesn't rely on a fully initialized 'ai' object.
             return await func(input);
         } catch(flowError) {
             console.error(`Error in mocked flow '${config.name}':`, flowError);
+            // Return a generic error for other flows if they fail
             return { error: `AI functionality for flow '${config.name}' is disabled due to Genkit initialization issues.` };
         }
       };
