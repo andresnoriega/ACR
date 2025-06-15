@@ -1,10 +1,10 @@
 import {genkit, type GenkitConfig} from 'genkit';
-// import {googleAI} from '@genkit-ai/google-ai'; // Removed problematic import
+// import {googleAI} from '@genkit-ai/google-ai'; // Problematic import removed
 
 // Define Genkit configuration
 const genkitConfig: GenkitConfig = {
   plugins: [
-    // googleAI(), // Removed problematic plugin
+    // googleAI(), // Problematic plugin usage removed
   ],
   // flowStateStore: 'firebase', // Optional: Store flow states in Firestore
   // traceStore: 'firebase',     // Optional: Store traces in Firestore
@@ -24,6 +24,12 @@ const genkitConfig: GenkitConfig = {
 // Attempt to initialize Genkit, provide a mock if it fails
 let ai: any;
 try {
+  // Check if genkitConfig.plugins is empty. If so, genkit() might throw or behave unexpectedly.
+  if (!genkitConfig.plugins || genkitConfig.plugins.length === 0) {
+    console.warn('[AI Genkit] No Genkit plugins are configured. AI functionality will be mocked/disabled.');
+    throw new Error("No Genkit plugins configured."); // Force fallback to mock
+  }
+  
   ai = genkit(genkitConfig);
 
   const testGenerate = async () => {
