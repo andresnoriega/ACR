@@ -29,6 +29,7 @@ export type GenerateRcaInsightsOutput = z.infer<typeof GenerateRcaInsightsOutput
 // Re-enabled prompt and flow
 const prompt = ai.definePrompt({
   name: 'generateRcaInsightsPrompt',
+  model: 'googleai/gemini-1.5-flash-latest', // Especificar el modelo aquí
   input: {schema: GenerateRcaInsightsInputSchema},
   output: {schema: GenerateRcaInsightsOutputSchema},
   prompt: `
@@ -105,8 +106,8 @@ export async function generateRcaInsights(input: GenerateRcaInsightsInput): Prom
         errorMessage += ` (${error.message})`;
     }
     // Check if the error message indicates a problem with the model or API key
-    if (error instanceof Error && (error.message.includes("API key not valid") || error.message.includes("model may not exist"))) {
-        errorMessage = "[Resumen IA no disponible: Problema con la configuración del modelo o API Key. Verifique la consola.]";
+    if (error instanceof Error && (error.message.includes("API key not valid") || error.message.includes("model may not exist") || error.message.includes("Must supply a `model`"))) {
+        errorMessage = `[Resumen IA no disponible: Problema con la configuración del modelo o API Key. Verifique la consola.] (${error.message})`;
     }
     return { summary: errorMessage };
   }
