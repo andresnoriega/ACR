@@ -1,10 +1,10 @@
 import {genkit, type GenkitConfig} from 'genkit';
-// import {googleAI} from '@genkit-ai/google-ai'; // Intentionally removed/commented due to persistent 404 install issues
+// import {googleAI} from '@genkit-ai/google-ai'; // Removed problematic import
 
 // Define Genkit configuration
 const genkitConfig: GenkitConfig = {
   plugins: [
-    // googleAI(), // Intentionally removed/commented
+    // googleAI(), // Removed problematic plugin
   ],
   // flowStateStore: 'firebase', // Optional: Store flow states in Firestore
   // traceStore: 'firebase',     // Optional: Store traces in Firestore
@@ -24,31 +24,17 @@ const genkitConfig: GenkitConfig = {
 // Attempt to initialize Genkit, provide a mock if it fails
 let ai: any;
 try {
-  // Even with an empty plugins array, genkit() itself might initialize.
-  // However, without model plugins, generate/prompt calls would fail.
-  // The catch block below will handle this by mocking 'ai'.
   ai = genkit(genkitConfig);
 
-  // A more robust check might be needed here to see if any usable models were actually configured
-  // For now, we rely on the catch block for errors during genkit(genkitConfig) or subsequent AI calls.
-  // If genkitConfig is empty and genkit() doesn't throw, but there are no models,
-  // calls like ai.generate() would fail later. The current mock structure should handle this.
   const testGenerate = async () => {
     try {
-       // Attempt a generate call that would require a model.
-       // This is a conceptual test; we don't actually want to make a call here during init.
-       // The purpose is to ensure that if genkit initializes but has no models,
-       // the existing ai.generate() calls in flows are caught by their own try/catch
-       // or by the mock if ai.generate is not even a function.
       if (typeof ai.generate !== 'function') {
         throw new Error("ai.generate is not a function, Genkit likely initialized without model plugins.");
       }
       console.log('[AI Genkit] Genkit initialized. Actual model availability will be tested by flows.');
     } catch (testError) {
-      // This path suggests genkit() initialized but no models are available.
-      // We will fall through to the main catch block to ensure 'ai' is mocked.
       console.warn('[AI Genkit] Genkit initialized but model plugins might be missing or failed to load. Error during test: ', testError);
-      throw testError; // Re-throw to be caught by the outer try/catch, ensuring mock.
+      throw testError; 
     }
   };
   // testGenerate(); // No need to actually run this during init.

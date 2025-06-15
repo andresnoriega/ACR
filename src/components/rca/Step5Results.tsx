@@ -1,7 +1,7 @@
 
 'use client';
 import type { FC, ChangeEvent } from 'react';
-import { useState, useMemo } from 'react'; // Added useMemo
+import { useState, useMemo } from 'react';
 import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,13 +11,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save } from 'lucide-react'; // Wand2 removed
+import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
 import { sendEmailAction } from '@/app/actions';
-// AI Flow import removed as functionality is disabled
-// import { generateRcaInsights, type GenerateRcaInsightsInput } from '@/ai/flows/generate-rca-insights';
+import { generateRcaInsights, type GenerateRcaInsightsInput } from '@/ai/flows/generate-rca-insights';
 
 interface Step5ResultsProps {
   eventId: string;
@@ -82,8 +81,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   const [emailSearchTerm, setEmailSearchTerm] = useState('');
   const [isSendingEmails, setIsSendingEmails] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
-  // AI State removed
-  // const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+  // AI functionality is removed, so isGeneratingInsights state and handleGenerateInsights function are removed.
 
   const uniquePlannedActions = useMemo(() => {
     if (!Array.isArray(plannedActions)) {
@@ -193,8 +191,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     return report;
   };
 
-  // AI generation function removed
-  // const handleGenerateInsights = async () => { ... };
+  // handleGenerateInsights function is removed as AI functionality is disabled.
 
   const handleOpenEmailDialog = () => {
     setSelectedUserEmails([]);
@@ -271,7 +268,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     await onSaveAnalysis();
   };
 
-  const isBusy = isSaving || isSendingEmails || isFinalizing; // isGeneratingInsights removed
+  const isBusy = isSaving || isSendingEmails || isFinalizing; // Removed isGeneratingInsights
 
   return (
     <>
@@ -290,10 +287,8 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           </section>
 
           <section>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
-              <SectionTitle title="Introducción / Comentarios Finales" icon={BarChart3} className="mb-0"/>
-              {/* AI Button Removed */}
-            </div>
+            {/* AI Button is removed */}
+            <SectionTitle title="Introducción / Comentarios Finales" icon={BarChart3} className="mb-0"/>
             <Textarea
               id="finalComments"
               value={finalComments}
@@ -491,5 +486,3 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     </>
   );
 };
-
-    
