@@ -11,6 +11,12 @@
 import {ai} from '@/ai/genkit';
 import { z } from 'zod'; 
 
+const PreservedFactInfoSchema = z.object({
+  name: z.string().describe('The user-given name or file name of the preserved fact/document.'),
+  category: z.string().describe('The category of the preserved fact.'),
+  description: z.string().describe('The user-provided description of the preserved fact.'),
+});
+
 const GenerateRcaInsightsInputSchema = z.object({
   focusEventDescription: z.string().describe('The main description of the event being analyzed.'),
   detailedFactsSummary: z.string().describe('A summary of the detailed facts (who, what, where, when, how, which/how much).'),
@@ -18,6 +24,7 @@ const GenerateRcaInsightsInputSchema = z.object({
   analysisTechniqueNotes: z.string().optional().describe('Specific notes or findings from the chosen analysis technique.'),
   identifiedRootCauses: z.array(z.string()).describe('A list of the identified root causes.'),
   plannedActionsSummary: z.array(z.string()).describe('A list of summaries for the planned corrective actions.'),
+  preservedFactsInfo: z.array(PreservedFactInfoSchema).optional().describe('Information about preserved facts or attached documents, including their names, categories, and descriptions. The AI should consider these as part of the available context but will not have access to their internal content.'),
 });
 export type GenerateRcaInsightsInput = z.infer<typeof GenerateRcaInsightsInputSchema>;
 
@@ -26,10 +33,9 @@ const GenerateRcaInsightsOutputSchema = z.object({
 });
 export type GenerateRcaInsightsOutput = z.infer<typeof GenerateRcaInsightsOutputSchema>;
 
-// Re-enabled prompt and flow
 const prompt = ai.definePrompt({
   name: 'generateRcaInsightsPrompt',
-  model: 'googleai/gemini-1.5-flash-latest', // Especificar el modelo aquí
+  model: 'googleai/gemini-1.5-flash-latest',
   input: {schema: GenerateRcaInsightsInputSchema},
   output: {schema: GenerateRcaInsightsOutputSchema},
   prompt: `
@@ -42,16 +48,25 @@ const prompt = ai.definePrompt({
     2.  The most critical root cause(s) identified.
     3.  The key corrective action(s) proposed to address these root causes.
     4.  Any significant learnings or broader implications if apparent from the data.
-    5.  Maintain a professional and objective tone.
+    5.  Mention any relevant attached documentation if it seems pertinent to the summary.
+    6.  Maintain a professional and objective tone.
 
     Do NOT invent information. Stick to the data provided.
-    If a piece of information (like analysis technique notes) is missing or not provided, acknowledge its absence implicitly by not referring to it.
+    If a piece of information (like analysis technique notes or preserved facts) is missing or not provided, acknowledge its absence implicitly by not referring to it.
 
     RCA Data:
     - Event Focus: {{{focusEventDescription}}}
     - Summary of Facts: {{{detailedFactsSummary}}}
     {{#if analysisTechnique}}- Analysis Technique Used: {{{analysisTechnique}}}{{/if}}
     {{#if analysisTechniqueNotes}}- Notes from Analysis Technique: {{{analysisTechniqueNotes}}}{{/if}}
+    {{#if preservedFactsInfo}}
+    - Preserved Facts / Attached Documents (Note: You have metadata, not full content):
+      {{#each preservedFactsInfo}}
+      - Document Name: {{{this.name}}}, Category: {{{this.category}}}, User Description: {{{this.description}}}
+      {{else}}
+      - No specific documents were detailed.
+      {{/each}}
+    {{/if}}
     - Identified Root Causes:
       {{#each identifiedRootCauses}}
       - {{{this}}}
@@ -88,14 +103,11 @@ const generateRcaInsightsFlowInternal = ai.defineFlow(
 
 export async function generateRcaInsights(input: GenerateRcaInsightsInput): Promise<GenerateRcaInsightsOutput> {
   try {
-    // Check if the 'ai' object is the mocked version by checking a unique property or behavior of the mock.
-    // This is a basic check; a more robust one might be needed if the mock becomes more complex.
     if (typeof ai.generate === 'function' && ai.generate.toString().includes("AI is mocked")) {
         console.warn("Genkit 'ai' object is mocked. AI insights will be disabled.");
         return { summary: "[Resumen IA Deshabilitado por problemas de Genkit]" };
     }
 
-    // Attempt to call the actual flow
     const result = await generateRcaInsightsFlowInternal(input);
     return result;
 
@@ -105,7 +117,6 @@ export async function generateRcaInsights(input: GenerateRcaInsightsInput): Prom
     if (error instanceof Error) {
         errorMessage += ` (${error.message})`;
     }
-    // Check if the error message indicates a problem with the model or API key
     if (error instanceof Error && (error.message.includes("API key not valid") || error.message.includes("model may not exist") || error.message.includes("Must supply a `model`"))) {
         errorMessage = `[Resumen IA no disponible: Problema con la configuración del modelo o API Key. Verifique la consola.] (${error.message})`;
     }

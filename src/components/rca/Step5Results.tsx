@@ -2,7 +2,7 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useEffect } from 'react';
-import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile } from '@/types/rca';
+import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile, PreservedFact } from '@/types/rca'; // Added PreservedFact
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -30,6 +30,7 @@ interface Step5ResultsProps {
   ctmData: CTMData;
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
+  preservedFacts: PreservedFact[]; // Added preservedFacts prop
   finalComments: string;
   onFinalCommentsChange: (value: string) => void;
   onPrintReport: () => void;
@@ -66,6 +67,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   ctmData,
   identifiedRootCauses,
   plannedActions,
+  preservedFacts, // Destructure preservedFacts
   finalComments,
   onFinalCommentsChange,
   onPrintReport,
@@ -156,8 +158,14 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     report += `INTRODUCCIÓN / COMENTARIOS FINALES:\n${finalComments || "No proporcionados."}\n\n`;
     report += `HECHOS:\n`;
     report += `  Evento Foco: ${eventData.focusEventDescription || "No definido."}\n`;
-    report += `  Descripción Detallada del Fenómeno:\n  ${formatDetailedFacts().replace(/\n/g, '\n  ')}\n\n`;
-    report += `ANÁLISIS:\n`;
+    report += `  Descripción Detallada del Fenómeno:\n  ${formatDetailedFacts().replace(/\n/g, '\n  ')}\n`;
+    if (preservedFacts && preservedFacts.length > 0) {
+      report += `  Hechos Preservados/Documentación Adjunta:\n`;
+      preservedFacts.forEach(fact => {
+        report += `    - Nombre: ${fact.userGivenName || fact.fileName || 'Sin nombre'}, Categoría: ${fact.category || 'N/A'}, Descripción: ${fact.description || 'N/A'}\n`;
+      });
+    }
+    report += `\nANÁLISIS:\n`;
     report += `  Análisis Preliminar Realizado:\n  ${analysisDetails || "No se proporcionaron detalles."}\n`;
     report += `  Técnica de Análisis Principal Utilizada: ${analysisTechnique || "No seleccionada"}\n`;
     if (analysisTechnique === 'Ishikawa') report += `  Detalles del Diagrama de Ishikawa:\n${formatIshikawaForReport().replace(/\n/g, '\n  ')}\n`;
@@ -194,6 +202,12 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   const handleGenerateInsights = async () => {
     setIsGeneratingInsights(true);
     try {
+      const preservedFactsInput = preservedFacts.map(fact => ({
+        name: fact.userGivenName || fact.fileName || "Documento sin nombre",
+        category: fact.category || "Sin categoría",
+        description: fact.description || "Sin descripción adicional",
+      }));
+
       const input: GenerateRcaInsightsInput = {
         focusEventDescription: eventData.focusEventDescription || "No especificado",
         detailedFactsSummary: formatDetailedFacts() || "No disponible",
@@ -201,6 +215,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
         analysisTechniqueNotes: analysisTechniqueNotes || undefined,
         identifiedRootCauses: identifiedRootCauses.map(rc => rc.description).filter(d => d && d.trim() !== '') || [],
         plannedActionsSummary: uniquePlannedActions.map(pa => pa.description).filter(d => d && d.trim() !== '') || [],
+        preservedFactsInfo: preservedFactsInput.length > 0 ? preservedFactsInput : undefined,
       };
 
       const result = await generateRcaInsights(input);
@@ -234,9 +249,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   };
   
   useEffect(() => {
-    // Reset isGeneratingInsights if eventId changes (e.g., new analysis loaded)
-    // This ensures the button is re-enabled if user navigates away and back
-    // while a previous generation was theoretically "in progress" (though it's mocked now).
     setIsGeneratingInsights(false); 
   }, [eventId]);
 
@@ -376,6 +388,20 @@ export const Step5Results: FC<Step5ResultsProps> = ({
               <p className="pl-2 mb-2">{eventData.focusEventDescription || "No definido."}</p>
               <p className="font-medium mb-1">Descripción Detallada del Fenómeno:</p>
               <p className="pl-2 whitespace-pre-line">{formatDetailedFacts()}</p>
+              
+              {preservedFacts && preservedFacts.length > 0 && (
+                <>
+                  <p className="font-medium mt-2 mb-1">Hechos Preservados / Documentación Adjunta:</p>
+                  <ul className="list-disc pl-6 space-y-1 text-xs">
+                    {preservedFacts.map(fact => (
+                      <li key={fact.id}>
+                        <strong>{fact.userGivenName || fact.fileName || 'Documento sin nombre especificado'}</strong> (Categoría: {fact.category || 'N/A'})
+                        {fact.description && <p className="pl-2 text-muted-foreground italic">"{fact.description}"</p>}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
             </SectionContent>
           </section>
           <Separator className="my-4" />
@@ -409,7 +435,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
               )}
               {analysisTechniqueNotes.trim() && (
                    <>
-                  <p className="font-medium mt-2 mb-1">Notas Adicionales del Análisis (${analysisTechnique || 'General'}):</p>
+                  <p className="font-medium mt-2 mb-1">Notas Adicionales del Análisis ({analysisTechnique || 'General'}):</p>
                   <p className="pl-2 whitespace-pre-line">{analysisTechniqueNotes}</p>
                 </>
               )}
