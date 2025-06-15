@@ -34,7 +34,7 @@ const prompt = ai.definePrompt({
   name: 'generateRcaInsightsPrompt',
   input: {schema: GenerateRcaInsightsInputSchema},
   output: {schema: GenerateRcaInsightsOutputSchema},
-  prompt: \`
+  prompt: `
     You are an expert RCA (Root Cause Analysis) analyst. Based on the following information from an RCA process,
     generate a concise and insightful executive summary. This summary should be suitable for inclusion in the "Final Comments"
     section of the RCA report.
@@ -68,7 +68,7 @@ const prompt = ai.definePrompt({
       {{/each}}
 
     Generate the summary below:
-  \`,
+  `,
 });
 
 const generateRcaInsightsFlowInternal = ai.defineFlow(
@@ -123,8 +123,9 @@ export async function generateRcaInsights(input: GenerateRcaInsightsInput): Prom
     console.error("Error executing generateRcaInsights (AI potentially disabled/mocked):", error);
     let errorMessage = "[Resumen IA no disponible: Error al procesar la solicitud con IA]";
     if (error instanceof Error) {
-        errorMessage += \` (\${error.message})\`;
+        errorMessage += ` (${error.message})`;
     }
     return { summary: errorMessage };
   }
 }
+
