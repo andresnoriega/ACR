@@ -503,7 +503,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
             description: "Revise las sugerencias en el nuevo cuadro a continuación.",
           });
         } else if (result.suggestedRootCauses.length === 1 && result.suggestedRootCauses[0].startsWith("[")) {
-          // Handle specific info/error messages from the AI flow if they are the only result
           toast({ title: "Sugerencias IA", description: result.suggestedRootCauses[0], variant: result.suggestedRootCauses[0].includes("Error") || result.suggestedRootCauses[0].includes("no disponible") ? "destructive" : "default" });
         } else {
           toast({ title: "Sugerencias IA", description: "La IA no generó nuevas sugerencias válidas.", variant: "default" });
@@ -614,20 +613,23 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
             </Button>
            </div>
           {identifiedRootCauses.map((rc, index) => (
-            <Card key={rc.id} className="p-3 bg-secondary/40">
-              <div className="flex items-start space-x-2">
-                <Textarea
-                  id={`rc-desc-${rc.id}`}
-                  value={rc.description}
-                  onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onUpdateIdentifiedRootCause(rc.id, e.target.value)}
-                  placeholder={`Causa Raíz #${index + 1}: Describa la causa raíz...`}
-                  rows={2}
-                  className="flex-grow"
-                />
-                <Button variant="ghost" size="icon" onClick={() => onRemoveIdentifiedRootCause(rc.id)} aria-label="Eliminar causa raíz" className="shrink-0 mt-1">
+            <Card key={rc.id} className="p-4 bg-card shadow-sm">
+              <div className="flex justify-between items-center mb-2">
+                <Label htmlFor={`rc-desc-${rc.id}`} className="font-medium text-primary">
+                  Causa Raíz #{index + 1} <span className="text-destructive">*</span>
+                </Label>
+                <Button variant="ghost" size="icon" onClick={() => onRemoveIdentifiedRootCause(rc.id)} aria-label="Eliminar causa raíz" className="h-7 w-7">
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </div>
+              <Textarea
+                id={`rc-desc-${rc.id}`}
+                value={rc.description}
+                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onUpdateIdentifiedRootCause(rc.id, e.target.value)}
+                placeholder={`Describa la causa raíz #${index + 1}...`}
+                rows={3}
+                className="w-full"
+              />
             </Card>
           ))}
           <Button onClick={onAddIdentifiedRootCause} variant="outline" className="w-full">
