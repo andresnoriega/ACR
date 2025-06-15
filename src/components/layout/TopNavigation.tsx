@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, BarChart3, FileText, SettingsIcon, UserCheck, ListOrdered } from 'lucide-react';
+import { Home, BarChart3, FileText, SettingsIcon, UserCheck, ListOrdered, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const mainMenuItems = [
@@ -12,6 +12,7 @@ const mainMenuItems = [
   { href: '/analisis', label: 'Análisis', icon: BarChart3, section: 'analisis' },
   { href: '/informes', label: 'Informes', icon: FileText, section: 'informes' },
   { href: '/usuario/planes', label: 'Mis Tareas', icon: UserCheck, section: 'usuario' },
+  { href: '/precios', label: 'Precios', icon: DollarSign, section: 'precios' },
   { href: '/config', label: 'Config.', icon: SettingsIcon, section: 'config' },
 ];
 
@@ -33,7 +34,10 @@ export function TopNavigation() {
               } else if (item.section === 'config') {
                 // Handles /config/* for "Config." link
                 isActive = pathname.startsWith('/config');
-              } else {
+              } else if (item.section === 'precios') {
+                isActive = pathname.startsWith('/precios');
+              }
+               else {
                 // For other direct links like /eventos, /analisis, /informes
                 // Checks if the current path starts with the item's specific href
                 isActive = pathname.startsWith(item.href);
@@ -41,7 +45,7 @@ export function TopNavigation() {
 
               return (
                 <Link
-                  key={item.href} // Using href as key is fine if hrefs are unique and stable
+                  key={item.href} 
                   href={item.href}
                   className={cn(
                     'px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2 transition-colors duration-150 ease-in-out',
