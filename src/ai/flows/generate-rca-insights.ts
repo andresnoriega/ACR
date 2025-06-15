@@ -9,7 +9,7 @@
  */
 
 import {ai} from '@/ai/genkit';
-import { z } from 'zod'; // Import z directly from zod
+import { z } from 'zod'; 
 
 const GenerateRcaInsightsInputSchema = z.object({
   focusEventDescription: z.string().describe('The main description of the event being analyzed.'),
@@ -26,13 +26,15 @@ const GenerateRcaInsightsOutputSchema = z.object({
 });
 export type GenerateRcaInsightsOutput = z.infer<typeof GenerateRcaInsightsOutputSchema>;
 
-// Temporarily comment out the AI prompt and flow due to Genkit plugin installation issues
 /*
+// Commenting out the original prompt and flow due to Genkit initialization issues.
+// The 'ai' object might be mocked.
+
 const prompt = ai.definePrompt({
   name: 'generateRcaInsightsPrompt',
   input: {schema: GenerateRcaInsightsInputSchema},
   output: {schema: GenerateRcaInsightsOutputSchema},
-  prompt: `
+  prompt: \`
     You are an expert RCA (Root Cause Analysis) analyst. Based on the following information from an RCA process,
     generate a concise and insightful executive summary. This summary should be suitable for inclusion in the "Final Comments"
     section of the RCA report.
@@ -66,7 +68,7 @@ const prompt = ai.definePrompt({
       {{/each}}
 
     Generate the summary below:
-  `,
+  \`,
 });
 
 const generateRcaInsightsFlowInternal = ai.defineFlow(
@@ -87,20 +89,42 @@ const generateRcaInsightsFlowInternal = ai.defineFlow(
 */
 
 export async function generateRcaInsights(input: GenerateRcaInsightsInput): Promise<GenerateRcaInsightsOutput> {
-  console.warn("generateRcaInsights called, but AI is temporarily disabled due to Genkit/plugin issues. Returning placeholder.");
-  return { summary: "[Resumen IA Deshabilitado por problemas de Genkit]" };
-  /* // Original code calling the flow, commented out:
   try {
-    // Check if generateRcaInsightsFlowInternal is defined (it won't be if ai object is not properly initialized)
-    if (typeof generateRcaInsightsFlowInternal !== 'function') {
-        console.error("generateRcaInsightsFlowInternal is not defined. Genkit AI functionality might be disabled or improperly initialized.");
-        return { summary: "[Resumen IA Deshabilitado: Flujo no definido]" };
+    // Check if 'ai.generate' or a specific flow method exists and is callable, which might indicate a real or partially mocked 'ai'
+    // This is a defensive check. The mock in genkit.ts should ideally handle this.
+    if (ai && typeof ai.generate === 'function' && ai.generate.constructor.name === 'AsyncFunction') { // Check if generate looks like a real function
+       console.warn("Attempting to call AI.generate, but it might be from a base Genkit without specific model plugins or a full mock.");
+       // This path might still not work if no model plugin is configured even in base genkit.
+       // The prompt would need to be defined and called.
+       // For now, let's assume the mock in genkit.ts handles the defineFlow/definePrompt scenario.
+       // If we reach here and there's no specific mocked flow for 'generateRcaInsightsFlow',
+       // we return the disabled message.
+       // A more robust mock for ai.defineFlow would return a function that, when called, gives the disabled summary.
+
+       // Simulating that the 'flow' would be called. If 'ai' is mocked as in the genkit.ts example,
+       // calling a flow defined with it should return the disabled message.
+       // We are not redefining the flow here as it relies on the 'ai' object.
+       // The mocked 'ai' from genkit.ts should handle the 'defineFlow' for 'generateRcaInsightsFlow'
+       // and return the disabled summary.
+       // If 'ai' is truly mocked and defineFlow returns the wrapped function:
+       // const flow = ai.defineFlow({name: 'generateRcaInsightsFlow' ...}, async () => {...})
+       // const result = await flow(input);
+       // return result
+       // Since we can't be sure how 'ai' is defined if genkit partially initialized, best to return disabled.
+       console.log("AI seems partially available but flow definition is commented out. Returning disabled message.");
+       return { summary: "[Resumen IA Deshabilitado por problemas de Genkit]" };
+
+    } else {
+      // This case covers when 'ai' itself is the full mock or genkit() failed entirely
+      console.warn("Genkit 'ai' object is mocked or not fully initialized. AI insights disabled.");
+      return { summary: "[Resumen IA Deshabilitado por problemas de Genkit]" };
     }
-    const result: GenerateRcaInsightsOutput = await generateRcaInsightsFlowInternal(input);
-    return result;
   } catch (error) {
-    console.error("Error executing generateRcaInsightsFlowInternal:", error);
-    return { summary: "[Resumen IA no disponible: Error al procesar la solicitud con IA]" };
+    console.error("Error executing generateRcaInsights (AI potentially disabled/mocked):", error);
+    let errorMessage = "[Resumen IA no disponible: Error al procesar la solicitud con IA]";
+    if (error instanceof Error) {
+        errorMessage += \` (\${error.message})\`;
+    }
+    return { summary: errorMessage };
   }
-  */
 }
