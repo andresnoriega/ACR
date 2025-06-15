@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Wand2 } from 'lucide-react'; // Added Wand2
+import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Wand2 } from 'lucide-react'; // Wand2 might be unused now
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
@@ -321,18 +321,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           <section>
             <div className="flex justify-between items-center mb-2">
               <SectionTitle title="Introducción / Comentarios Finales" icon={BarChart3} className="mb-0"/>
-              {!isFinalized && (
-                <Button 
-                  onClick={handleGenerateInsights} 
-                  size="sm" 
-                  variant="outline" 
-                  disabled={isBusy}
-                  className="ml-auto"
-                >
-                  {isGeneratingInsights ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                  Generar Borrador con IA
-                </Button>
-              )}
+              {/* El botón de IA se ha eliminado de aquí */}
             </div>
             <Textarea
               id="finalComments"
