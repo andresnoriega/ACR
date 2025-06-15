@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2, Save, Send, Loader2, Mail, Sparkles } from 'lucide-react'; // Added Sparkles
+import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2, Save, Send, Loader2, Mail, Sparkles, ClipboardCopy, ChevronLeft, ChevronRight } from 'lucide-react'; // Added Sparkles, ClipboardCopy, ChevronLeft, ChevronRight
 import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
 import { FiveWhysInteractive } from './FiveWhysInteractive';
@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { sendEmailAction } from '@/app/actions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { suggestRootCauses, type SuggestRootCausesInput } from '@/ai/flows/suggest-root-causes'; // Importar el nuevo flujo
+import { suggestRootCauses, type SuggestRootCausesInput } from '@/ai/flows/suggest-root-causes'; 
 
 // --- NotifyTasksDialog Component ---
 interface NotifyTasksDialogProps {
@@ -207,6 +207,8 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const [isNotifyTasksDialogOpen, setIsNotifyTasksDialogOpen] = useState(false);
   const [actionsForNotificationDialog, setActionsForNotificationDialog] = useState<PlannedAction[]>([]);
   const [isSuggestingCauses, setIsSuggestingCauses] = useState(false);
+  const [aiSuggestedRootCausesList, setAiSuggestedRootCausesList] = useState<string[]>([]);
+  const [currentAiSuggestionIndex, setCurrentAiSuggestionIndex] = useState(0);
 
   const uniquePlannedActions = useMemo(() => {
     const seenIds = new Set<string>();
@@ -479,6 +481,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
 
   const handleSuggestRootCausesClick = async () => {
     setIsSuggestingCauses(true);
+    setAiSuggestedRootCausesList([]); // Clear previous suggestions
     try {
       const input: SuggestRootCausesInput = {
         focusEventDescription: eventData.focusEventDescription || "No especificado",
@@ -490,26 +493,16 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
       };
       const result = await suggestRootCauses(input);
       if (result && result.suggestedRootCauses && result.suggestedRootCauses.length > 0) {
-        const validSuggestions = result.suggestedRootCauses.filter(s => !s.startsWith("[Sugerencia IA no disponible"));
+        const validSuggestions = result.suggestedRootCauses.filter(s => !s.startsWith("[Sugerencia IA no disponible") && s.trim() !== "");
         
         if (validSuggestions.length > 0) {
-          validSuggestions.forEach(_ => {
-            onAddIdentifiedRootCause(); // Añade una entrada vacía
-          });
-          // Prepara un mensaje para el toast
-          const suggestionsList = validSuggestions.map((s, i) => `${i + 1}. ${s}`).join('\n');
+          setAiSuggestedRootCausesList(validSuggestions);
+          setCurrentAiSuggestionIndex(0);
           toast({ 
-            title: `IA Sugirió ${validSuggestions.length} Causas Raíz`, 
-            description: (
-              <div className="text-xs">
-                <p>Se añadieron entradas vacías. Por favor, revíselas y complete sus descripciones con estas sugerencias:</p>
-                <pre className="whitespace-pre-wrap mt-1 max-h-24 overflow-y-auto bg-muted/50 p-1 rounded-sm">{suggestionsList}</pre>
-              </div>
-            ),
-            duration: 15000 // Toast más largo para que el usuario pueda leer
+            title: `IA Sugirió ${validSuggestions.length} Posible(s) Causa(s) Raíz`, 
+            description: "Revise las sugerencias en el nuevo cuadro a continuación.",
           });
         } else if (result.suggestedRootCauses.length === 1 && result.suggestedRootCauses[0].startsWith("[")) {
-          // Si solo hubo un mensaje de error/info de la IA
           toast({ title: "Sugerencias IA", description: result.suggestedRootCauses[0], variant: result.suggestedRootCauses[0].includes("Error") || result.suggestedRootCauses[0].includes("no disponible") ? "destructive" : "default" });
         } else {
           toast({ title: "Sugerencias IA", description: "La IA no generó nuevas sugerencias válidas.", variant: "default" });
@@ -522,6 +515,20 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
       toast({ title: "Error con IA", description: "No se pudieron obtener sugerencias de la IA.", variant: "destructive" });
     }
     setIsSuggestingCauses(false);
+  };
+
+  const handleCopySuggestion = () => {
+    if (aiSuggestedRootCausesList.length > 0 && currentAiSuggestionIndex < aiSuggestedRootCausesList.length) {
+      const suggestionToCopy = aiSuggestedRootCausesList[currentAiSuggestionIndex];
+      navigator.clipboard.writeText(suggestionToCopy)
+        .then(() => {
+          toast({ title: "Sugerencia Copiada", description: "La sugerencia ha sido copiada al portapapeles." });
+        })
+        .catch(err => {
+          console.error('Error al copiar sugerencia: ', err);
+          toast({ title: "Error al Copiar", description: "No se pudo copiar la sugerencia.", variant: "destructive" });
+        });
+    }
   };
 
 
@@ -628,6 +635,51 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
             <PlusCircle className="mr-2 h-4 w-4" /> Añadir Causa Raíz
           </Button>
         </div>
+
+        {aiSuggestedRootCausesList.length > 0 && (
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle className="text-md font-semibold text-primary">Sugerencias de Causa Raíz por IA</CardTitle>
+                <CardDescription className="text-xs">
+                  Estas son sugerencias de causas raíz basadas en la información proporcionada. Revíselas y cópielas a la sección 'Causas Raíz Identificadas' si son apropiadas.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-28 w-full rounded-md border p-3 bg-background/50">
+                  <p className="text-sm whitespace-pre-wrap">
+                    {aiSuggestedRootCausesList[currentAiSuggestionIndex]}
+                  </p>
+                </ScrollArea>
+              </CardContent>
+              <CardFooter className="flex justify-between items-center pt-3">
+                <Button onClick={handleCopySuggestion} variant="outline" size="sm">
+                  <ClipboardCopy className="mr-2 h-4 w-4" /> Copiar Sugerencia
+                </Button>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    onClick={() => setCurrentAiSuggestionIndex(prev => Math.max(0, prev - 1))}
+                    variant="ghost"
+                    size="sm"
+                    disabled={currentAiSuggestionIndex === 0}
+                  >
+                    <ChevronLeft className="h-4 w-4" /> Anterior
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    {currentAiSuggestionIndex + 1} de {aiSuggestedRootCausesList.length}
+                  </span>
+                  <Button
+                    onClick={() => setCurrentAiSuggestionIndex(prev => Math.min(aiSuggestedRootCausesList.length - 1, prev + 1))}
+                    variant="ghost"
+                    size="sm"
+                    disabled={currentAiSuggestionIndex === aiSuggestedRootCausesList.length - 1}
+                  >
+                    Siguiente <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardFooter>
+            </Card>
+          )}
+
 
         <div className="space-y-4">
           <h3 className="text-lg font-semibold font-headline">Plan de Acción Correctiva</h3>
@@ -744,6 +796,5 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     </>
   );
 };
-
 
     
