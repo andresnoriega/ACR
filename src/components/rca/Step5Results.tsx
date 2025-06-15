@@ -1,7 +1,7 @@
 
 'use client';
 import type { FC, ChangeEvent } from 'react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react'; // Added useEffect
 import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save } from 'lucide-react';
+import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Sparkles } from 'lucide-react'; // Added Sparkles
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
@@ -81,7 +81,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   const [emailSearchTerm, setEmailSearchTerm] = useState('');
   const [isSendingEmails, setIsSendingEmails] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
-  // AI functionality is removed, so isGeneratingInsights state and handleGenerateInsights function are removed.
+  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
 
   const uniquePlannedActions = useMemo(() => {
     if (!Array.isArray(plannedActions)) {
@@ -191,7 +191,52 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     return report;
   };
 
-  // handleGenerateInsights function is removed as AI functionality is disabled.
+  const handleGenerateInsights = async () => {
+    setIsGeneratingInsights(true);
+    try {
+      const input: GenerateRcaInsightsInput = {
+        focusEventDescription: eventData.focusEventDescription || "No especificado",
+        detailedFactsSummary: formatDetailedFacts() || "No disponible",
+        analysisTechnique: analysisTechnique || undefined,
+        analysisTechniqueNotes: analysisTechniqueNotes || undefined,
+        identifiedRootCauses: identifiedRootCauses.map(rc => rc.description).filter(d => d && d.trim() !== '') || [],
+        plannedActionsSummary: uniquePlannedActions.map(pa => pa.description).filter(d => d && d.trim() !== '') || [],
+      };
+
+      const result = await generateRcaInsights(input);
+      if (result && result.summary) {
+        onFinalCommentsChange(result.summary);
+        toast({
+          title: "Borrador con IA",
+          description: "Se ha generado un borrador en 'Comentarios Finales'. Revíselo y edítelo según sea necesario.",
+        });
+      } else {
+        const fallbackMessage = result && typeof result.summary === 'string' ? result.summary : "[Resumen IA no disponible: El modelo no generó una respuesta válida o hubo un error inesperado.]";
+        onFinalCommentsChange(fallbackMessage);
+        toast({
+          title: "Error de IA",
+          description: fallbackMessage.startsWith("[") ? fallbackMessage : "No se pudo generar el borrador. Verifique la consola para más detalles si es un error del modelo.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error generating AI insights:", error);
+      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+      onFinalCommentsChange(`[Resumen IA no disponible: ${errorMessage}]`);
+      toast({
+        title: "Error al Generar Borrador con IA",
+        description: `Ocurrió un error: ${errorMessage}`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingInsights(false);
+    }
+  };
+  
+  useEffect(() => {
+    setIsGeneratingInsights(false); 
+  }, [eventId]);
+
 
   const handleOpenEmailDialog = () => {
     setSelectedUserEmails([]);
@@ -268,7 +313,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     await onSaveAnalysis();
   };
 
-  const isBusy = isSaving || isSendingEmails || isFinalizing; // Removed isGeneratingInsights
+  const isBusy = isSaving || isSendingEmails || isFinalizing || isGeneratingInsights;
 
   return (
     <>
@@ -287,8 +332,28 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           </section>
 
           <section>
-            {/* AI Button is removed */}
-            <SectionTitle title="Introducción / Comentarios Finales" icon={BarChart3} className="mb-0"/>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2">
+              <SectionTitle title="Introducción / Comentarios Finales" icon={BarChart3} className="mb-0 sm:mb-2"/>
+              <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0">
+                <Button
+                  onClick={handleGenerateInsights}
+                  variant="outline"
+                  size="sm"
+                  className="w-full sm:w-auto"
+                  disabled={isBusy || isFinalized}
+                  title="Generar un borrador para la sección de Comentarios Finales usando IA."
+                >
+                  {isGeneratingInsights ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                  Generar Borrador con IA
+                </Button>
+                {!isFinalized && (
+                    <Button onClick={handleSaveFinalComments} size="sm" variant="outline" className="w-full sm:w-auto" disabled={isBusy}>
+                        {isSaving && finalComments !== (eventData as any).finalComments && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Save className="mr-2 h-4 w-4" /> Guardar Comentarios
+                    </Button>
+                )}
+              </div>
+            </div>
             <Textarea
               id="finalComments"
               value={finalComments}
@@ -298,12 +363,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
               className="text-sm"
               disabled={isFinalized || isBusy}
             />
-            {!isFinalized && (
-                <Button onClick={handleSaveFinalComments} size="sm" variant="outline" className="mt-2" disabled={isBusy}>
-                    {isSaving && finalComments !== (eventData as any).finalComments && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    <Save className="mr-2 h-4 w-4" /> Guardar Comentarios
-                </Button>
-            )}
           </section>
           <Separator className="my-4" />
 
@@ -347,7 +406,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
               )}
               {analysisTechniqueNotes.trim() && (
                    <>
-                  <p className="font-medium mt-2 mb-1">Notas Adicionales del Análisis ({analysisTechnique || 'General'}):</p>
+                  <p className="font-medium mt-2 mb-1">Notas Adicionales del Análisis (${analysisTechnique || 'General'}):</p>
                   <p className="pl-2 whitespace-pre-line">{analysisTechniqueNotes}</p>
                 </>
               )}
@@ -361,7 +420,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
               {identifiedRootCauses.length > 0 ? (
                 <ul className="list-disc pl-6 space-y-1">
                   {identifiedRootCauses.map((rc, index) => (
-                    rc.description.trim() && <li key={rc.id}><strong>Causa Raíz #{index + 1}:</strong> {rc.description}</li>
+                    rc.description.trim() && <li key={rc.id}><strong>Causa Raíz #${index + 1}:</strong> {rc.description}</li>
                   ))}
                    {identifiedRootCauses.every(rc => !rc.description.trim()) && <p>Se han añadido entradas de causa raíz pero ninguna tiene descripción.</p>}
                 </ul>
