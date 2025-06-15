@@ -3,7 +3,7 @@
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, DollarSign } from 'lucide-react'; // Added DollarSign
 import Link from 'next/link';
 
 const plans = [
@@ -11,7 +11,7 @@ const plans = [
     name: 'Básico',
     price: '$0',
     period: '/mes (Limitado)',
-    description: 'Ideal para individuos o pruebas iniciales.',
+    description: 'Ideal para individuos o equipos pequeños que inician con RCA.',
     features: [
       'Hasta 3 análisis RCA al mes',
       'Acceso a la técnica "5 Porqués"',
@@ -19,38 +19,40 @@ const plans = [
       'Soporte comunitario',
     ],
     cta: 'Comenzar Gratis',
-    href: '/analisis', // Placeholder, podría ser /registro
+    href: '/analisis',
   },
   {
     name: 'Profesional',
     price: '$29',
     period: '/mes',
-    description: 'Para equipos en crecimiento y uso regular.',
+    description: 'Perfecto para equipos en crecimiento y uso regular de RCA.',
     features: [
       'Hasta 25 análisis RCA al mes',
       'Todas las técnicas de análisis (5 Porqués, Ishikawa, CTM)',
-      'Hasta 5 usuarios',
+      'Hasta 10 usuarios', // Changed from 5
       'Exportación de informes avanzada',
-      'Soporte por email',
+      'Soporte técnico por email', // Changed wording
     ],
     cta: 'Elegir Profesional',
-    href: '#', // Placeholder
+    href: '#',
     highlighted: true,
+    badge: 'Más Popular', // Added badge
   },
   {
     name: 'Empresa',
     price: '$99',
     period: '/mes',
-    description: 'Para organizaciones grandes con necesidades complejas.',
+    description: 'Solución completa para organizaciones con necesidades complejas y a gran escala.',
     features: [
       'Análisis RCA ilimitados',
-      'Todas las técnicas de análisis',
-      'Usuarios ilimitados y roles avanzados',
-      'Auditoría de cambios',
-      'Soporte prioritario y SLA',
+      'Todas las técnicas de análisis avanzadas',
+      'Gestión avanzada de usuarios y roles', // Rephrased
+      'Integraciones y API (Próximamente)', // Added feature
+      'Auditoría de cambios y seguridad mejorada', // Expanded
+      'Soporte prioritario dedicado y SLA', // Expanded
     ],
     cta: 'Contactar Ventas',
-    href: '#', // Placeholder
+    href: '#',
   },
 ];
 
@@ -58,6 +60,9 @@ export default function PreciosPage() {
   return (
     <div className="space-y-12 py-12">
       <header className="text-center space-y-3">
+        <div className="inline-flex items-center justify-center bg-primary/10 text-primary p-3 rounded-full mb-4">
+          <DollarSign className="h-10 w-10" /> {/* Added Icon */}
+        </div>
         <h1 className="text-4xl font-bold font-headline text-primary">
           Planes Flexibles para Cada Necesidad
         </h1>
@@ -75,7 +80,14 @@ export default function PreciosPage() {
             }`}
           >
             <CardHeader className="pb-4">
-              <CardTitle className="text-2xl font-semibold text-primary">{plan.name}</CardTitle>
+              <div className="flex justify-between items-start mb-1">
+                <CardTitle className="text-2xl font-semibold text-primary">{plan.name}</CardTitle>
+                {plan.badge && (
+                  <span className="text-xs font-bold bg-accent text-accent-foreground px-2.5 py-1 rounded-full -mt-1">
+                    {plan.badge}
+                  </span>
+                )}
+              </div>
               <div className="flex items-baseline gap-1">
                 <span className="text-4xl font-bold">{plan.price}</span>
                 <span className="text-sm text-muted-foreground">{plan.period}</span>
