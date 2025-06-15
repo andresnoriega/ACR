@@ -1,7 +1,7 @@
 
 'use client';
 import type { FC, ChangeEvent } from 'react';
-import { useState, useMemo, useEffect } from 'react'; // Added useEffect
+import { useState, useMemo, useEffect } from 'react';
 import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Sparkles } from 'lucide-react'; // Added Sparkles
+import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Sparkles } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
@@ -234,6 +234,9 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   };
   
   useEffect(() => {
+    // Reset isGeneratingInsights if eventId changes (e.g., new analysis loaded)
+    // This ensures the button is re-enabled if user navigates away and back
+    // while a previous generation was theoretically "in progress" (though it's mocked now).
     setIsGeneratingInsights(false); 
   }, [eventId]);
 
