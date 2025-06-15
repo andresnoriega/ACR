@@ -174,7 +174,7 @@ export interface Site {
   id: string;
   name: string;
   address: string;
-  zone: string;
+  country: string; // Changed from zone to country
   coordinator?: string;
   description?: string;
 }

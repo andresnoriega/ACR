@@ -9,7 +9,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Globe, PlusCircle, Edit2, Trash2, FileUp, FileDown, MapPin, Loader2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
@@ -19,8 +18,7 @@ import type { Site } from '@/types/rca';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 
-const geographicalZones = ['Norte', 'Sur', 'Este', 'Oeste', 'Centro', 'Noreste', 'Noroeste', 'Sureste', 'Suroeste', ''];
-const expectedSiteHeaders = ["Nombre del Sitio", "Dirección", "Zona Geográfica", "Coordinador del Sitio", "Descripción Adicional"];
+const expectedSiteHeaders = ["Nombre del Sitio", "Dirección", "País", "Coordinador del Sitio", "Descripción Adicional"];
 
 
 export default function ConfiguracionSitiosPage() {
@@ -34,7 +32,7 @@ export default function ConfiguracionSitiosPage() {
   const [isAddSiteDialogOpen, setIsAddSiteDialogOpen] = useState(false);
   const [newSiteName, setNewSiteName] = useState('');
   const [newSiteAddress, setNewSiteAddress] = useState('');
-  const [newSiteZone, setNewSiteZone] = useState('');
+  const [newSiteCountry, setNewSiteCountry] = useState('');
   const [newSiteCoordinator, setNewSiteCoordinator] = useState('');
   const [newSiteDescription, setNewSiteDescription] = useState('');
 
@@ -42,7 +40,7 @@ export default function ConfiguracionSitiosPage() {
   const [currentSiteToEdit, setCurrentSiteToEdit] = useState<Site | null>(null);
   const [editSiteName, setEditSiteName] = useState('');
   const [editSiteAddress, setEditSiteAddress] = useState('');
-  const [editSiteZone, setEditSiteZone] = useState('');
+  const [editSiteCountry, setEditSiteCountry] = useState('');
   const [editSiteCoordinator, setEditSiteCoordinator] = useState('');
   const [editSiteDescription, setEditSiteDescription] = useState('');
 
@@ -67,12 +65,13 @@ export default function ConfiguracionSitiosPage() {
 
   useEffect(() => {
     fetchSites();
-  }, [toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const resetNewSiteForm = () => {
     setNewSiteName('');
     setNewSiteAddress('');
-    setNewSiteZone('');
+    setNewSiteCountry('');
     setNewSiteCoordinator('');
     setNewSiteDescription('');
   };
@@ -81,7 +80,7 @@ export default function ConfiguracionSitiosPage() {
     setCurrentSiteToEdit(null);
     setEditSiteName('');
     setEditSiteAddress('');
-    setEditSiteZone('');
+    setEditSiteCountry('');
     setEditSiteCoordinator('');
     setEditSiteDescription('');
   };
@@ -92,10 +91,10 @@ export default function ConfiguracionSitiosPage() {
       return;
     }
     setIsSubmitting(true);
-    const newSiteData = {
+    const newSiteData: Omit<Site, 'id'> = {
       name: newSiteName.trim(),
       address: newSiteAddress.trim(),
-      zone: newSiteZone,
+      country: newSiteCountry.trim(),
       coordinator: newSiteCoordinator.trim(),
       description: newSiteDescription.trim(),
     };
@@ -117,7 +116,7 @@ export default function ConfiguracionSitiosPage() {
     setCurrentSiteToEdit(site);
     setEditSiteName(site.name);
     setEditSiteAddress(site.address);
-    setEditSiteZone(site.zone);
+    setEditSiteCountry(site.country);
     setEditSiteCoordinator(site.coordinator || '');
     setEditSiteDescription(site.description || '');
     setIsEditSiteDialogOpen(true);
@@ -130,10 +129,10 @@ export default function ConfiguracionSitiosPage() {
       return;
     }
     setIsSubmitting(true);
-    const updatedSiteData = {
+    const updatedSiteData: Omit<Site, 'id'> = {
       name: editSiteName.trim(),
       address: editSiteAddress.trim(),
-      zone: editSiteZone,
+      country: editSiteCountry.trim(),
       coordinator: editSiteCoordinator.trim(),
       description: editSiteDescription.trim(),
     };
@@ -183,7 +182,7 @@ export default function ConfiguracionSitiosPage() {
     const dataToExport = sites.map(site => ({
       "Nombre del Sitio": site.name,
       "Dirección": site.address,
-      "Zona Geográfica": site.zone,
+      "País": site.country,
       "Coordinador del Sitio": site.coordinator || '',
       "Descripción Adicional": site.description || '',
     }));
@@ -244,17 +243,12 @@ export default function ConfiguracionSitiosPage() {
             continue;
           }
           
-          const zone = row["Zona Geográfica"]?.trim() || '';
-          if (zone && !geographicalZones.includes(zone)) {
-            skippedCount++;
-            toast({ title: "Zona Inválida", description: `La zona "${zone}" para el sitio "${name}" no es válida. Fila omitida.`, variant: "destructive", duration: 5000 });
-            continue;
-          }
+          const country = row["País"]?.trim() || '';
 
           const newSite: Omit<Site, 'id'> = {
             name,
             address: row["Dirección"]?.trim() || '',
-            zone: zone,
+            country: country,
             coordinator: row["Coordinador del Sitio"]?.trim() || '',
             description: row["Descripción Adicional"]?.trim() || '',
           };
@@ -264,10 +258,10 @@ export default function ConfiguracionSitiosPage() {
           importedCount++;
           operationsInBatch++;
 
-          if (operationsInBatch >= 490) {
+          if (operationsInBatch >= 490) { // Firestore batch limit is 500 operations
             await batch.commit();
             operationsInBatch = 0;
-            // batch = writeBatch(db); // Re-initialize
+            // batch = writeBatch(db); // Re-initialize for next batch - This line is problematic, a new batch is implicitly created.
           }
         }
 
@@ -352,17 +346,8 @@ export default function ConfiguracionSitiosPage() {
                         <Input id="add-site-address" value={newSiteAddress} onChange={(e) => setNewSiteAddress(e.target.value)} className="col-span-3" placeholder="Ej: Calle Falsa 123, Ciudad" />
                       </div>
                       <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="add-site-zone-select" className="text-right">Zona</Label>
-                        <Select value={newSiteZone} onValueChange={setNewSiteZone}>
-                          <SelectTrigger id="add-site-zone-select" className="col-span-3">
-                            <SelectValue placeholder="-- Seleccione una zona --" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {geographicalZones.filter(z => z !== '').map(zone => (
-                              <SelectItem key={zone} value={zone}>{zone}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Label htmlFor="add-site-country" className="text-right">País</Label>
+                        <Input id="add-site-country" value={newSiteCountry} onChange={(e) => setNewSiteCountry(e.target.value)} className="col-span-3" placeholder="Ej: Chile" />
                       </div>
                       <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="add-site-coordinator" className="text-right">Coordinador</Label>
@@ -404,7 +389,7 @@ export default function ConfiguracionSitiosPage() {
                   <TableRow>
                     <TableHead className="w-[25%]">Nombre</TableHead>
                     <TableHead className="w-[35%]">Dirección</TableHead>
-                    <TableHead className="w-[15%]">Zona</TableHead>
+                    <TableHead className="w-[15%]">País</TableHead>
                     <TableHead className="w-[25%] text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -428,7 +413,7 @@ export default function ConfiguracionSitiosPage() {
                             '-'
                           )}
                         </TableCell>
-                        <TableCell>{site.zone || '-'}</TableCell>
+                        <TableCell>{site.country || '-'}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" className="mr-2 hover:text-primary" onClick={() => openEditSiteDialog(site)} disabled={isSubmitting}>
                             <Edit2 className="h-4 w-4" />
@@ -477,17 +462,8 @@ export default function ConfiguracionSitiosPage() {
               <Input id="edit-site-address" value={editSiteAddress} onChange={(e) => setEditSiteAddress(e.target.value)} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-site-zone-select" className="text-right">Zona</Label>
-              <Select value={editSiteZone} onValueChange={setEditSiteZone}>
-                <SelectTrigger id="edit-site-zone-select" className="col-span-3">
-                  <SelectValue placeholder="-- Seleccione una zona --" />
-                </SelectTrigger>
-                <SelectContent>
-                  {geographicalZones.filter(z => z !== '').map(zone => (
-                    <SelectItem key={zone} value={zone}>{zone}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="edit-site-country" className="text-right">País</Label>
+              <Input id="edit-site-country" value={editSiteCountry} onChange={(e) => setEditSiteCountry(e.target.value)} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-site-coordinator" className="text-right">Coordinador</Label>
