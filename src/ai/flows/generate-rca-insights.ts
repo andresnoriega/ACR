@@ -8,8 +8,8 @@
  * - GenerateRcaInsightsOutput - The return type for the generateRcaInsights function.
  */
 
-import {ai} from '@/ai/genkit'; // This will now import the mocked 'ai' object
-import { z } from 'zod'; // Changed from 'genkit' to 'zod'
+import {ai} from '@/ai/genkit';
+import { z } from 'zod'; // Import z directly from zod
 
 const GenerateRcaInsightsInputSchema = z.object({
   focusEventDescription: z.string().describe('The main description of the event being analyzed.'),
@@ -26,7 +26,8 @@ const GenerateRcaInsightsOutputSchema = z.object({
 });
 export type GenerateRcaInsightsOutput = z.infer<typeof GenerateRcaInsightsOutputSchema>;
 
-// This prompt definition will use the mocked ai.definePrompt
+// Temporarily comment out the AI prompt and flow due to Genkit plugin installation issues
+/*
 const prompt = ai.definePrompt({
   name: 'generateRcaInsightsPrompt',
   input: {schema: GenerateRcaInsightsInputSchema},
@@ -68,7 +69,6 @@ const prompt = ai.definePrompt({
   `,
 });
 
-// This flow definition will use the mocked ai.defineFlow
 const generateRcaInsightsFlowInternal = ai.defineFlow(
   {
     name: 'generateRcaInsightsFlow',
@@ -76,31 +76,31 @@ const generateRcaInsightsFlowInternal = ai.defineFlow(
     outputSchema: GenerateRcaInsightsOutputSchema,
   },
   async (input) => {
-    // If the mock 'ai.definePrompt' returns a callable dummy prompt, this line will execute it.
-    // The dummy prompt should return { output: { summary: "..." } }
     const {output} = await prompt(input);
     if (!output) {
-      // This path might be taken if the dummy prompt doesn't return the expected structure.
-      // The mocked flow should handle this or return a default.
-      console.error("The AI model (mocked) did not return an output for generateRcaInsightsFlow.");
-      return { summary: "[Resumen IA Deshabilitado: Error en prompt simulado]" };
+      console.error("The AI model did not return an output for generateRcaInsightsFlow. Input:", input);
+      return { summary: "[Resumen IA no disponible: El modelo no generó una respuesta válida]" };
     }
     return output;
   }
 );
+*/
 
 export async function generateRcaInsights(input: GenerateRcaInsightsInput): Promise<GenerateRcaInsightsOutput> {
-  // This will call the dummy flow returned by the mocked ai.defineFlow
+  console.warn("generateRcaInsights called, but AI is temporarily disabled due to Genkit/plugin issues. Returning placeholder.");
+  return { summary: "[Resumen IA Deshabilitado por problemas de Genkit]" };
+  /* // Original code calling the flow, commented out:
   try {
-    const result = await generateRcaInsightsFlowInternal(input);
-    // Ensure the result conforms to GenerateRcaInsightsOutput, especially if the mock returns something unexpected.
-    if (typeof result?.summary === 'string') {
-      return result;
+    // Check if generateRcaInsightsFlowInternal is defined (it won't be if ai object is not properly initialized)
+    if (typeof generateRcaInsightsFlowInternal !== 'function') {
+        console.error("generateRcaInsightsFlowInternal is not defined. Genkit AI functionality might be disabled or improperly initialized.");
+        return { summary: "[Resumen IA Deshabilitado: Flujo no definido]" };
     }
-    console.warn("generateRcaInsightsFlowInternal (mocked) did not return the expected structure. Input:", input, "Result:", result);
-    return { summary: "[Resumen IA Deshabilitado: Respuesta inesperada del flujo simulado]" };
+    const result: GenerateRcaInsightsOutput = await generateRcaInsightsFlowInternal(input);
+    return result;
   } catch (error) {
-    console.error("Error calling mocked generateRcaInsightsFlowInternal:", error);
-    return { summary: "[Resumen IA Deshabilitado: Error en la ejecución del flujo simulado]" };
+    console.error("Error executing generateRcaInsightsFlowInternal:", error);
+    return { summary: "[Resumen IA no disponible: Error al procesar la solicitud con IA]" };
   }
+  */
 }
