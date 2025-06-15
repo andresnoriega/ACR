@@ -210,6 +210,13 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const [aiSuggestedRootCausesList, setAiSuggestedRootCausesList] = useState<string[]>([]);
   const [currentAiSuggestionIndex, setCurrentAiSuggestionIndex] = useState(0);
 
+  useEffect(() => {
+    if (identifiedRootCauses.length === 0) {
+      onAddIdentifiedRootCause();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Ensure this runs only once on mount if no causes exist
+
   const uniquePlannedActions = useMemo(() => {
     const seenIds = new Set<string>();
     return plannedActions.filter(action => {
@@ -278,7 +285,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
       return false;
     }
 
-    // Check all described root causes
     for (let i = 0; i < identifiedRootCauses.length; i++) {
         if (identifiedRootCauses[i].description && !identifiedRootCauses[i].description.trim()) {
             toast({
@@ -289,7 +295,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
             return false;
         }
     }
-
 
     if (uniquePlannedActions.length > 0) {
       for (let i = 0; i < uniquePlannedActions.length; i++) {
@@ -332,7 +337,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     }
     
     const describedRootCauses = identifiedRootCauses.filter(rc => rc.description && rc.description.trim() !== '');
-    if (describedRootCauses.length > 0 && uniquePlannedActions.length > 0) {
+    if (describedRootCauses.length > 0) {
         const allAddressedRootCauseIds = new Set<string>();
         uniquePlannedActions.forEach(action => {
             action.relatedRootCauseIds?.forEach(rcId => allAddressedRootCauseIds.add(rcId));
@@ -341,17 +346,16 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
         for (let i = 0; i < describedRootCauses.length; i++) {
             const rc = describedRootCauses[i];
             if (!allAddressedRootCauseIds.has(rc.id)) {
-                const originalIndex = identifiedRootCauses.findIndex(item => item.id === rc.id);
                 toast({
                     title: "Causa Raíz Sin Gestionar",
-                    description: `Pendiente gestionar Causa Raíz #${originalIndex + 1}: "${rc.description.substring(0, 40)}${rc.description.length > 40 ? "..." : ""}". Debe ser abordada por un plan de acción.`,
+                    description: `Pendiente gestionar Causa Raíz #${i + 1}: "${rc.description.substring(0, 40)}${rc.description.length > 40 ? "..." : ""}". Debe ser abordada por un plan de acción.`,
                     variant: "destructive",
                     duration: 7000,
                 });
                 return false;
             }
         }
-    } else if (describedRootCauses.length > 0 && uniquePlannedActions.length === 0) {
+    } else if (describedRootCauses.length > 0 && uniquePlannedActions.length === 0) { // This case means there are root causes but no actions
         toast({
             title: "Planes de Acción Requeridos",
             description: "Existen causas raíz definidas. Debe crear al menos un plan de acción para abordarlas antes de continuar.",
@@ -640,8 +644,8 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                 <h3 className="text-lg font-semibold font-headline flex items-center">
                     <MessageSquare className="mr-2 h-5 w-5 text-primary" />
                     Causas Raíz Identificadas
-                    {identifiedRootCauses.length > 0 && identifiedRootCauses[0] && !identifiedRootCauses[0].description.trim() && (
-                        <span className="text-destructive text-xs ml-1">(Descripciones Requeridas)</span>
+                    {identifiedRootCauses.length > 0 && identifiedRootCauses.some(rc => !rc.description.trim()) && (
+                        <span className="text-destructive text-xs ml-1">(Al menos la Causa Raíz #1 requiere descripción)</span>
                     )}
                 </h3>
                 <Button
@@ -694,7 +698,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                 disabled={isSaving}
             >
                 <PlusCircle className="mr-2 h-4 w-4" />
-                Añadir Causa Raíz
+                {identifiedRootCauses.length === 0 ? "Añadir Primera Causa Raíz" : "Añadir Otra Causa Raíz"}
             </Button>
         </div>
 
@@ -864,3 +868,4 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     </>
   );
 };
+
