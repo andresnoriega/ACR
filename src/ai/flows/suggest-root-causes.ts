@@ -1,9 +1,9 @@
 
 'use server';
 /**
- * @fileOverview Sugiere posibles causas raíz basadas en la información de análisis proporcionada.
+ * @fileOverview Sugiere posibles causas raíz latentes basadas en la información de análisis proporcionada.
  *
- * - suggestRootCauses - Una función que genera sugerencias de causas raíz.
+ * - suggestRootCauses - Una función que genera sugerencias de causas raíz latentes.
  * - SuggestRootCausesInput - El tipo de entrada para la función suggestRootCauses.
  * - SuggestRootCausesOutput - El tipo de retorno para la función suggestRootCauses.
  */
@@ -82,7 +82,7 @@ export type SuggestRootCausesInput = z.infer<typeof SuggestRootCausesInputSchema
 
 // --- Esquema de Salida ---
 const SuggestRootCausesOutputSchema = z.object({
-  suggestedRootCauses: z.array(z.string().describe("Una causa raíz potencial identificada por la IA.")).describe('Una lista de descripciones de posibles causas raíz.'),
+  suggestedRootCauses: z.array(z.string().describe("Una causa raíz LATENTE potencial identificada por la IA.")).describe('Una lista de descripciones de posibles causas raíz LATENTES.'),
 });
 export type SuggestRootCausesOutput = z.infer<typeof SuggestRootCausesOutputSchema>;
 
@@ -90,13 +90,16 @@ export type SuggestRootCausesOutput = z.infer<typeof SuggestRootCausesOutputSche
 // --- Prompt de Genkit ---
 const suggestRootCausesPrompt = ai.definePrompt({
   name: 'suggestRootCausesPrompt',
-  model: 'googleai/gemini-1.5-flash-latest', // Asegúrate que este modelo esté disponible y configurado
+  model: 'googleai/gemini-1.5-flash-latest', 
   input: { schema: SuggestRootCausesInputSchema },
   output: { schema: SuggestRootCausesOutputSchema },
   prompt: `
-    Eres un experto analista de RCA (Análisis de Causa Raíz).
-    Basado en la siguiente información, sugiere una lista de posibles causas raíz.
-    Sé conciso y directo en tus sugerencias.
+    Eres un experto analista de RCA (Análisis de Causa Raíz) especializado en identificar **causas latentes**.
+    Las causas latentes son condiciones subyacentes, problemas sistémicos, factores organizacionales o culturales que permitieron que las causas más directas (físicas, humanas) ocurrieran o tuvieran impacto.
+    
+    Basado en la siguiente información, tu tarea es **inferir y sugerir una lista de posibles CAUSAS LATENTES**.
+    No te limites a repetir la información de las causas físicas o humanas ya detalladas en las técnicas. Profundiza y busca los factores sistémicos.
+    Sé conciso y directo en tus sugerencias de causas latentes.
 
     Evento Foco:
     {{{focusEventDescription}}}
@@ -114,24 +117,24 @@ const suggestRootCausesPrompt = ai.definePrompt({
     {{/if}}
 
     {{#if ishikawaData}}
-    Datos del Diagrama de Ishikawa:
+    Datos del Diagrama de Ishikawa (causas directas):
     {{#each ishikawaData}}
       Categoría: {{this.name}}
       {{#each this.causes}}
-        - Causa: {{this.description}}
+        - Causa directa: {{this.description}}
       {{/each}}
     {{/each}}
     {{/if}}
 
     {{#if fiveWhysData}}
-    Datos del Análisis de los 5 Porqués:
+    Datos del Análisis de los 5 Porqués (profundización hacia causas directas):
     {{#each fiveWhysData}}
       {{this.why}} -> Porque: {{this.because}}
     {{/each}}
     {{/if}}
 
     {{#if ctmData}}
-    Datos del Árbol de Causas (CTM):
+    Datos del Árbol de Causas (CTM) (desglose de fallas a causas directas):
     {{#each ctmData}}
       Modo de Falla: {{this.description}}
       {{#each this.hypotheses}}
@@ -141,7 +144,7 @@ const suggestRootCausesPrompt = ai.definePrompt({
           {{#each this.humanCauses}}
             --- Causa Humana: {{this.description}}
             {{#each this.latentCauses}}
-              ---- Causa Latente: {{this.description}}
+              ---- Causa Latente (ya identificada por el usuario): {{this.description}}
             {{/each}}
           {{/each}}
         {{/each}}
@@ -149,9 +152,13 @@ const suggestRootCausesPrompt = ai.definePrompt({
     {{/each}}
     {{/if}}
 
-    Considera toda la información anterior. Ahora, genera una lista de posibles causas raíz.
-    Cada causa raíz debe ser una descripción clara y accionable.
-    Devuelve SOLO un array de strings con las causas raíz sugeridas.
+    Considera toda la información anterior, especialmente las causas directas y humanas.
+    Ahora, genera una lista de posibles **CAUSAS LATENTES** que podrían haber contribuido al evento.
+    Cada causa latente debe ser una descripción clara y accionable de un problema sistémico u organizacional.
+    No repitas las causas latentes que el usuario ya pudo haber identificado en el CTM. Busca nuevas perspectivas.
+    Evita parafrasear las entradas; en su lugar, infiere las condiciones subyacentes.
+    Ejemplos de causas latentes: "Procedimientos de capacitación insuficientes", "Cultura de seguridad deficiente", "Falta de supervisión adecuada", "Presión de producción excesiva", "Diseño de sistema propenso a errores".
+    Devuelve SOLO un array de strings con las causas latentes sugeridas.
   `,
 });
 
@@ -165,14 +172,14 @@ const suggestRootCausesFlowInternal = ai.defineFlow(
   },
   async (input) => {
     // Validar que al menos uno de los datos de técnica esté presente si la técnica está seleccionada
-    if (input.analysisTechnique === 'Ishikawa' && (!input.ishikawaData || input.ishikawaData.length === 0)) {
-      return { suggestedRootCauses: ["[Sugerencia IA no disponible: Faltan datos para Ishikawa.]"] };
+    if (input.analysisTechnique === 'Ishikawa' && (!input.ishikawaData || input.ishikawaData.length === 0 || input.ishikawaData.every(cat => cat.causes.length === 0))) {
+      return { suggestedRootCauses: ["[Sugerencia IA no disponible: Faltan datos o causas detalladas para Ishikawa.]"] };
     }
-    if (input.analysisTechnique === 'WhyWhy' && (!input.fiveWhysData || input.fiveWhysData.length === 0)) {
-       return { suggestedRootCauses: ["[Sugerencia IA no disponible: Faltan datos para 5 Porqués.]"] };
+    if (input.analysisTechnique === 'WhyWhy' && (!input.fiveWhysData || input.fiveWhysData.length === 0 || input.fiveWhysData.every(entry => !entry.why.trim() && !entry.because.trim()))) {
+       return { suggestedRootCauses: ["[Sugerencia IA no disponible: Faltan datos o entradas completas para 5 Porqués.]"] };
     }
-     if (input.analysisTechnique === 'CTM' && (!input.ctmData || input.ctmData.length === 0)) {
-       return { suggestedRootCauses: ["[Sugerencia IA no disponible: Faltan datos para CTM.]"] };
+     if (input.analysisTechnique === 'CTM' && (!input.ctmData || input.ctmData.length === 0 || input.ctmData.every(fm => !fm.description.trim() && fm.hypotheses.length === 0))) {
+       return { suggestedRootCauses: ["[Sugerencia IA no disponible: Faltan datos o modos de falla detallados para CTM.]"] };
     }
 
     const { output } = await suggestRootCausesPrompt(input);
@@ -208,3 +215,4 @@ export async function suggestRootCauses(input: SuggestRootCausesInput): Promise<
     return { suggestedRootCauses: [errorMessage] };
   }
 }
+
