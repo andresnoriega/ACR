@@ -26,14 +26,12 @@ const GenerateRcaInsightsOutputSchema = z.object({
 });
 export type GenerateRcaInsightsOutput = z.infer<typeof GenerateRcaInsightsOutputSchema>;
 
-/*
-// Temporarily disabled due to Genkit plugin installation issues
-
+// Re-enabled prompt and flow
 const prompt = ai.definePrompt({
   name: 'generateRcaInsightsPrompt',
   input: {schema: GenerateRcaInsightsInputSchema},
   output: {schema: GenerateRcaInsightsOutputSchema},
-  prompt: \`
+  prompt: `
     You are an expert RCA (Root Cause Analysis) analyst. Based on the following information from an RCA process,
     generate a concise and insightful executive summary. This summary should be suitable for inclusion in the "Final Comments"
     section of the RCA report.
@@ -67,7 +65,7 @@ const prompt = ai.definePrompt({
       {{/each}}
 
     Generate the summary below:
-  \`,
+  `,
 });
 
 const generateRcaInsightsFlowInternal = ai.defineFlow(
@@ -85,35 +83,31 @@ const generateRcaInsightsFlowInternal = ai.defineFlow(
     return output;
   }
 );
-*/
+
 
 export async function generateRcaInsights(input: GenerateRcaInsightsInput): Promise<GenerateRcaInsightsOutput> {
   try {
-    // Check if 'ai' is properly initialized and not the mock (by checking for a unique property of the real ai object if available, or just proceed)
-    // A more robust check could be to see if ai.generate is the mocked version.
+    // Check if the 'ai' object is the mocked version by checking a unique property or behavior of the mock.
+    // This is a basic check; a more robust one might be needed if the mock becomes more complex.
     if (typeof ai.generate === 'function' && ai.generate.toString().includes("AI is mocked")) {
-        console.warn("Genkit 'ai' object is mocked. AI insights disabled.");
+        console.warn("Genkit 'ai' object is mocked. AI insights will be disabled.");
         return { summary: "[Resumen IA Deshabilitado por problemas de Genkit]" };
     }
 
-    // If ai.defineFlow was mocked, generateRcaInsightsFlowInternal might not be the actual flow.
-    // Instead, we check if the 'ai' object itself seems to be the mock from genkit.ts
-    // This section would call the actual flow if it were not disabled.
-    // For now, we directly return the disabled message if the mock is detected.
-    // const result = await generateRcaInsightsFlowInternal(input);
-    // return result;
-    
-    console.warn("Attempted to call generateRcaInsights, but AI functionality is likely disabled or mocked.");
-    return { summary: "[Resumen IA Deshabilitado Temporalmente]" };
-
+    // Attempt to call the actual flow
+    const result = await generateRcaInsightsFlowInternal(input);
+    return result;
 
   } catch (error) {
-    console.error("Error executing generateRcaInsights (AI potentially disabled/mocked):", error);
+    console.error("Error executing generateRcaInsights:", error);
     let errorMessage = "[Resumen IA no disponible: Error al procesar la solicitud con IA]";
     if (error instanceof Error) {
         errorMessage += ` (${error.message})`;
     }
+    // Check if the error message indicates a problem with the model or API key
+    if (error instanceof Error && (error.message.includes("API key not valid") || error.message.includes("model may not exist"))) {
+        errorMessage = "[Resumen IA no disponible: Problema con la configuración del modelo o API Key. Verifique la consola.]";
+    }
     return { summary: errorMessage };
   }
 }
-
