@@ -271,10 +271,10 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const minDateForPlannedActions = getTodayDateString();
 
   const validateFieldsForNext = (): boolean => {
-    if (identifiedRootCauses.length === 0 || identifiedRootCauses.some(rc => !rc.description.trim())) {
+    if (identifiedRootCauses.length === 0 || !identifiedRootCauses[0].description.trim()) {
       toast({
         title: "Campo Obligatorio Faltante",
-        description: "Debe definir al menos una Causa Raíz Identificada con su descripción.",
+        description: "Debe definir la Causa Raíz #1 con su descripción.",
         variant: "destructive",
       });
       return false;
@@ -332,7 +332,8 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const handleSaveProgressLocal = async () => {
     const isTechniqueSelected = analysisTechnique !== '';
     const hasNotes = analysisTechniqueNotes.trim() !== '';
-    const hasRootCause = identifiedRootCauses.some(rc => rc.description.trim() !== '');
+    
+    const hasRootCause = identifiedRootCauses.length > 0 && identifiedRootCauses[0].description.trim() !== '';
     const hasPlannedActions = uniquePlannedActions.length > 0;
 
     const isIshikawaEdited = ishikawaData.some(cat => cat.causes.some(c => c.description.trim() !== ''));
@@ -461,7 +462,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     }
     await onSaveAnalysis(false); 
 
-    if (uniquePlannedActions.length === 0 && identifiedRootCauses.some(rc => rc.description.trim())) {
+    if (uniquePlannedActions.length === 0 && identifiedRootCauses.length > 0 && identifiedRootCauses[0].description.trim()) {
         toast({
             title: "Advertencia: Sin Plan de Acción",
             description: "Ha identificado la causa raíz pero no ha definido un plan de acción. ¿Desea continuar?",
@@ -609,29 +610,30 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
             </Button>
            </div>
 
-          {identifiedRootCauses.map((rc, index) => (
-            <Card key={rc.id} className="p-4 bg-card shadow-sm">
-              <div className="flex justify-between items-center mb-2">
-                <Label htmlFor={`rc-desc-${rc.id}`} className="font-medium text-primary">
-                  Causa Raíz #{index + 1} <span className="text-destructive">*</span>
-                </Label>
-                <Button variant="ghost" size="icon" onClick={() => onRemoveIdentifiedRootCause(rc.id)} aria-label="Eliminar causa raíz" className="h-7 w-7">
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              </div>
-              <Textarea
-                id={`rc-desc-${rc.id}`}
-                value={rc.description}
-                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onUpdateIdentifiedRootCause(rc.id, e.target.value)}
-                placeholder={`Causa Raíz #${index + 1}: Describa la causa raíz...`}
-                rows={3}
-                className="w-full"
-              />
-            </Card>
-          ))}
-            <Button onClick={onAddIdentifiedRootCause} variant="outline" className="w-full">
-              <PlusCircle className="mr-2 h-4 w-4" /> Añadir Causa Raíz
-            </Button>
+            {identifiedRootCauses.length === 0 ? (
+              <Button onClick={onAddIdentifiedRootCause} variant="outline" className="w-full">
+                <PlusCircle className="mr-2 h-4 w-4" /> Añadir Causa Raíz
+              </Button>
+            ) : (
+              <Card className="p-4 bg-card shadow-sm">
+                <div className="flex justify-between items-center mb-2">
+                    <Label htmlFor={`rc-desc-${identifiedRootCauses[0].id}`} className="font-medium text-primary">
+                        Causa Raíz #1 <span className="text-destructive">*</span>
+                    </Label>
+                    <Button variant="ghost" size="icon" onClick={() => onRemoveIdentifiedRootCause(identifiedRootCauses[0].id)} aria-label="Eliminar causa raíz" className="h-7 w-7">
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                </div>
+                <Textarea
+                    id={`rc-desc-${identifiedRootCauses[0].id}`}
+                    value={identifiedRootCauses[0].description}
+                    onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onUpdateIdentifiedRootCause(identifiedRootCauses[0].id, e.target.value)}
+                    placeholder="Causa Raíz #1: Describa la causa raíz..."
+                    rows={3}
+                    className="w-full"
+                />
+              </Card>
+            )}
         </div>
 
         {aiSuggestedRootCausesList.length > 0 && (
@@ -704,28 +706,24 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
               
               <div className="space-y-2">
                 <Label className="flex items-center"><Link2 className="mr-2 h-4 w-4" />Causas Raíz Abordadas <span className="text-destructive">*</span></Label>
-                {identifiedRootCauses.length > 0 ? (
+                {identifiedRootCauses.length > 0 && identifiedRootCauses[0].description.trim() ? (
                   <div className="space-y-1.5 max-h-32 overflow-y-auto p-2 border rounded-md bg-background/50">
-                    {identifiedRootCauses.map(rc => (
-                      rc.description.trim() && (
-                        <div key={rc.id} className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-2">
                           <Checkbox
-                            id={`pa-${action.id}-rc-${rc.id}`}
-                            checked={action.relatedRootCauseIds?.includes(rc.id)}
+                            id={`pa-${action.id}-rc-${identifiedRootCauses[0].id}`}
+                            checked={action.relatedRootCauseIds?.includes(identifiedRootCauses[0].id)}
                             onCheckedChange={(checked) => {
-                              handleToggleRootCauseForAction(index, rc.id, checked as boolean);
+                              handleToggleRootCauseForAction(index, identifiedRootCauses[0].id, checked as boolean);
                             }}
                           />
-                          <Label htmlFor={`pa-${action.id}-rc-${rc.id}`} className="text-xs font-normal cursor-pointer flex-grow">
-                            {rc.description.substring(0, 60) || `Causa Raíz (ID: ${rc.id.substring(0,5)}... )`}
-                            {rc.description.length > 60 ? "..." : ""}
+                          <Label htmlFor={`pa-${action.id}-rc-${identifiedRootCauses[0].id}`} className="text-xs font-normal cursor-pointer flex-grow">
+                            {identifiedRootCauses[0].description.substring(0, 60) || `Causa Raíz #1`}
+                            {identifiedRootCauses[0].description.length > 60 ? "..." : ""}
                           </Label>
                         </div>
-                      )
-                    ))}
                   </div>
                 ) : (
-                   <p className="text-xs text-muted-foreground">No hay causas raíz definidas para vincular.</p>
+                   <p className="text-xs text-muted-foreground">Defina primero la "Causa Raíz #1" para poder vincularla.</p>
                 )}
               </div>
 
