@@ -490,42 +490,29 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
       };
       const result = await suggestRootCauses(input);
       if (result && result.suggestedRootCauses && result.suggestedRootCauses.length > 0) {
-        const newCausesCount = result.suggestedRootCauses.length;
-        result.suggestedRootCauses.forEach(suggestion => {
-          // Evitar añadir sugerencias que sean solo mensajes de error/placeholders de la IA
-          if (!suggestion.startsWith("[Sugerencia IA no disponible")) {
-            onAddIdentifiedRootCause(); // Esto añade una causa vacía
-            // Ahora actualizamos la última causa añadida (que está vacía) con la sugerencia
-            // Esto asume que onAddIdentifiedRootCause() añade al final y podemos predecir su ID o manejarlo
-            // de forma que la última causa añadida es la que se actualiza.
-            // Dado que no podemos obtener el ID inmediatamente, una forma es actualizar la última del array
-            // Si onAddIdentifiedRootCause crea un ID único, es mejor que la función devuelva el ID y luego usar onUpdateIdentifiedRootCause.
-            // Por ahora, una solución más simple:
-            // Asumo que onAddIdentifiedRootCause() crea un objeto { id: '...', description: '' }
-            // Entonces puedo llamar a onUpdateIdentifiedRootCause con el ID de la última causa creada
-            // Esto es complicado sin saber cómo se generan los IDs.
-            // Una forma MÁS SEGURA es que onAddIdentifiedRootCause tome un argumento opcional de descripción.
-            // Pero como no puedo cambiar la firma, haré esto:
-            // 1. Obtener el estado actual de identifiedRootCauses
-            // 2. Llamar a onAddIdentifiedRootCause para añadir una nueva entrada
-            // 3. En el siguiente ciclo de renderizado (o si el estado se actualiza síncronamente),
-            //    la nueva causa estará al final. Actualizarla.
-            // Esto es propenso a errores de concurrencia si el estado no se actualiza inmediatamente.
-            // La solución más robusta sería que onAddIdentifiedRootCause() acepte un valor inicial.
-            // O que onUpdateIdentifiedRootCause pueda tomar un índice.
-            // Voy a optar por añadir y luego actualizar la última, esperando que sea seguro en este flujo.
-            const currentNumCauses = identifiedRootCauses.length;
-            // En este punto, `identifiedRootCauses` no se ha actualizado con la nueva causa.
-            // La forma más sencilla es que `onAddIdentifiedRootCause` añada un placeholder
-            // y luego lo busquemos. Pero los IDs son aleatorios.
-            // Vamos a añadir las causas como nuevas entradas
-             onUpdateIdentifiedRootCause(identifiedRootCauses[identifiedRootCauses.length-1].id, suggestion);
-          } else if (newCausesCount === 1 && suggestion.startsWith("[")) { // Solo mostrar si es la única "sugerencia" y es un mensaje de error/info
-            toast({ title: "Sugerencias IA", description: suggestion, variant: suggestion.includes("Error") || suggestion.includes("no disponible") ? "destructive" : "default" });
-          }
-        });
-        if(result.suggestedRootCauses.some(s => !s.startsWith("["))) { // Si hubo al menos una sugerencia real
-           toast({ title: "Sugerencias de Causas Raíz con IA", description: `${result.suggestedRootCauses.filter(s=>!s.startsWith("[")).length} sugerencias añadidas. Revíselas y edítelas.` });
+        const validSuggestions = result.suggestedRootCauses.filter(s => !s.startsWith("[Sugerencia IA no disponible"));
+        
+        if (validSuggestions.length > 0) {
+          validSuggestions.forEach(_ => {
+            onAddIdentifiedRootCause(); // Añade una entrada vacía
+          });
+          // Prepara un mensaje para el toast
+          const suggestionsList = validSuggestions.map((s, i) => `${i + 1}. ${s}`).join('\n');
+          toast({ 
+            title: `IA Sugirió ${validSuggestions.length} Causas Raíz`, 
+            description: (
+              <div className="text-xs">
+                <p>Se añadieron entradas vacías. Por favor, revíselas y complete sus descripciones con estas sugerencias:</p>
+                <pre className="whitespace-pre-wrap mt-1 max-h-24 overflow-y-auto bg-muted/50 p-1 rounded-sm">{suggestionsList}</pre>
+              </div>
+            ),
+            duration: 15000 // Toast más largo para que el usuario pueda leer
+          });
+        } else if (result.suggestedRootCauses.length === 1 && result.suggestedRootCauses[0].startsWith("[")) {
+          // Si solo hubo un mensaje de error/info de la IA
+          toast({ title: "Sugerencias IA", description: result.suggestedRootCauses[0], variant: result.suggestedRootCauses[0].includes("Error") || result.suggestedRootCauses[0].includes("no disponible") ? "destructive" : "default" });
+        } else {
+          toast({ title: "Sugerencias IA", description: "La IA no generó nuevas sugerencias válidas.", variant: "default" });
         }
       } else {
         toast({ title: "Sugerencias IA", description: "La IA no generó nuevas sugerencias o hubo un error.", variant: "default" });
@@ -757,3 +744,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     </>
   );
 };
+
+
+    
