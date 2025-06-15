@@ -1,10 +1,10 @@
 import {genkit, type GenkitConfig} from 'genkit';
-// import {googleAI} from '@genkit-ai/google-ai'; // Problematic import removed
+// import {googleAI} from '@genkit-ai/google-ai'; // Removed problematic import
 
 // Define Genkit configuration
 const genkitConfig: GenkitConfig = {
   plugins: [
-    // googleAI(), // Problematic plugin usage removed
+    // googleAI(), // Removed problematic plugin
   ],
   // flowStateStore: 'firebase', // Optional: Store flow states in Firestore
   // traceStore: 'firebase',     // Optional: Store traces in Firestore
