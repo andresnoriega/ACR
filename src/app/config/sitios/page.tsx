@@ -467,11 +467,11 @@ export default function ConfiguracionSitiosPage() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-site-coordinator" className="text-right">Coordinador</Label>
-              <Input id="edit-site-coordinator" value={editSiteCoordinator} onChange={(e) => setEditSiteCoordinator(e.target.value)} className="col-span-3" />
+              <Input id="edit-site-coordinator" value={editSiteCoordinator || ''} onChange={(e) => setEditSiteCoordinator(e.target.value)} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-site-description" className="text-right">Descripción</Label>
-              <Textarea id="edit-site-description" value={editSiteDescription} onChange={(e) => setEditSiteDescription(e.target.value)} className="col-span-3" />
+              <Textarea id="edit-site-description" value={editSiteDescription || ''} onChange={(e) => setEditSiteDescription(e.target.value)} className="col-span-3" />
             </div>
           </div>
           <DialogFooter>
@@ -506,3 +506,4 @@ export default function ConfiguracionSitiosPage() {
     </div>
   );
 }
+
