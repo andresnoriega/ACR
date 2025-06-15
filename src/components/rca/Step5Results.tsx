@@ -11,12 +11,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Wand2 } from 'lucide-react';
+import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save } from 'lucide-react'; // Wand2 removed
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
 import { sendEmailAction } from '@/app/actions';
-import { generateRcaInsights, type GenerateRcaInsightsInput } from '@/ai/flows/generate-rca-insights'; // AI Flow
+// AI Flow import removed as functionality is disabled
+// import { generateRcaInsights, type GenerateRcaInsightsInput } from '@/ai/flows/generate-rca-insights';
 
 interface Step5ResultsProps {
   eventId: string;
@@ -81,7 +82,8 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   const [emailSearchTerm, setEmailSearchTerm] = useState('');
   const [isSendingEmails, setIsSendingEmails] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
-  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false); // AI State
+  // AI State removed
+  // const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
 
   const uniquePlannedActions = useMemo(() => {
     if (!Array.isArray(plannedActions)) {
@@ -191,39 +193,8 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     return report;
   };
 
-  const handleGenerateInsights = async () => {
-    setIsGeneratingInsights(true);
-    try {
-      const factsSummary = formatDetailedFacts();
-      const rootCauses = identifiedRootCauses.map(rc => rc.description).filter(desc => desc.trim() !== '');
-      const actionsSummary = uniquePlannedActions.map(pa => pa.description).filter(desc => desc.trim() !== '');
-
-      const input: GenerateRcaInsightsInput = {
-        focusEventDescription: eventData.focusEventDescription || "No especificado",
-        detailedFactsSummary: factsSummary,
-        analysisTechnique: analysisTechnique || undefined,
-        analysisTechniqueNotes: analysisTechniqueNotes || undefined,
-        identifiedRootCauses: rootCauses.length > 0 ? rootCauses : ["No se identificaron causas raíz específicas."],
-        plannedActionsSummary: actionsSummary.length > 0 ? actionsSummary : ["No se definieron acciones planificadas específicas."],
-      };
-
-      const result = await generateRcaInsights(input);
-      onFinalCommentsChange(result.summary);
-      toast({
-        title: "Resumen Generado con IA",
-        description: "El borrador del resumen ha sido insertado en 'Comentarios Finales'. Por favor, revíselo y edítelo según sea necesario.",
-      });
-    } catch (error) {
-      console.error("Error generating RCA insights:", error);
-      toast({
-        title: "Error al Generar Resumen con IA",
-        description: (error as Error).message || "No se pudo generar el resumen. Inténtelo de nuevo.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGeneratingInsights(false);
-    }
-  };
+  // AI generation function removed
+  // const handleGenerateInsights = async () => { ... };
 
   const handleOpenEmailDialog = () => {
     setSelectedUserEmails([]);
@@ -300,7 +271,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     await onSaveAnalysis();
   };
 
-  const isBusy = isSaving || isSendingEmails || isFinalizing || isGeneratingInsights;
+  const isBusy = isSaving || isSendingEmails || isFinalizing; // isGeneratingInsights removed
 
   return (
     <>
@@ -321,16 +292,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           <section>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
               <SectionTitle title="Introducción / Comentarios Finales" icon={BarChart3} className="mb-0"/>
-              <Button
-                onClick={handleGenerateInsights}
-                variant="outline"
-                size="sm"
-                className="w-full sm:w-auto"
-                disabled={isGeneratingInsights || isBusy}
-              >
-                {isGeneratingInsights ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                Generar Borrador con IA
-              </Button>
+              {/* AI Button Removed */}
             </div>
             <Textarea
               id="finalComments"
@@ -529,3 +491,5 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     </>
   );
 };
+
+    
