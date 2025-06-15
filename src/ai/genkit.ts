@@ -1,10 +1,10 @@
 import {genkit, type GenkitConfig} from 'genkit';
-// import {googleAI} from '@genkit-ai/google-ai'; // Removed problematic import
+import {googleAI} from '@genkit-ai/googleai'; // Corrected import
 
 // Define Genkit configuration
 const genkitConfig: GenkitConfig = {
   plugins: [
-    // googleAI(), // Removed problematic plugin
+    googleAI(), // Use the imported googleAI plugin
   ],
   // flowStateStore: 'firebase', // Optional: Store flow states in Firestore
   // traceStore: 'firebase',     // Optional: Store traces in Firestore
@@ -24,28 +24,32 @@ const genkitConfig: GenkitConfig = {
 // Attempt to initialize Genkit, provide a mock if it fails
 let ai: any;
 try {
-  // Check if genkitConfig.plugins is empty. If so, genkit() might throw or behave unexpectedly.
-  if (!genkitConfig.plugins || genkitConfig.plugins.length === 0) {
-    console.warn('[AI Genkit] No Genkit plugins are configured. AI functionality will be mocked/disabled.');
-    throw new Error("No Genkit plugins configured."); // Force fallback to mock
+  // Check if genkitConfig.plugins is empty or if googleAI is not available (it should be if import worked)
+  if (!genkitConfig.plugins || genkitConfig.plugins.length === 0 || typeof googleAI !== 'function') {
+    console.warn('[AI Genkit] No Genkit plugins are configured, or googleAI plugin is unavailable. AI functionality will be mocked/disabled.');
+    throw new Error("No Genkit plugins configured or googleAI unavailable."); // Force fallback to mock
   }
   
   ai = genkit(genkitConfig);
 
+  // Test if ai.generate is actually available after initialization
   const testGenerate = async () => {
     try {
       if (typeof ai.generate !== 'function') {
-        throw new Error("ai.generate is not a function, Genkit likely initialized without model plugins.");
+        throw new Error("ai.generate is not a function, Genkit likely initialized without model plugins or googleAI failed.");
       }
-      console.log('[AI Genkit] Genkit initialized. Actual model availability will be tested by flows.');
+      // console.log('[AI Genkit] Genkit initialized. Actual model availability will be tested by flows.');
     } catch (testError) {
       console.warn('[AI Genkit] Genkit initialized but model plugins might be missing or failed to load. Error during test: ', testError);
-      throw testError; 
+      throw testError; // Re-throw to fall into the main catch block
     }
   };
-  // testGenerate(); // No need to actually run this during init.
+  
+  // It's better to not call testGenerate() here as it might involve async operations
+  // that are not ideal during module initialization. The presence of ai.generate
+  // can be checked by the flows themselves.
+  console.log('[AI Genkit] Genkit initialization attempted with plugins.');
 
-  console.log('[AI Genkit] Genkit initialized successfully (or at least genkit() did not throw).');
 } catch (error) {
   console.error('[AI Genkit] Error initializing Genkit or no model plugins available:', error);
   console.warn('[AI Genkit] AI functionality will be mocked/disabled.');
