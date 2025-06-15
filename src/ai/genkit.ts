@@ -1,10 +1,10 @@
-import genkit, {type GenkitConfig} from 'genkit';
-// import {googleAI} from '@genkit/google-ai'; // Temporarily removed due to install issues
+import {genkit, type GenkitConfig} from 'genkit';
+// import {googleAI} from '@genkit/google-ai'; // Temporarily disabled
 
 // Define Genkit configuration
 const genkitConfig: GenkitConfig = {
   plugins: [
-    // googleAI(), // Temporarily removed
+    // googleAI(), // Temporarily disabled
   ],
   // flowStateStore: 'firebase', // Optional: Store flow states in Firestore
   // traceStore: 'firebase',     // Optional: Store traces in Firestore
@@ -25,21 +25,20 @@ const genkitConfig: GenkitConfig = {
 let ai: any;
 try {
   ai = genkit(genkitConfig);
-  console.log('[AI Genkit] Genkit initialized successfully with base configuration.');
+  console.log('[AI Genkit] Genkit initialized successfully (potentially without model plugins).');
 } catch (error) {
-  console.error('[AI Genkit] Error initializing Genkit with base configuration:', error);
+  console.error('[AI Genkit] Error initializing Genkit:', error);
   console.warn('[AI Genkit] AI functionality will be mocked/disabled.');
   ai = {
     defineFlow: (config: any, func: any) => {
       console.warn(`Genkit flow '${config.name}' called but AI is mocked. Input will be passed to the mock function.`);
-      // Return a function that mimics a flow, calling the provided func but likely with mocked context
       return async (input: any) => {
-        // For generateRcaInsightsFlow, return the specific disabled message structure
         if (config.name === 'generateRcaInsightsFlow') {
           return { summary: "[Resumen IA Deshabilitado por problemas de Genkit]" };
         }
-        // Attempt to call the original function if provided, it might handle its own errors or specific mock logic
         try {
+            // Attempt to call the original function even if AI is mocked,
+            // if it doesn't rely on a fully initialized 'ai' object.
             return await func(input);
         } catch(flowError) {
             console.error(`Error in mocked flow '${config.name}':`, flowError);
@@ -49,22 +48,25 @@ try {
     },
     definePrompt: (config: any) => {
       console.warn(`Genkit prompt '${config.name}' called but AI is mocked.`);
-      return async (input: any) => { // Ensure it's an async function
+      // Return a function that mimics the prompt call structure but returns a non-functional response.
+      return async (input: any) => { 
         console.warn(`Genkit prompt '${config.name}' received input:`, input);
-        return Promise.resolve({ output: null, usage: {} }); // Mock prompt call
+        // The prompt function usually returns a promise that resolves to an object
+        // with an 'output' property (among others like 'usage').
+        // Here we resolve to an object where 'output' is explicitly null.
+        return Promise.resolve({ output: null, usage: {} }); 
       };
     },
-    // Add other Genkit ai object methods if they are called directly elsewhere
-    // For example, if 'generate' is called directly:
     generate: async (options: any) => {
         console.warn("ai.generate() called, but AI is mocked. Options:", options);
+        // Mimic the structure of a generate response, ensuring text() and output() are functions.
         return Promise.resolve({
             text: () => "[Respuesta IA Deshabilitada por problemas de Genkit]",
-            output: () => null, // Or a more specific mock if needed
-            usage: {},
-            // Mock other properties/methods of GenerateResponse if necessary
+            output: () => null, // Return null as the output
+            usage: {}, // Include an empty usage object
         });
     }
+    // Add other Genkit ai object methods here if they are called elsewhere and cause errors
   };
 }
 
