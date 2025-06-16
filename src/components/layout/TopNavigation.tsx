@@ -31,17 +31,23 @@ export function TopNavigation() {
     setHasMounted(true);
   }, []);
 
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+      toast({ title: 'Sesión Cerrada', description: 'Has cerrado sesión exitosamente.' });
+      router.push('/login');
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error);
+      toast({ title: 'Error', description: 'No se pudo cerrar la sesión.', variant: 'destructive' });
+    }
+  };
+
   const visibleMenuItems = React.useMemo(() => {
-    if (loadingAuth && !currentUser) { // Initial loading state, before currentUser is determined
-      return mainMenuItemsBase.filter(item => {
-        if (item.href === '/precios') {
-          return pathname === '/login' || pathname === '/registro';
-        }
-        return !item.requiresAuth;
-      });
+    if (!hasMounted) {
+      return []; // Return empty array if not mounted on client yet
     }
 
-    // Auth state resolved (loadingAuth is false or currentUser is now known)
+    // Logic for when hasMounted is true
     return mainMenuItemsBase.filter(item => {
       if (item.href === '/precios') {
         return (pathname === '/login' || pathname === '/registro') && !currentUser;
@@ -51,24 +57,21 @@ export function TopNavigation() {
         return true;
       }
 
-      // Item requires auth from here
       if (!currentUser) {
         return false;
       }
-
-      // User is authenticated
-      if (item.allowedRoles.length === 0) { // Auth required, no specific roles (e.g. /inicio for Usuario Pendiente)
-        return true;
+      
+      if (item.allowedRoles.length === 0) { 
+        return true; 
       }
 
-      // Item requires specific roles
       if (userProfile && typeof userProfile.role === 'string' && userProfile.role.trim() !== '') {
         return item.allowedRoles.includes(userProfile.role);
       }
       
-      return false; // Role check failed or userProfile not ready
+      return false;
     });
-  }, [currentUser, loadingAuth, userProfile, pathname]);
+  }, [currentUser, loadingAuth, userProfile, pathname, hasMounted]);
 
 
   return (
@@ -76,41 +79,42 @@ export function TopNavigation() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex space-x-1 sm:space-x-2 md:space-x-4 overflow-x-auto py-2">
-            {hasMounted ? (
-              visibleMenuItems.map((item) => {
-                let isActive = false;
-                if (item.section === 'inicio') {
-                  isActive = pathname === '/' || pathname.startsWith('/inicio');
-                } else if (item.section === 'usuario') {
-                  isActive = pathname.startsWith('/usuario');
-                } else if (item.section === 'config') {
-                  isActive = pathname.startsWith('/config');
-                } else if (item.section === 'precios') {
-                  isActive = pathname.startsWith('/precios');
-                } else {
-                  isActive = pathname.startsWith(item.href);
-                }
+            {hasMounted && visibleMenuItems.map((item) => {
+              let isActive = false;
+              if (item.section === 'inicio') {
+                isActive = pathname === '/' || pathname.startsWith('/inicio');
+              } else if (item.section === 'usuario') {
+                isActive = pathname.startsWith('/usuario');
+              } else if (item.section === 'config') {
+                isActive = pathname.startsWith('/config');
+              } else if (item.section === 'precios') {
+                isActive = pathname.startsWith('/precios');
+              } else {
+                isActive = pathname.startsWith(item.href);
+              }
 
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      'px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2 transition-colors duration-150 ease-in-out shrink-0',
-                      isActive
-                        ? 'bg-primary text-primary-foreground shadow-md'
-                        : 'text-foreground hover:bg-accent hover:text-accent-foreground'
-                    )}
-                    aria-current={isActive ? 'page' : undefined}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    {item.label}
-                  </Link>
-                );
-              })
-            ) : (
-              // Render nothing or a fixed placeholder for menu items before mount
-              null 
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    'px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2 transition-colors duration-150 ease-in-out shrink-0',
+                    isActive
+                      ? 'bg-primary text-primary-foreground shadow-md'
+                      : 'text-foreground hover:bg-accent hover:text-accent-foreground'
+                  )}
+                  aria-current={isActive ? 'page' : undefined}
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </Link>
+              );
+            })}
+            {!hasMounted && (
+              // Optional: Render a fixed number of skeletons or a minimal placeholder
+              // For absolute certainty against hydration, null is safest here if layout allows.
+              // Or a simple, non-dynamic placeholder for layout stability:
+              <div className="h-9"></div> // Placeholder for menu area
             )}
           </div>
           
@@ -141,9 +145,7 @@ export function TopNavigation() {
                 )}
               </>
             ) : (
-                // Render nothing or a fixed placeholder for auth buttons before mount
-                // A div with fixed height can prevent layout shift
-                <div className="h-9 w-24"></div> 
+                <div className="h-9 w-24"></div> // Placeholder for auth buttons area
             )}
           </div>
         </div>
