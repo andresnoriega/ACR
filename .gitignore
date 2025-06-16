@@ -1,45 +1,47 @@
+# Firebase
+*.firebase.json
+*.firebaserc
+firebase-debug.log
 
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# Dependencies
-/node_modules
-/.pnp
-.pnp.js
-
-# Testing
-/coverage
+# Environment variables
+.env
+.env*.local
+*.env
+*.env.*.local
+*.env.local.*
+*.env.development.local
+*.env.test.local
+*.env.production.local
 
 # Next.js
-/.next/
-/out/
+.next/
+out/
+next-env.d.ts
 
-# Production
-/build
-
-# Misc
-.DS_Store
-*.pem
-
-# Debug
+# Node
+node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
+package-lock.json
+yarn.lock
 
-# Local Zips
-*.zip
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
 
-# Local Environment Variables
-.env*.local
-.env
+# OS
+.DS_Store
+Thumbs.db
 
-# TypeScript
-*.tsbuildinfo
-next-env.d.ts
+# Build
+build/
+dist/
 
-# Firebase
-firebase-debug.log
-firebase-crashlytics-build.json
-
-# IDX
-.idx/
+# Other
+coverage/
+*.log
+*.tmp
+*.bak
