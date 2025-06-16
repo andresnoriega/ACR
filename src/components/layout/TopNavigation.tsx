@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import React from 'react'; 
+import React, { useState, useEffect } from 'react'; 
 
 const mainMenuItemsBase = [
   { href: '/inicio', label: 'Inicio', icon: Home, section: 'inicio', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User', 'Usuario Pendiente'] },
@@ -17,7 +17,7 @@ const mainMenuItemsBase = [
   { href: '/informes', label: 'Informes', icon: FileText, section: 'informes', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] },
   { href: '/usuario/planes', label: 'Mis Tareas', icon: UserCheck, section: 'usuario', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] },
   { href: '/precios', label: 'Precios', icon: DollarSign, section: 'precios', requiresAuth: false, allowedRoles: [] },
-  { href: '/config', label: 'Config.', icon: SettingsIcon, section: 'config', requiresAuth: true, allowedRoles: ['Super User'] }, // MODIFIED HERE
+  { href: '/config', label: 'Config.', icon: SettingsIcon, section: 'config', requiresAuth: true, allowedRoles: ['Super User'] },
 ];
 
 export function TopNavigation() {
@@ -25,6 +25,11 @@ export function TopNavigation() {
   const router = useRouter();
   const { currentUser, logoutUser, loadingAuth, userProfile } = useAuth();
   const { toast } = useToast();
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -38,8 +43,8 @@ export function TopNavigation() {
   };
 
   const visibleMenuItems = React.useMemo(() => {
-    // If auth is loading AND we don't know the user yet, show only public items not specific to login/register
-    if (loadingAuth && !currentUser) {
+    // If loadingAuth is true, show minimal public items + /precios on login/register
+    if (loadingAuth) {
       return mainMenuItemsBase.filter(item => {
         if (item.href === '/precios') {
           return pathname === '/login' || pathname === '/registro';
@@ -47,35 +52,38 @@ export function TopNavigation() {
         return !item.requiresAuth;
       });
     }
-    
+
+    // Auth state resolved (loadingAuth is false)
+    if (!currentUser) { // Not logged in
+      return mainMenuItemsBase.filter(item => {
+        if (item.href === '/precios') {
+          return pathname === '/login' || pathname === '/registro';
+        }
+        return !item.requiresAuth;
+      });
+    }
+
+    // Logged in (currentUser exists)
     return mainMenuItemsBase.filter(item => {
-      // Special handling for "Precios" menu item
       if (item.href === '/precios') {
-        return pathname === '/login' || pathname === '/registro';
+        return false; // Never show /precios if logged in
       }
 
-      // General logic for other items
-      if (!item.requiresAuth) {
-        return true; 
-      }
-      
-      if (!currentUser) { 
-        return false; // User is not logged in, hide auth-required items
-      }
-
-      // User is logged in
-      if (item.allowedRoles.length === 0) { 
-        // Item requires auth, but no specific roles are listed (e.g., /inicio for 'Usuario Pendiente')
+      if (!item.requiresAuth) { // Public items (not /precios)
         return true;
       }
-      
-      // Item requires specific roles
+
+      // Item requires auth
+      if (item.allowedRoles.length === 0) { // Auth required, no specific roles (e.g. /inicio for Usuario Pendiente)
+        return true;
+      }
+
+      // Auth required, specific roles
       if (userProfile && typeof userProfile.role === 'string' && userProfile.role.trim() !== '') {
-        const isAllowed = item.allowedRoles.includes(userProfile.role);
-        return isAllowed;
+        return item.allowedRoles.includes(userProfile.role);
       }
       
-      return false; // Fallback: user authenticated, but profile/role issue, or role not allowed
+      return false; // Role check failed or userProfile not ready
     });
   }, [currentUser, loadingAuth, userProfile, pathname]);
 
@@ -85,7 +93,7 @@ export function TopNavigation() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex space-x-1 sm:space-x-2 md:space-x-4 overflow-x-auto py-2">
-            {visibleMenuItems.map((item) => {
+            {hasMounted && visibleMenuItems.map((item) => {
               let isActive = false;
               if (item.section === 'inicio') {
                 isActive = pathname === '/' || pathname.startsWith('/inicio');
@@ -116,15 +124,45 @@ export function TopNavigation() {
                 </Link>
               );
             })}
+            {!hasMounted && (
+              // Render minimal or placeholder content during initial server/client render
+              // For example, you could render a simplified static menu or nothing.
+              // Here, we render items that are public and not /precios (if not on login/register)
+              // This ensures the server and client render the same thing initially for the menu links.
+              mainMenuItemsBase.filter(item => {
+                 if (item.href === '/precios') {
+                     return pathname === '/login' || pathname === '/registro';
+                 }
+                 return !item.requiresAuth;
+              }).map((item) => {
+                let isActive = pathname.startsWith(item.href);
+                 return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      'px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2 transition-colors duration-150 ease-in-out shrink-0',
+                      isActive
+                        ? 'bg-primary text-primary-foreground shadow-md'
+                        : 'text-foreground hover:bg-accent hover:text-accent-foreground'
+                    )}
+                    aria-current={isActive ? 'page' : undefined}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.label}
+                  </Link>
+                );
+              })
+            )}
           </div>
           
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-            {!loadingAuth && currentUser && userProfile && (
+            {hasMounted && !loadingAuth && currentUser && userProfile && (
               <span className="text-xs text-muted-foreground hidden sm:inline">
                 {userProfile.name || currentUser.email} ({userProfile.role || 'Rol no definido'})
               </span>
             )}
-            {!loadingAuth && (
+            {hasMounted && !loadingAuth && (
               currentUser ? (
                 <Button onClick={handleLogout} variant="outline" size="sm">
                   <LogOut className="h-4 w-4 mr-0 sm:mr-2" />
@@ -140,6 +178,10 @@ export function TopNavigation() {
                   </Button>
                 )
               )
+            )}
+            {!hasMounted && (
+                // Placeholder to prevent layout shift, or render nothing if preferred
+                <div className="h-9 w-24"></div>
             )}
           </div>
         </div>
