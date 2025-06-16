@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ShieldCheck, DatabaseZap, AlertTriangle, Trash2, Loader2, ListOrdered, ListFilter, Globe, CalendarDays, Flame, ActivityIcon, Search, RefreshCcw, Fingerprint, FileDown, ArrowUp, ArrowDown, ChevronsUpDown, ChevronDown, ChevronUp, Edit2 } from 'lucide-react';
+import { ShieldCheck, DatabaseZap, AlertTriangle, Trash2, Loader2, ListOrdered, ListFilter, Globe, CalendarDays, Flame, ActivityIcon, Search, RefreshCcw, Fingerprint, FileDown, ArrowUp, ArrowDown, ChevronsUpDown, ChevronDown, ChevronUp, Edit2, Mail } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, deleteDoc, doc, WriteBatch, writeBatch, query, orderBy as firestoreOrderBy } from "firebase/firestore";
@@ -24,6 +24,7 @@ import { Input } from '@/components/ui/input';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { useRouter } from 'next/navigation';
+import { sendEmailAction } from '@/app/actions';
 
 
 async function deleteAllDocsInCollection(collectionName: string): Promise<{ success: boolean, docsDeleted: number, error?: any }> {
@@ -93,6 +94,7 @@ export default function ConfiguracionPrivacidadPage() {
   const router = useRouter();
   const [isResetting, setIsResetting] = useState(false);
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
+  const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
 
   // States for event listing
   const [allEvents, setAllEvents] = useState<ReportedEvent[]>([]);
@@ -334,6 +336,33 @@ export default function ConfiguracionPrivacidadPage() {
     }
   };
 
+  const handleSendTestEmail = async () => {
+    setIsSendingTestEmail(true);
+    const senderEmail = process.env.NEXT_PUBLIC_SENDER_EMAIL_ADDRESS || "test@example.com"; // Fallback for NEXT_PUBLIC if SENDER_EMAIL_ADDRESS not set for client
+    
+    const result = await sendEmailAction({
+      to: senderEmail, // Send to self for verification
+      subject: "Correo de Prueba - Integración RCA Assistant con SendGrid",
+      body: "Este es un correo de prueba enviado desde RCA Assistant para verificar la integración con SendGrid.",
+      htmlBody: "<p>Este es un <strong>correo de prueba</strong> enviado desde <strong>RCA Assistant</strong> para verificar la integración con <strong>SendGrid</strong>.</p>",
+    });
+
+    if (result.success) {
+      toast({
+        title: "Correo de Prueba Enviado",
+        description: `Se envió un correo a ${senderEmail}. Por favor, revise su bandeja de entrada.`,
+      });
+    } else {
+      toast({
+        title: "Error al Enviar Correo de Prueba",
+        description: result.message,
+        variant: "destructive",
+      });
+    }
+    setIsSendingTestEmail(false);
+  };
+
+
   return (
     <div className="space-y-8 py-8">
       <header className="text-center space-y-2">
@@ -347,6 +376,31 @@ export default function ConfiguracionPrivacidadPage() {
           Administre cómo se almacenan y gestionan los datos de su aplicación RCA Assistant.
         </p>
       </header>
+
+      <Card className="max-w-2xl mx-auto shadow-lg">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <Mail className="h-6 w-6 text-primary" />
+            <CardTitle className="text-2xl">Verificar Integración de Correo</CardTitle>
+          </div>
+          <CardDescription>Envíe un correo de prueba para verificar su configuración de SendGrid.</CardDescription>
+        </CardHeader>
+        <CardContent>
+           <p className="text-sm text-muted-foreground mb-3">
+            Este botón enviará un correo de prueba desde la dirección configurada como `SENDER_EMAIL_ADDRESS` (en sus variables de entorno) a esa misma dirección. 
+            Asegúrese de que esta dirección esté verificada en SendGrid y que su `SENDGRID_API_KEY` esté correctamente configurada.
+          </p>
+          <Button onClick={handleSendTestEmail} disabled={isSendingTestEmail} className="w-full">
+            {isSendingTestEmail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+            Enviar Correo de Prueba SendGrid
+          </Button>
+        </CardContent>
+         <CardFooter>
+          <p className="text-xs text-muted-foreground">
+            Después de enviar exitosamente, podrá verificar la integración en la página de SendGrid.
+          </p>
+        </CardFooter>
+      </Card>
 
       <Card className="max-w-2xl mx-auto shadow-lg">
         <CardHeader>
@@ -371,8 +425,8 @@ export default function ConfiguracionPrivacidadPage() {
             </div>
              <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="mt-2 sm:mt-0" disabled={isResetting || isDeletingEvent}>
-                  {isResetting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} 
+                <Button variant="destructive" className="mt-2 sm:mt-0" disabled={isResetting || isDeletingEvent || isSendingTestEmail}>
+                  {(isResetting && !isDeletingEvent) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} 
                   Resetear Todo
                 </Button>
               </AlertDialogTrigger>
@@ -399,6 +453,7 @@ export default function ConfiguracionPrivacidadPage() {
           variant="outline" 
           onClick={() => setShowEventManagementUI(prev => !prev)}
           className="w-full max-w-md mx-auto"
+          disabled={isSendingTestEmail}
         >
           {showEventManagementUI ? <ChevronUp className="mr-2 h-5 w-5" /> : <ChevronDown className="mr-2 h-5 w-5" />}
           {showEventManagementUI ? 'Ocultar Filtros y Lista de Eventos' : 'Mostrar Filtros y Lista de Eventos'}
