@@ -44,7 +44,7 @@ export function TopNavigation() {
 
   const visibleMenuItems = React.useMemo(() => {
     if (!hasMounted) {
-      return []; // Return empty array if not mounted on client yet
+      return []; // Return empty array if not mounted on client yet, ensures server and initial client have same list to map (none)
     }
 
     // Logic for when hasMounted is true
@@ -54,21 +54,26 @@ export function TopNavigation() {
       }
 
       if (!item.requiresAuth) {
+        return true; // Public items are always visible
+      }
+
+      // Items requiring authentication
+      if (!currentUser) {
+        return false; // Not visible if no user
+      }
+
+      // Authenticated, check roles
+      if (item.allowedRoles.length === 0) {
+        // Requires auth, but no specific roles (e.g., /inicio for 'Usuario Pendiente')
         return true;
       }
 
-      if (!currentUser) {
-        return false;
-      }
-      
-      if (item.allowedRoles.length === 0) { 
-        return true; 
-      }
-
+      // Requires specific roles
       if (userProfile && typeof userProfile.role === 'string' && userProfile.role.trim() !== '') {
         return item.allowedRoles.includes(userProfile.role);
       }
       
+      // User authenticated, profile exists, but role doesn't match or is empty
       return false;
     });
   }, [currentUser, loadingAuth, userProfile, pathname, hasMounted]);
@@ -79,42 +84,41 @@ export function TopNavigation() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex space-x-1 sm:space-x-2 md:space-x-4 overflow-x-auto py-2">
-            {hasMounted && visibleMenuItems.map((item) => {
-              let isActive = false;
-              if (item.section === 'inicio') {
-                isActive = pathname === '/' || pathname.startsWith('/inicio');
-              } else if (item.section === 'usuario') {
-                isActive = pathname.startsWith('/usuario');
-              } else if (item.section === 'config') {
-                isActive = pathname.startsWith('/config');
-              } else if (item.section === 'precios') {
-                isActive = pathname.startsWith('/precios');
-              } else {
-                isActive = pathname.startsWith(item.href);
-              }
+            {hasMounted ? (
+              visibleMenuItems.map((item) => {
+                let isActive = false;
+                // More specific active state logic
+                if (item.section === 'inicio') {
+                  isActive = pathname === '/' || pathname === '/inicio';
+                } else if (item.href === '/analisis') {
+                  isActive = pathname.startsWith('/analisis'); // Catches /analisis and /analisis?id=...
+                } else if (item.href === '/config') {
+                    isActive = pathname.startsWith('/config');
+                } else if (item.href === '/usuario/planes') {
+                    isActive = pathname.startsWith('/usuario');
+                } else {
+                  isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href + '/'));
+                }
 
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    'px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2 transition-colors duration-150 ease-in-out shrink-0',
-                    isActive
-                      ? 'bg-primary text-primary-foreground shadow-md'
-                      : 'text-foreground hover:bg-accent hover:text-accent-foreground'
-                  )}
-                  aria-current={isActive ? 'page' : undefined}
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                </Link>
-              );
-            })}
-            {!hasMounted && (
-              // Optional: Render a fixed number of skeletons or a minimal placeholder
-              // For absolute certainty against hydration, null is safest here if layout allows.
-              // Or a simple, non-dynamic placeholder for layout stability:
-              <div className="h-9"></div> // Placeholder for menu area
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      'px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2 transition-colors duration-150 ease-in-out shrink-0',
+                      isActive
+                        ? 'bg-primary text-primary-foreground shadow-md'
+                        : 'text-foreground hover:bg-accent hover:text-accent-foreground'
+                    )}
+                    aria-current={isActive ? 'page' : undefined}
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.label}
+                  </Link>
+                );
+              })
+            ) : (
+              null // Render nothing for menu items until mounted
             )}
           </div>
           
@@ -145,7 +149,7 @@ export function TopNavigation() {
                 )}
               </>
             ) : (
-                <div className="h-9 w-24"></div> // Placeholder for auth buttons area
+                null // Render nothing for auth buttons until mounted
             )}
           </div>
         </div>
