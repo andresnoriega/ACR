@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import React from 'react'; // Import React for useMemo
 
 const mainMenuItemsBase = [
   { href: '/inicio', label: 'Inicio', icon: Home, section: 'inicio', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User', 'Usuario Pendiente'] },
@@ -36,26 +37,33 @@ export function TopNavigation() {
     }
   };
 
-  const visibleMenuItems = mainMenuItemsBase.filter(item => {
-    if (!item.requiresAuth) { // Item is public
-        return true;
+  const visibleMenuItems = React.useMemo(() => {
+    // If auth is still loading, or if user is logged in but profile hasn't loaded yet,
+    // show only public items or a minimal set to avoid flashing incorrect items.
+    // For this iteration, we'll filter normally; if loadingAuth is true, userProfile might be null.
+    if (loadingAuth && !currentUser) { // Only restrict if truly loading and no user yet
+        return mainMenuItemsBase.filter(item => !item.requiresAuth);
     }
-    // Item requires authentication
-    if (!currentUser) { // User is not logged in
-        return false;
-    }
-    // User is logged in
-    // If item is for ANY authenticated user (no specific roles defined in allowedRoles)
-    if (item.allowedRoles.length === 0) { 
-        return true;
-    }
-    // Item requires specific roles. User must have a profile and a role that matches.
-    if (userProfile && typeof userProfile.role === 'string' && userProfile.role.trim() !== '' && item.allowedRoles.includes(userProfile.role)) {
-        return true;
-    }
-    // Default: if none of the above, hide the item
-    return false;
-  });
+
+    return mainMenuItemsBase.filter(item => {
+      if (!item.requiresAuth) {
+          return true;
+      }
+      if (!currentUser) {
+          return false;
+      }
+      // User is logged in (currentUser exists)
+      if (item.allowedRoles.length === 0) { // No specific roles defined, visible to any authenticated user
+          return true;
+      }
+      // Specific roles are required
+      if (userProfile && typeof userProfile.role === 'string' && userProfile.role.trim() !== '') {
+          return item.allowedRoles.includes(userProfile.role);
+      }
+      // If userProfile is not yet loaded, or role is invalid, item requiring specific role is hidden
+      return false;
+    });
+  }, [currentUser, loadingAuth, userProfile]); // Key dependencies
 
   return (
     <header className="bg-card border-b border-border shadow-sm no-print sticky top-0 z-40">
