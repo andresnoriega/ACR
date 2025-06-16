@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Globe, PlusCircle, Edit2, Trash2, FileUp, FileDown, MapPin, Loader2 } from 'lucide-react';
+import { Globe, PlusCircle, Edit2, Trash2, FileUp, FileDown, MapPin, Loader2, Building } from 'lucide-react'; // Added Building icon
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase'; 
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch } from "firebase/firestore";
@@ -19,7 +19,7 @@ import type { Site } from '@/types/rca';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 
-const expectedSiteHeaders = ["Nombre del Sitio", "Dirección", "País", "Coordinador del Sitio", "Descripción Adicional"];
+const expectedSiteHeaders = ["Nombre del Sitio", "Dirección", "País", "Coordinador del Sitio", "Descripción Adicional", "Empresa"];
 
 const countryOptions = [
   { value: "Afganistán", label: "Afganistán" },
@@ -216,7 +216,6 @@ const countryOptions = [
   { value: "Yibuti", label: "Yibuti" },
   { value: "Zambia", label: "Zambia" },
   { value: "Zimbabue", label: "Zimbabue" },
-  // Add more countries as needed
 ].sort((a, b) => a.label.localeCompare(b.label));
 
 
@@ -234,6 +233,7 @@ export default function ConfiguracionSitiosPage() {
   const [newSiteCountry, setNewSiteCountry] = useState('');
   const [newSiteCoordinator, setNewSiteCoordinator] = useState('');
   const [newSiteDescription, setNewSiteDescription] = useState('');
+  const [newSiteEmpresa, setNewSiteEmpresa] = useState(''); // New state for company
 
   const [isEditSiteDialogOpen, setIsEditSiteDialogOpen] = useState(false);
   const [currentSiteToEdit, setCurrentSiteToEdit] = useState<Site | null>(null);
@@ -242,6 +242,7 @@ export default function ConfiguracionSitiosPage() {
   const [editSiteCountry, setEditSiteCountry] = useState('');
   const [editSiteCoordinator, setEditSiteCoordinator] = useState('');
   const [editSiteDescription, setEditSiteDescription] = useState('');
+  const [editSiteEmpresa, setEditSiteEmpresa] = useState(''); // New state for company
 
   const [isDeleteSiteConfirmOpen, setIsDeleteSiteConfirmOpen] = useState(false);
   const [siteToDelete, setSiteToDelete] = useState<Site | null>(null);
@@ -273,6 +274,7 @@ export default function ConfiguracionSitiosPage() {
     setNewSiteCountry('');
     setNewSiteCoordinator('');
     setNewSiteDescription('');
+    setNewSiteEmpresa(''); // Reset company
   };
 
   const resetEditSiteForm = () => {
@@ -282,6 +284,7 @@ export default function ConfiguracionSitiosPage() {
     setEditSiteCountry('');
     setEditSiteCoordinator('');
     setEditSiteDescription('');
+    setEditSiteEmpresa(''); // Reset company
   };
 
   const handleAddSite = async () => {
@@ -296,6 +299,7 @@ export default function ConfiguracionSitiosPage() {
       country: newSiteCountry.trim(),
       coordinator: newSiteCoordinator.trim(),
       description: newSiteDescription.trim(),
+      empresa: newSiteEmpresa.trim() || undefined, // Add company, make undefined if empty
     };
     try {
       await addDoc(collection(db, "sites"), newSiteData);
@@ -318,6 +322,7 @@ export default function ConfiguracionSitiosPage() {
     setEditSiteCountry(site.country);
     setEditSiteCoordinator(site.coordinator || '');
     setEditSiteDescription(site.description || '');
+    setEditSiteEmpresa(site.empresa || ''); // Set company
     setIsEditSiteDialogOpen(true);
   };
 
@@ -334,6 +339,7 @@ export default function ConfiguracionSitiosPage() {
       country: editSiteCountry.trim(),
       coordinator: editSiteCoordinator.trim(),
       description: editSiteDescription.trim(),
+      empresa: editSiteEmpresa.trim() || undefined, // Add company, make undefined if empty
     };
     try {
       const siteRef = doc(db, "sites", currentSiteToEdit.id);
@@ -384,12 +390,13 @@ export default function ConfiguracionSitiosPage() {
       "País": site.country,
       "Coordinador del Sitio": site.coordinator || '',
       "Descripción Adicional": site.description || '',
+      "Empresa": site.empresa || '', // Export company
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Sitios");
-    worksheet['!cols'] = [ { wch: 30 }, { wch: 40 }, { wch: 20 }, { wch: 25 }, { wch: 40 } ];
+    worksheet['!cols'] = [ { wch: 30 }, { wch: 40 }, { wch: 20 }, { wch: 25 }, { wch: 40 }, { wch: 25 } ]; // Adjust widths
     
     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
     const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
@@ -450,6 +457,7 @@ export default function ConfiguracionSitiosPage() {
             country: country,
             coordinator: row["Coordinador del Sitio"]?.trim() || '',
             description: row["Descripción Adicional"]?.trim() || '',
+            empresa: row["Empresa"]?.trim() || undefined, // Import company
           };
           
           const siteRef = doc(collection(db, "sites"));
@@ -457,10 +465,9 @@ export default function ConfiguracionSitiosPage() {
           importedCount++;
           operationsInBatch++;
 
-          if (operationsInBatch >= 490) { // Firestore batch limit is 500 operations
+          if (operationsInBatch >= 490) {
             await batch.commit();
             operationsInBatch = 0;
-            // batch = writeBatch(db); // Re-initialize for next batch - This line is problematic, a new batch is implicitly created.
           }
         }
 
@@ -508,7 +515,7 @@ export default function ConfiguracionSitiosPage() {
         </p>
       </header>
 
-      <Card className="max-w-4xl mx-auto shadow-lg">
+      <Card className="max-w-5xl mx-auto shadow-lg"> {/* Increased max-width for new column */}
         <CardHeader>
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
@@ -539,6 +546,10 @@ export default function ConfiguracionSitiosPage() {
                       <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="add-site-name" className="text-right">Nombre <span className="text-destructive">*</span></Label>
                         <Input id="add-site-name" value={newSiteName} onChange={(e) => setNewSiteName(e.target.value)} className="col-span-3" placeholder="Ej: Planta Principal" />
+                      </div>
+                       <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="add-site-empresa" className="text-right">Empresa</Label>
+                        <Input id="add-site-empresa" value={newSiteEmpresa} onChange={(e) => setNewSiteEmpresa(e.target.value)} className="col-span-3" placeholder="Nombre de la empresa" />
                       </div>
                       <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="add-site-address" className="text-right">Dirección</Label>
@@ -581,7 +592,7 @@ export default function ConfiguracionSitiosPage() {
           </div>
           <CardDescription>
             Visualice, añada, edite o elimine sitios registrados en el sistema.
-            <span className="block text-xs mt-1">Plantilla Importación: Columna requerida - {expectedSiteHeaders[0]}. Opcionales: {expectedSiteHeaders.slice(1).join(', ')}.</span>
+            <span className="block text-xs mt-1">Plantilla Importación: Columnas requeridas - {expectedSiteHeaders[0]}. Opcionales: {expectedSiteHeaders.slice(1).join(', ')}.</span>
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -595,10 +606,11 @@ export default function ConfiguracionSitiosPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[25%]">Nombre</TableHead>
-                    <TableHead className="w-[35%]">Dirección</TableHead>
+                    <TableHead className="w-[20%]">Nombre</TableHead>
+                    <TableHead className="w-[20%]">Empresa</TableHead> {/* New column */}
+                    <TableHead className="w-[25%]">Dirección</TableHead>
                     <TableHead className="w-[15%]">País</TableHead>
-                    <TableHead className="w-[25%] text-right">Acciones</TableHead>
+                    <TableHead className="w-[20%] text-right">Acciones</TableHead> {/* Adjusted width */}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -606,6 +618,7 @@ export default function ConfiguracionSitiosPage() {
                     sites.map((site) => (
                       <TableRow key={site.id}>
                         <TableCell className="font-medium">{site.name}</TableCell>
+                        <TableCell>{site.empresa || '-'}</TableCell> {/* Display company */}
                         <TableCell>
                           {site.address ? (
                             <a
@@ -636,7 +649,7 @@ export default function ConfiguracionSitiosPage() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground h-24">
+                      <TableCell colSpan={5} className="text-center text-muted-foreground h-24"> {/* Increased colSpan */}
                         No hay sitios registrados. Puede añadir uno usando el botón de arriba o importando desde Excel.
                       </TableCell>
                     </TableRow>
@@ -664,6 +677,10 @@ export default function ConfiguracionSitiosPage() {
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-site-name" className="text-right">Nombre <span className="text-destructive">*</span></Label>
               <Input id="edit-site-name" value={editSiteName} onChange={(e) => setEditSiteName(e.target.value)} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit-site-empresa" className="text-right">Empresa</Label>
+              <Input id="edit-site-empresa" value={editSiteEmpresa} onChange={(e) => setEditSiteEmpresa(e.target.value)} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-site-address" className="text-right">Dirección</Label>
@@ -723,4 +740,3 @@ export default function ConfiguracionSitiosPage() {
     </div>
   );
 }
-

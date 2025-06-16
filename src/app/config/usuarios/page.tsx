@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Users, PlusCircle, Edit2, Trash2, FileUp, FileDown, Loader2 } from 'lucide-react';
+import { Users, PlusCircle, Edit2, Trash2, FileUp, FileDown, Loader2, Building } from 'lucide-react'; // Added Building icon
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch } from "firebase/firestore";
@@ -23,13 +23,14 @@ import { sanitizeForFirestore } from '@/lib/utils';
 interface UserConfigProfile extends FullUserProfile {
   assignedSites?: string;
   emailNotifications: boolean;
+  empresa?: string; // Add empresa here as well if extending FullUserProfile
 }
 
 const userRoles: FullUserProfile['role'][] = ['Admin', 'Analista', 'Revisor', 'Super User', 'Usuario Pendiente', ''];
 const defaultPermissionLevel: FullUserProfile['permissionLevel'] = 'Lectura';
 
 // Define expected headers for Excel import
-const expectedUserHeaders = ["Nombre Completo", "Correo Electrónico", "Rol", "Sitios Asignados", "Notificaciones Email"];
+const expectedUserHeaders = ["Nombre Completo", "Correo Electrónico", "Rol", "Empresa", "Sitios Asignados", "Notificaciones Email"];
 
 
 export default function ConfiguracionUsuariosPage() {
@@ -46,8 +47,8 @@ export default function ConfiguracionUsuariosPage() {
 
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
-  // Password fields removed from state
   const [userRole, setUserRole] = useState<FullUserProfile['role']>('');
+  const [userEmpresa, setUserEmpresa] = useState(''); // New state for company
   const [userAssignedSites, setUserAssignedSites] = useState('');
   const [userEmailNotifications, setUserEmailNotifications] = useState(false);
   
@@ -72,13 +73,14 @@ export default function ConfiguracionUsuariosPage() {
 
   useEffect(() => {
     fetchUsers();
-  }, [toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const resetUserForm = () => {
     setUserName('');
     setUserEmail('');
-    // Password fields reset removed
     setUserRole('');
+    setUserEmpresa(''); // Reset company
     setUserAssignedSites('');
     setUserEmailNotifications(false);
     setCurrentUser(null);
@@ -98,9 +100,9 @@ export default function ConfiguracionUsuariosPage() {
     setUserName(user.name);
     setUserEmail(user.email);
     setUserRole(user.role);
+    setUserEmpresa(user.empresa || ''); // Set company
     setUserAssignedSites(user.assignedSites || '');
     setUserEmailNotifications(user.emailNotifications || false); 
-    // Password fields set removed
     setIsUserDialogOpen(true);
   };
 
@@ -113,7 +115,6 @@ export default function ConfiguracionUsuariosPage() {
       toast({ title: "Error", description: "El correo electrónico no es válido.", variant: "destructive" });
       return;
     }
-    // Password validation removed
     if (!userRole) {
       toast({ title: "Error", description: "El rol es obligatorio.", variant: "destructive" });
       return;
@@ -126,10 +127,10 @@ export default function ConfiguracionUsuariosPage() {
         name: userName.trim(),
         email: userEmail.trim(),
         role: userRole,
+        empresa: userEmpresa.trim() || undefined, // Add company
         assignedSites: userAssignedSites.trim(),
         emailNotifications: userEmailNotifications,
       };
-      // Password update logic removed
       try {
         const userRef = doc(db, "users", currentUser.id);
         await updateDoc(userRef, sanitizeForFirestore(updatedUserData));
@@ -140,40 +141,16 @@ export default function ConfiguracionUsuariosPage() {
         toast({ title: "Error al Actualizar", description: "No se pudo actualizar el usuario.", variant: "destructive" });
       }
     } else {
-      // Cannot create user from here without password, direct to Firebase Auth registration flow
-      // Or, this section should only allow editing existing users that were created via Firebase Auth.
-      // For now, this 'else' block for new user creation from this dialog is problematic without password handling.
-      // It's better to guide to the main registration page.
-      // However, if this dialog is meant to create placeholder profiles that an admin then links to Auth users,
-      // that's a different flow. Assuming users are created via /registro now.
-      // For this iteration, new user creation via this dialog is disabled if it implies setting password.
-      // If it's just creating a Firestore profile without an Auth user, it's fine.
-      // The current `registerWithEmail` in AuthContext handles Auth + Firestore profile.
-      // This dialog should primarily be for *editing* users or perhaps adding Firestore-only profiles if needed.
-      // To keep it simple and aligned with removing password field:
-      // Let's assume this dialog is for *editing* Firestore profile details for users already in Firebase Auth.
-      // Adding a *new* user here would require them to register through the standard registration page
-      // to set up their Firebase Auth credentials.
-      // Therefore, the "else" branch for adding new users via this specific dialog might be removed or rethought.
-      // For now, I will leave the 'addDoc' part but without password. This means an Admin could create a profile
-      // but the user would still need to be created in Firebase Auth separately or exist already.
-      // A better flow is that admins invite users, who then complete registration.
-      //
-      // Given the user wants to remove password storage, the "add user" from this screen
-      // should NOT attempt to create Firebase Auth users. It can create a Firestore profile only.
-      // The main registration form handles Firebase Auth user creation.
-
       const newUserPayload: Omit<UserConfigProfile, 'id'> = {
         name: userName.trim(),
-        email: userEmail.trim(), // Admin must ensure this email corresponds to an existing/future Firebase Auth user
+        email: userEmail.trim(),
         role: userRole,
         permissionLevel: userRole === 'Usuario Pendiente' ? '' : defaultPermissionLevel, 
+        empresa: userEmpresa.trim() || undefined, // Add company
         assignedSites: userAssignedSites.trim(),
         emailNotifications: userEmailNotifications,
-        // No password field
       };
       try {
-        // This creates a Firestore document. The user must exist or be created in Firebase Auth separately.
         await addDoc(collection(db, "users"), sanitizeForFirestore(newUserPayload));
         toast({ title: "Perfil de Usuario Añadido", description: `El perfil para "${newUserPayload.name}" ha sido añadido a Firestore. Asegúrese de que el usuario exista o se registre en Firebase Authentication con el mismo correo.` });
         fetchUsers(); 
@@ -197,8 +174,6 @@ export default function ConfiguracionUsuariosPage() {
     if (userToDelete) {
       setIsSubmitting(true);
       try {
-        // This only deletes the Firestore profile document.
-        // The Firebase Auth user must be deleted separately (e.g., via Firebase Console or Admin SDK).
         await deleteDoc(doc(db, "users", userToDelete.id));
         toast({ title: "Perfil de Usuario Eliminado", description: `El perfil de "${userToDelete.name}" ha sido eliminado de Firestore. El usuario de autenticación (si existe) debe eliminarse por separado.`, variant: 'destructive', duration: 7000 });
         setUserToDelete(null);
@@ -222,16 +197,16 @@ export default function ConfiguracionUsuariosPage() {
       "Nombre Completo": user.name,
       "Correo Electrónico": user.email,
       "Rol": user.role,
+      "Empresa": user.empresa || '', // Export company
       "Sitios Asignados": user.assignedSites || '',
       "Notificaciones Email": user.emailNotifications ? "Sí" : "No",
       "Nivel Permiso (Info)": user.permissionLevel,
-      // DO NOT EXPORT PASSWORDS
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Usuarios");
-    worksheet['!cols'] = [ { wch: 25 }, { wch: 30 }, { wch: 15 }, { wch: 30 }, { wch: 20 }, {wch: 20} ];
+    worksheet['!cols'] = [ { wch: 25 }, { wch: 30 }, { wch: 15 }, { wch: 25 }, { wch: 30 }, { wch: 20 }, {wch: 20} ]; // Adjust widths
     
     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
     const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
@@ -265,14 +240,14 @@ export default function ConfiguracionUsuariosPage() {
         }
         
         const headers = XLSX.utils.sheet_to_json(worksheet, { header: 1 })[0] as string[];
-        const missingHeaders = expectedUserHeaders.filter(h => !headers.includes(h) && (h === "Nombre Completo" || h === "Correo Electrónico" || h === "Rol"));
+        const requiredHeaders = ["Nombre Completo", "Correo Electrónico", "Rol"]; // Empresa is optional for import
+        const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
         if (missingHeaders.length > 0) {
             toast({ title: "Cabeceras Faltantes", description: `Faltan cabeceras obligatorias: ${missingHeaders.join(', ')}. Por favor, use la plantilla correcta.`, variant: "destructive", duration: 7000 });
             setIsImporting(false);
             if(fileInputRef.current) fileInputRef.current.value = "";
             return;
         }
-
 
         let importedCount = 0;
         let skippedCount = 0;
@@ -297,11 +272,12 @@ export default function ConfiguracionUsuariosPage() {
              continue;
           }
 
-          const newUser: Omit<UserConfigProfile, 'id'> = { // Ensure no password field here
+          const newUser: Omit<UserConfigProfile, 'id'> = {
             name,
             email,
             role,
             permissionLevel: role === 'Usuario Pendiente' ? '' : defaultPermissionLevel,
+            empresa: row["Empresa"]?.trim() || undefined, // Import company
             assignedSites: row["Sitios Asignados"]?.trim() || '',
             emailNotifications: (row["Notificaciones Email"]?.toLowerCase() === 'sí' || row["Notificaciones Email"]?.toLowerCase() === 'si'),
           };
@@ -314,7 +290,6 @@ export default function ConfiguracionUsuariosPage() {
           if (operationsInBatch >= 490) { 
             await batch.commit();
             operationsInBatch = 0;
-            // batch = writeBatch(db); // Re-initialize for next batch - This line is problematic, a new batch is implicitly created.
           }
         }
 
@@ -359,7 +334,7 @@ export default function ConfiguracionUsuariosPage() {
         </p>
       </header>
 
-      <Card className="max-w-5xl mx-auto shadow-lg">
+      <Card className="max-w-6xl mx-auto shadow-lg"> {/* Increased max-width for new column */}
         <CardHeader>
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
@@ -398,7 +373,6 @@ export default function ConfiguracionUsuariosPage() {
                         <Label htmlFor="user-email" className="text-right">Correo <span className="text-destructive">*</span></Label>
                         <Input id="user-email" type="email" value={userEmail} onChange={(e) => setUserEmail(e.target.value)} className="col-span-3" placeholder="Ej: juan.perez@example.com" disabled={isEditing} />
                         </div>
-                        {/* Password fields removed */}
                         <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="user-role" className="text-right">Rol <span className="text-destructive">*</span></Label>
                         <Select value={userRole} onValueChange={(value) => setUserRole(value as FullUserProfile['role'])}>
@@ -411,6 +385,10 @@ export default function ConfiguracionUsuariosPage() {
                             ))}
                             </SelectContent>
                         </Select>
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="user-empresa" className="text-right">Empresa</Label>
+                          <Input id="user-empresa" value={userEmpresa} onChange={(e) => setUserEmpresa(e.target.value)} className="col-span-3" placeholder="Nombre de la empresa" />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="user-sites" className="text-right">Sitio(s)</Label>
@@ -453,10 +431,11 @@ export default function ConfiguracionUsuariosPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[30%]">Nombre</TableHead>
-                    <TableHead className="w-[30%]">Correo Electrónico</TableHead>
+                    <TableHead className="w-[25%]">Nombre</TableHead>
+                    <TableHead className="w-[25%]">Correo Electrónico</TableHead>
                     <TableHead className="w-[15%]">Rol</TableHead>
-                    <TableHead className="w-[15%]">Notif. Email</TableHead>
+                    <TableHead className="w-[15%]">Empresa</TableHead> {/* New Column */}
+                    <TableHead className="w-[10%]">Notif. Email</TableHead>
                     <TableHead className="w-[10%] text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -467,6 +446,7 @@ export default function ConfiguracionUsuariosPage() {
                         <TableCell className="font-medium">{user.name}</TableCell>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>{user.role || 'N/A'}</TableCell>
+                        <TableCell>{user.empresa || '-'}</TableCell> {/* Display company */}
                         <TableCell>{user.emailNotifications ? 'Sí' : 'No'}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" className="mr-2 hover:text-primary" onClick={() => openEditUserDialog(user)} disabled={isSubmitting}>
@@ -482,7 +462,7 @@ export default function ConfiguracionUsuariosPage() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
+                      <TableCell colSpan={6} className="text-center text-muted-foreground h-24"> {/* Increased colSpan */}
                         No hay perfiles de usuario registrados. Puede añadir uno usando el botón de arriba o importando desde Excel.
                       </TableCell>
                     </TableRow>

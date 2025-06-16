@@ -149,7 +149,7 @@ export interface FullUserProfile {
   permissionLevel: 'Total' | 'Lectura' | 'Limitado' | '';
   assignedSites?: string;
   emailNotifications?: boolean;
-  // password field removed
+  empresa?: string; // New field for company
 }
 
 // Types for Eventos Reportados page
@@ -174,9 +174,10 @@ export interface Site {
   id: string;
   name: string;
   address: string;
-  country: string; // Changed from zone to country
+  country: string;
   coordinator?: string;
   description?: string;
+  empresa?: string; // New field for company
 }
 
 export interface RejectionDetails {
@@ -208,7 +209,7 @@ export interface RCAAnalysisDocument {
   // From Step 5
   finalComments: string;
   isFinalized: boolean;
-  rejectionDetails?: RejectionDetails; // Nuevo campo
+  rejectionDetails?: RejectionDetails;
   // Metadata
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
