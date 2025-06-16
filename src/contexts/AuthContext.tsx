@@ -44,21 +44,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log('[AuthContext] onAuthStateChanged triggered. Firebase user:', user?.uid || 'null');
       setCurrentUser(user);
       if (user) {
         // Fetch user profile from Firestore
         const userDocRef = doc(db, 'users', user.uid);
-        const docSnap = await getDoc(userDocRef);
-        if (docSnap.exists()) {
-          setUserProfile({ id: docSnap.id, ...docSnap.data() } as FullUserProfile);
-        } else {
-          console.warn(`No Firestore profile found for user ${user.uid}`);
-          setUserProfile(null);
+        console.log(`[AuthContext] Attempting to fetch Firestore profile for UID: ${user.uid}`);
+        try {
+          const docSnap = await getDoc(userDocRef);
+          if (docSnap.exists()) {
+            const profileData = { id: docSnap.id, ...docSnap.data() } as FullUserProfile;
+            setUserProfile(profileData);
+            console.log('[AuthContext] Firestore profile loaded:', profileData);
+          } else {
+            console.warn(`[AuthContext] No Firestore profile found for user ${user.uid}. User may need to complete profile or be assigned one.`);
+            setUserProfile(null);
+          }
+        } catch (error) {
+            console.error(`[AuthContext] Error fetching Firestore profile for UID ${user.uid}:`, error);
+            setUserProfile(null);
         }
       } else {
         setUserProfile(null);
+        console.log('[AuthContext] No Firebase user, so Firestore profile set to null.');
       }
       setLoadingAuth(false);
+      console.log('[AuthContext] loadingAuth set to false.');
     });
     return () => unsubscribe();
   }, []);
@@ -73,16 +84,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (firebaseUser) {
       // Create a corresponding user document in Firestore
       const userDocRef = doc(db, 'users', firebaseUser.uid);
-      const newUserProfile: Omit<FullUserProfile, 'id'> = { 
+      const newUserProfileData: Omit<FullUserProfile, 'id'> = { 
         name: name,
         email: firebaseUser.email || email, 
-        role: 'Usuario Pendiente', // Default role for new users
-        permissionLevel: '', // Default empty permission level for pending users
+        role: 'Usuario Pendiente',
+        permissionLevel: '', 
         assignedSites: '',
         emailNotifications: false,
       };
-      await setDoc(userDocRef, sanitizeForFirestore(newUserProfile));
-      setUserProfile({ id: firebaseUser.uid, ...newUserProfile } as FullUserProfile);
+      await setDoc(userDocRef, sanitizeForFirestore(newUserProfileData));
+      // Set userProfile state immediately after registration to avoid delay
+      setUserProfile({ id: firebaseUser.uid, ...newUserProfileData } as FullUserProfile);
+      console.log('[AuthContext] New user registered and Firestore profile created:', { uid: firebaseUser.uid, ...newUserProfileData });
     }
     return userCredential;
   };
