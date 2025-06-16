@@ -15,7 +15,7 @@ const mainMenuItemsBase = [
   { href: '/analisis', label: 'Análisis', icon: BarChart3, section: 'analisis', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Super User'] },
   { href: '/informes', label: 'Informes', icon: FileText, section: 'informes', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] },
   { href: '/usuario/planes', label: 'Mis Tareas', icon: UserCheck, section: 'usuario', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] },
-  { href: '/precios', label: 'Precios', icon: DollarSign, section: 'precios', requiresAuth: false, allowedRoles: [] }, // Empty allowedRoles means public or all authenticated
+  { href: '/precios', label: 'Precios', icon: DollarSign, section: 'precios', requiresAuth: false, allowedRoles: [] },
   { href: '/config', label: 'Config.', icon: SettingsIcon, section: 'config', requiresAuth: true, allowedRoles: ['Admin', 'Super User'] },
 ];
 
@@ -37,13 +37,23 @@ export function TopNavigation() {
   };
 
   const visibleMenuItems = mainMenuItemsBase.filter(item => {
-    if (!item.requiresAuth) return true; // Public items always visible
-    if (!currentUser) return false; // Authenticated items not visible if not logged in
-
-    // If currentUser exists, check roles
-    if (item.allowedRoles.length === 0) return true; // Authenticated item, no specific role restriction (e.g. /precios if it were auth-only)
-    if (userProfile?.role && item.allowedRoles.includes(userProfile.role)) return true;
-    
+    if (!item.requiresAuth) { // Item is public
+        return true;
+    }
+    // Item requires authentication
+    if (!currentUser) { // User is not logged in
+        return false;
+    }
+    // User is logged in
+    // If item is for ANY authenticated user (no specific roles defined in allowedRoles)
+    if (item.allowedRoles.length === 0) { 
+        return true;
+    }
+    // Item requires specific roles. User must have a profile and a role that matches.
+    if (userProfile && typeof userProfile.role === 'string' && userProfile.role.trim() !== '' && item.allowedRoles.includes(userProfile.role)) {
+        return true;
+    }
+    // Default: if none of the above, hide the item
     return false;
   });
 
