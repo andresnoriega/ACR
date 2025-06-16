@@ -31,20 +31,8 @@ export function TopNavigation() {
     setHasMounted(true);
   }, []);
 
-  const handleLogout = async () => {
-    try {
-      await logoutUser();
-      toast({ title: 'Sesión Cerrada', description: 'Ha cerrado sesión exitosamente.' });
-      router.push('/login');
-    } catch (error) {
-      console.error("Error al cerrar sesión:", error);
-      toast({ title: 'Error', description: 'No se pudo cerrar la sesión.', variant: 'destructive' });
-    }
-  };
-
   const visibleMenuItems = React.useMemo(() => {
-    // If loadingAuth is true, show minimal public items + /precios on login/register
-    if (loadingAuth) {
+    if (loadingAuth && !currentUser) { // Initial loading state, before currentUser is determined
       return mainMenuItemsBase.filter(item => {
         if (item.href === '/precios') {
           return pathname === '/login' || pathname === '/registro';
@@ -53,32 +41,27 @@ export function TopNavigation() {
       });
     }
 
-    // Auth state resolved (loadingAuth is false)
-    if (!currentUser) { // Not logged in
-      return mainMenuItemsBase.filter(item => {
-        if (item.href === '/precios') {
-          return pathname === '/login' || pathname === '/registro';
-        }
-        return !item.requiresAuth;
-      });
-    }
-
-    // Logged in (currentUser exists)
+    // Auth state resolved (loadingAuth is false or currentUser is now known)
     return mainMenuItemsBase.filter(item => {
       if (item.href === '/precios') {
-        return false; // Never show /precios if logged in
+        return (pathname === '/login' || pathname === '/registro') && !currentUser;
       }
 
-      if (!item.requiresAuth) { // Public items (not /precios)
+      if (!item.requiresAuth) {
         return true;
       }
 
-      // Item requires auth
+      // Item requires auth from here
+      if (!currentUser) {
+        return false;
+      }
+
+      // User is authenticated
       if (item.allowedRoles.length === 0) { // Auth required, no specific roles (e.g. /inicio for Usuario Pendiente)
         return true;
       }
 
-      // Auth required, specific roles
+      // Item requires specific roles
       if (userProfile && typeof userProfile.role === 'string' && userProfile.role.trim() !== '') {
         return item.allowedRoles.includes(userProfile.role);
       }
@@ -93,50 +76,22 @@ export function TopNavigation() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex space-x-1 sm:space-x-2 md:space-x-4 overflow-x-auto py-2">
-            {hasMounted && visibleMenuItems.map((item) => {
-              let isActive = false;
-              if (item.section === 'inicio') {
-                isActive = pathname === '/' || pathname.startsWith('/inicio');
-              } else if (item.section === 'usuario') {
-                isActive = pathname.startsWith('/usuario');
-              } else if (item.section === 'config') {
-                isActive = pathname.startsWith('/config');
-              } else if (item.section === 'precios') {
-                isActive = pathname.startsWith('/precios');
-              } else {
-                isActive = pathname.startsWith(item.href);
-              }
+            {hasMounted ? (
+              visibleMenuItems.map((item) => {
+                let isActive = false;
+                if (item.section === 'inicio') {
+                  isActive = pathname === '/' || pathname.startsWith('/inicio');
+                } else if (item.section === 'usuario') {
+                  isActive = pathname.startsWith('/usuario');
+                } else if (item.section === 'config') {
+                  isActive = pathname.startsWith('/config');
+                } else if (item.section === 'precios') {
+                  isActive = pathname.startsWith('/precios');
+                } else {
+                  isActive = pathname.startsWith(item.href);
+                }
 
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    'px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2 transition-colors duration-150 ease-in-out shrink-0',
-                    isActive
-                      ? 'bg-primary text-primary-foreground shadow-md'
-                      : 'text-foreground hover:bg-accent hover:text-accent-foreground'
-                  )}
-                  aria-current={isActive ? 'page' : undefined}
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                </Link>
-              );
-            })}
-            {!hasMounted && (
-              // Render minimal or placeholder content during initial server/client render
-              // For example, you could render a simplified static menu or nothing.
-              // Here, we render items that are public and not /precios (if not on login/register)
-              // This ensures the server and client render the same thing initially for the menu links.
-              mainMenuItemsBase.filter(item => {
-                 if (item.href === '/precios') {
-                     return pathname === '/login' || pathname === '/registro';
-                 }
-                 return !item.requiresAuth;
-              }).map((item) => {
-                let isActive = pathname.startsWith(item.href);
-                 return (
+                return (
                   <Link
                     key={item.href}
                     href={item.href}
@@ -153,35 +108,42 @@ export function TopNavigation() {
                   </Link>
                 );
               })
+            ) : (
+              // Render nothing or a fixed placeholder for menu items before mount
+              null 
             )}
           </div>
           
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-            {hasMounted && !loadingAuth && currentUser && userProfile && (
-              <span className="text-xs text-muted-foreground hidden sm:inline">
-                {userProfile.name || currentUser.email} ({userProfile.role || 'Rol no definido'})
-              </span>
-            )}
-            {hasMounted && !loadingAuth && (
-              currentUser ? (
-                <Button onClick={handleLogout} variant="outline" size="sm">
-                  <LogOut className="h-4 w-4 mr-0 sm:mr-2" />
-                  <span className="hidden sm:inline">Cerrar Sesión</span>
-                </Button>
-              ) : (
-                pathname !== '/login' && pathname !== '/registro' && (
-                  <Button asChild variant="default" size="sm">
-                    <Link href="/login">
-                      <LogInIcon className="h-4 w-4 mr-0 sm:mr-2" />
-                      <span className="hidden sm:inline">Iniciar Sesión</span>
-                    </Link>
-                  </Button>
-                )
-              )
-            )}
-            {!hasMounted && (
-                // Placeholder to prevent layout shift, or render nothing if preferred
-                <div className="h-9 w-24"></div>
+            {hasMounted ? (
+              <>
+                {!loadingAuth && currentUser && userProfile && (
+                  <span className="text-xs text-muted-foreground hidden sm:inline">
+                    {userProfile.name || currentUser.email} ({userProfile.role || 'Rol no definido'})
+                  </span>
+                )}
+                {!loadingAuth && (
+                  currentUser ? (
+                    <Button onClick={handleLogout} variant="outline" size="sm">
+                      <LogOut className="h-4 w-4 mr-0 sm:mr-2" />
+                      <span className="hidden sm:inline">Cerrar Sesión</span>
+                    </Button>
+                  ) : (
+                    pathname !== '/login' && pathname !== '/registro' && (
+                      <Button asChild variant="default" size="sm">
+                        <Link href="/login">
+                          <LogInIcon className="h-4 w-4 mr-0 sm:mr-2" />
+                          <span className="hidden sm:inline">Iniciar Sesión</span>
+                        </Link>
+                      </Button>
+                    )
+                  )
+                )}
+              </>
+            ) : (
+                // Render nothing or a fixed placeholder for auth buttons before mount
+                // A div with fixed height can prevent layout shift
+                <div className="h-9 w-24"></div> 
             )}
           </div>
         </div>
