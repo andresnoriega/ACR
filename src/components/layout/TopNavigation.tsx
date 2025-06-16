@@ -38,38 +38,43 @@ export function TopNavigation() {
   };
 
   const visibleMenuItems = React.useMemo(() => {
-    // If auth state is still loading, strictly show only public items.
-    if (loadingAuth) {
+    // If still loading auth status and we don't have a current user yet, only show public items.
+    // This prevents flickering or showing auth items prematurely.
+    if (loadingAuth && !currentUser) {
         return mainMenuItemsBase.filter(item => !item.requiresAuth);
     }
 
-    // Auth loading is complete. Now filter based on currentUser and userProfile.
+    // Once loading is done, or if currentUser is already available:
     return mainMenuItemsBase.filter(item => {
-      if (!item.requiresAuth) { // Public items
+      // 1. Public items are always visible
+      if (!item.requiresAuth) {
           return true;
       }
       
-      // From here, item.requiresAuth is true
-      if (!currentUser) { // User not logged in
+      // 2. Item requires authentication
+      if (!currentUser) { 
+          // If no user is logged in (after loadingAuth is false), hide auth-required items
           return false;
       }
-      
-      // User is logged in (currentUser exists)
-      if (item.allowedRoles.length === 0) { // Item requires auth, but no specific roles are needed.
-          return true;
-      }
-      
-      // Item requires specific roles.
-      // userProfile must exist, userProfile.role must be a valid non-empty string, and included in allowedRoles.
-      if (userProfile && typeof userProfile.role === 'string' && userProfile.role.trim() !== '') {
+
+      // 3. User is logged in (currentUser exists). Now check roles if item has specific role requirements.
+      if (item.allowedRoles.length > 0) {
+        // Item requires specific roles
+        if (userProfile && typeof userProfile.role === 'string' && userProfile.role.trim() !== '') {
+          // console.log(`[TopNav] User Role: '${userProfile.role}', Checking item: '${item.label}', Allowed: ${item.allowedRoles.join(', ')}, Includes: ${item.allowedRoles.includes(userProfile.role)}`);
           return item.allowedRoles.includes(userProfile.role);
+        }
+        // If profile is missing, or role is invalid/empty, and item requires specific roles, hide it.
+        // console.log(`[TopNav DEBUG] Hiding item '${item.label}' for user. loadingAuth: ${loadingAuth}, currentUser: ${!!currentUser}, userProfile: ${JSON.stringify(userProfile)}`);
+        return false; 
       }
       
-      // If userProfile is not yet loaded (shouldn't happen if loadingAuth is false unless profile is missing), 
-      // or role is invalid/empty, the item requiring specific roles is hidden.
-      return false;
+      // 4. Item requires auth, but has no specific roles listed (allowedRoles is empty).
+      // This means show it to *any* authenticated user (e.g., '/inicio' for 'Usuario Pendiente').
+      return true; 
     });
-  }, [currentUser, loadingAuth, userProfile]); // Key dependencies
+  }, [currentUser, loadingAuth, userProfile]);
+
 
   return (
     <header className="bg-card border-b border-border shadow-sm no-print sticky top-0 z-40">
@@ -138,3 +143,4 @@ export function TopNavigation() {
     </header>
   );
 }
+
