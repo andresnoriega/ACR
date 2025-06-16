@@ -38,31 +38,46 @@ export function TopNavigation() {
   };
 
   const visibleMenuItems = React.useMemo(() => {
+    // If auth is loading AND we don't know the user yet, show only public items not specific to login/register
     if (loadingAuth && !currentUser) {
-      return mainMenuItemsBase.filter(item => !item.requiresAuth);
+      return mainMenuItemsBase.filter(item => {
+        if (item.href === '/precios') {
+          return pathname === '/login' || pathname === '/registro';
+        }
+        return !item.requiresAuth;
+      });
     }
 
     return mainMenuItemsBase.filter(item => {
+      // Special handling for "Precios" menu item
+      if (item.href === '/precios') {
+        return pathname === '/login' || pathname === '/registro';
+      }
+
+      // General logic for other items
       if (!item.requiresAuth) {
-        return true;
+        return true; 
       }
       
       if (!currentUser) { 
-        return false;
+        return false; // User is not logged in, hide auth-required items
       }
 
+      // User is logged in
       if (item.allowedRoles.length === 0) { 
+        // Item requires auth, but no specific roles are listed (e.g., /inicio for 'Usuario Pendiente')
         return true;
       }
       
+      // Item requires specific roles
       if (userProfile && typeof userProfile.role === 'string' && userProfile.role.trim() !== '') {
         const isAllowed = item.allowedRoles.includes(userProfile.role);
         return isAllowed;
       }
       
-      return false; 
+      return false; // Fallback: user authenticated, but profile/role issue, or role not allowed
     });
-  }, [currentUser, loadingAuth, userProfile]);
+  }, [currentUser, loadingAuth, userProfile, pathname]);
 
 
   return (
