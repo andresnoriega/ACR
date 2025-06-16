@@ -38,29 +38,35 @@ export function TopNavigation() {
   };
 
   const visibleMenuItems = React.useMemo(() => {
-    // If auth is still loading, or if user is logged in but profile hasn't loaded yet,
-    // show only public items or a minimal set to avoid flashing incorrect items.
-    // For this iteration, we'll filter normally; if loadingAuth is true, userProfile might be null.
-    if (loadingAuth && !currentUser) { // Only restrict if truly loading and no user yet
+    // If auth state is still loading, strictly show only public items.
+    if (loadingAuth) {
         return mainMenuItemsBase.filter(item => !item.requiresAuth);
     }
 
+    // Auth loading is complete. Now filter based on currentUser and userProfile.
     return mainMenuItemsBase.filter(item => {
-      if (!item.requiresAuth) {
+      if (!item.requiresAuth) { // Public items
           return true;
       }
-      if (!currentUser) {
+      
+      // From here, item.requiresAuth is true
+      if (!currentUser) { // User not logged in
           return false;
       }
+      
       // User is logged in (currentUser exists)
-      if (item.allowedRoles.length === 0) { // No specific roles defined, visible to any authenticated user
+      if (item.allowedRoles.length === 0) { // Item requires auth, but no specific roles are needed.
           return true;
       }
-      // Specific roles are required
+      
+      // Item requires specific roles.
+      // userProfile must exist, userProfile.role must be a valid non-empty string, and included in allowedRoles.
       if (userProfile && typeof userProfile.role === 'string' && userProfile.role.trim() !== '') {
           return item.allowedRoles.includes(userProfile.role);
       }
-      // If userProfile is not yet loaded, or role is invalid, item requiring specific role is hidden
+      
+      // If userProfile is not yet loaded (shouldn't happen if loadingAuth is false unless profile is missing), 
+      // or role is invalid/empty, the item requiring specific roles is hidden.
       return false;
     });
   }, [currentUser, loadingAuth, userProfile]); // Key dependencies
