@@ -10,6 +10,8 @@ interface EmailPayload {
   htmlBody?: string;
 }
 
+const SPECIAL_TEST_ADDRESS = "TEST_MY_SENDER_ADDRESS";
+
 /**
  * Sends an email using SendGrid.
  * Requires SENDGRID_API_KEY and SENDER_EMAIL_ADDRESS environment variables to be set.
@@ -40,22 +42,24 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
 
   sgMail.setApiKey(apiKey);
 
+  const recipientEmail = payload.to === SPECIAL_TEST_ADDRESS ? senderEmail : payload.to;
+
   const msg = {
-    to: payload.to,
+    to: recipientEmail,
     from: senderEmail, // Use the environment variable for the 'from' address
     subject: payload.subject,
     text: payload.body,
     html: payload.htmlBody || payload.body, // Fallback to text body if htmlBody is not provided
   };
 
-  console.log(`[sendEmailAction] Attempting to send email via SendGrid to: ${payload.to} with subject: "${payload.subject}"`);
+  console.log(`[sendEmailAction] Attempting to send email via SendGrid to: ${recipientEmail} with subject: "${payload.subject}"`);
 
   try {
     await sgMail.send(msg);
-    console.log(`[sendEmailAction] Email successfully sent to ${payload.to} via SendGrid.`);
+    console.log(`[sendEmailAction] Email successfully sent to ${recipientEmail} via SendGrid.`);
     return {
       success: true,
-      message: `Correo enviado exitosamente a ${payload.to}.`,
+      message: `Correo enviado exitosamente a ${recipientEmail}.`,
       details: payload,
     };
   } catch (error: any) {
@@ -76,3 +80,4 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
     };
   }
 }
+
