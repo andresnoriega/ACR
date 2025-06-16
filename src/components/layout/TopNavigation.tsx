@@ -26,10 +26,43 @@ export function TopNavigation() {
   const { currentUser, logoutUser, loadingAuth, userProfile } = useAuth();
   const { toast } = useToast();
   const [hasMounted, setHasMounted] = useState(false);
+  const [clientVisibleMenuItems, setClientVisibleMenuItems] = useState<typeof mainMenuItemsBase>([]);
 
   useEffect(() => {
     setHasMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (hasMounted) {
+      const calculatedItems = mainMenuItemsBase.filter(item => {
+        if (item.href === '/precios') {
+          return (pathname === '/login' || pathname === '/registro');
+        }
+
+        if (!item.requiresAuth) {
+          return true; 
+        }
+
+        if (loadingAuth && !currentUser) {
+            return false;
+        }
+        if (!currentUser) { 
+          return false;
+        }
+
+        if (item.allowedRoles.length === 0) {
+          return true;
+        }
+
+        if (userProfile && typeof userProfile.role === 'string' && userProfile.role.trim() !== '') {
+          return item.allowedRoles.includes(userProfile.role);
+        }
+        
+        return false;
+      });
+      setClientVisibleMenuItems(calculatedItems);
+    }
+  }, [hasMounted, currentUser, loadingAuth, userProfile, pathname]);
 
   const handleLogout = async () => {
     try {
@@ -42,62 +75,28 @@ export function TopNavigation() {
     }
   };
 
-  const visibleMenuItems = React.useMemo(() => {
-    if (!hasMounted) {
-      return []; // Return empty array if not mounted on client yet, ensures server and initial client have same list to map (none)
-    }
-
-    // Logic for when hasMounted is true
-    return mainMenuItemsBase.filter(item => {
-      if (item.href === '/precios') {
-        return (pathname === '/login' || pathname === '/registro') && !currentUser;
-      }
-
-      if (!item.requiresAuth) {
-        return true; // Public items are always visible
-      }
-
-      // Items requiring authentication
-      if (!currentUser) {
-        return false; // Not visible if no user
-      }
-
-      // Authenticated, check roles
-      if (item.allowedRoles.length === 0) {
-        // Requires auth, but no specific roles (e.g., /inicio for 'Usuario Pendiente')
-        return true;
-      }
-
-      // Requires specific roles
-      if (userProfile && typeof userProfile.role === 'string' && userProfile.role.trim() !== '') {
-        return item.allowedRoles.includes(userProfile.role);
-      }
-      
-      // User authenticated, profile exists, but role doesn't match or is empty
-      return false;
-    });
-  }, [currentUser, loadingAuth, userProfile, pathname, hasMounted]);
-
-
   return (
     <header className="bg-card border-b border-border shadow-sm no-print sticky top-0 z-40">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
+          {/* Menu Items Section */}
           <div className="flex space-x-1 sm:space-x-2 md:space-x-4 overflow-x-auto py-2">
             {hasMounted ? (
-              visibleMenuItems.map((item) => {
+              clientVisibleMenuItems.map((item) => {
                 let isActive = false;
-                // More specific active state logic
-                if (item.section === 'inicio') {
-                  isActive = pathname === '/' || pathname === '/inicio';
+                if (item.href === '/') { 
+                    isActive = pathname === '/';
+                    if (item.section === 'inicio') isActive = isActive || pathname === '/inicio';
+                } else if (item.section === 'inicio') {
+                  isActive = pathname === '/inicio' || pathname === '/';
                 } else if (item.href === '/analisis') {
-                  isActive = pathname.startsWith('/analisis'); // Catches /analisis and /analisis?id=...
+                  isActive = pathname.startsWith('/analisis'); 
                 } else if (item.href === '/config') {
                     isActive = pathname.startsWith('/config');
                 } else if (item.href === '/usuario/planes') {
                     isActive = pathname.startsWith('/usuario');
                 } else {
-                  isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href + '/'));
+                  isActive = pathname === item.href || pathname.startsWith(item.href + '/');
                 }
 
                 return (
@@ -118,10 +117,11 @@ export function TopNavigation() {
                 );
               })
             ) : (
-              null // Render nothing for menu items until mounted
+              null // Render nothing for the list until mounted
             )}
           </div>
           
+          {/* Auth Buttons Section */}
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             {hasMounted ? (
               <>
@@ -149,7 +149,7 @@ export function TopNavigation() {
                 )}
               </>
             ) : (
-                null // Render nothing for auth buttons until mounted
+              null // Render nothing for auth buttons until mounted
             )}
           </div>
         </div>
