@@ -73,11 +73,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (firebaseUser) {
       // Create a corresponding user document in Firestore
       const userDocRef = doc(db, 'users', firebaseUser.uid);
-      const newUserProfile: Omit<FullUserProfile, 'id' | 'password'> = { // Don't store password in Firestore profile
+      const newUserProfile: Omit<FullUserProfile, 'id'> = { 
         name: name,
-        email: firebaseUser.email || email, // Use firebaseUser.email if available
-        role: 'Analista', // Default role
-        permissionLevel: 'Lectura', // Default permission level
+        email: firebaseUser.email || email, 
+        role: 'Usuario Pendiente', // Default role for new users
+        permissionLevel: '', // Default empty permission level for pending users
         assignedSites: '',
         emailNotifications: false,
       };

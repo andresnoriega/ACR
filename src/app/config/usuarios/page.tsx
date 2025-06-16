@@ -25,7 +25,7 @@ interface UserConfigProfile extends FullUserProfile {
   emailNotifications: boolean;
 }
 
-const userRoles: FullUserProfile['role'][] = ['Admin', 'Analista', 'Revisor', 'Super User', ''];
+const userRoles: FullUserProfile['role'][] = ['Admin', 'Analista', 'Revisor', 'Super User', 'Usuario Pendiente', ''];
 const defaultPermissionLevel: FullUserProfile['permissionLevel'] = 'Lectura';
 
 // Define expected headers for Excel import
@@ -157,7 +157,7 @@ export default function ConfiguracionUsuariosPage() {
         name: userName.trim(),
         email: userEmail.trim(),
         role: userRole,
-        permissionLevel: defaultPermissionLevel, 
+        permissionLevel: userRole === 'Usuario Pendiente' ? '' : defaultPermissionLevel, 
         assignedSites: userAssignedSites.trim(),
         emailNotifications: userEmailNotifications,
         password: userPassword, // Save password for new user
@@ -291,7 +291,7 @@ export default function ConfiguracionUsuariosPage() {
             name,
             email,
             role,
-            permissionLevel: defaultPermissionLevel,
+            permissionLevel: role === 'Usuario Pendiente' ? '' : defaultPermissionLevel,
             assignedSites: row["Sitios Asignados"]?.trim() || '',
             emailNotifications: (row["Notificaciones Email"]?.toLowerCase() === 'sí' || row["Notificaciones Email"]?.toLowerCase() === 'si'),
           };
@@ -507,4 +507,3 @@ export default function ConfiguracionUsuariosPage() {
     </div>
   );
 }
-

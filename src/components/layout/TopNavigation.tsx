@@ -9,14 +9,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
-const mainMenuItems = [
-  { href: '/inicio', label: 'Inicio', icon: Home, section: 'inicio', requiresAuth: true },
-  { href: '/eventos', label: 'Eventos', icon: ListOrdered, section: 'eventos', requiresAuth: true },
-  { href: '/analisis', label: 'Análisis', icon: BarChart3, section: 'analisis', requiresAuth: true },
-  { href: '/informes', label: 'Informes', icon: FileText, section: 'informes', requiresAuth: true },
-  { href: '/usuario/planes', label: 'Mis Tareas', icon: UserCheck, section: 'usuario', requiresAuth: true },
-  { href: '/precios', label: 'Precios', icon: DollarSign, section: 'precios', requiresAuth: false },
-  { href: '/config', label: 'Config.', icon: SettingsIcon, section: 'config', requiresAuth: true }, // Typically requires auth
+const mainMenuItemsBase = [
+  { href: '/inicio', label: 'Inicio', icon: Home, section: 'inicio', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User', 'Usuario Pendiente'] },
+  { href: '/eventos', label: 'Eventos', icon: ListOrdered, section: 'eventos', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] },
+  { href: '/analisis', label: 'Análisis', icon: BarChart3, section: 'analisis', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Super User'] },
+  { href: '/informes', label: 'Informes', icon: FileText, section: 'informes', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] },
+  { href: '/usuario/planes', label: 'Mis Tareas', icon: UserCheck, section: 'usuario', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] },
+  { href: '/precios', label: 'Precios', icon: DollarSign, section: 'precios', requiresAuth: false, allowedRoles: [] }, // Empty allowedRoles means public or all authenticated
+  { href: '/config', label: 'Config.', icon: SettingsIcon, section: 'config', requiresAuth: true, allowedRoles: ['Admin', 'Super User'] },
 ];
 
 export function TopNavigation() {
@@ -36,7 +36,16 @@ export function TopNavigation() {
     }
   };
 
-  const visibleMenuItems = mainMenuItems.filter(item => !item.requiresAuth || (item.requiresAuth && currentUser));
+  const visibleMenuItems = mainMenuItemsBase.filter(item => {
+    if (!item.requiresAuth) return true; // Public items always visible
+    if (!currentUser) return false; // Authenticated items not visible if not logged in
+
+    // If currentUser exists, check roles
+    if (item.allowedRoles.length === 0) return true; // Authenticated item, no specific role restriction (e.g. /precios if it were auth-only)
+    if (userProfile?.role && item.allowedRoles.includes(userProfile.role)) return true;
+    
+    return false;
+  });
 
   return (
     <header className="bg-card border-b border-border shadow-sm no-print sticky top-0 z-40">
@@ -79,7 +88,7 @@ export function TopNavigation() {
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             {!loadingAuth && currentUser && userProfile && (
               <span className="text-xs text-muted-foreground hidden sm:inline">
-                {userProfile.name || currentUser.email}
+                {userProfile.name || currentUser.email} ({userProfile.role || 'Rol no definido'})
               </span>
             )}
             {!loadingAuth && (

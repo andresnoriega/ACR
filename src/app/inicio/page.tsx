@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Home, BarChart3, FileText, SettingsIcon, Zap, UserCheck, ListOrdered, Loader2 } from 'lucide-react';
+import { Home, BarChart3, FileText, SettingsIcon, Zap, UserCheck, ListOrdered, Loader2, AlertTriangle } from 'lucide-react';
 
 export default function InicioPage() {
   const router = useRouter();
@@ -36,6 +36,38 @@ export default function InicioPage() {
       </div>
     );
   }
+
+  if (userProfile?.role === 'Usuario Pendiente') {
+    return (
+      <div className="space-y-8 py-8 text-center">
+         <header className="space-y-2">
+          <div className="inline-flex items-center justify-center bg-yellow-500/10 text-yellow-600 p-3 rounded-full mb-4">
+            <AlertTriangle className="h-10 w-10" />
+          </div>
+          <h1 className="text-3xl font-bold font-headline text-yellow-700">
+            Cuenta Pendiente de Aprobación
+          </h1>
+          <p className="text-md text-muted-foreground max-w-lg mx-auto">
+            Bienvenido/a {userProfile?.name || currentUser.email}. Su cuenta ha sido registrada exitosamente pero está pendiente de activación por un Super Usuario.
+          </p>
+          <p className="text-sm text-muted-foreground max-w-lg mx-auto">
+            Una vez aprobada, tendrá acceso a todas las funcionalidades asignadas a su rol. Por favor, contacte al administrador del sistema si tiene alguna pregunta.
+          </p>
+        </header>
+        <Card className="max-w-md mx-auto shadow-md">
+            <CardContent className="pt-6">
+                 <Button onClick={() => router.push('/precios')} className="w-full mb-2">
+                    Ver Planes (Informativo)
+                </Button>
+                <Button onClick={() => router.push('/login')} variant="outline" className="w-full">
+                    Volver a Inicio de Sesión
+                </Button>
+            </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
 
   return (
     <div className="space-y-8 py-8">

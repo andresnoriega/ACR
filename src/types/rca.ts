@@ -145,11 +145,8 @@ export interface FullUserProfile {
   id: string; // This will be the Firebase Auth UID
   name: string;
   email: string; // Should match Firebase Auth email
-  role: 'Admin' | 'Analista' | 'Revisor' | 'Super User' | '';
+  role: 'Admin' | 'Analista' | 'Revisor' | 'Super User' | 'Usuario Pendiente' | '';
   permissionLevel: 'Total' | 'Lectura' | 'Limitado' | '';
-  // password field should NOT be stored here if using Firebase Auth.
-  // Firebase Auth handles passwords securely.
-  // password?: string; // REMOVE this if using Firebase Auth and storing profile in Firestore
   assignedSites?: string;
   emailNotifications?: boolean;
 }
