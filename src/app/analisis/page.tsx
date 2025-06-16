@@ -606,7 +606,58 @@ export default function RCAAnalysisPage() {
   };
 
 
+  const isStep3ValidForNavigation = useMemo(() => {
+    const describedRootCauses = identifiedRootCauses.filter(rc => rc.description && rc.description.trim() !== '');
+
+    if (identifiedRootCauses.length > 0 && describedRootCauses.length === 0) {
+      // If there's at least one RC entry, but none are described, it's invalid.
+      // Particularly, the first one must be described if it exists.
+      if (identifiedRootCauses[0] && !identifiedRootCauses[0].description?.trim()) {
+        return false;
+      }
+    } else if (identifiedRootCauses.length === 0 && plannedActions.length > 0) {
+      // If there are planned actions but no root causes at all, it's invalid.
+      return false;
+    }
+
+
+    if (plannedActions.length > 0) {
+      for (const action of plannedActions) {
+        if (!action.description.trim()) return false;
+        if (!action.relatedRootCauseIds || action.relatedRootCauseIds.length === 0) return false;
+        if (!action.responsible) return false;
+        if (!action.dueDate) return false;
+      }
+    }
+
+    if (describedRootCauses.length > 0) {
+      const allAddressedRootCauseIds = new Set<string>();
+      plannedActions.forEach(action => {
+        action.relatedRootCauseIds?.forEach(rcId => allAddressedRootCauseIds.add(rcId));
+      });
+
+      for (const rc of describedRootCauses) {
+        if (!allAddressedRootCauseIds.has(rc.id)) {
+          return false;
+        }
+      }
+    }
+    // If no described root causes and no planned actions, it's valid to proceed (though not ideal)
+    // unless there's a root cause entry that *should* be described (covered by the first check).
+    return true;
+  }, [identifiedRootCauses, plannedActions]);
+
   const handleGoToStep = (targetStep: number) => {
+    if (targetStep === 4 && step === 3 && !isStep3ValidForNavigation) {
+       toast({
+        title: "Validación Requerida en Paso 3",
+        description: "Asegúrese de que todas las causas raíz descritas estén abordadas por un plan de acción antes de continuar al paso 4.",
+        variant: "destructive",
+        duration: 7000
+      });
+      return;
+    }
+
     if (targetStep > step && targetStep > maxCompletedStep + 1 && targetStep !== 1) {
       // Allow navigating to step 1 anytime.
       // Prevent jumping ahead unless targetStep is the next logical step or a previous one.
@@ -641,6 +692,15 @@ export default function RCAAnalysisPage() {
       await handleSaveFromStep2(false); // Save silently
       saveSuccess = true; // Assume success for navigation if no critical error from save
     } else if (step === 3) {
+       if (!isStep3ValidForNavigation) {
+         toast({
+            title: "Revisión Necesaria en Paso 3",
+            description: "Verifique que todas las causas raíz descritas estén abordadas por un plan de acción completo.",
+            variant: "destructive",
+            duration: 7000
+          });
+        return; // Stay on Step 3
+      }
       saveSuccess = await handleSaveAnalysisData(false); // Use main save function, silently
     } else if (step === 4) {
         // Check if all planned actions are validated before allowing to proceed to Step 5
@@ -935,7 +995,12 @@ export default function RCAAnalysisPage() {
 
       {/* Step Navigation */}
       <div className="no-print">
-        <StepNavigation currentStep={step} onNavigate={handleGoToStep} maxCompletedStep={maxCompletedStep} />
+        <StepNavigation
+         currentStep={step}
+         onNavigate={handleGoToStep}
+         maxCompletedStep={maxCompletedStep}
+         isStep3Valid={isStep3ValidForNavigation}
+        />
         <Separator className="my-6" />
       </div>
 
