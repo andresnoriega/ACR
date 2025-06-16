@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { SettingsIcon, Users, Globe, KeyRound, ShieldCheck, Loader2 } from 'lucide-react';
+import { SettingsIcon, Users, Globe, KeyRound, ShieldCheck, Loader2, DollarSign } from 'lucide-react';
 import { PasswordPromptDialog } from '@/components/config/PasswordPromptDialog';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, where } from "firebase/firestore";
@@ -130,7 +130,24 @@ export default function ConfiguracionHubPage() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 md:col-span-2 lg:col-span-1">
+          <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+            <CardHeader>
+              <div className="flex items-center gap-3 mb-2">
+                <DollarSign className="h-7 w-7 text-primary" />
+                <CardTitle className="text-2xl">Planes y Suscripción</CardTitle>
+              </div>
+              <CardDescription>Revise los planes disponibles y gestione su suscripción actual.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/precios" passHref>
+                <Button className="w-full" size="lg">
+                  Ver Planes
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
             <CardHeader>
               <div className="flex items-center gap-3 mb-2">
                 <ShieldCheck className="h-7 w-7 text-primary" />
