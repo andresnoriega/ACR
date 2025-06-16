@@ -29,9 +29,6 @@ interface Step1InitiationProps {
   onForceEnsureEventId: () => string; 
   onSaveAnalysis: (showToast?: boolean) => Promise<boolean>;
   isSaving: boolean;
-  currentSimulatedUser: string | null;
-  onSetCurrentSimulatedUser: (userName: string | null) => void;
-  canCurrentUserReject: boolean;
   onRejectEvent: () => Promise<void>;
   isEventFinalized: boolean;
   currentEventStatus: ReportedEventStatus;
@@ -39,7 +36,6 @@ interface Step1InitiationProps {
 
 const EVENT_TYPES: EventType[] = ['Incidente', 'Accidente', 'Falla', 'No Conformidad'];
 const PRIORITIES: PriorityType[] = ['Alta', 'Media', 'Baja'];
-const NONE_USER_VALUE = "--NONE--";
 
 // --- NotifyEventCreationDialog Component ---
 interface NotifyEventCreationDialogProps {
@@ -233,9 +229,6 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   onForceEnsureEventId,
   onSaveAnalysis,
   isSaving,
-  currentSimulatedUser,
-  onSetCurrentSimulatedUser,
-  canCurrentUserReject,
   onRejectEvent,
   isEventFinalized,
   currentEventStatus,
@@ -245,12 +238,6 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   const [isNotifyDialogOpen, setIsNotifyDialogOpen] = useState(false);
   const [eventDetailsForNotification, setEventDetailsForNotification] = useState<{id: string, description: string, site: string} | null>(null);
   
-  const validUsersForSelect = useMemo(() => {
-    if (!Array.isArray(availableUsers)) return [];
-    return availableUsers.filter(user => user.name && user.name.trim() !== "");
-  }, [availableUsers]);
-
-
   useEffect(() => {
     const getTodayDateString = () => {
       const today = new Date();
@@ -304,7 +291,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   };
 
   const handleSaveEvent = async () => {
-    if (!validateFields()) { // Added validation call
+    if (!validateFields()) {
       return;
     }
     onForceEnsureEventId(); 
@@ -352,7 +339,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     onContinue();
   };
 
-  const isRejectButtonDisabled = !eventData.id || isEventFinalized || currentEventStatus === 'Rechazado' || isSaving || !canCurrentUserReject;
+  const isRejectButtonDisabled = !eventData.id || isEventFinalized || currentEventStatus === 'Rechazado' || isSaving;
 
 
   return (
@@ -363,26 +350,6 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
           <CardDescription>Información básica del evento y acciones inmediatas. ID Evento: <span className="font-semibold text-primary">{eventData.id || "Pendiente (se generará al guardar)"}</span></CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="simulatedUserStep1" className="flex items-center">
-                <UserCog className="mr-2 h-4 w-4 text-primary" />
-                Actuar como (Simulación de Usuario):
-            </Label>
-            <Select
-                value={currentSimulatedUser || NONE_USER_VALUE}
-                onValueChange={(value) => onSetCurrentSimulatedUser(value === NONE_USER_VALUE ? null : value)}
-            >
-                <SelectTrigger id="simulatedUserStep1">
-                <SelectValue placeholder="-- Seleccione un perfil --" />
-                </SelectTrigger>
-                <SelectContent>
-                <SelectItem value={NONE_USER_VALUE}>-- Ninguno --</SelectItem>
-                {validUsersForSelect.map(user => (
-                    <SelectItem key={user.id} value={user.name}>{user.name} ({user.role})</SelectItem>
-                ))}
-                </SelectContent>
-            </Select>
-          </div>
           <div className="space-y-2">
             <Label htmlFor="place">Lugar del Evento <span className="text-destructive">*</span></Label>
             <Select onValueChange={(value) => handleSelectChange(value, 'place')} value={eventData.place}>
@@ -515,8 +482,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
               !eventData.id ? "El evento debe guardarse primero para poder rechazarlo." 
               : isEventFinalized ? "El evento ya está finalizado." 
               : currentEventStatus === 'Rechazado' ? "El evento ya está rechazado." 
-              : !canCurrentUserReject ? "Solo un Administrador puede rechazar el evento."
-              : "Rechazar este reporte de evento"
+              : "Rechazar este reporte de evento" // Simplified, relies on role-based access to the config page itself.
             }
           >
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -542,3 +508,4 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     </>
   );
 };
+

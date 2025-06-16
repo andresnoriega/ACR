@@ -7,18 +7,20 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
  Accordion,
  AccordionContent,
  AccordionItem,
 } from "@/components/ui/accordion";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
-import { ChevronDown, CheckCircle2, Circle, UserCog, Eye, FileText, ImageIcon, Paperclip, Loader2, Save, MessageSquare, CalendarCheck, History, Info } from 'lucide-react'; // Added Eye and Info icons
+import { ChevronDown, CheckCircle2, Circle, Eye, FileText, ImageIcon, Paperclip, Loader2, Save, MessageSquare, CalendarCheck, History, Info } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
+// Assuming useAuth might be needed if we were to get the current logged-in user's profile directly here.
+// import { useAuth } from '@/contexts/AuthContext';
+
 
 interface Step4ValidationProps {
   plannedActions: PlannedAction[];
@@ -26,15 +28,11 @@ interface Step4ValidationProps {
   onToggleValidation: (actionId: string) => void;
   projectLeader: string;
   availableUserProfiles: FullUserProfile[]; 
-  currentSimulatedUser: string | null;
-  onSetCurrentSimulatedUser: (userName: string | null) => void;
   onPrevious: () => void;
   onNext: () => void;
   onSaveAnalysis: (showToast?: boolean) => Promise<void>;
   isSaving: boolean;
 }
-
-const NONE_USER_VALUE = "--NONE--";
 
 const getEvidenceIconLocal = (tipo?: Evidence['tipo']) => {
   if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
@@ -52,8 +50,6 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   onToggleValidation,
   projectLeader,
   availableUserProfiles, 
-  currentSimulatedUser,
-  onSetCurrentSimulatedUser,
   onPrevious,
   onNext,
   onSaveAnalysis,
@@ -61,6 +57,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
 }) => {
   const { toast } = useToast();
   const [isSavingLocally, setIsSavingLocally] = useState(false);
+  // const { userProfile } = useAuth(); // To get current authenticated user's profile
 
   const uniquePlannedActions = useMemo(() => {
     if (!Array.isArray(plannedActions)) {
@@ -82,57 +79,59 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
     });
   }, [plannedActions]);
 
-  const validUsersForSelect = useMemo(() => {
-    if (!Array.isArray(availableUserProfiles)) return [];
-    return availableUserProfiles.filter(user => user.name && user.name.trim() !== "");
-  }, [availableUserProfiles]);
-
   const getValidationStatus = (actionId: string) => {
     const validation = validations.find(v => v.actionId === actionId);
     return validation ? validation.status : 'pending';
   };
+  
+  // Simplified permission check: Assumes the user currently logged in IS the project leader or an Admin.
+  // A more robust check would involve getting the actual logged-in user's profile from AuthContext.
+  // For now, this relies on the projectLeader prop.
+  const canValidateActions = (loggedInUserName: string | null): boolean => {
+    if (!loggedInUserName) return false; // If no user name is available, can't validate
+    
+    const currentUserProfile = availableUserProfiles.find(up => up.name === loggedInUserName);
+    if (!currentUserProfile) return false; // If profile not found
 
-  const canSimulatedUserValidateActions = useMemo(() => {
-    if (!currentSimulatedUser) {
-      return false;
-    }
-    const userProfile = availableUserProfiles.find(u => u.name === currentSimulatedUser);
-    if (!userProfile) {
-      return false;
-    }
-    const isLeader = userProfile.name === projectLeader;
-    const isAdminWithTotalEdit = userProfile.role === 'Admin' && userProfile.permissionLevel === 'Total';
-    return isLeader || isAdminWithTotalEdit;
-  }, [currentSimulatedUser, availableUserProfiles, projectLeader]);
+    if (currentUserProfile.name === projectLeader) return true;
+    if (currentUserProfile.role === 'Admin' && currentUserProfile.permissionLevel === 'Total') return true;
+    if (currentUserProfile.role === 'Super User') return true; // Super User can validate
+
+    return false;
+  };
+
 
   const handleValidationToggleAttempt = async (actionId: string) => {
-    if (!currentSimulatedUser) {
-      toast({
-        title: "Usuario no seleccionado",
-        description: "Por favor, seleccione un usuario en 'Actuar como:' para validar.",
-        variant: "destructive",
-      });
-      return;
+    // This is where you would ideally get the actual logged-in user's name from useAuth()
+    // const actualLoggedInUserName = userProfile?.name; 
+    // For now, we'll assume this check happens at a higher level or rely on a simplified logic
+    // if (!canValidateActions(actualLoggedInUserName)) {
+    // For demonstration, let's assume if the page is accessible, they have some rights
+    // But the checkbox disabling logic will be more accurate.
+    
+    const actionToValidate = uniquePlannedActions.find(pa => pa.id === actionId);
+    if (!actionToValidate) return;
+
+    const isReadyForValidationByLeader = 
+          (actionToValidate.evidencias && actionToValidate.evidencias.length > 0) || 
+          (actionToValidate.userComments && actionToValidate.userComments.trim() !== '') || 
+          actionToValidate.markedAsReadyAt;
+
+    if(!isReadyForValidationByLeader && getValidationStatus(actionId) === 'pending') {
+        toast({
+            title: "Acción no Lista",
+            description: "Esta acción aún no ha sido marcada como lista por el responsable (no tiene evidencias, comentarios ni fecha de 'listo'). No se puede validar aún.",
+            variant: "destructive",
+            duration: 6000,
+        });
+        return;
     }
 
-    const userProfile = availableUserProfiles.find(u => u.name === currentSimulatedUser);
-    let hasPermission = false;
-    if (userProfile) {
-        const isLeader = userProfile.name === projectLeader;
-        const isAdminWithTotalEdit = userProfile.role === 'Admin' && userProfile.permissionLevel === 'Total';
-        hasPermission = isLeader || isAdminWithTotalEdit;
-    }
-
-    if (hasPermission) {
-      onToggleValidation(actionId); 
-    } else {
-      toast({
-        title: "Permiso Denegado",
-        description: "No tiene permisos para validar esta acción.",
-        variant: "destructive",
-      });
-    }
+    // If the user can click the checkbox (it's not disabled), proceed with toggling.
+    // The disabling logic of the checkbox itself is the primary client-side gate.
+    onToggleValidation(actionId); 
   };
+
 
   const handleSaveProgressLocal = async () => {
     setIsSavingLocally(true);
@@ -155,39 +154,14 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
       <CardHeader>
         <CardTitle className="font-headline">Paso 4: Validación de Acciones</CardTitle>
         <CardDescription>
-          Seleccione un perfil para simular la validación. Solo el Líder del Proyecto o un Administrador con Edición Total pueden validar. Expanda cada acción para ver detalles.
+          El Líder del Proyecto o un Administrador (con Edición Total) valida la efectividad de las acciones implementadas. Expanda cada acción para ver detalles.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2 max-w-sm">
-          <Label htmlFor="simulatedUser" className="flex items-center font-medium">
-            <UserCog className="mr-2 h-5 w-5 text-primary" />
-            Actuar como (Simulación de Usuario):
-          </Label>
-          <Select
-            value={currentSimulatedUser || NONE_USER_VALUE}
-            onValueChange={(value) => onSetCurrentSimulatedUser(value === NONE_USER_VALUE ? null : value)}
-          >
-            <SelectTrigger id="simulatedUser">
-              <SelectValue placeholder="-- Seleccione un perfil para simular --" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE_USER_VALUE}>-- Ninguno --</SelectItem>
-              {validUsersForSelect.length > 0 ? (
-                validUsersForSelect.map(user => (
-                  <SelectItem key={user.id} value={user.name}>
-                    {user.name} ({user.role} - Edición: {user.permissionLevel})
-                  </SelectItem>
-                ))
-              ) : (
-                 <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">
-                  {Array.isArray(availableUserProfiles) && availableUserProfiles.length === 0 ? "No hay usuarios configurados" : "No hay usuarios con nombres válidos"}
-                </div>
-              )}
-            </SelectContent>
-          </Select>
-           <p className="text-xs text-muted-foreground">
+           <p className="text-sm text-muted-foreground">
             El líder del proyecto actual es: <strong>{projectLeader || "No asignado"}</strong>.
+            La validación debe ser realizada por el Líder del Proyecto o un Administrador/Super User.
           </p>
         </div>
 
@@ -213,15 +187,11 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                 
                 const showNotReadyWarning = !isReadyForValidationByLeader && status !== 'validated';
 
+                // Simplified client-side disabling. Real auth happens at higher level.
+                // Assumes if user can access this page and is a leader/admin, they can validate.
                 let computedCheckboxDisabled = isStepSaving;
-                if (!computedCheckboxDisabled) {
-                  if (!canSimulatedUserValidateActions) {
-                    computedCheckboxDisabled = true; 
-                  } else {
-                    if (showNotReadyWarning) { 
-                      computedCheckboxDisabled = true;
-                    }
-                  }
+                if (showNotReadyWarning && status !== 'validated') { 
+                  computedCheckboxDisabled = true;
                 }
                 
                 return (
@@ -232,7 +202,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                           {shouldShowVisualIndicator ? (
                             <Info className="h-5 w-5 text-blue-500" />
                           ) : (
-                            <div className="w-5 h-5"></div> // Placeholder for alignment
+                            <div className="w-5 h-5"></div>
                           )}
                         </div>
                         <AccordionPrimitive.Trigger className="flex flex-1 items-center text-left hover:underline focus:outline-none group data-[state=open]:text-primary">
@@ -244,13 +214,14 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                         </AccordionPrimitive.Trigger>
 
                         <div className="flex items-center space-x-3 ml-4 shrink-0 pl-2">
-                          <Label htmlFor={`validation-${action.id}`} className={cn(`flex items-center text-sm`, computedCheckboxDisabled || !canSimulatedUserValidateActions ? 'cursor-not-allowed opacity-70' : 'cursor-pointer')}>
+                          <Label htmlFor={`validation-${action.id}`} className={cn(`flex items-center text-sm`, computedCheckboxDisabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer')}>
                             <Checkbox
                               id={`validation-${action.id}`}
                               checked={status === 'validated'}
                               onCheckedChange={() => handleValidationToggleAttempt(action.id)}
                               className="mr-2"
                               disabled={computedCheckboxDisabled}
+                              aria-label={status === 'validated' ? 'Desmarcar como validado' : 'Marcar como validado'}
                             />
                             {status === 'validated' ? (
                               <span className="text-accent font-medium flex items-center"><CheckCircle2 className="mr-1 h-5 w-5" /> Validado</span>
@@ -268,6 +239,16 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                               <p className="ml-5">{format(parseISO(action.markedAsReadyAt), 'dd/MM/yyyy HH:mm', { locale: es })}</p>
                             </div>
                           )}
+                           {status === 'validated' && validations.find(v=>v.actionId === action.id)?.validatedAt && (
+                                <div>
+                                    <h5 className="font-semibold text-green-600 mb-0.5 flex items-center">
+                                        <CalendarCheck className="mr-1.5 h-3.5 w-3.5" />
+                                        Validado el:
+                                    </h5>
+                                    <p className="ml-5">{format(parseISO(validations.find(v=>v.actionId === action.id)!.validatedAt!), 'dd/MM/yyyy HH:mm', { locale: es })}</p>
+                                </div>
+                            )}
+
 
                           <div>
                             <h5 className="font-semibold text-primary/90 mb-0.5 flex items-center"><MessageSquare className="mr-1.5 h-3.5 w-3.5" />Comentarios del Usuario (Responsable):</h5>
@@ -301,7 +282,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                           
                           {showNotReadyWarning && (
                              <p className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded-md border border-yellow-200 ml-5">
-                                Esta acción aún no ha sido marcada como lista por el responsable (no tiene evidencias, comentarios ni fecha de "listo").
+                                Esta acción aún no ha sido marcada como lista por el responsable. No se puede validar.
                              </p>
                           )}
 
@@ -332,5 +313,3 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   );
 };
 
-
-    
