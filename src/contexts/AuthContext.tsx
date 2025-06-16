@@ -17,7 +17,7 @@ import { sanitizeForFirestore } from '@/lib/utils';
 interface AuthContextType {
   currentUser: FirebaseUser | null;
   loadingAuth: boolean;
-  userProfile: FullUserProfile | null; // Added to store Firestore user profile
+  userProfile: FullUserProfile | null; 
   loginWithEmail: (email: string, pass: string) => Promise<UserCredential>;
   registerWithEmail: (email: string, pass: string, name: string) => Promise<UserCredential>;
   logoutUser: () => Promise<void>;
@@ -44,18 +44,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('[AuthContext] onAuthStateChanged triggered. Firebase user:', user?.uid || 'null');
       setCurrentUser(user);
       if (user) {
-        // Fetch user profile from Firestore
         const userDocRef = doc(db, 'users', user.uid);
-        console.log(`[AuthContext] Attempting to fetch Firestore profile for UID: ${user.uid}`);
         try {
           const docSnap = await getDoc(userDocRef);
           if (docSnap.exists()) {
             const profileData = { id: docSnap.id, ...docSnap.data() } as FullUserProfile;
             setUserProfile(profileData);
-            console.log('[AuthContext] Firestore profile loaded:', profileData);
           } else {
             console.warn(`[AuthContext] No Firestore profile found for user ${user.uid}. User may need to complete profile or be assigned one.`);
             setUserProfile(null);
@@ -66,10 +62,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       } else {
         setUserProfile(null);
-        console.log('[AuthContext] No Firebase user, so Firestore profile set to null.');
       }
       setLoadingAuth(false);
-      console.log('[AuthContext] loadingAuth set to false.');
     });
     return () => unsubscribe();
   }, []);
@@ -82,7 +76,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     const firebaseUser = userCredential.user;
     if (firebaseUser) {
-      // Create a corresponding user document in Firestore
       const userDocRef = doc(db, 'users', firebaseUser.uid);
       const newUserProfileData: Omit<FullUserProfile, 'id'> = { 
         name: name,
@@ -93,9 +86,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         emailNotifications: false,
       };
       await setDoc(userDocRef, sanitizeForFirestore(newUserProfileData));
-      // Set userProfile state immediately after registration to avoid delay
       setUserProfile({ id: firebaseUser.uid, ...newUserProfileData } as FullUserProfile);
-      console.log('[AuthContext] New user registered and Firestore profile created:', { uid: firebaseUser.uid, ...newUserProfileData });
     }
     return userCredential;
   };
