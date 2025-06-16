@@ -32,11 +32,22 @@ export function TopNavigation() {
   }, []);
 
   const visibleMenuItems = useMemo(() => {
-    if (!hasMounted) {
-      return []; // Return empty array if not mounted (SSR or initial client render)
+    // On the server, or if not mounted yet, or if auth is loading,
+    // render a minimal, predictable set of menu items.
+    // This should match what the server would output for an unauthenticated user
+    // or a generic state.
+    if (!hasMounted || loadingAuth) {
+      return mainMenuItemsBase.filter(item => {
+        // Special handling for /precios during initial render/SSR
+        if (item.href === '/precios') {
+          return (pathname === '/login' || pathname === '/registro');
+        }
+        // Only show non-auth-required items
+        return !item.requiresAuth;
+      });
     }
 
-    // Actual filtering logic, runs only on client after mount
+    // Client-side, after mount and auth has loaded: calculate full menu visibility
     return mainMenuItemsBase.filter(item => {
       if (item.href === '/precios') {
         // Show "Precios" only on /login or /registro pages
@@ -47,26 +58,21 @@ export function TopNavigation() {
         return true;
       }
 
-      // For authenticated routes, wait for auth to load
-      if (loadingAuth) {
-        return false; // Don't show auth-required items while auth is loading
-      }
-      if (!currentUser) {
-        return false; // Not logged in
+      if (!currentUser) { // No user logged in (auth loaded, but no user)
+        return false;
       }
 
-      // If logged in, check roles
-      if (item.allowedRoles.length === 0) {
-        return true; // No specific roles required, just auth
+      // User is logged in, check roles
+      if (item.allowedRoles.length === 0) { // No specific roles required, just auth
+        return true;
       }
-
       if (userProfile && typeof userProfile.role === 'string' && userProfile.role.trim() !== '') {
         return item.allowedRoles.includes(userProfile.role);
       }
       
       return false; // Role not matched or profile not loaded with role
     });
-  }, [hasMounted, currentUser, loadingAuth, userProfile, pathname]);
+  }, [hasMounted, pathname, currentUser, loadingAuth, userProfile]);
 
   const handleLogout = async () => {
     try {
@@ -85,75 +91,76 @@ export function TopNavigation() {
         <div className="flex items-center justify-between h-16">
           {/* Menu Items Section */}
           <div className="flex space-x-1 sm:space-x-2 md:space-x-4 overflow-x-auto py-2">
-            {hasMounted ? (
-              visibleMenuItems.map((item) => {
-                let isActive = false;
-                if (item.href === '/') { 
-                    isActive = pathname === '/';
-                    if (item.section === 'inicio') isActive = isActive || pathname === '/inicio';
-                } else if (item.section === 'inicio') {
-                  isActive = pathname === '/inicio' || pathname === '/';
-                } else if (item.href === '/analisis') {
-                  isActive = pathname.startsWith('/analisis'); 
-                } else if (item.href === '/config') {
-                    isActive = pathname.startsWith('/config');
-                } else if (item.href === '/usuario/planes') {
-                    isActive = pathname.startsWith('/usuario');
-                } else {
-                  isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-                }
+            {/* 
+              visibleMenuItems is now calculated to be SSR-safe.
+              It will be minimal on server/initial client, and full after mount/auth.
+            */}
+            {visibleMenuItems.map((item) => {
+              let isActive = false;
+              // isActive logic needs pathname, which is available.
+              if (item.href === '/') { 
+                  isActive = pathname === '/';
+                  if (item.section === 'inicio') isActive = isActive || pathname === '/inicio';
+              } else if (item.section === 'inicio') {
+                isActive = pathname === '/inicio' || pathname === '/';
+              } else if (item.href === '/analisis') {
+                isActive = pathname.startsWith('/analisis'); 
+              } else if (item.href === '/config') {
+                  isActive = pathname.startsWith('/config');
+              } else if (item.href === '/usuario/planes') {
+                  isActive = pathname.startsWith('/usuario');
+              } else {
+                isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+              }
 
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      'px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2 transition-colors duration-150 ease-in-out shrink-0',
-                      isActive
-                        ? 'bg-primary text-primary-foreground shadow-md'
-                        : 'text-foreground hover:bg-accent hover:text-accent-foreground'
-                    )}
-                    aria-current={isActive ? 'page' : undefined}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    {item.label}
-                  </Link>
-                );
-              })
-            ) : (
-              null // Render nothing for the list until mounted
-            )}
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    'px-2 sm:px-3 py-2 rounded-md text-xs sm:text-sm font-medium flex items-center gap-1 sm:gap-2 transition-colors duration-150 ease-in-out shrink-0',
+                    isActive
+                      ? 'bg-primary text-primary-foreground shadow-md'
+                      : 'text-foreground hover:bg-accent hover:text-accent-foreground'
+                  )}
+                  aria-current={isActive ? 'page' : undefined}
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </Link>
+              );
+            })}
           </div>
           
           {/* Auth Buttons Section */}
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-            {hasMounted ? (
+            {hasMounted && !loadingAuth ? (
               <>
-                {!loadingAuth && currentUser && userProfile && (
+                {currentUser && userProfile && (
                   <span className="text-xs text-muted-foreground hidden sm:inline">
                     {userProfile.name || currentUser.email} ({userProfile.role || 'Rol no definido'})
                   </span>
                 )}
-                {!loadingAuth && (
-                  currentUser ? (
-                    <Button onClick={handleLogout} variant="outline" size="sm">
-                      <LogOut className="h-4 w-4 mr-0 sm:mr-2" />
-                      <span className="hidden sm:inline">Cerrar Sesión</span>
+                {currentUser ? (
+                  <Button onClick={handleLogout} variant="outline" size="sm">
+                    <LogOut className="h-4 w-4 mr-0 sm:mr-2" />
+                    <span className="hidden sm:inline">Cerrar Sesión</span>
+                  </Button>
+                ) : (
+                  (pathname !== '/login' && pathname !== '/registro') && (
+                    <Button asChild variant="default" size="sm">
+                      <Link href="/login">
+                        <LogInIcon className="h-4 w-4 mr-0 sm:mr-2" />
+                        <span className="hidden sm:inline">Iniciar Sesión</span>
+                      </Link>
                     </Button>
-                  ) : (
-                    pathname !== '/login' && pathname !== '/registro' && (
-                      <Button asChild variant="default" size="sm">
-                        <Link href="/login">
-                          <LogInIcon className="h-4 w-4 mr-0 sm:mr-2" />
-                          <span className="hidden sm:inline">Iniciar Sesión</span>
-                        </Link>
-                      </Button>
-                    )
                   )
                 )}
               </>
             ) : (
-              null // Render nothing for auth buttons until mounted
+              // Placeholder for auth buttons area to maintain layout stability
+              // Ensure this placeholder is simple and static.
+              <div className="h-9 w-28"></div> 
             )}
           </div>
         </div>
