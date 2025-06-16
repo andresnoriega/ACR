@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import React, { useState, useEffect } from 'react'; 
+import React, { useState, useEffect, useMemo } from 'react';
 
 const mainMenuItemsBase = [
   { href: '/inicio', label: 'Inicio', icon: Home, section: 'inicio', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User', 'Usuario Pendiente'] },
@@ -26,42 +26,46 @@ export function TopNavigation() {
   const { currentUser, logoutUser, loadingAuth, userProfile } = useAuth();
   const { toast } = useToast();
   const [hasMounted, setHasMounted] = useState(false);
-  const [clientVisibleMenuItems, setClientVisibleMenuItems] = useState<typeof mainMenuItemsBase>([]);
 
   useEffect(() => {
     setHasMounted(true);
   }, []);
 
-  useEffect(() => {
-    if (hasMounted) {
-      const calculatedItems = mainMenuItemsBase.filter(item => {
-        if (item.href === '/precios') {
-          return (pathname === '/login' || pathname === '/registro');
-        }
-
-        if (!item.requiresAuth) {
-          return true; 
-        }
-
-        if (loadingAuth && !currentUser) {
-            return false;
-        }
-        if (!currentUser) { 
-          return false;
-        }
-
-        if (item.allowedRoles.length === 0) {
-          return true;
-        }
-
-        if (userProfile && typeof userProfile.role === 'string' && userProfile.role.trim() !== '') {
-          return item.allowedRoles.includes(userProfile.role);
-        }
-        
-        return false;
-      });
-      setClientVisibleMenuItems(calculatedItems);
+  const visibleMenuItems = useMemo(() => {
+    if (!hasMounted) {
+      return []; // Return empty array if not mounted (SSR or initial client render)
     }
+
+    // Actual filtering logic, runs only on client after mount
+    return mainMenuItemsBase.filter(item => {
+      if (item.href === '/precios') {
+        // Show "Precios" only on /login or /registro pages
+        return (pathname === '/login' || pathname === '/registro');
+      }
+
+      if (!item.requiresAuth) {
+        return true;
+      }
+
+      // For authenticated routes, wait for auth to load
+      if (loadingAuth) {
+        return false; // Don't show auth-required items while auth is loading
+      }
+      if (!currentUser) {
+        return false; // Not logged in
+      }
+
+      // If logged in, check roles
+      if (item.allowedRoles.length === 0) {
+        return true; // No specific roles required, just auth
+      }
+
+      if (userProfile && typeof userProfile.role === 'string' && userProfile.role.trim() !== '') {
+        return item.allowedRoles.includes(userProfile.role);
+      }
+      
+      return false; // Role not matched or profile not loaded with role
+    });
   }, [hasMounted, currentUser, loadingAuth, userProfile, pathname]);
 
   const handleLogout = async () => {
@@ -82,7 +86,7 @@ export function TopNavigation() {
           {/* Menu Items Section */}
           <div className="flex space-x-1 sm:space-x-2 md:space-x-4 overflow-x-auto py-2">
             {hasMounted ? (
-              clientVisibleMenuItems.map((item) => {
+              visibleMenuItems.map((item) => {
                 let isActive = false;
                 if (item.href === '/') { 
                     isActive = pathname === '/';
