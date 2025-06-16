@@ -1,10 +1,42 @@
 
+'use client';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Home, BarChart3, FileText, SettingsIcon, Zap, UserCheck, ListOrdered } from 'lucide-react';
+import { Home, BarChart3, FileText, SettingsIcon, Zap, UserCheck, ListOrdered, Loader2 } from 'lucide-react';
 
 export default function InicioPage() {
+  const router = useRouter();
+  const { currentUser, loadingAuth, userProfile } = useAuth();
+
+  useEffect(() => {
+    if (!loadingAuth && !currentUser) {
+      router.replace('/login');
+    }
+  }, [currentUser, loadingAuth, router]);
+
+  if (loadingAuth) {
+    return (
+      <div className="flex flex-col justify-center items-center min-h-[calc(100vh-10rem)] text-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-lg text-muted-foreground">Cargando datos de usuario...</p>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    // This case should be handled by the useEffect redirect, but as a fallback:
+    return (
+      <div className="flex flex-col justify-center items-center min-h-[calc(100vh-10rem)] text-center">
+        <p className="text-lg text-muted-foreground mb-4">Debe iniciar sesión para ver esta página.</p>
+        <Button asChild><Link href="/login">Ir a Login</Link></Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 py-8">
       <header className="text-center space-y-2">
@@ -12,7 +44,7 @@ export default function InicioPage() {
           <Zap className="h-10 w-10" />
         </div>
         <h1 className="text-4xl font-bold font-headline text-primary">
-          Bienvenido a RCA Assistant
+          Bienvenido a RCA Assistant, {userProfile?.name || currentUser.email}!
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
           Su herramienta intuitiva y eficiente para realizar Análisis de Causa Raíz (RCA) y mejorar continuamente sus procesos.

@@ -1,7 +1,7 @@
 
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps, getApp, FirebaseError } from "firebase/app"; // Added FirebaseError
-import { getAuth } from "firebase/auth";
+import { getAuth, type User as FirebaseUser } from "firebase/auth"; // Import FirebaseUser type
 import { getFirestore } from "firebase/firestore";
 
 console.log("[Firebase] Initializing Firebase app (src/lib/firebase.ts)...");
@@ -82,4 +82,4 @@ console.log("[Firebase] Firebase module (src/lib/firebase.ts) fully processed.")
 if (app) console.log("[Firebase] App instance name:", app.name);
 
 
-export { app, auth, db };
+export { app, auth, db, type FirebaseUser }; // Export FirebaseUser type

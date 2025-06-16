@@ -1,3 +1,4 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
@@ -18,15 +19,16 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  async redirects() {
-    return [
-      {
-        source: '/',
-        destination: '/inicio',
-        permanent: true,
-      },
-    ]
-  },
+  // Remove the root redirect, AuthContext will handle it.
+  // async redirects() {
+  //   return [
+  //     {
+  //       source: '/',
+  //       destination: '/inicio',
+  //       permanent: true,
+  //     },
+  //   ]
+  // },
 };
 
 export default nextConfig;
