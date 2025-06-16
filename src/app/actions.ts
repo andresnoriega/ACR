@@ -1,6 +1,8 @@
 
 'use server';
 
+import sgMail from '@sendgrid/mail';
+
 interface EmailPayload {
   to: string;
   subject: string;
@@ -9,38 +11,68 @@ interface EmailPayload {
 }
 
 /**
- * Simulates sending an email by logging the details to the server console.
- * In a production environment, this action would integrate with an email service provider.
+ * Sends an email using SendGrid.
+ * Requires SENDGRID_API_KEY and SENDER_EMAIL_ADDRESS environment variables to be set.
  * @param payload - The email details.
  * @returns Promise<object> - A promise that resolves with a success or error message.
  */
 export async function sendEmailAction(payload: EmailPayload): Promise<{ success: boolean; message: string; details?: EmailPayload }> {
-  console.log("--- Simulating Email Send ---");
-  console.log("To:", payload.to);
-  console.log("Subject:", payload.subject);
-  console.log("Body (text):", payload.body);
-  if (payload.htmlBody) {
-    console.log("Body (HTML):", payload.htmlBody.substring(0, 200) + (payload.htmlBody.length > 200 ? "..." : ""));
-  }
-  console.log("-----------------------------");
+  const apiKey = process.env.SENDGRID_API_KEY;
+  const senderEmail = process.env.SENDER_EMAIL_ADDRESS;
 
-  // Simulate a network delay or processing time
-  await new Promise(resolve => setTimeout(resolve, 500));
-
-  // In a real scenario, you'd check the response from your email provider
-  const simulatedSuccess = true; 
-
-  if (simulatedSuccess) {
-    return { 
-      success: true, 
-      message: `Email simulation: Successfully processed email to ${payload.to} with subject "${payload.subject}".`,
-      details: payload 
+  if (!apiKey) {
+    console.error("[sendEmailAction] SendGrid API Key (SENDGRID_API_KEY) is not set in environment variables.");
+    return {
+      success: false,
+      message: "Error de configuración: La API Key de SendGrid no está configurada. El correo no fue enviado.",
+      details: payload,
     };
-  } else {
-    return { 
-      success: false, 
-      message: `Email simulation: Failed to process email to ${payload.to}.`,
-      details: payload 
+  }
+
+  if (!senderEmail) {
+    console.error("[sendEmailAction] Sender email address (SENDER_EMAIL_ADDRESS) is not set in environment variables.");
+    return {
+      success: false,
+      message: "Error de configuración: La dirección de correo del remitente no está configurada. El correo no fue enviado.",
+      details: payload,
+    };
+  }
+
+  sgMail.setApiKey(apiKey);
+
+  const msg = {
+    to: payload.to,
+    from: senderEmail, // Use the environment variable for the 'from' address
+    subject: payload.subject,
+    text: payload.body,
+    html: payload.htmlBody || payload.body, // Fallback to text body if htmlBody is not provided
+  };
+
+  console.log(`[sendEmailAction] Attempting to send email via SendGrid to: ${payload.to} with subject: "${payload.subject}"`);
+
+  try {
+    await sgMail.send(msg);
+    console.log(`[sendEmailAction] Email successfully sent to ${payload.to} via SendGrid.`);
+    return {
+      success: true,
+      message: `Correo enviado exitosamente a ${payload.to}.`,
+      details: payload,
+    };
+  } catch (error: any) {
+    console.error("[sendEmailAction] Error sending email via SendGrid:", error);
+    let errorMessage = "Ocurrió un error al enviar el correo.";
+    // Check if error.response.body.errors exists and is an array before mapping
+    if (error.response && error.response.body && Array.isArray(error.response.body.errors)) {
+      errorMessage = error.response.body.errors.map((e: { message: string }) => e.message).join(', ');
+      console.error("[sendEmailAction] SendGrid API Error Details:", JSON.stringify(error.response.body.errors));
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    return {
+      success: false,
+      message: `Error al enviar correo: ${errorMessage}`,
+      details: payload,
     };
   }
 }
