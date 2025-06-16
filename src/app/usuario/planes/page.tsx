@@ -210,7 +210,6 @@ export default function UserActionPlansPage() {
           return valA - valB;
         }
         
-        // Fallback for undefined (e.g. validatorName) or other types
         const strA = String(valA ?? '').toLowerCase();
         const strB = String(valB ?? '').toLowerCase();
         if (strA < strB) return -1;
@@ -351,37 +350,6 @@ export default function UserActionPlansPage() {
     }
   };
 
-
-  const handleUploadEvidence = async () => {
-    if (!selectedPlan || !fileToUpload) {
-      toast({ title: "Error", description: "Seleccione un plan y un archivo.", variant: "destructive" });
-      return;
-    }
-
-    const newEvidencePayload: FirestoreEvidence = {
-      id: `ev-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      nombre: fileToUpload.name,
-      tipo: (fileToUpload.name.split('.').pop()?.toLowerCase() as FirestoreEvidence['tipo']) || 'other',
-    };
-    const trimmedComment = evidenceComment.trim();
-    if (trimmedComment) {
-      newEvidencePayload.comment = trimmedComment;
-    }
-
-    const currentEvidences = selectedPlan.evidencias || [];
-    const success = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, {
-      evidencias: [...currentEvidences, newEvidencePayload]
-    });
-
-    if (success) {
-      toast({ title: "Evidencia (Simulación)", description: `Archivo "${fileToUpload.name}" ${trimmedComment ? `con comentario "${trimmedComment.substring(0,20)}..." ` : ""}registrado para "${selectedPlan.tituloDetalle}". El estado de la tarea puede haber cambiado a 'En Validación'.` });
-      setFileToUpload(null);
-      setEvidenceComment('');
-      const fileInput = document.getElementById('evidence-file-input') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
-    }
-  };
-
   const handleRemoveEvidence = async (evidenceIdToRemove: string) => {
     if (!selectedPlan) return;
 
@@ -395,20 +363,6 @@ export default function UserActionPlansPage() {
     }
   };
 
-
-  const handleUserCommentsChangeAndSave = async () => {
-    if (!selectedPlan || !selectedPlan.userComments?.trim()) {
-      toast({ title: "Sin Comentarios", description: "No hay comentarios para guardar o están vacíos.", variant: "default" });
-      return;
-    }
-    const success = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, {
-      userComments: selectedPlan.userComments
-    });
-    if (success) {
-      toast({ title: "Comentarios Guardados", description: `Comentarios para "${selectedPlan.tituloDetalle}" guardados.` });
-    }
-  };
-
   const handleSignalTaskReadyForValidation = async () => {
     if (!selectedPlan) return;
     if (selectedPlan.estado === 'Completado') {
@@ -416,47 +370,77 @@ export default function UserActionPlansPage() {
       return;
     }
     setIsUpdatingAction(true);
-
-    let commentsToSave = selectedPlan.userComments || "";
+  
     const currentDateISO = new Date().toISOString();
     const formattedCurrentDate = format(parseISO(currentDateISO), 'dd/MM/yyyy HH:mm', { locale: es });
-
-
-    if (selectedPlan.estado === 'Pendiente' && !commentsToSave.trim() && (!selectedPlan.evidencias || selectedPlan.evidencias.length === 0)) {
-      commentsToSave = (commentsToSave ? commentsToSave + "\n\n" : "") + `[Sistema] Tarea marcada como lista para validación por ${selectedSimulatedUserName || 'el responsable'} el ${formattedCurrentDate}.`;
-    }
-
-    const updatesForAction: Partial<FirestorePlannedAction> = {
-      userComments: commentsToSave,
+  
+    let updatesForAction: Partial<FirestorePlannedAction> = {
       markedAsReadyAt: currentDateISO,
     };
-
+  
+    // 1. Incorporar lógica de subida de evidencia
+    let newEvidencesArray = selectedPlan.evidencias || [];
+    if (fileToUpload) {
+      const newEvidencePayload: FirestoreEvidence = {
+        id: `ev-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        nombre: fileToUpload.name,
+        tipo: (fileToUpload.name.split('.').pop()?.toLowerCase() as FirestoreEvidence['tipo']) || 'other',
+      };
+      const trimmedEvidenceComment = evidenceComment.trim();
+      if (trimmedEvidenceComment) {
+        newEvidencePayload.comment = trimmedEvidenceComment;
+      }
+      newEvidencesArray = [...newEvidencesArray, newEvidencePayload];
+      updatesForAction.evidencias = newEvidencesArray;
+    }
+  
+    // 2. Incorporar guardado de comentarios del usuario
+    let commentsToSave = selectedPlan.userComments || "";
+    if (selectedPlan.userComments && selectedPlan.userComments.trim()) {
+        updatesForAction.userComments = selectedPlan.userComments.trim();
+    } else {
+      // Si no hay comentarios del usuario y es la primera vez que se marca lista, o no hay evidencias.
+      if (selectedPlan.estado === 'Pendiente' && (!newEvidencesArray || newEvidencesArray.length === 0)) {
+         commentsToSave = (commentsToSave ? commentsToSave + "\n\n" : "") + `[Sistema] Tarea marcada como lista para validación por ${selectedSimulatedUserName || 'el responsable'} el ${formattedCurrentDate}.`;
+         if (fileToUpload) commentsToSave += ` Se adjuntó evidencia: ${fileToUpload.name}.`;
+         updatesForAction.userComments = commentsToSave;
+      } else if (fileToUpload) { // Si hay archivo pero no comentarios, añadir nota sobre el archivo
+         commentsToSave = (commentsToSave ? commentsToSave + "\n\n" : "") + `[Sistema] Evidencia '${fileToUpload.name}' adjuntada por ${selectedSimulatedUserName || 'el responsable'} el ${formattedCurrentDate}.`;
+         updatesForAction.userComments = commentsToSave;
+      }
+    }
+      
     const updateSuccess = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, updatesForAction);
-
+  
     if (updateSuccess) {
       let notificationMessage = `La tarea "${selectedPlan.accionResumen || selectedPlan.descripcionDetallada.substring(0,30)+"..."}" se ha actualizado y está lista para validación.`;
+      if (fileToUpload) notificationMessage += ` Evidencia "${fileToUpload.name}" registrada.`;
+      if (selectedPlan.userComments && selectedPlan.userComments.trim()) notificationMessage += ` Comentarios guardados.`;
       
+      setFileToUpload(null);
+      setEvidenceComment('');
+      const fileInput = document.getElementById('evidence-file-input') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+  
       const validatorProfile = availableUsers.find(u => u.name === selectedPlan.validatorName);
       if (validatorProfile && validatorProfile.email) {
         const emailSubject = `Acción Lista para Validación: ${selectedPlan.accionResumen || selectedPlan.descripcionDetallada.substring(0,30)+"..."} (RCA: ${selectedPlan.codigoRCA})`;
         
         let evidencesList = "No se adjuntaron evidencias.";
-        const currentActionData = allRcaDocuments.find(d => d.eventData.id === selectedPlan._originalRcaDocId)?.plannedActions.find(pa => pa.id === selectedPlan._originalActionId);
-
-        if (currentActionData?.evidencias && currentActionData.evidencias.length > 0) {
-            evidencesList = currentActionData.evidencias.map(ev => 
+        if (newEvidencesArray.length > 0) {
+            evidencesList = newEvidencesArray.map(ev => 
                 `- ${ev.nombre} (${ev.tipo || 'desconocido'}): ${ev.comment || "Sin comentario"}`
             ).join("\n");
         }
-
-        const emailBody = `Estimado/a ${validatorProfile.name},\n\nEl usuario ${selectedSimulatedUserName || 'el responsable'} ha marcado la siguiente acción como lista para su validación:\n\nEvento RCA: ${selectedPlan.tituloDetalle} (ID: ${selectedPlan.codigoRCA})\nAcción Planificada: ${selectedPlan.descripcionDetallada}\nFecha de Cierre (Usuario): ${formattedCurrentDate}\n\nComentarios del Usuario:\n${commentsToSave || "Sin comentarios adicionales."}\n\nEvidencias Adjuntas:\n${evidencesList}\n\nPor favor, proceda a validar esta acción en el sistema RCA Assistant. Puede acceder directamente mediante el siguiente enlace:\n/analisis?id=${selectedPlan.codigoRCA}&step=4\n\nSaludos,\nSistema RCA Assistant`;
-
+  
+        const emailBody = `Estimado/a ${validatorProfile.name},\n\nEl usuario ${selectedSimulatedUserName || 'el responsable'} ha marcado la siguiente acción como lista para su validación:\n\nEvento RCA: ${selectedPlan.tituloDetalle} (ID: ${selectedPlan.codigoRCA})\nAcción Planificada: ${selectedPlan.descripcionDetallada}\nFecha de Cierre (Usuario): ${formattedCurrentDate}\n\nComentarios del Usuario:\n${updatesForAction.userComments || "Sin comentarios adicionales."}\n\nEvidencias Adjuntas:\n${evidencesList}\n\nPor favor, proceda a validar esta acción en el sistema RCA Assistant. Puede acceder directamente mediante el siguiente enlace:\n/analisis?id=${selectedPlan.codigoRCA}&step=4\n\nSaludos,\nSistema RCA Assistant`;
+  
         const emailResult = await sendEmailAction({
           to: validatorProfile.email,
           subject: emailSubject,
           body: emailBody,
         });
-
+  
         if (emailResult.success) {
           notificationMessage += ` Se envió una notificación por correo a ${validatorProfile.name}.`;
         } else {
@@ -465,8 +449,8 @@ export default function UserActionPlansPage() {
       } else {
         notificationMessage += ` No se encontró el correo del validador (${selectedPlan.validatorName || 'No asignado'}) para enviar la notificación.`;
       }
-      toast({ title: "Tarea Lista para Validación", description: notificationMessage });
-
+      toast({ title: "Tarea Lista para Validación", description: notificationMessage, duration: 7000 });
+  
     } else {
       toast({ title: "Error", description: "No se pudo actualizar la tarea. Intente de nuevo.", variant: "destructive" });
     }
@@ -724,14 +708,6 @@ export default function UserActionPlansPage() {
                   className="text-xs h-9"
                   disabled={isUpdatingAction || selectedPlan.estado === 'Completado'}
                 />
-                <Button
-                  size="sm"
-                  onClick={handleUploadEvidence}
-                  disabled={!fileToUpload || isUpdatingAction || selectedPlan.estado === 'Completado'}
-                  className="w-full sm:w-auto"
-                >
-                  {isUpdatingAction && fileToUpload ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-1.5 h-4 w-4" />} Subir Evidencia
-                </Button>
               </div>
               {fileToUpload && <p className="text-xs text-muted-foreground mt-1">Archivo seleccionado: {fileToUpload.name}</p>}
             </div>
@@ -742,15 +718,6 @@ export default function UserActionPlansPage() {
                   <MessageSquare className="mr-1.5 h-4 w-4" />
                   [Mis Comentarios Generales para la Tarea]
                 </h4>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={handleUserCommentsChangeAndSave}
-                  disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || !selectedPlan.userComments?.trim()}
-                >
-                  {isUpdatingAction && selectedPlan.userComments ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
-                  Guardar Comentarios
-                </Button>
               </div>
               <Textarea
                 value={selectedPlan.userComments || ''}
@@ -770,7 +737,7 @@ export default function UserActionPlansPage() {
                   variant="default"
                   onClick={handleSignalTaskReadyForValidation}
                   disabled={isUpdatingAction || selectedPlan.estado === 'Completado'}
-                  title={selectedPlan.estado === 'Completado' ? "Esta tarea ya ha sido validada y no puede modificarse." : "Indicar que ha completado su parte de la tarea y está lista para ser validada por el Líder del Proyecto."}
+                  title={selectedPlan.estado === 'Completado' ? "Esta tarea ya ha sido validada y no puede modificarse." : "Guardar evidencias, comentarios y marcar la tarea como lista para ser validada por el Líder del Proyecto."}
                 >
                   {isUpdatingAction ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />}
                   Marcar como listo para validación
@@ -796,7 +763,7 @@ export default function UserActionPlansPage() {
             <div>
               <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-0.5">Nota sobre la funcionalidad</h3>
               <p className="text-xs text-blue-600 dark:text-blue-400/90">
-                Al marcar "listo para validación", se registrará la fecha y hora, se guardarán comentarios y se enviará (simulación) un correo al validador con detalles de la tarea, comentarios, lista de evidencias y un enlace al Paso 4 del análisis.
+                Al marcar "listo para validación", se guardarán las evidencias adjuntas (si las hay), los comentarios ingresados, se registrará la fecha y hora, y se enviará (simulación) un correo al validador con detalles de la tarea, comentarios, lista de evidencias y un enlace al Paso 4 del análisis.
                 La validación final para el estado 'Completado' se realiza en el Paso 4 del flujo de Análisis RCA por el líder del proyecto.
               </p>
             </div>
