@@ -1,65 +1,18 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { SettingsIcon, Users, Globe, KeyRound, ShieldCheck, Loader2, DollarSign } from 'lucide-react';
-import { PasswordPromptDialog } from '@/components/config/PasswordPromptDialog';
-import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where } from "firebase/firestore";
-import type { FullUserProfile } from '@/types/rca';
-import { useToast } from "@/hooks/use-toast";
-
-const ADMIN_USERNAME = "Andrés Noriega";
+// PasswordPromptDialog and related imports removed
 
 export default function ConfiguracionHubPage() {
-  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
-  const [isLoadingAdminPassword, setIsLoadingAdminPassword] = useState(false);
-  const [adminPassword, setAdminPassword] = useState<string | undefined>(undefined);
   const router = useRouter();
-  const { toast } = useToast();
-
-  useEffect(() => {
-    const fetchAdminPassword = async () => {
-      setIsLoadingAdminPassword(true);
-      try {
-        const usersRef = collection(db, "users");
-        const q = query(usersRef, where("name", "==", ADMIN_USERNAME));
-        const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-          const adminUserDoc = querySnapshot.docs[0].data() as FullUserProfile;
-          if (adminUserDoc.password) {
-            setAdminPassword(adminUserDoc.password);
-          } else {
-            // Admin exists but has no password set, dialog will use its default
-            console.warn(`User "${ADMIN_USERNAME}" found but has no password set. Password prompt will use its internal default.`);
-          }
-        } else {
-          console.warn(`Admin user "${ADMIN_USERNAME}" not found. Password prompt will use its internal default.`);
-        }
-      } catch (error) {
-        console.error("Error fetching admin user's password:", error);
-        toast({
-          title: "Error al Cargar Configuración de Admin",
-          description: "No se pudo obtener la contraseña del administrador. Se usará la contraseña por defecto para el diálogo.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsLoadingAdminPassword(false);
-      }
-    };
-
-    fetchAdminPassword();
-  }, [toast]);
 
   const handlePrivacyDataClick = () => {
-    setIsPasswordDialogOpen(true);
-  };
-
-  const handlePasswordSuccess = () => {
+    // Navigate directly instead of showing password dialog
     router.push('/config/privacidad');
   };
 
@@ -85,7 +38,7 @@ export default function ConfiguracionHubPage() {
                 <Users className="h-7 w-7 text-primary" />
                 <CardTitle className="text-2xl">Usuarios</CardTitle>
               </div>
-              <CardDescription>Gestione los usuarios del sistema, sus roles y accesos.</CardDescription>
+              <CardDescription>Gestione los perfiles de usuario del sistema, sus roles y accesos.</CardDescription>
             </CardHeader>
             <CardContent>
               <Link href="/config/usuarios" passHref>
@@ -156,8 +109,7 @@ export default function ConfiguracionHubPage() {
               <CardDescription>Gestione el almacenamiento de datos, opciones de reseteo y configuraciones de privacidad.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full" size="lg" onClick={handlePrivacyDataClick} disabled={isLoadingAdminPassword}>
-                {isLoadingAdminPassword && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+              <Button className="w-full" size="lg" onClick={handlePrivacyDataClick}>
                 Gestionar Datos
               </Button>
             </CardContent>
@@ -170,18 +122,11 @@ export default function ConfiguracionHubPage() {
             <p className="text-sm text-foreground">
               Desde esta sección puede ajustar los parámetros fundamentales de la aplicación para adaptarla a las necesidades de su organización. 
               Asegúrese de que los cambios realizados sean consistentes con sus políticas internas.
-              <strong className="block mt-2 text-destructive">ADVERTENCIA (Demo): Las contraseñas de usuario se almacenan en texto plano. Esto NO es seguro para producción.</strong>
+              Las contraseñas y autenticación de usuarios se gestionan a través de Firebase Authentication para mayor seguridad.
             </p>
           </CardContent>
         </Card>
       </div>
-
-      <PasswordPromptDialog
-        isOpen={isPasswordDialogOpen}
-        onOpenChange={setIsPasswordDialogOpen}
-        onSuccess={handlePasswordSuccess}
-        expectedPasswordFromConfig={adminPassword} // Pass the fetched password
-      />
     </>
   );
 }

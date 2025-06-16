@@ -85,6 +85,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         permissionLevel: '',
         assignedSites: '',
         emailNotifications: false, // Default to false, admin can enable
+        // No password field is stored here
       };
       await setDoc(userDocRef, sanitizeForFirestore(newUserProfileData));
       setUserProfile({ id: firebaseUser.uid, ...newUserProfileData } as FullUserProfile);
@@ -140,4 +141,3 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-

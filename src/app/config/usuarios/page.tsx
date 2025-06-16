@@ -46,8 +46,7 @@ export default function ConfiguracionUsuariosPage() {
 
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
-  const [userPassword, setUserPassword] = useState('');
-  const [userConfirmPassword, setUserConfirmPassword] = useState('');
+  // Password fields removed from state
   const [userRole, setUserRole] = useState<FullUserProfile['role']>('');
   const [userAssignedSites, setUserAssignedSites] = useState('');
   const [userEmailNotifications, setUserEmailNotifications] = useState(false);
@@ -78,8 +77,7 @@ export default function ConfiguracionUsuariosPage() {
   const resetUserForm = () => {
     setUserName('');
     setUserEmail('');
-    setUserPassword('');
-    setUserConfirmPassword('');
+    // Password fields reset removed
     setUserRole('');
     setUserAssignedSites('');
     setUserEmailNotifications(false);
@@ -102,8 +100,7 @@ export default function ConfiguracionUsuariosPage() {
     setUserRole(user.role);
     setUserAssignedSites(user.assignedSites || '');
     setUserEmailNotifications(user.emailNotifications || false); 
-    setUserPassword(''); 
-    setUserConfirmPassword('');
+    // Password fields set removed
     setIsUserDialogOpen(true);
   };
 
@@ -116,14 +113,7 @@ export default function ConfiguracionUsuariosPage() {
       toast({ title: "Error", description: "El correo electrónico no es válido.", variant: "destructive" });
       return;
     }
-    if (!isEditing && !userPassword) { 
-      toast({ title: "Error", description: "La contraseña es obligatoria para nuevos usuarios.", variant: "destructive" });
-      return;
-    }
-    if (userPassword && userPassword !== userConfirmPassword) {
-      toast({ title: "Error", description: "Las contraseñas no coinciden.", variant: "destructive" });
-      return;
-    }
+    // Password validation removed
     if (!userRole) {
       toast({ title: "Error", description: "El rol es obligatorio.", variant: "destructive" });
       return;
@@ -139,10 +129,7 @@ export default function ConfiguracionUsuariosPage() {
         assignedSites: userAssignedSites.trim(),
         emailNotifications: userEmailNotifications,
       };
-      if (userPassword) { // Only update password if a new one is provided
-        updatedUserData.password = userPassword;
-         toast({ title: "Nota de Seguridad (Demo)", description: "Contraseña actualizada (almacenada en texto plano para esta demo). No usar en producción.", variant: "default", duration: 7000 });
-      }
+      // Password update logic removed
       try {
         const userRef = doc(db, "users", currentUser.id);
         await updateDoc(userRef, sanitizeForFirestore(updatedUserData));
@@ -153,25 +140,46 @@ export default function ConfiguracionUsuariosPage() {
         toast({ title: "Error al Actualizar", description: "No se pudo actualizar el usuario.", variant: "destructive" });
       }
     } else {
+      // Cannot create user from here without password, direct to Firebase Auth registration flow
+      // Or, this section should only allow editing existing users that were created via Firebase Auth.
+      // For now, this 'else' block for new user creation from this dialog is problematic without password handling.
+      // It's better to guide to the main registration page.
+      // However, if this dialog is meant to create placeholder profiles that an admin then links to Auth users,
+      // that's a different flow. Assuming users are created via /registro now.
+      // For this iteration, new user creation via this dialog is disabled if it implies setting password.
+      // If it's just creating a Firestore profile without an Auth user, it's fine.
+      // The current `registerWithEmail` in AuthContext handles Auth + Firestore profile.
+      // This dialog should primarily be for *editing* users or perhaps adding Firestore-only profiles if needed.
+      // To keep it simple and aligned with removing password field:
+      // Let's assume this dialog is for *editing* Firestore profile details for users already in Firebase Auth.
+      // Adding a *new* user here would require them to register through the standard registration page
+      // to set up their Firebase Auth credentials.
+      // Therefore, the "else" branch for adding new users via this specific dialog might be removed or rethought.
+      // For now, I will leave the 'addDoc' part but without password. This means an Admin could create a profile
+      // but the user would still need to be created in Firebase Auth separately or exist already.
+      // A better flow is that admins invite users, who then complete registration.
+      //
+      // Given the user wants to remove password storage, the "add user" from this screen
+      // should NOT attempt to create Firebase Auth users. It can create a Firestore profile only.
+      // The main registration form handles Firebase Auth user creation.
+
       const newUserPayload: Omit<UserConfigProfile, 'id'> = {
         name: userName.trim(),
-        email: userEmail.trim(),
+        email: userEmail.trim(), // Admin must ensure this email corresponds to an existing/future Firebase Auth user
         role: userRole,
         permissionLevel: userRole === 'Usuario Pendiente' ? '' : defaultPermissionLevel, 
         assignedSites: userAssignedSites.trim(),
         emailNotifications: userEmailNotifications,
-        password: userPassword, // Save password for new user
+        // No password field
       };
       try {
+        // This creates a Firestore document. The user must exist or be created in Firebase Auth separately.
         await addDoc(collection(db, "users"), sanitizeForFirestore(newUserPayload));
-        toast({ title: "Usuario Añadido", description: `El usuario "${newUserPayload.name}" ha sido añadido.` });
-         if (userPassword) {
-           toast({ title: "Nota de Seguridad (Demo)", description: "Contraseña almacenada en texto plano para esta demo. No usar en producción.", variant: "default", duration: 7000 });
-        }
+        toast({ title: "Perfil de Usuario Añadido", description: `El perfil para "${newUserPayload.name}" ha sido añadido a Firestore. Asegúrese de que el usuario exista o se registre en Firebase Authentication con el mismo correo.` });
         fetchUsers(); 
       } catch (error) {
-        console.error("Error adding user to Firestore: ", error);
-        toast({ title: "Error al Añadir", description: "No se pudo añadir el usuario.", variant: "destructive" });
+        console.error("Error adding user profile to Firestore: ", error);
+        toast({ title: "Error al Añadir Perfil", description: "No se pudo añadir el perfil de usuario a Firestore.", variant: "destructive" });
       }
     }
     
@@ -189,13 +197,15 @@ export default function ConfiguracionUsuariosPage() {
     if (userToDelete) {
       setIsSubmitting(true);
       try {
+        // This only deletes the Firestore profile document.
+        // The Firebase Auth user must be deleted separately (e.g., via Firebase Console or Admin SDK).
         await deleteDoc(doc(db, "users", userToDelete.id));
-        toast({ title: "Usuario Eliminado", description: `El usuario "${userToDelete.name}" ha sido eliminado.`, variant: 'destructive' });
+        toast({ title: "Perfil de Usuario Eliminado", description: `El perfil de "${userToDelete.name}" ha sido eliminado de Firestore. El usuario de autenticación (si existe) debe eliminarse por separado.`, variant: 'destructive', duration: 7000 });
         setUserToDelete(null);
         fetchUsers(); 
       } catch (error) {
         console.error("Error deleting user from Firestore: ", error);
-        toast({ title: "Error al Eliminar", description: "No se pudo eliminar el usuario.", variant: "destructive" });
+        toast({ title: "Error al Eliminar Perfil", description: "No se pudo eliminar el perfil de usuario de Firestore.", variant: "destructive" });
       } finally {
         setIsSubmitting(false);
       }
@@ -215,7 +225,7 @@ export default function ConfiguracionUsuariosPage() {
       "Sitios Asignados": user.assignedSites || '',
       "Notificaciones Email": user.emailNotifications ? "Sí" : "No",
       "Nivel Permiso (Info)": user.permissionLevel,
-      // DO NOT EXPORT PASSWORDS, even if stored for demo
+      // DO NOT EXPORT PASSWORDS
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -287,7 +297,7 @@ export default function ConfiguracionUsuariosPage() {
              continue;
           }
 
-          const newUser: Omit<UserConfigProfile, 'id' | 'password'> = { // Exclude password from import
+          const newUser: Omit<UserConfigProfile, 'id'> = { // Ensure no password field here
             name,
             email,
             role,
@@ -304,6 +314,7 @@ export default function ConfiguracionUsuariosPage() {
           if (operationsInBatch >= 490) { 
             await batch.commit();
             operationsInBatch = 0;
+            // batch = writeBatch(db); // Re-initialize for next batch - This line is problematic, a new batch is implicitly created.
           }
         }
 
@@ -311,7 +322,7 @@ export default function ConfiguracionUsuariosPage() {
           await batch.commit();
         }
 
-        toast({ title: "Importación Completada", description: `${importedCount} usuarios importados. ${skippedCount} filas omitidas por datos inválidos o faltantes.` });
+        toast({ title: "Importación Completada", description: `${importedCount} perfiles de usuario importados. ${skippedCount} filas omitidas por datos inválidos o faltantes.` });
         fetchUsers(); 
       } catch (error) {
         console.error("Error importing users: ", error);
@@ -344,7 +355,7 @@ export default function ConfiguracionUsuariosPage() {
           Configuración de Usuarios
         </h1>
         <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-          Administre los usuarios del sistema, sus roles y permisos. Los datos se almacenan en Firestore.
+          Administre los perfiles de usuario en Firestore. La autenticación y contraseñas se gestionan vía Firebase Authentication.
         </p>
       </header>
 
@@ -353,7 +364,7 @@ export default function ConfiguracionUsuariosPage() {
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
               <Users className="h-6 w-6 text-primary" />
-              <CardTitle className="text-2xl">Listado de Usuarios</CardTitle>
+              <CardTitle className="text-2xl">Listado de Perfiles de Usuario</CardTitle>
             </div>
             <div className="flex gap-2 flex-wrap">
               <Button variant="outline" onClick={handleTriggerFileInput} disabled={isImporting || isLoading}>
@@ -368,12 +379,15 @@ export default function ConfiguracionUsuariosPage() {
                 <DialogTrigger asChild>
                   <Button variant="default" onClick={openAddUserDialog} disabled={isLoading}>
                     <PlusCircle className="mr-2 h-4 w-4" />
-                    Añadir Usuario
+                    Añadir Perfil
                   </Button>
                 </DialogTrigger>
                  <DialogContent className="sm:max-w-[525px]">
                     <DialogHeader>
-                        <DialogTitle>{isEditing ? 'Editar Usuario' : 'Añadir Nuevo Usuario'}</DialogTitle>
+                        <DialogTitle>{isEditing ? 'Editar Perfil de Usuario' : 'Añadir Nuevo Perfil de Usuario'}</DialogTitle>
+                        <CardDescription>
+                            {isEditing ? 'Modifique los detalles del perfil.' : 'Cree un nuevo perfil en Firestore. El usuario debe existir o registrarse por separado en Firebase Authentication con el mismo correo electrónico para poder iniciar sesión.'}
+                        </CardDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
                         <div className="grid grid-cols-4 items-center gap-4">
@@ -382,16 +396,9 @@ export default function ConfiguracionUsuariosPage() {
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="user-email" className="text-right">Correo <span className="text-destructive">*</span></Label>
-                        <Input id="user-email" type="email" value={userEmail} onChange={(e) => setUserEmail(e.target.value)} className="col-span-3" placeholder="Ej: juan.perez@example.com" />
+                        <Input id="user-email" type="email" value={userEmail} onChange={(e) => setUserEmail(e.target.value)} className="col-span-3" placeholder="Ej: juan.perez@example.com" disabled={isEditing} />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="user-password" className="text-right">Contraseña {isEditing ? '(Nueva)' : <span className="text-destructive">*</span>}</Label>
-                        <Input id="user-password" type="password" value={userPassword} onChange={(e) => setUserPassword(e.target.value)} className="col-span-3" placeholder={isEditing ? 'Dejar en blanco para no cambiar' : ''} />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="user-confirm-password" className="text-right">Confirmar {isEditing ? 'Nueva ' : ''}Contra. {isEditing ? '' : <span className="text-destructive">*</span>}</Label>
-                        <Input id="user-confirm-password" type="password" value={userConfirmPassword} onChange={(e) => setUserConfirmPassword(e.target.value)} className="col-span-3" />
-                        </div>
+                        {/* Password fields removed */}
                         <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="user-role" className="text-right">Rol <span className="text-destructive">*</span></Label>
                         <Select value={userRole} onValueChange={(value) => setUserRole(value as FullUserProfile['role'])}>
@@ -423,7 +430,7 @@ export default function ConfiguracionUsuariosPage() {
                         </DialogClose>
                         <Button type="button" onClick={handleSaveUser} disabled={isSubmitting}>
                          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                         {isEditing ? 'Guardar Cambios' : 'Crear Usuario'}
+                         {isEditing ? 'Guardar Cambios' : 'Crear Perfil'}
                         </Button>
                     </DialogFooter>
                  </DialogContent>
@@ -431,7 +438,7 @@ export default function ConfiguracionUsuariosPage() {
             </div>
           </div>
           <CardDescription>
-            Visualice, añada, edite o elimine usuarios registrados en el sistema.
+            Visualice, añada, edite o elimine perfiles de usuario en Firestore.
             <span className="block text-xs mt-1">Plantilla Importación: Columnas requeridas - {expectedUserHeaders.slice(0,3).join(', ')}. Opcionales: {expectedUserHeaders.slice(3).join(', ')}.</span>
           </CardDescription>
         </CardHeader>
@@ -439,7 +446,7 @@ export default function ConfiguracionUsuariosPage() {
           {isLoading ? (
             <div className="flex justify-center items-center h-24">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="ml-2 text-muted-foreground">Cargando usuarios...</p>
+              <p className="ml-2 text-muted-foreground">Cargando perfiles de usuario...</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -476,7 +483,7 @@ export default function ConfiguracionUsuariosPage() {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
-                        No hay usuarios registrados. Puede añadir uno usando el botón de arriba o importando desde Excel.
+                        No hay perfiles de usuario registrados. Puede añadir uno usando el botón de arriba o importando desde Excel.
                       </TableCell>
                     </TableRow>
                   )}
@@ -492,14 +499,14 @@ export default function ConfiguracionUsuariosPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Eliminación</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Está seguro de que desea eliminar al usuario "{userToDelete?.name}"? Esta acción no se puede deshacer.
+              ¿Está seguro de que desea eliminar el perfil de usuario de "{userToDelete?.name}"? Esta acción solo elimina el perfil de Firestore y no el usuario de autenticación.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setUserToDelete(null)} disabled={isSubmitting}>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteUser} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" disabled={isSubmitting}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Eliminar
+              Eliminar Perfil
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

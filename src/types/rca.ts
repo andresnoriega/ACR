@@ -149,6 +149,7 @@ export interface FullUserProfile {
   permissionLevel: 'Total' | 'Lectura' | 'Limitado' | '';
   assignedSites?: string;
   emailNotifications?: boolean;
+  // password field removed
 }
 
 // Types for Eventos Reportados page
