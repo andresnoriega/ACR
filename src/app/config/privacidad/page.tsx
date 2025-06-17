@@ -349,7 +349,7 @@ export default function ConfiguracionPrivacidadPage() {
     if (result.success) {
       toast({
         title: "Correo de Prueba Enviado",
-        description: `Se envió un correo a la dirección configurada en SENDER_EMAIL_ADDRESS. Por favor, revise su bandeja de entrada. Detalles: ${result.message}`,
+        description: "El correo de prueba ha sido enviado a tu dirección de remitente configurada (`SENDER_EMAIL_ADDRESS`). Por favor, revisa tu bandeja de entrada. Si lo recibes, ahora puedes proceder a verificar la integración en el panel de SendGrid.",
       });
     } else {
       toast({
@@ -617,4 +617,5 @@ export default function ConfiguracionPrivacidadPage() {
     
 
     
+
 
