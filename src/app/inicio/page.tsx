@@ -88,7 +88,7 @@ export default function InicioPage() {
           <CardHeader>
             <div className="flex items-center gap-3 mb-2">
               <BarChart3 className="h-7 w-7 text-primary" />
-              <CardTitle className="text-2xl">Análisis RCA</CardTitle>
+              <CardTitle className="text-2xl">Reporta y Analiza</CardTitle>
             </div>
             <CardDescription>Inicie un nuevo análisis o continúe uno existente, siguiendo un proceso guiado paso a paso.</CardDescription>
           </CardHeader>
