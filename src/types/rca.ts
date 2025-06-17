@@ -188,6 +188,16 @@ export interface RejectionDetails {
   rejectedAt: string; // ISO string
 }
 
+// --- Brainstorming Idea Types ---
+export const BRAINSTORM_IDEA_TYPES = ['Humana', 'Técnica', 'Organizacional', 'Externa', 'Otra'] as const;
+export type BrainstormIdeaType = typeof BRAINSTORM_IDEA_TYPES[number] | '';
+
+export interface BrainstormIdea {
+  id: string;
+  type: BrainstormIdeaType;
+  description: string;
+}
+
 // Document structure for an RCA Analysis in Firestore
 export interface RCAAnalysisDocument {
   // From Step 1
@@ -199,7 +209,7 @@ export interface RCAAnalysisDocument {
   analysisDetails: string;
   preservedFacts: PreservedFact[];
   // From Step 3
-  brainstormingNotes?: string; // Added field for brainstorming
+  brainstormingIdeas?: BrainstormIdea[]; // Changed from brainstormingNotes
   analysisTechnique: AnalysisTechnique;
   analysisTechniqueNotes: string;
   ishikawaData: IshikawaData;

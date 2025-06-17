@@ -10,10 +10,10 @@
 
 import {ai} from '@/ai/genkit';
 import { z } from 'zod';
-import type { AnalysisTechnique, IshikawaData, FiveWhysData, CTMData } from '@/types/rca'; // Asegúrate de que las rutas y tipos sean correctos
+import type { AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, BrainstormIdeaType } from '@/types/rca'; // Asegúrate de que las rutas y tipos sean correctos
+import { BRAINSTORM_IDEA_TYPES } from '@/types/rca';
 
 // --- Zod Schemas para los datos de las técnicas ---
-// Estos deben coincidir con las definiciones en '@/types/rca' o ser una representación simplificada si es necesario.
 
 const IshikawaCauseSchema = z.object({
   id: z.string(),
@@ -67,11 +67,17 @@ const FailureModeSchema = z.object({
 
 const CTMDataSchema = z.array(FailureModeSchema);
 
+// --- Esquema para BrainstormIdea ---
+const BrainstormIdeaSchema = z.object({
+  type: z.enum(BRAINSTORM_IDEA_TYPES as [BrainstormIdeaType, ...BrainstormIdeaType[]]).or(z.literal('')).describe("Tipo de idea de lluvia de ideas (ej: Humana, Técnica, Organizacional, etc.)"),
+  description: z.string().describe("Descripción de la idea de lluvia de ideas."),
+});
+
 
 // --- Esquema de Entrada ---
 const SuggestRootCausesInputSchema = z.object({
   focusEventDescription: z.string().describe('La descripción principal del evento que se está analizando.'),
-  brainstormingNotes: z.string().optional().describe('Notas de una sesión de lluvia de ideas inicial sobre posibles causas.'), // Added
+  brainstormingIdeas: z.array(BrainstormIdeaSchema).optional().describe('Lista de ideas de lluvia de ideas iniciales, clasificadas por tipo.'), // Changed from brainstormingNotes
   analysisTechnique: z.enum(['', 'WhyWhy', 'Ishikawa', 'CTM']).describe('La técnica de análisis principal seleccionada.'),
   analysisTechniqueNotes: z.string().optional().describe('Notas generales o específicas sobre la aplicación de la técnica de análisis.'),
   ishikawaData: IshikawaDataSchema.optional().describe('Datos del diagrama de Ishikawa, si esa fue la técnica utilizada.'),
@@ -105,9 +111,13 @@ const suggestRootCausesPrompt = ai.definePrompt({
     Evento Foco:
     {{{focusEventDescription}}}
 
-    {{#if brainstormingNotes}}
-    Notas de Lluvia de Ideas Inicial:
-    {{{brainstormingNotes}}}
+    {{#if brainstormingIdeas}}
+    Lluvia de Ideas Inicial (Clasificada):
+    {{#each brainstormingIdeas}}
+      - Tipo: {{this.type}} - Descripción: {{this.description}}
+    {{else}}
+      - No se proporcionaron ideas iniciales.
+    {{/each}}
     {{/if}}
 
     {{#if analysisTechnique}}
@@ -158,7 +168,7 @@ const suggestRootCausesPrompt = ai.definePrompt({
     {{/each}}
     {{/if}}
 
-    Considera toda la información anterior, especialmente las causas directas y humanas, y las notas de lluvia de ideas.
+    Considera toda la información anterior, especialmente las causas directas y humanas, y las ideas de la lluvia de ideas.
     Ahora, genera una lista de posibles **CAUSAS LATENTES** que podrían haber contribuido al evento.
     Cada causa latente debe ser una descripción clara y accionable de un problema sistémico u organizacional.
     No repitas las causas latentes que el usuario ya pudo haber identificado en el CTM. Busca nuevas perspectivas.
@@ -177,10 +187,8 @@ const suggestRootCausesFlowInternal = ai.defineFlow(
     outputSchema: SuggestRootCausesOutputSchema,
   },
   async (input) => {
-    // Validar que al menos uno de los datos de técnica esté presente si la técnica está seleccionada
-    // O que existan notas de lluvia de ideas si no hay técnica
     let hasSufficientInput = false;
-    if (input.brainstormingNotes && input.brainstormingNotes.trim().length > 10) { // Check for meaningful brainstorming notes
+    if (input.brainstormingIdeas && input.brainstormingIdeas.length > 0 && input.brainstormingIdeas.some(idea => idea.description.trim().length > 5)) { // Check for meaningful brainstorming ideas
         hasSufficientInput = true;
     }
     if (input.analysisTechnique === 'Ishikawa' && input.ishikawaData && input.ishikawaData.length > 0 && input.ishikawaData.some(cat => cat.causes.length > 0)) {
@@ -192,7 +200,7 @@ const suggestRootCausesFlowInternal = ai.defineFlow(
     if (input.analysisTechnique === 'CTM' && input.ctmData && input.ctmData.length > 0 && input.ctmData.some(fm => fm.description.trim() || fm.hypotheses.length > 0)) {
         hasSufficientInput = true;
     }
-     if (input.analysisTechniqueNotes && input.analysisTechniqueNotes.trim().length > 10) { // Check for meaningful general notes
+     if (input.analysisTechniqueNotes && input.analysisTechniqueNotes.trim().length > 10) { 
         hasSufficientInput = true;
     }
 
@@ -214,7 +222,6 @@ const suggestRootCausesFlowInternal = ai.defineFlow(
 // --- Función Exportada ---
 export async function suggestRootCauses(input: SuggestRootCausesInput): Promise<SuggestRootCausesOutput> {
    try {
-    // Simple check if ai.generate might be mocked (can be more sophisticated)
     if (typeof ai.generate === 'function' && ai.generate.toString().includes("AI is mocked")) {
         console.warn("Genkit 'ai' object is mocked. AI root cause suggestions will be disabled.");
         return { suggestedRootCauses: ["[Sugerencias IA Deshabilitadas por problemas de Genkit]"] };

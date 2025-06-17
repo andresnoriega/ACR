@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -53,7 +53,7 @@ const initialRCAAnalysisState: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedA
   detailedFacts: { ...initialDetailedFacts },
   analysisDetails: '',
   preservedFacts: [],
-  brainstormingNotes: '', // Added
+  brainstormingIdeas: [], // Changed from brainstormingNotes
   analysisTechnique: '',
   analysisTechniqueNotes: '',
   ishikawaData: JSON.parse(JSON.stringify(initialIshikawaData)),
@@ -96,7 +96,7 @@ export default function RCAAnalysisPage() {
   const [analysisDetails, setAnalysisDetails] = useState(initialRCAAnalysisState.analysisDetails);
   const [preservedFacts, setPreservedFacts] = useState<PreservedFact[]>(initialRCAAnalysisState.preservedFacts);
 
-  const [brainstormingNotes, setBrainstormingNotes] = useState(initialRCAAnalysisState.brainstormingNotes || ''); // Added
+  const [brainstormingIdeas, setBrainstormingIdeas] = useState<BrainstormIdea[]>(initialRCAAnalysisState.brainstormingIdeas || []); // Changed
   const [analysisTechnique, setAnalysisTechnique] = useState<AnalysisTechnique>(initialRCAAnalysisState.analysisTechnique);
   const [analysisTechniqueNotes, setAnalysisTechniqueNotes] = useState(initialRCAAnalysisState.analysisTechniqueNotes);
   const [ishikawaData, setIshikawaData] = useState<IshikawaData>(initialRCAAnalysisState.ishikawaData);
@@ -162,7 +162,7 @@ export default function RCAAnalysisPage() {
         setDetailedFacts(data.detailedFacts || { ...initialDetailedFacts });
         setAnalysisDetails(data.analysisDetails || '');
         setPreservedFacts(data.preservedFacts || []);
-        setBrainstormingNotes(data.brainstormingNotes || ''); // Added
+        setBrainstormingIdeas(data.brainstormingIdeas || []); // Changed
         setAnalysisTechnique(data.analysisTechnique || '');
         setAnalysisTechniqueNotes(data.analysisTechniqueNotes || '');
         setIshikawaData(data.ishikawaData || JSON.parse(JSON.stringify(initialIshikawaData)));
@@ -213,7 +213,7 @@ export default function RCAAnalysisPage() {
             setDetailedFacts(initialRCAAnalysisState.detailedFacts);
             setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
             setPreservedFacts(initialRCAAnalysisState.preservedFacts);
-            setBrainstormingNotes(initialRCAAnalysisState.brainstormingNotes || ''); // Added
+            setBrainstormingIdeas(initialRCAAnalysisState.brainstormingIdeas || []); // Changed
             setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
             setAnalysisTechniqueNotes(initialRCAAnalysisState.analysisTechniqueNotes);
             setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
@@ -245,7 +245,7 @@ export default function RCAAnalysisPage() {
         setDetailedFacts(initialRCAAnalysisState.detailedFacts);
         setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
         setPreservedFacts(initialRCAAnalysisState.preservedFacts);
-        setBrainstormingNotes(initialRCAAnalysisState.brainstormingNotes || ''); // Added
+        setBrainstormingIdeas(initialRCAAnalysisState.brainstormingIdeas || []); // Changed
         setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
         setAnalysisTechniqueNotes(initialRCAAnalysisState.analysisTechniqueNotes);
         setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
@@ -313,7 +313,7 @@ export default function RCAAnalysisPage() {
             setDetailedFacts(initialRCAAnalysisState.detailedFacts);
             setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
             setPreservedFacts(initialRCAAnalysisState.preservedFacts);
-            setBrainstormingNotes(initialRCAAnalysisState.brainstormingNotes || ''); // Added
+            setBrainstormingIdeas(initialRCAAnalysisState.brainstormingIdeas || []); // Changed
             setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
             setAnalysisTechniqueNotes(initialRCAAnalysisState.analysisTechniqueNotes);
             setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
@@ -400,7 +400,6 @@ export default function RCAAnalysisPage() {
     if (!currentId) {
       const generatedId = ensureEventId(); 
       currentId = generatedId;
-      // setAnalysisDocumentId(currentId); // Moved: set this before saving, not just after ensureEventId
       isNewEventCreation = true;
     }
     if (!currentId) {
@@ -408,7 +407,6 @@ export default function RCAAnalysisPage() {
       return { success: false };
     }
     
-    // Set analysisDocumentId state if it's new, before Firestore operation
     if (isNewEventCreation && analysisDocumentId !== currentId) {
       setAnalysisDocumentId(currentId);
     }
@@ -416,7 +414,6 @@ export default function RCAAnalysisPage() {
 
     setIsSaving(true);
     const currentIsFinalized = finalizedOverride !== undefined ? finalizedOverride : isFinalized;
-    // Ensure eventData used for saving has the most up-to-date ID.
     const consistentEventData = { ...eventData, id: currentId }; 
 
     let currentRejectionDetailsToSave = rejectionDetails;
@@ -431,14 +428,14 @@ export default function RCAAnalysisPage() {
     }
 
     let currentCreatedByState = createdBy;
-    if (!currentCreatedByState && userProfile?.name && isNewEventCreation) { // Only set createdBy if new event
+    if (!currentCreatedByState && userProfile?.name && isNewEventCreation) { 
       currentCreatedByState = userProfile.name;
       if (!createdBy) setCreatedBy(currentCreatedByState);
     }
 
     const rcaDocPayload: Partial<RCAAnalysisDocument> = {
       eventData: consistentEventData, immediateActions, projectLeader, detailedFacts, analysisDetails,
-      preservedFacts, brainstormingNotes, analysisTechnique, analysisTechniqueNotes, ishikawaData, // Added brainstormingNotes
+      preservedFacts, brainstormingIdeas, analysisTechnique, analysisTechniqueNotes, ishikawaData, // Changed brainstormingNotes to brainstormingIdeas
       fiveWhysData, ctmData, identifiedRootCauses, plannedActions,
       validations: (validationsOverride !== undefined) ? validationsOverride : validations,
       finalComments, isFinalized: currentIsFinalized,
@@ -473,13 +470,12 @@ export default function RCAAnalysisPage() {
       const sanitizedDataToSave = sanitizeForFirestore(dataToSave);
       await setDoc(rcaDocRef, sanitizedDataToSave, { merge: true });
 
-      // Update local state to reflect saved data
       if (finalCommentsToSave !== finalComments) setFinalComments(finalCommentsToSave);
       if (finalizedOverride !== undefined && isFinalized !== finalizedOverride) setIsFinalized(finalizedOverride);
       if (currentRejectionDetailsToSave !== rejectionDetails) setRejectionDetails(currentRejectionDetailsToSave);
       if (validationsOverride !== undefined && validationsOverride !== validations) setValidations(validationsOverride); 
       if (dataToSave.createdBy && createdBy !== dataToSave.createdBy) setCreatedBy(dataToSave.createdBy);
-      if(consistentEventData.id !== eventData.id) setEventData(consistentEventData); // Ensure local eventData has the ID.
+      if(consistentEventData.id !== eventData.id) setEventData(consistentEventData);
 
 
       const reportedEventRef = doc(db, "reportedEvents", currentId);
@@ -545,14 +541,13 @@ export default function RCAAnalysisPage() {
 
       let navigationUrl: string | undefined = undefined;
       if (isNewEventCreation) {
-        const currentStep = step; // Use current step state for navigation
+        const currentStep = step; 
         const targetUrl = `/analisis?id=${currentId}&step=${currentStep}`;
         if (!suppressNavigation) {
           lastLoadedAnalysisIdRef.current = currentId;
           router.replace(targetUrl, { scroll: false });
         } else {
           navigationUrl = targetUrl;
-          // lastLoadedAnalysisIdRef.current will be set when navigation actually happens via useEffect
         }
       }
 
@@ -609,13 +604,11 @@ export default function RCAAnalysisPage() {
     if (!currentId) { 
         const newId = ensureEventId();
         currentId = newId;
-        setAnalysisDocumentId(newId);
     }
     if (!currentId) {
       toast({ title: "Error", description: "No se puede aprobar un evento sin ID.", variant: "destructive" });
       return;
     }
-
     if (currentEventStatus !== 'Pendiente') {
       toast({ title: "Acción no Válida", description: `El evento ya está "${currentEventStatus}". No se puede aprobar.`, variant: "default" });
       return;
@@ -624,6 +617,8 @@ export default function RCAAnalysisPage() {
     const saveResult = await handleSaveAnalysisData(false, { statusOverride: "En análisis" });
     if (saveResult.success) {
       const finalEventId = saveResult.newEventId || currentId; 
+      if(saveResult.newEventId && !analysisDocumentId) setAnalysisDocumentId(finalEventId); // Ensure documentId is set if new
+
       toast({ title: "Evento Aprobado", description: `El evento ${finalEventId} ha sido marcado como "En análisis".` });
       setCurrentEventStatus("En análisis");
       
@@ -662,7 +657,6 @@ export default function RCAAnalysisPage() {
     if (!currentId) { 
         const newId = ensureEventId();
         currentId = newId;
-        setAnalysisDocumentId(newId);
     }
      if (!currentId) {
       toast({ title: "Error", description: "No se puede rechazar un evento sin ID.", variant: "destructive" });
@@ -717,7 +711,9 @@ export default function RCAAnalysisPage() {
     );
 
     if (saveResult.success) {
-      const finalEventId = saveResult.newEventId || currentId; 
+      const finalEventId = saveResult.newEventId || currentId;
+      if(saveResult.newEventId && !analysisDocumentId) setAnalysisDocumentId(finalEventId); // Ensure documentId is set if new
+
       toast({ title: "Evento Rechazado", description: `El evento ${finalEventId} ha sido marcado como rechazado.` });
       setCurrentEventStatus("Rechazado"); 
 
@@ -839,30 +835,23 @@ export default function RCAAnalysisPage() {
     if (!currentIdToNavigate && targetStep > 1) {
         const newId = ensureEventId();
         currentIdToNavigate = newId;
-        // setAnalysisDocumentId(newId); // This will be set by handleSaveAnalysisData
         isNewEventForNav = true;
     }
 
     if (isNewEventForNav && currentIdToNavigate) {
        const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: false }); 
        if (!saveResult.success) {
-         // If saving a new event fails, ensure analysisDocumentId isn't wrongly set.
          if (analysisDocumentId === currentIdToNavigate) setAnalysisDocumentId(null);
          return;
        }
-       // Navigation for new event is handled by handleSaveAnalysisData now.
-       // If it was suppressed, its `needsNavigationUrl` should be handled by the caller.
-       // Here, we expect `handleSaveAnalysisData` to navigate.
     }
 
-    // If not a new event, or save already handled navigation, or no save needed:
     if (!isNewEventForNav || (isNewEventForNav && !currentIdToNavigate)) {
-      // Ensure ID is present for existing events or if creation failed but we still want to navigate
-      const navId = analysisDocumentId || eventData.id; // Use eventData.id as fallback if analysisDocumentId isn't set yet
+      const navId = analysisDocumentId || eventData.id; 
       if (navId) {
          router.replace(`/analisis?id=${navId}&step=${targetStep}`, { scroll: false });
       } else {
-         router.replace(`/analisis?step=${targetStep}`, { scroll: false }); // Navigate without ID if still missing
+         router.replace(`/analisis?step=${targetStep}`, { scroll: false }); 
       }
     }
 
@@ -891,20 +880,11 @@ export default function RCAAnalysisPage() {
     if (!currentId && step >= 1) { 
         const newId = ensureEventId();
         currentId = newId;
-        // setAnalysisDocumentId(newId); // This will be set by handleSaveAnalysisData
         isNewEventCreationForNext = true;
     }
     
-    // This check is problematic if ID is generated but not yet saved and reflected in analysisDocumentId
-    // if (!currentId && step >= 1) { 
-    //     toast({ title: "Error de Sincronización", description: "Por favor, complete el Paso 1 para generar un ID antes de continuar.", variant: "destructive"});
-    //     setStep(1);
-    //     return;
-    // }
-
     let saveOutcome: { success: boolean; newEventId?: string; needsNavigationUrl?: string } = { success: false };
     if (step === 1) {
-      // Let save handle navigation if it's a new event.
       saveOutcome = await handleSaveAnalysisData(false, { suppressNavigation: false });
     } else if (step === 2) {
       await handleSaveFromStep2(false); 
@@ -949,14 +929,9 @@ export default function RCAAnalysisPage() {
       setMaxCompletedStep(newMaxCompletedStep);
       
       const idForNav = saveOutcome.newEventId || analysisDocumentId || eventData.id;
-      // If saveOutcome.needsNavigationUrl is present, it means save was suppressed and expects caller to navigate.
-      // However, for handleNextStep, saveOutcome should have handled navigation if needed.
       if (idForNav && !saveOutcome.needsNavigationUrl && !isNewEventCreationForNext) { 
          router.replace(`/analisis?id=${idForNav}&step=${newStep}`, { scroll: false });
       } else if (idForNav && isNewEventCreationForNext && !saveOutcome.needsNavigationUrl){
-        // This case implies a new event was created, and saveOutcome should have navigated.
-        // If it didn't, it might mean suppressNavigation was true, which is not typical for this path.
-        // For robustness, if it's a new event and save didn't navigate (unlikely here), ensure nav happens.
          router.replace(`/analisis?id=${idForNav}&step=${newStep}`, { scroll: false });
       }
     }
@@ -983,7 +958,6 @@ export default function RCAAnalysisPage() {
     if (!tempEventId && analysisDocumentId) tempEventId = analysisDocumentId;
     if (!tempEventId) {
         tempEventId = ensureEventId(); 
-        // setAnalysisDocumentId(tempEventId); // This will be set by save
     }
     const newActionId = `${tempEventId}-IMA-${String(immediateActionCounter).padStart(3, '0')}`;
     setImmediateActions(prev => [...prev, { id: newActionId, eventId: tempEventId, description: '', responsible: '', dueDate: '' }]);
@@ -1010,7 +984,6 @@ export default function RCAAnalysisPage() {
     let currentEventId = analysisDocumentId;
     if (!currentEventId) {
       currentEventId = ensureEventId();
-      // setAnalysisDocumentId(currentEventId); // This will be set by save
     }
     if (!currentEventId) {
       toast({ title: "Error", description: "ID de evento no encontrado para asociar el hecho preservado.", variant: "destructive" });
@@ -1088,7 +1061,6 @@ export default function RCAAnalysisPage() {
     if (!currentEventId && eventData.id) currentEventId = eventData.id;
     if (!currentEventId) {
         currentEventId = ensureEventId();
-        // setAnalysisDocumentId(currentEventId); // This will be set by save
     }
     if (!currentEventId) {
       toast({ title: "Error", description: "No se pudo generar/obtener ID de evento para la acción planificada.", variant: "destructive" });
@@ -1116,6 +1088,19 @@ export default function RCAAnalysisPage() {
 
   const handleRemovePlannedAction = (index: number) => {
     setPlannedActions(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // --- Brainstorming Ideas Handlers ---
+  const handleAddBrainstormIdea = () => {
+    setBrainstormingIdeas(prev => [...prev, { id: `bi-${Date.now()}`, type: '', description: '' }]);
+  };
+
+  const handleUpdateBrainstormIdea = (id: string, field: 'type' | 'description', value: string) => {
+    setBrainstormingIdeas(prev => prev.map(idea => idea.id === id ? { ...idea, [field]: value } : idea));
+  };
+
+  const handleRemoveBrainstormIdea = (id: string) => {
+    setBrainstormingIdeas(prev => prev.filter(idea => idea.id !== id));
   };
 
   useEffect(() => {
@@ -1172,7 +1157,6 @@ export default function RCAAnalysisPage() {
     if (!currentId && eventData.id) currentId = eventData.id;
     if (!currentId) {
       currentId = ensureEventId();
-      // setAnalysisDocumentId(currentId); // Will be set by save
     }
 
     if (!currentId) {
@@ -1186,6 +1170,7 @@ export default function RCAAnalysisPage() {
 
     const saveResult = await handleSaveAnalysisData(false, { finalizedOverride: true, statusOverride: "Finalizado" });
     const finalEventId = saveResult.newEventId || currentId;
+    if(saveResult.newEventId && !analysisDocumentId) setAnalysisDocumentId(finalEventId);
 
     if (saveResult.success) {
       toast({ title: "Proceso Finalizado", description: `Análisis ${finalEventId} marcado como finalizado y evento reportado actualizado.`, className: "bg-primary text-primary-foreground"});
@@ -1289,8 +1274,10 @@ export default function RCAAnalysisPage() {
       {step === 3 && (
         <Step3Analysis
           eventData={eventData}
-          brainstormingNotes={brainstormingNotes} // Added
-          onBrainstormingNotesChange={setBrainstormingNotes} // Added
+          brainstormingIdeas={brainstormingIdeas}
+          onAddBrainstormIdea={handleAddBrainstormIdea}
+          onUpdateBrainstormIdea={handleUpdateBrainstormIdea}
+          onRemoveBrainstormIdea={handleRemoveBrainstormIdea}
           analysisTechnique={analysisTechnique}
           onAnalysisTechniqueChange={handleAnalysisTechniqueChange}
           analysisTechniqueNotes={analysisTechniqueNotes}

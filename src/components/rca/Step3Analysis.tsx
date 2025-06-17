@@ -2,14 +2,15 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useCallback, useEffect } from 'react'; 
-import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhysData, RCAEventData, CTMData, IdentifiedRootCause, FullUserProfile } from '@/types/rca';
+import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhysData, RCAEventData, CTMData, IdentifiedRootCause, FullUserProfile, BrainstormIdea, BrainstormIdeaType } from '@/types/rca'; // Added BrainstormIdea, BrainstormIdeaType
+import { BRAINSTORM_IDEA_TYPES } from '@/types/rca'; // Import BRAINSTORM_IDEA_TYPES
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2, Save, Send, Loader2, Mail, Sparkles, ClipboardCopy, ChevronLeft, ChevronRight, AlertTriangle, Lightbulb } from 'lucide-react'; // Added Lightbulb
+import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2, Save, Send, Loader2, Mail, Sparkles, ClipboardCopy, ChevronLeft, ChevronRight, AlertTriangle, Lightbulb, Edit3 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
 import { FiveWhysInteractive } from './FiveWhysInteractive';
@@ -150,8 +151,10 @@ const NotifyTasksDialog: FC<NotifyTasksDialogProps> = ({
 // --- Step3Analysis Component ---
 interface Step3AnalysisProps {
   eventData: RCAEventData;
-  brainstormingNotes: string; // Added
-  onBrainstormingNotesChange: (value: string) => void; // Added
+  brainstormingIdeas: BrainstormIdea[]; // Changed from brainstormingNotes
+  onAddBrainstormIdea: () => void; // Added
+  onUpdateBrainstormIdea: (id: string, field: 'type' | 'description', value: string) => void; // Added
+  onRemoveBrainstormIdea: (id: string) => void; // Added
   analysisTechnique: AnalysisTechnique;
   onAnalysisTechniqueChange: (value: AnalysisTechnique) => void;
   analysisTechniqueNotes: string;
@@ -181,8 +184,10 @@ interface Step3AnalysisProps {
 
 export const Step3Analysis: FC<Step3AnalysisProps> = ({
   eventData,
-  brainstormingNotes, // Added
-  onBrainstormingNotesChange, // Added
+  brainstormingIdeas, // Changed
+  onAddBrainstormIdea, // Added
+  onUpdateBrainstormIdea, // Added
+  onRemoveBrainstormIdea, // Added
   analysisTechnique,
   onAnalysisTechniqueChange,
   analysisTechniqueNotes,
@@ -213,7 +218,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const [isNotifyTasksDialogOpen, setIsNotifyTasksDialogOpen] = useState(false);
   const [actionsForNotificationDialog, setActionsForNotificationDialog] = useState<PlannedAction[]>([]);
   const [isSuggestingCauses, setIsSuggestingCauses] = useState(false);
-  // Removed aiSuggestedRootCausesList and related states as per new requirement
 
   useEffect(() => {
     if (identifiedRootCauses.length === 0) {
@@ -374,7 +378,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const handleSaveProgressLocal = async () => {
     const isTechniqueSelected = analysisTechnique !== '';
     const hasNotes = analysisTechniqueNotes.trim() !== '';
-    const hasBrainstorming = brainstormingNotes.trim() !== ''; // Added
+    const hasBrainstorming = brainstormingIdeas.length > 0 && brainstormingIdeas.some(idea => idea.description.trim() !== ''); // Updated
     
     const hasAnyRootCause = identifiedRootCauses.length > 0 && identifiedRootCauses.some(rc => rc.description.trim() !== '');
     const hasPlannedActions = uniquePlannedActions.length > 0;
@@ -396,7 +400,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     if (
       !isTechniqueSelected &&
       !hasNotes &&
-      !hasBrainstorming && // Added
+      !hasBrainstorming && 
       !hasAnyRootCause && 
       !hasPlannedActions &&
       !isIshikawaEdited &&
@@ -525,7 +529,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     try {
       const input: SuggestRootCausesInput = {
         focusEventDescription: eventData.focusEventDescription || "No especificado",
-        brainstormingNotes: brainstormingNotes || undefined, // Added
+        brainstormingIdeas: brainstormingIdeas.length > 0 ? brainstormingIdeas.map(idea => ({ type: idea.type, description: idea.description })) : undefined, // Pass structured ideas
         analysisTechnique: analysisTechnique,
         analysisTechniqueNotes: analysisTechniqueNotes || undefined,
         ishikawaData: analysisTechnique === 'Ishikawa' ? ishikawaData : undefined,
@@ -566,19 +570,67 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
       </CardHeader>
       <CardContent className="space-y-6">
 
-        <div className="space-y-2">
-            <Label htmlFor="brainstormingNotes" className="text-lg font-semibold font-headline flex items-center">
+        <div className="space-y-4">
+            <Label htmlFor="brainstormingIdeas" className="text-lg font-semibold font-headline flex items-center">
               <Lightbulb className="mr-2 h-5 w-5 text-primary" />
-              Lluvia de Ideas Inicial sobre Causas Raíz
+              Lluvia de Ideas Inicial (Clasificada)
             </Label>
-            <Textarea
-              id="brainstormingNotes"
-              value={brainstormingNotes}
-              onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onBrainstormingNotesChange(e.target.value)}
-              placeholder="Anote aquí sus ideas preliminares sobre posibles causas raíz antes de aplicar una técnica formal..."
-              rows={5}
+            {brainstormingIdeas.map((idea, index) => (
+              <Card key={idea.id} className="p-3 bg-card shadow-sm">
+                <div className="flex justify-between items-start mb-2">
+                  <p className="font-medium text-sm text-primary">Idea #{index + 1}</p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onRemoveBrainstormIdea(idea.id)}
+                    aria-label={`Eliminar idea #${index + 1}`}
+                    className="h-7 w-7"
+                    disabled={isSaving}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1 sm:col-span-1">
+                        <Label htmlFor={`bi-type-${idea.id}`} className="text-xs">Tipo de Idea</Label>
+                        <Select
+                        value={idea.type}
+                        onValueChange={(value) => onUpdateBrainstormIdea(idea.id, 'type', value as BrainstormIdeaType)}
+                        disabled={isSaving}
+                        >
+                        <SelectTrigger id={`bi-type-${idea.id}`} className="h-9 text-xs">
+                            <SelectValue placeholder="-- Tipo --" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {BRAINSTORM_IDEA_TYPES.map(typeOpt => (
+                            <SelectItem key={typeOpt} value={typeOpt} className="text-xs">{typeOpt}</SelectItem>
+                            ))}
+                        </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-1 sm:col-span-2">
+                        <Label htmlFor={`bi-desc-${idea.id}`} className="text-xs">Descripción de la Idea</Label>
+                        <Textarea
+                            id={`bi-desc-${idea.id}`}
+                            value={idea.description}
+                            onChange={(e) => onUpdateBrainstormIdea(idea.id, 'description', e.target.value)}
+                            placeholder="Describa su idea aquí..."
+                            rows={2}
+                            className="text-xs"
+                            disabled={isSaving}
+                        />
+                    </div>
+                </div>
+              </Card>
+            ))}
+            <Button
+              onClick={onAddBrainstormIdea}
+              variant="outline"
+              className="w-full"
               disabled={isSaving}
-            />
+            >
+              <PlusCircle className="mr-2 h-4 w-4" /> Añadir Idea a la Lluvia de Ideas
+            </Button>
         </div>
         <Separator className="my-6" />
 
