@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { ListTodo, FileText, ImageIcon, Paperclip, UploadCloud, CheckCircle2, Save, Info, MessageSquare, UserCog, Loader2, CalendarCheck, History, Trash2, Mail, ArrowUp, ArrowDown, ChevronsUpDown, UserCircle } from 'lucide-react'; // Added UserCircle
+import { ListTodo, FileText, ImageIcon, Paperclip, UploadCloud, CheckCircle2, Save, Info, MessageSquare, UserCog, Loader2, CalendarCheck, History, Trash2, Mail, ArrowUp, ArrowDown, ChevronsUpDown, UserCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
@@ -709,7 +709,7 @@ export default function UserActionPlansPage() {
 
             <div className="pt-2">
               <h4 className="font-semibold text-primary mb-1">[Actualizar estado de esta tarea]</h4>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
                  <Button
                   size="sm"
                   variant="default"
@@ -720,6 +720,12 @@ export default function UserActionPlansPage() {
                   {isUpdatingAction ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />}
                   Marcar como listo para validación
                 </Button>
+                {selectedPlan.userMarkedReadyDate && (
+                  <span className="text-xs text-green-600 flex items-center ml-2 p-1.5 bg-green-50 border border-green-200 rounded-md">
+                    <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                    Listo para Validar
+                  </span>
+                )}
               </div>
             </div>
 
@@ -752,3 +758,4 @@ export default function UserActionPlansPage() {
     </div>
   );
 }
+
