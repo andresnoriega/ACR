@@ -432,8 +432,11 @@ export default function UserActionPlansPage() {
                 `- ${ev.nombre} (${ev.tipo || 'desconocido'}): ${ev.comment || "Sin comentario"}`
             ).join("\n");
         }
+        
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+        const validationLink = `${baseUrl}/analisis?id=${selectedPlan._originalRcaDocId}&step=4`;
   
-        const emailBody = `Estimado/a ${validatorProfile.name},\n\nEl usuario ${selectedSimulatedUserName || 'el responsable'} ha marcado la siguiente acción como lista para su validación:\n\nEvento RCA: ${selectedPlan.tituloDetalle} (ID: ${selectedPlan.codigoRCA})\nAcción Planificada: ${selectedPlan.descripcionDetallada}\nFecha de Cierre (Usuario): ${formattedCurrentDate}\n\nComentarios del Usuario:\n${updatesForAction.userComments || "Sin comentarios adicionales."}\n\nEvidencias Adjuntas:\n${evidencesList}\n\nPor favor, proceda a validar esta acción en el sistema RCA Assistant. Puede acceder directamente mediante el siguiente enlace:\n/analisis?id=${selectedPlan.codigoRCA}&step=4\n\nSaludos,\nSistema RCA Assistant`;
+        const emailBody = `Estimado/a ${validatorProfile.name},\n\nEl usuario ${selectedSimulatedUserName || 'el responsable'} ha marcado la siguiente acción como lista para su validación:\n\nEvento RCA: ${selectedPlan.tituloDetalle} (ID: ${selectedPlan.codigoRCA})\nAcción Planificada: ${selectedPlan.descripcionDetallada}\nFecha de Cierre (Usuario): ${formattedCurrentDate}\n\nComentarios del Usuario:\n${updatesForAction.userComments || "Sin comentarios adicionales."}\n\nEvidencias Adjuntas:\n${evidencesList}\n\nPor favor, proceda a validar esta acción en el sistema RCA Assistant. Puede acceder directamente mediante el siguiente enlace:\n${validationLink}\n\nSaludos,\nSistema RCA Assistant`;
   
         const emailResult = await sendEmailAction({
           to: validatorProfile.email,
@@ -763,7 +766,7 @@ export default function UserActionPlansPage() {
             <div>
               <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-0.5">Nota sobre la funcionalidad</h3>
               <p className="text-xs text-blue-600 dark:text-blue-400/90">
-                Al marcar "listo para validación", se guardarán las evidencias adjuntas (si las hay), los comentarios ingresados, se registrará la fecha y hora, y se enviará (simulación) un correo al validador con detalles de la tarea, comentarios, lista de evidencias y un enlace al Paso 4 del análisis.
+                Al marcar "listo para validación", se guardarán las evidencias adjuntas (si las hay), los comentarios ingresados, se registrará la fecha y hora, y se enviará un correo al validador con detalles de la tarea, comentarios, lista de evidencias y un enlace al Paso 4 del análisis.
                 La validación final para el estado 'Completado' se realiza en el Paso 4 del flujo de Análisis RCA por el líder del proyecto.
               </p>
             </div>
