@@ -1,5 +1,6 @@
 
 'use client';
+import * as React from "react"; // Added this line
 import type { FC } from 'react';
 import { useMemo, useState } from 'react';
 import type { PlannedAction, Validation, FullUserProfile, Evidence } from '@/types/rca';
