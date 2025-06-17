@@ -280,26 +280,13 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   const handleActionResponsibleChange = (index: number, value: string) => {
     onUpdateImmediateAction(index, 'responsible', value);
   };
-
-  const handleSaveEvent = async () => {
-    // Basic validation of fields is done by parent on `onContinue` or `handleGoToStep` if needed.
-    // Here we just ensure ID exists if it's being saved for the first time.
-    if (!eventData.id) {
-      onForceEnsureEventId();
-    }
-    const success = await onSaveAnalysis(true); 
-    if (success) {
-        // Optional: Logic after successful save
-    }
-  };
   
   const handlePrepareNotification = async () => {
-    // Basic validation of fields is done by parent on `onContinue` or `handleGoToStep` if needed.
     let currentEventId = eventData.id;
     if (!currentEventId) {
-      currentEventId = onForceEnsureEventId();
+      currentEventId = onForceEnsureEventId(); 
     }
-    const saveSuccess = await onSaveAnalysis(false); 
+    const saveSuccess = await onSaveAnalysis(false); // Guarda silenciosamente primero
     
     if (saveSuccess) {
         setEventDetailsForNotification({
@@ -318,7 +305,23 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   };
   
   const handleContinueToNextStep = async () => {
-    // Parent (RCAAnalysisPage) will handle field validations and status checks via onContinue -> handleNextStep
+    if (currentEventStatus === 'Pendiente') {
+      toast({
+        title: "Acción Requerida",
+        description: "Este evento debe ser aprobado antes de continuar con el análisis.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (currentEventStatus === 'Rechazado') {
+       toast({
+        title: "Evento Rechazado",
+        description: "Este evento ha sido rechazado y no puede continuar el análisis.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (!eventData.id) { 
       onForceEnsureEventId(); 
       const saveSuccess = await onSaveAnalysis(false); 
@@ -334,11 +337,11 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
 
   const isManageStateButtonDisabled = !eventData.id || isEventFinalized || isSaving || !canUserManageEventState;
   
-  const getManageStateButtonTitle = () => {
-    if (!eventData.id) return "El evento debe guardarse primero para poder gestionar su estado.";
+  const getRejectButtonTitle = () => {
+    if (!eventData.id) return "Guarde el evento para habilitar opciones de estado.";
     if (isEventFinalized) return "El evento ya está finalizado, no se puede cambiar el estado.";
     if (currentEventStatus === 'Rechazado') return "El evento ya está rechazado.";
-    if (!canUserManageEventState) return "No tiene permisos para aprobar o rechazar este reporte de evento.";
+    if (!canUserManageEventState) return "No tiene permisos para gestionar el estado de este evento.";
     return "Aprobar o Rechazar este reporte de evento";
   };
 
@@ -460,19 +463,15 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
           </div>
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2">
-          <Button onClick={handleSaveEvent} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || currentEventStatus === 'Rechazado' || isEventFinalized}>
-            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            <Save className="mr-2 h-4 w-4" /> Guardar Evento
-          </Button>
           <Button 
             onClick={handlePrepareNotification} 
-            variant="outline" 
+            variant="secondary" 
             className="w-full sm:w-auto transition-transform hover:scale-105" 
-            disabled={isSaving || !eventData.id || currentEventStatus === 'Rechazado' || isEventFinalized}
-            title={!eventData.id ? "Guarde el evento primero para habilitar la notificación." : (currentEventStatus === 'Rechazado' || isEventFinalized) ? "Evento rechazado o finalizado." : "Notificar creación de este evento"}
+            disabled={isSaving || currentEventStatus === 'Rechazado' || isEventFinalized}
+            title={!eventData.id ? "El evento debe guardarse primero para poder notificar." : (currentEventStatus === 'Rechazado' || isEventFinalized) ? "Evento rechazado o finalizado." : "Guardar el evento y luego notificar su creación"}
           >
              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            <Bell className="mr-2 h-4 w-4" /> Notificar Evento
+            <Bell className="mr-2 h-4 w-4" /> Guardar y Notificar Evento
           </Button>
           
           <DropdownMenu>
@@ -481,7 +480,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
                 variant="destructive" 
                 className="w-full sm:w-auto transition-transform hover:scale-105" 
                 disabled={isManageStateButtonDisabled}
-                title={getManageStateButtonTitle()}
+                title={getRejectButtonTitle()}
               >
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Settings2 className="mr-2 h-4 w-4" /> Gestionar Estado
@@ -527,3 +526,4 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     </>
   );
 };
+
