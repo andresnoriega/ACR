@@ -486,7 +486,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     }
 
     toast({
-        title: "Envío de Tareas Procesado (Simulación)",
+        title: "Envío de Tareas Procesado",
         description: `${tasksSentCount} enviada(s). ${tasksFailedCount > 0 ? `${tasksFailedCount} fallaron.` : ''} ${tasksIncompleteCount > 0 ? `${tasksIncompleteCount} incompletas.` : ''}`,
         variant: tasksFailedCount > 0 || tasksIncompleteCount > 0 ? "destructive" : "default",
     });
