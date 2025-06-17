@@ -31,7 +31,7 @@ interface Step1InitiationProps {
   onForceEnsureEventId: () => string; 
   onSaveAnalysis: (showToast?: boolean) => Promise<boolean>;
   isSaving: boolean;
-  onApproveEvent: () => Promise<void>; // Nueva prop para aprobar
+  onApproveEvent: () => Promise<void>; 
   onRejectEvent: () => Promise<void>; 
   isEventFinalized: boolean;
   currentEventStatus: ReportedEventStatus;
@@ -64,17 +64,22 @@ const NotifyEventCreationDialog: FC<NotifyEventCreationDialogProps> = ({
   const [notifyAllUsers, setNotifyAllUsers] = useState(false);
   const [isSendingEmails, setIsSendingEmails] = useState(false);
 
-  const filteredUsers = useMemo(() => {
+  const adminAndSuperUsers = useMemo(() => {
     if (!availableUsers || !Array.isArray(availableUsers)) return [];
-    return availableUsers.filter(user => 
+    return availableUsers.filter(user => user.role === 'Admin' || user.role === 'Super User');
+  }, [availableUsers]);
+
+  const filteredUsersForDialog = useMemo(() => {
+    if (!adminAndSuperUsers) return [];
+    return adminAndSuperUsers.filter(user => 
       user.name.toLowerCase().includes(emailSearchTerm.toLowerCase()) ||
       (user.email && user.email.toLowerCase().includes(emailSearchTerm.toLowerCase()))
     ).sort((a,b) => a.name.localeCompare(b.name));
-  }, [availableUsers, emailSearchTerm]);
+  }, [adminAndSuperUsers, emailSearchTerm]);
 
   const handleSelectAllFilteredUsers = (checked: boolean) => {
     if (checked) {
-      setSelectedUserEmails(filteredUsers.map(user => user.email).filter(email => !!email));
+      setSelectedUserEmails(filteredUsersForDialog.map(user => user.email).filter(email => !!email));
     } else {
       setSelectedUserEmails([]);
     }
@@ -89,22 +94,22 @@ const NotifyEventCreationDialog: FC<NotifyEventCreationDialogProps> = ({
   };
   
   const areAllFilteredUsersSelected = useMemo(() => {
-    if (filteredUsers.length === 0) return false;
-    return filteredUsers.every(user => user.email && selectedUserEmails.includes(user.email));
-  }, [filteredUsers, selectedUserEmails]);
+    if (filteredUsersForDialog.length === 0) return false;
+    return filteredUsersForDialog.every(user => user.email && selectedUserEmails.includes(user.email));
+  }, [filteredUsersForDialog, selectedUserEmails]);
 
 
   const handleConfirmSendNotifications = async () => {
     setIsSendingEmails(true);
     let finalRecipients: string[] = [];
     if (notifyAllUsers) {
-      finalRecipients = availableUsers.map(u => u.email).filter(email => !!email);
+      finalRecipients = adminAndSuperUsers.map(u => u.email).filter(email => !!email);
     } else {
       finalRecipients = selectedUserEmails;
     }
 
     if (finalRecipients.length === 0) {
-      toast({ title: "No se seleccionaron destinatarios", description: "Por favor, seleccione al menos un destinatario o marque 'Notificar a todos'.", variant: "destructive" });
+      toast({ title: "No se seleccionaron destinatarios", description: "Por favor, seleccione al menos un destinatario (Admin/Super User) o marque 'Notificar a todos los Admin/Super Users'.", variant: "destructive" });
       setIsSendingEmails(false);
       return;
     }
@@ -145,39 +150,39 @@ const NotifyEventCreationDialog: FC<NotifyEventCreationDialogProps> = ({
           </p>
           <div className="flex items-center space-x-2">
             <Checkbox 
-              id="notify-all-users" 
+              id="notify-all-admins-superusers" 
               checked={notifyAllUsers} 
               onCheckedChange={(checked) => {
                 setNotifyAllUsers(checked as boolean);
                 if(checked) setSelectedUserEmails([]); 
               }}
             />
-            <Label htmlFor="notify-all-users" className="text-sm font-medium">Notificar a todos los usuarios ({availableUsers.length})</Label>
+            <Label htmlFor="notify-all-admins-superusers" className="text-sm font-medium">Notificar a todos los Admin/Super Users ({adminAndSuperUsers.length})</Label>
           </div>
           
           {!notifyAllUsers && (
             <>
               <Input 
-                placeholder="Buscar por nombre o correo..."
+                placeholder="Buscar Admin/Super User por nombre o correo..."
                 value={emailSearchTerm}
                 onChange={(e) => setEmailSearchTerm(e.target.value)}
               />
               <div className="flex items-center space-x-2">
                 <Checkbox 
-                  id="select-all-filtered-emails" 
-                  checked={areAllFilteredUsersSelected && filteredUsers.length > 0}
+                  id="select-all-filtered-admin-emails" 
+                  checked={areAllFilteredUsersSelected && filteredUsersForDialog.length > 0}
                   onCheckedChange={(checked) => handleSelectAllFilteredUsers(checked as boolean)} 
-                  disabled={filteredUsers.length === 0}
+                  disabled={filteredUsersForDialog.length === 0}
                 />
-                <Label htmlFor="select-all-filtered-emails" className="text-sm font-medium">
-                  Seleccionar Todos los Filtrados ({filteredUsers.length}) / Deseleccionar
+                <Label htmlFor="select-all-filtered-admin-emails" className="text-sm font-medium">
+                  Seleccionar Todos los Filtrados ({filteredUsersForDialog.length}) / Deseleccionar
                 </Label>
               </div>
               <ScrollArea className="h-[180px] w-full rounded-md border p-2">
-                {availableUsers.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">No hay usuarios configurados.</p>
-                ) : filteredUsers.length > 0 ? (
-                  filteredUsers.map(user => (
+                {adminAndSuperUsers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">No hay Admin/Super Users configurados.</p>
+                ) : filteredUsersForDialog.length > 0 ? (
+                  filteredUsersForDialog.map(user => (
                     user.email && (
                       <div key={user.id} className="flex items-center space-x-2 p-1.5 hover:bg-accent rounded-md">
                         <Checkbox
@@ -186,13 +191,13 @@ const NotifyEventCreationDialog: FC<NotifyEventCreationDialogProps> = ({
                           onCheckedChange={(checked) => handleUserSelectionChange(user.email!, checked as boolean)}
                         />
                         <Label htmlFor={`user-email-notify-${user.id}`} className="text-xs cursor-pointer flex-grow">
-                          {user.name} <span className="text-muted-foreground">({user.email})</span>
+                          {user.name} <span className="text-muted-foreground">({user.email}) - {user.role}</span>
                         </Label>
                       </div>
                     )
                   ))
                 ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">No hay usuarios que coincidan con la búsqueda.</p>
+                  <p className="text-sm text-muted-foreground text-center py-4">No hay Admin/Super Users que coincidan con la búsqueda.</p>
                 )}
               </ScrollArea>
               <div>
@@ -207,7 +212,7 @@ const NotifyEventCreationDialog: FC<NotifyEventCreationDialogProps> = ({
           <DialogClose asChild>
             <Button type="button" variant="outline" onClick={()=> { setEmailSearchTerm(''); setSelectedUserEmails([]); setNotifyAllUsers(false);}} disabled={isSendingEmails}>Cancelar</Button>
           </DialogClose>
-          <Button type="button" onClick={handleConfirmSendNotifications} disabled={isSendingEmails}>
+          <Button type="button" onClick={handleConfirmSendNotifications} disabled={isSendingEmails || (!notifyAllUsers && selectedUserEmails.length === 0)}>
             {isSendingEmails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Enviar Notificaciones
           </Button>
@@ -544,3 +549,4 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     </>
   );
 };
+
