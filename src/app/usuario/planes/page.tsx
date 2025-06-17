@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox'; // Import Checkbox
 import { useToast } from '@/hooks/use-toast';
 import { ListTodo, FileText, ImageIcon, Paperclip, UploadCloud, CheckCircle2, Save, Info, MessageSquare, UserCog, Loader2, CalendarCheck, History, Trash2, Mail, ArrowUp, ArrowDown, ChevronsUpDown, UserCircle, FolderKanban, CheckSquare } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -307,10 +308,15 @@ export default function UserActionPlansPage() {
   }, [assignedActionPlans, validationActionPlans]);
 
   const handleSelectPlan = (plan: ActionPlan) => {
-    setSelectedPlan(plan);
+    if (selectedPlan?.id === plan.id && selectedPlan?._originalRcaDocId === plan._originalRcaDocId) {
+      setSelectedPlan(null); // Deselect if already selected
+    } else {
+      setSelectedPlan(plan);
+    }
     setFileToUpload(null);
     setEvidenceComment('');
   };
+
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
@@ -589,6 +595,7 @@ export default function UserActionPlansPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-[5%] p-2"></TableHead>
                         <TableHead className="w-[20%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('accionResumen')}>
                           <div className="flex items-center gap-1">Acción (Resumen) {renderSortIconAssigned('accionResumen')}</div>
                         </TableHead>
@@ -613,12 +620,22 @@ export default function UserActionPlansPage() {
                       {sortedAssignedActionPlans.map((plan) => (
                         <TableRow
                           key={`${plan._originalRcaDocId}-${plan.id}`}
-                          onClick={() => handleSelectPlan(plan)}
-                          className={cn("cursor-pointer hover:bg-muted/50", selectedPlan?.id === plan.id && selectedPlan?._originalRcaDocId === plan._originalRcaDocId && "bg-accent/50 hover:bg-accent/60")}
+                          className={cn(
+                            "cursor-pointer hover:bg-muted/50",
+                            selectedPlan?.id === plan.id && selectedPlan?._originalRcaDocId === plan._originalRcaDocId && "bg-accent/50 hover:bg-accent/60"
+                          )}
                         >
-                          <TableCell className="font-medium">{plan.accionResumen}</TableCell>
-                          <TableCell className="font-mono text-xs">{plan.id.substring(0,15)}{plan.id.length > 15 ? "..." : ""}</TableCell>
-                          <TableCell>
+                          <TableCell onClick={(e) => e.stopPropagation()} className="p-2">
+                            <Checkbox
+                                id={`select-plan-${plan.id}`}
+                                checked={selectedPlan?.id === plan.id && selectedPlan?._originalRcaDocId === plan._originalRcaDocId}
+                                onCheckedChange={() => handleSelectPlan(plan)}
+                                aria-label={`Seleccionar plan ${plan.accionResumen}`}
+                              />
+                          </TableCell>
+                          <TableCell className="font-medium" onClick={() => handleSelectPlan(plan)}>{plan.accionResumen}</TableCell>
+                          <TableCell className="font-mono text-xs" onClick={() => handleSelectPlan(plan)}>{plan.id.substring(0,15)}{plan.id.length > 15 ? "..." : ""}</TableCell>
+                          <TableCell onClick={() => handleSelectPlan(plan)}>
                             <span className={cn("px-2 py-0.5 rounded-full text-xs font-semibold",
                               plan.estado === 'Pendiente' && 'bg-red-100 text-red-700',
                               plan.estado === 'En proceso' && 'bg-yellow-100 text-yellow-700',
@@ -626,9 +643,9 @@ export default function UserActionPlansPage() {
                               plan.estado === 'Completado' && 'bg-green-100 text-green-700'
                             )}>{plan.estado}</span>
                           </TableCell>
-                          <TableCell>{plan.plazoLimite}</TableCell>
-                          <TableCell>{plan.validatorName || 'N/A'}</TableCell>
-                          <TableCell className="font-mono text-xs">{plan.codigoRCA.substring(0, 8)}...</TableCell>
+                          <TableCell onClick={() => handleSelectPlan(plan)}>{plan.plazoLimite}</TableCell>
+                          <TableCell onClick={() => handleSelectPlan(plan)}>{plan.validatorName || 'N/A'}</TableCell>
+                          <TableCell className="font-mono text-xs" onClick={() => handleSelectPlan(plan)}>{plan.codigoRCA.substring(0, 8)}...</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
