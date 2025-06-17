@@ -466,7 +466,9 @@ export default function RCAAnalysisPage() {
                 const validationEntry = rcaData.validations.find(v => v.actionId === pa.id);
                 return validationEntry && validationEntry.status === 'validated';
             });
-            if (allActionsValidatedInSave) {
+             const anyActionRejected = rcaData.validations.some(v => v.status === 'rejected');
+
+            if (allActionsValidatedInSave && !anyActionRejected) { // Only "En validación" if all validated AND none rejected
                 statusForReportedEvent = "En validación";
             } else if (statusForReportedEvent === "Pendiente" && (rcaData.projectLeader || rcaData.identifiedRootCauses?.length > 0)) {
                  statusForReportedEvent = "En análisis";
@@ -675,16 +677,16 @@ export default function RCAAnalysisPage() {
       saveSuccess = await handleSaveAnalysisData(false);
     } else if (step === 4) {
         if (plannedActions.length > 0) {
-            const allValidated = plannedActions.every(pa => {
+            const allActionsDecided = plannedActions.every(pa => {
                 if (!pa || !pa.id) return true;
                 const validationEntry = validations.find(v => v && v.actionId === pa.id);
-                return validationEntry && validationEntry.status === 'validated';
+                return validationEntry && (validationEntry.status === 'validated' || validationEntry.status === 'rejected');
             });
 
-            if (!allValidated) {
+            if (!allActionsDecided) {
                 toast({
-                    title: "Acciones Pendientes",
-                    description: "Todas las acciones planificadas deben estar validadas para continuar al Paso 5.",
+                    title: "Acciones Pendientes de Decisión",
+                    description: "Todas las acciones planificadas deben estar validadas o rechazadas para continuar al Paso 5.",
                     variant: "destructive",
                 });
                 return;
@@ -854,22 +856,32 @@ export default function RCAAnalysisPage() {
         const existingValidation = prevValidations.find(v => v.actionId === pa.id);
         return existingValidation || { actionId: pa.id, eventId: pa.eventId, status: 'pending' };
       });
+      // Filter out validations for actions that no longer exist in plannedActions
       return newValidations.filter(v => plannedActions.some(pa => pa.id === v.actionId));
     });
   }, [plannedActions]);
 
-
-  const handleToggleValidation = async (actionId: string) => {
+  const handleToggleValidation = async (actionId: string, newStatus: Validation['status'], rejectionReasonInput?: string) => {
     setValidations(prev =>
       prev.map(v => {
         if (v.actionId === actionId) {
-          const newStatus = v.status === 'pending' ? 'validated' : 'pending';
-          const newValidatedAt = newStatus === 'validated' ? new Date().toISOString() : v.validatedAt;
-          return {
-            ...v,
-            status: newStatus,
-            validatedAt: newValidatedAt
-          };
+          const nowISO = new Date().toISOString();
+          let updatedValidation: Validation = { ...v, status: newStatus };
+
+          if (newStatus === 'validated') {
+            updatedValidation.validatedAt = nowISO;
+            updatedValidation.rejectedAt = undefined;
+            updatedValidation.rejectionReason = undefined;
+          } else if (newStatus === 'rejected') {
+            updatedValidation.validatedAt = undefined;
+            updatedValidation.rejectedAt = nowISO;
+            updatedValidation.rejectionReason = rejectionReasonInput || "Motivo no especificado";
+          } else { // 'pending'
+            updatedValidation.validatedAt = undefined;
+            updatedValidation.rejectedAt = undefined;
+            updatedValidation.rejectionReason = undefined;
+          }
+          return updatedValidation;
         }
         return v;
       })

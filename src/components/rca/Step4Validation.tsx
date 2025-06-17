@@ -22,12 +22,13 @@ import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea'; // Added Textarea
+import { sendEmailAction } from '@/app/actions';
 
 
 interface Step4ValidationProps {
   plannedActions: PlannedAction[];
   validations: Validation[];
-  onToggleValidation: (actionId: string, newStatus: Validation['status'], rejectionReason?: string) => void; // Modified to include newStatus and reason
+  onToggleValidation: (actionId: string, newStatus: Validation['status'], rejectionReason?: string) => Promise<void>; 
   projectLeader: string;
   availableUserProfiles: FullUserProfile[]; 
   onPrevious: () => void;
@@ -87,7 +88,7 @@ const RejectActionDialog: FC<{
   action: PlannedAction;
   isOpen: boolean;
   onClose: () => void;
-  onConfirmReject: (actionId: string, reason: string) => void;
+  onConfirmReject: (actionId: string, reason: string) => Promise<void>;
 }> = ({ action, isOpen, onClose, onConfirmReject }) => {
   const [reason, setReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -100,11 +101,10 @@ const RejectActionDialog: FC<{
     setIsSubmitting(true);
     await onConfirmReject(action.id, reason);
     setIsSubmitting(false);
-    setReason(''); // Reset reason for next use
+    setReason(''); 
     onClose();
   };
   
-  // Reset reason when dialog is opened for a new action or re-opened
   React.useEffect(() => {
     if (isOpen) {
       setReason('');
@@ -160,6 +160,8 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   const [isSavingLocally, setIsSavingLocally] = useState(false);
   const [viewingEvidence, setViewingEvidence] = useState<Evidence | null>(null);
   const [rejectingAction, setRejectingAction] = useState<PlannedAction | null>(null);
+  const [isProcessingEmail, setIsProcessingEmail] = useState(false);
+
 
   const uniquePlannedActions = useMemo(() => {
     if (!Array.isArray(plannedActions)) {
@@ -195,7 +197,14 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   const handleValidateClick = async (actionId: string) => {
     const currentValidation = getValidation(actionId);
     const newStatus = currentValidation?.status === 'validated' ? 'pending' : 'validated';
-    onToggleValidation(actionId, newStatus);
+    setIsSavingLocally(true);
+    await onToggleValidation(actionId, newStatus);
+    setIsSavingLocally(false);
+    if (newStatus === 'validated') {
+      toast({ title: "Acción Validada", description: "La acción ha sido marcada como validada.", className: "bg-green-500 text-white" });
+    } else {
+      toast({ title: "Estado Cambiado", description: "La acción ahora está pendiente." });
+    }
   };
 
   const handleRejectClick = (action: PlannedAction) => {
@@ -203,8 +212,57 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   };
 
   const handleConfirmRejectAction = async (actionId: string, reason: string) => {
-    onToggleValidation(actionId, 'rejected', reason);
-    setRejectingAction(null);
+    const actionBeingRejected = uniquePlannedActions.find(act => act.id === actionId);
+    if (!actionBeingRejected) {
+      toast({ title: "Error", description: "Acción no encontrada.", variant: "destructive" });
+      setRejectingAction(null);
+      return;
+    }
+
+    setIsSavingLocally(true);
+    setIsProcessingEmail(true);
+    try {
+      await onToggleValidation(actionId, 'rejected', reason); 
+
+      const responsibleUserName = actionBeingRejected.responsible;
+      const responsibleUser = availableUserProfiles.find(up => up.name === responsibleUserName);
+
+      let emailNotificationStatus = "No se pudo determinar el estado del envío de correo.";
+      if (responsibleUser && responsibleUser.email) {
+        const emailSubject = `Acción RCA Rechazada: ${actionBeingRejected.description.substring(0, 30)}...`;
+        const eventId = actionBeingRejected.eventId; 
+        
+        const emailBody = `Estimado/a ${responsibleUser.name},\n\nLa siguiente acción planificada ha sido RECHAZADA en el análisis RCA (ID Evento: ${eventId}):\n\nAcción: ${actionBeingRejected.description}\nMotivo del Rechazo: ${reason}\n\nPor favor, revise la acción y tome las medidas necesarias.\n\nSaludos,\nSistema RCA Assistant`;
+        
+        const emailResult = await sendEmailAction({
+          to: responsibleUser.email,
+          subject: emailSubject,
+          body: emailBody,
+        });
+        if (emailResult.success) {
+          emailNotificationStatus = `Notificación de rechazo enviada a ${responsibleUser.name}.`;
+        } else {
+          emailNotificationStatus = `Se intentó enviar notificación a ${responsibleUser.name}, pero falló: ${emailResult.message}`;
+        }
+      } else {
+        emailNotificationStatus = `No se pudo enviar notificación: responsable "${responsibleUserName}" no encontrado o sin email.`;
+      }
+      
+      toast({ 
+        title: "Acción Rechazada", 
+        description: `La acción ha sido marcada como rechazada. ${emailNotificationStatus}`,
+        variant: "destructive",
+        duration: 7000
+      });
+
+    } catch (error) {
+      toast({ title: "Error", description: "Ocurrió un error al rechazar la acción.", variant: "destructive" });
+      console.error("Error during reject action confirmation:", error);
+    } finally {
+      setIsSavingLocally(false);
+      setIsProcessingEmail(false);
+      setRejectingAction(null);
+    }
   };
 
 
@@ -215,7 +273,6 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   };
 
   const handleNextLocal = async () => {
-     // Check if all actions are either 'validated' or 'rejected' before proceeding
     const pendingActions = uniquePlannedActions.filter(action => {
       const validation = getValidation(action.id);
       return !validation || validation.status === 'pending';
@@ -237,7 +294,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
     onNext();
   };
 
-  const isStepSaving = isSaving || isSavingLocally;
+  const isStepSaving = isSaving || isSavingLocally || isProcessingEmail;
 
   return (
     <>
@@ -301,7 +358,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                             {hasInformationToVisualize && status === 'pending' ? (
                               <Info className="h-5 w-5 text-blue-500" />
                             ) : (
-                              <div className="w-5 h-5"></div> // Placeholder for alignment
+                              <div className="w-5 h-5"></div> 
                             )}
                           </div>
                           <AccordionPrimitive.Trigger className="flex flex-1 items-center text-left hover:underline focus:outline-none group data-[state=open]:text-primary">
@@ -330,10 +387,10 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                                <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleRejectClick(action)}
-                                disabled={isStepSaving || status === 'rejected'}
+                                onClick={() => status === 'rejected' ? onToggleValidation(action.id, 'pending') : handleRejectClick(action)}
+                                disabled={isStepSaving}
                                 className={cn(status === 'rejected' ? "bg-red-100 hover:bg-red-200 text-red-700" : "hover:bg-red-50", "transition-colors")}
-                                title={status === 'rejected' ? "Rechazado (Click para cambiar estado)" : "Rechazar esta acción"}
+                                title={status === 'rejected' ? "Rechazado (Click para marcar como pendiente)" : "Rechazar esta acción"}
                               >
                                 {status === 'rejected' ? 'Rechazado' : 'Rechazar'}
                               </Button>
