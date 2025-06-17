@@ -368,15 +368,17 @@ export default function RCAAnalysisPage() {
       setEventData(prev => ({ ...prev, id: newEventID }));
       setEventCounter(prev => prev + 1);
       setAnalysisDocumentId(newEventID); // Also set the main analysisDocumentId
-      if (!createdBy && userProfile?.name) { // Set createdBy if not already set
+      if (!createdBy && userProfile?.name) { 
         setCreatedBy(userProfile.name);
       }
-      // Update URL to reflect the new ID
-      router.replace(`/analisis?id=${newEventID}`, { scroll: false }); // Use replace to avoid history clutter
+      router.replace(`/analisis?id=${newEventID}`, { scroll: false }); 
       return newEventID;
     }
-    if (!analysisDocumentId && eventData.id) { // Sync analysisDocumentId if eventData.id exists but analysisDocumentId is null
+    if (!analysisDocumentId && eventData.id) { 
         setAnalysisDocumentId(eventData.id);
+    }
+    if (!createdBy && userProfile?.name && eventData.id) {
+        setCreatedBy(userProfile.name);
     }
     return eventData.id;
   }, [eventData.id, eventCounter, analysisDocumentId, router, createdBy, userProfile?.name]);
@@ -406,7 +408,12 @@ export default function RCAAnalysisPage() {
         rejectedAt: new Date().toISOString(),
       };
     } else if (statusOverride === "En análisis" || statusOverride === "Pendiente" || statusOverride === "Finalizado") {
-        currentRejectionDetailsToSave = undefined; // Clear rejection details if approved or moved to pending
+        currentRejectionDetailsToSave = undefined; 
+    }
+
+    let currentCreatedBy = createdBy;
+    if (!currentCreatedBy && userProfile?.name) {
+      currentCreatedBy = userProfile.name;
     }
 
 
@@ -417,7 +424,7 @@ export default function RCAAnalysisPage() {
       validations: (validationsOverride !== undefined) ? validationsOverride : validations,
       finalComments, isFinalized: currentIsFinalized,
       rejectionDetails: currentRejectionDetailsToSave,
-      createdBy: createdBy || (userProfile?.name) || undefined, // Ensure createdBy is included
+      createdBy: currentCreatedBy, 
     };
 
     try {
@@ -442,7 +449,7 @@ export default function RCAAnalysisPage() {
         finalComments: finalCommentsToSave,
         updatedAt: new Date().toISOString(),
         createdAt: rcaDocSnap.exists() && rcaDocSnap.data().createdAt ? rcaDocSnap.data().createdAt : new Date().toISOString(),
-        createdBy: (rcaDocSnap.exists() && rcaDocSnap.data().createdBy) ? rcaDocSnap.data().createdBy : (createdBy || userProfile?.name || undefined),
+        createdBy: (rcaDocSnap.exists() && rcaDocSnap.data().createdBy) ? rcaDocSnap.data().createdBy : currentCreatedBy,
       };
 
       const sanitizedDataToSave = sanitizeForFirestore(dataToSave);
@@ -630,23 +637,27 @@ export default function RCAAnalysisPage() {
     }
 
     setIsSaving(true);
-    // Fetch the latest RCA document data to get 'createdBy'
+    
     let rcaDocCreatorName = 'Creador Desconocido';
-    try {
-        const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
-        const rcaDocSnap = await getDoc(rcaDocRef);
-        if (rcaDocSnap.exists()) {
-            const rcaData = rcaDocSnap.data() as RCAAnalysisDocument;
-            rcaDocCreatorName = rcaData.createdBy || rcaDocCreatorName;
-            if (rcaData.createdBy && createdBy !== rcaData.createdBy) {
-                setCreatedBy(rcaData.createdBy); // Sync state if different
-            }
-        }
-    } catch (fetchError) {
-        console.error("Error fetching RCA document for creator info:", fetchError);
-        // Proceed with rejection, but notification might go to a default or fail if creator unknown
-    }
+    const currentCreatedByState = createdBy; // Capture current state value
 
+    if (currentCreatedByState) {
+        rcaDocCreatorName = currentCreatedByState;
+    } else {
+        try {
+            const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
+            const rcaDocSnap = await getDoc(rcaDocRef);
+            if (rcaDocSnap.exists()) {
+                const rcaData = rcaDocSnap.data() as RCAAnalysisDocument;
+                rcaDocCreatorName = rcaData.createdBy || rcaDocCreatorName;
+                if (rcaData.createdBy && createdBy !== rcaData.createdBy) {
+                    setCreatedBy(rcaData.createdBy); // Sync state if different
+                }
+            }
+        } catch (fetchError) {
+            console.error("Error fetching RCA document for creator info:", fetchError);
+        }
+    }
 
     const success = await handleSaveAnalysisData(
       false,
@@ -659,8 +670,7 @@ export default function RCAAnalysisPage() {
       toast({ title: "Evento Rechazado", description: `El evento ${analysisDocumentId} ha sido marcado como rechazado.` });
       setCurrentEventStatus("Rechazado"); 
 
-      // Use rcaDocCreatorName (fetched or from state) for notification
-      const creatorNameToNotify = createdBy || rcaDocCreatorName;
+      const creatorNameToNotify = rcaDocCreatorName; 
       const creatorProfile = availableUsersFromDB.find(u => u.name === creatorNameToNotify);
       
       let emailNotificationStatus = `Evento ${analysisDocumentId} rechazado. `;
@@ -668,15 +678,15 @@ export default function RCAAnalysisPage() {
         const emailSubject = `Evento RCA Rechazado: ${eventData.focusEventDescription.substring(0, 40)}... (ID: ${analysisDocumentId})`;
         const rejectedByName = userProfile?.name || "Sistema";
         const formattedRejectionDate = new Date().toLocaleDateString('es-CL', { year: 'numeric', month: 'long', day: 'numeric' });
-        const emailBody = `Estimado/a ${creatorProfile.name},\n\nEl evento "${eventData.focusEventDescription}" (ID: ${analysisDocumentId}) que usted reportó ha sido rechazado.\n\nMotivo del Rechazo: ${rejectionReason}\nRechazado por: ${rejectedByName}\nFecha de Rechazo: ${formattedRejectionDate}\n\nPor favor, revise los detalles en el sistema si es necesario.\n\nSaludos,\nSistema RCA Assistant`;
+        const emailBody = `Estimado/a ${creatorProfile.name},\n\nEl evento "${eventData.focusEventDescription}" (ID: ${analysisDocumentId}) que usted creó/reportó ha sido rechazado.\n\nMotivo del Rechazo: ${rejectionReason}\nRechazado por: ${rejectedByName}\nFecha de Rechazo: ${formattedRejectionDate}\n\nPor favor, revise los detalles en el sistema si es necesario.\n\nSaludos,\nSistema RCA Assistant`;
         const emailResult = await sendEmailAction({ to: creatorProfile.email, subject: emailSubject, body: emailBody });
         if (emailResult.success) {
-          emailNotificationStatus += `Notificación de rechazo enviada a ${creatorProfile.name} (creador).`;
+          emailNotificationStatus += `Notificación de rechazo enviada a ${creatorProfile.name} (creador del evento).`;
         } else {
-          emailNotificationStatus += `No se pudo enviar correo de rechazo a ${creatorProfile.name} (creador): ${emailResult.message}`;
+          emailNotificationStatus += `No se pudo enviar correo de rechazo a ${creatorProfile.name} (creador del evento): ${emailResult.message}`;
         }
       } else {
-        emailNotificationStatus += `No se pudo notificar al creador del evento (${creatorNameToNotify}) por correo (no encontrado o notificaciones desactivadas).`;
+        emailNotificationStatus += `No se pudo notificar al creador del evento (${creatorNameToNotify || 'No Identificado'}) por correo (no encontrado o notificaciones desactivadas).`;
       }
        toast({ title: "Resultado de Rechazo", description: emailNotificationStatus, variant: "default", duration: 7000 });
 
@@ -989,11 +999,11 @@ export default function RCAAnalysisPage() {
     setValidations(newValidationsArray);
 
     await handleSaveAnalysisData(
-      false, // showToast
-      undefined, // finalizedOverride
-      undefined, // statusOverride
-      undefined, // currentRejectionReason for main event, not action
-      newValidationsArray // Pass the freshly computed validations
+      false, 
+      undefined, 
+      undefined, 
+      undefined, 
+      newValidationsArray 
     );
   };
 
@@ -1090,7 +1100,7 @@ export default function RCAAnalysisPage() {
             isSaving={isSaving}
             onApproveEvent={handleApproveEvent}
             onRejectEvent={() => {
-              setRejectionReason(''); // Clear previous reason
+              setRejectionReason(''); 
               setIsRejectConfirmOpen(true);
             }}
             isEventFinalized={isFinalized}
@@ -1243,3 +1253,4 @@ export default function RCAAnalysisPage() {
     
 
     
+
