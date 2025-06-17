@@ -335,6 +335,10 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   };
   
   const handleContinueToNextStep = async () => {
+    if (currentEventStatus === 'Pendiente') {
+      toast({title: "Evento Pendiente", description: "Este evento debe ser aprobado antes de continuar con el análisis.", variant: "default"});
+      return;
+    }
     if (currentEventStatus === 'Rechazado') {
       toast({title: "Evento Rechazado", description: "Este evento ha sido rechazado y no puede continuar el análisis.", variant: "destructive"});
       return;
@@ -359,8 +363,8 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   const getManageStateButtonTitle = () => {
     if (!eventData.id) return "El evento debe guardarse primero para poder gestionar su estado.";
     if (isEventFinalized) return "El evento ya está finalizado, no se puede cambiar el estado.";
-    if (currentEventStatus === 'Rechazado') return "El evento ya está rechazado, no se puede cambiar el estado aquí.";
-    if (!canUserManageEventState) return "No tiene permisos para aprobar o rechazar este evento.";
+    if (currentEventStatus === 'Rechazado') return "El evento ya está rechazado."; // No necesita "no se puede cambiar estado aquí" si se muestra el dropdown
+    if (!canUserManageEventState) return "No tiene permisos para aprobar o rechazar este reporte de evento.";
     return "Aprobar o Rechazar este reporte de evento";
   };
 
@@ -529,7 +533,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button onClick={handleContinueToNextStep} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || currentEventStatus === 'Rechazado' || isEventFinalized}>
+          <Button onClick={handleContinueToNextStep} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || isEventFinalized}>
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Continuar
           </Button>
