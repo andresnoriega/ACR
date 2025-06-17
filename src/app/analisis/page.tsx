@@ -377,7 +377,8 @@ export default function RCAAnalysisPage() {
     showToast: boolean = true,
     finalizedOverride?: boolean,
     statusOverride?: ReportedEventStatus,
-    currentRejectionReason?: string
+    currentRejectionReason?: string,
+    validationsOverride?: Validation[]
   ): Promise<boolean> => {
     const currentId = analysisDocumentId || ensureEventId();
     if (!currentId) {
@@ -391,9 +392,7 @@ export default function RCAAnalysisPage() {
 
     let currentRejectionDetails = rejectionDetails;
     if (statusOverride === "Rechazado" && currentRejectionReason) {
-      // If actual user is available from AuthContext, use userProfile.name
-      // For now, using a generic placeholder.
-      const rejectedBy = "Usuario del Sistema"; // Placeholder
+      const rejectedBy = "Usuario del Sistema"; 
       currentRejectionDetails = {
         reason: currentRejectionReason,
         rejectedBy: rejectedBy,
@@ -405,7 +404,8 @@ export default function RCAAnalysisPage() {
       eventData: consistentEventData, immediateActions, projectLeader, detailedFacts, analysisDetails,
       preservedFacts, analysisTechnique, analysisTechniqueNotes, ishikawaData,
       fiveWhysData, ctmData, identifiedRootCauses, plannedActions,
-      validations, finalComments, isFinalized: currentIsFinalized,
+      validations: (validationsOverride !== undefined) ? validationsOverride : validations,
+      finalComments, isFinalized: currentIsFinalized,
       rejectionDetails: currentRejectionDetails,
     };
 
@@ -415,7 +415,7 @@ export default function RCAAnalysisPage() {
 
       let finalCommentsToSave = finalComments;
       if (statusOverride === "Rechazado" && currentRejectionReason) {
-          const rejecterName = "Usuario del Sistema"; // Placeholder
+          const rejecterName = "Usuario del Sistema"; 
           let baseRejectMsg = `Evento Rechazado por ${rejecterName} el ${new Date().toLocaleDateString('es-CL')}.`;
           if (currentRejectionReason) {
             baseRejectMsg += `\nMotivo: ${currentRejectionReason}`;
@@ -428,7 +428,6 @@ export default function RCAAnalysisPage() {
         finalComments: finalCommentsToSave,
         updatedAt: new Date().toISOString(),
         createdAt: rcaDocSnap.exists() && rcaDocSnap.data().createdAt ? rcaDocSnap.data().createdAt : new Date().toISOString(),
-        // createdBy: userProfile?.id, // If userProfile is available from AuthContext
       };
 
       const sanitizedDataToSave = sanitizeForFirestore(dataToSave);
@@ -449,6 +448,9 @@ export default function RCAAnalysisPage() {
       if (statusOverride === "Rechazado" && rcaDocPayload.rejectionDetails) {
         setRejectionDetails(rcaDocPayload.rejectionDetails);
       }
+      if (validationsOverride) {
+        setValidations(validationsOverride); 
+      }
 
       const reportedEventRef = doc(db, "reportedEvents", currentId);
       const reportedEventSnap = await getDoc(reportedEventRef);
@@ -468,7 +470,7 @@ export default function RCAAnalysisPage() {
             });
              const anyActionRejected = rcaData.validations.some(v => v.status === 'rejected');
 
-            if (allActionsValidatedInSave && !anyActionRejected) { // Only "En validación" if all validated AND none rejected
+            if (allActionsValidatedInSave && !anyActionRejected) { 
                 statusForReportedEvent = "En validación";
             } else if (statusForReportedEvent === "Pendiente" && (rcaData.projectLeader || rcaData.identifiedRootCauses?.length > 0)) {
                  statusForReportedEvent = "En análisis";
@@ -526,22 +528,18 @@ export default function RCAAnalysisPage() {
     }
   };
 
-  // Specific save handler for Step 2, which might change ReportedEvent status to "En análisis"
   const handleSaveFromStep2 = async (showToast: boolean = true) => {
-    const saveSuccess = await handleSaveAnalysisData(showToast); // Use the main save function
+    const saveSuccess = await handleSaveAnalysisData(showToast); 
     if (!saveSuccess) return;
 
-    // After successful save, check if the status needs to be specifically "En análisis"
     if (analysisDocumentId) {
       setIsSaving(true);
       try {
         const reportedEventRef = doc(db, "reportedEvents", analysisDocumentId);
         const reportedEventSnap = await getDoc(reportedEventRef);
         if (reportedEventSnap.exists() && reportedEventSnap.data().status === "Pendiente") {
-          // If it's still "Pendiente" after the save (which means it wasn't updated by other logic in handleSaveAnalysisData)
-          // and we're saving from step 2 (implying progress), then set to "En análisis"
           await updateDoc(reportedEventRef, sanitizeForFirestore({ status: "En análisis", updatedAt: new Date().toISOString() }));
-          setCurrentEventStatus("En análisis"); // Update local state
+          setCurrentEventStatus("En análisis"); 
           if (showToast) {
             toast({ title: "Estado Actualizado", description: `El evento ${analysisDocumentId} ahora está "En análisis".` });
           }
@@ -856,37 +854,43 @@ export default function RCAAnalysisPage() {
         const existingValidation = prevValidations.find(v => v.actionId === pa.id);
         return existingValidation || { actionId: pa.id, eventId: pa.eventId, status: 'pending' };
       });
-      // Filter out validations for actions that no longer exist in plannedActions
       return newValidations.filter(v => plannedActions.some(pa => pa.id === v.actionId));
     });
   }, [plannedActions]);
 
   const handleToggleValidation = async (actionId: string, newStatus: Validation['status'], rejectionReasonInput?: string) => {
-    setValidations(prev =>
-      prev.map(v => {
-        if (v.actionId === actionId) {
-          const nowISO = new Date().toISOString();
-          let updatedValidation: Validation = { ...v, status: newStatus };
+    const newValidationsArray = validations.map(v => {
+      if (v.actionId === actionId) {
+        const nowISO = new Date().toISOString();
+        let updatedValidation: Validation = { ...v, status: newStatus };
 
-          if (newStatus === 'validated') {
-            updatedValidation.validatedAt = nowISO;
-            updatedValidation.rejectedAt = undefined;
-            updatedValidation.rejectionReason = undefined;
-          } else if (newStatus === 'rejected') {
-            updatedValidation.validatedAt = undefined;
-            updatedValidation.rejectedAt = nowISO;
-            updatedValidation.rejectionReason = rejectionReasonInput || "Motivo no especificado";
-          } else { // 'pending'
-            updatedValidation.validatedAt = undefined;
-            updatedValidation.rejectedAt = undefined;
-            updatedValidation.rejectionReason = undefined;
-          }
-          return updatedValidation;
+        if (newStatus === 'validated') {
+          updatedValidation.validatedAt = nowISO;
+          updatedValidation.rejectedAt = undefined;
+          updatedValidation.rejectionReason = undefined;
+        } else if (newStatus === 'rejected') {
+          updatedValidation.validatedAt = undefined;
+          updatedValidation.rejectedAt = nowISO;
+          updatedValidation.rejectionReason = rejectionReasonInput || "Motivo no especificado";
+        } else { // 'pending'
+          updatedValidation.validatedAt = undefined;
+          updatedValidation.rejectedAt = undefined;
+          updatedValidation.rejectionReason = undefined;
         }
-        return v;
-      })
+        return updatedValidation;
+      }
+      return v;
+    });
+    
+    setValidations(newValidationsArray);
+
+    await handleSaveAnalysisData(
+      false, // showToast
+      undefined, // finalizedOverride
+      undefined, // statusOverride
+      undefined, // currentRejectionReason
+      newValidationsArray // Pass the freshly computed validations
     );
-     await handleSaveAnalysisData(false);
   };
 
   const handlePrintReport = () => {
