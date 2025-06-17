@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2, Save, Send, Loader2, Mail, Sparkles, ClipboardCopy, ChevronLeft, ChevronRight } from 'lucide-react';
+import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2, Save, Send, Loader2, Mail, Sparkles, ClipboardCopy, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
 import { FiveWhysInteractive } from './FiveWhysInteractive';
@@ -209,6 +209,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const [isSuggestingCauses, setIsSuggestingCauses] = useState(false);
   const [aiSuggestedRootCausesList, setAiSuggestedRootCausesList] = useState<string[]>([]);
   const [currentAiSuggestionIndex, setCurrentAiSuggestionIndex] = useState(0);
+  const [aiSuggestionsAttempted, setAiSuggestionsAttempted] = useState(false);
 
   useEffect(() => {
     if (identifiedRootCauses.length === 0) {
@@ -515,6 +516,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
 
   const handleSuggestRootCausesClick = async () => {
     setIsSuggestingCauses(true);
+    setAiSuggestionsAttempted(false); // Reset before attempt
     setAiSuggestedRootCausesList([]); 
     try {
       const input: SuggestRootCausesInput = {
@@ -549,6 +551,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
       toast({ title: "Error con IA", description: "No se pudieron obtener sugerencias de la IA.", variant: "destructive" });
     }
     setIsSuggestingCauses(false);
+    setAiSuggestionsAttempted(true); // Mark that an attempt was made
   };
 
   const handleCopySuggestion = () => {
@@ -689,8 +692,20 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
             </Button>
         </div>
 
-
-        {aiSuggestedRootCausesList.length > 0 && (
+        {aiSuggestionsAttempted && aiSuggestedRootCausesList.length === 0 && !isSuggestingCauses && (
+            <Card className="mt-6 border-dashed border-muted-foreground/50">
+              <CardContent className="pt-6 text-center">
+                <AlertTriangle className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  La IA no generó sugerencias de causas raíz latentes esta vez.
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Asegúrese de haber completado la técnica de análisis seleccionada con suficiente detalle o intente agregar más notas.
+                </p>
+              </CardContent>
+            </Card>
+        )}
+        {aiSuggestedRootCausesList.length > 0 && !isSuggestingCauses && (
             <Card className="mt-6">
               <CardHeader>
                 <CardTitle className="text-md font-semibold text-primary">Sugerencias de Causa Raíz Latente por IA</CardTitle>
@@ -855,3 +870,4 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     </>
   );
 };
+
