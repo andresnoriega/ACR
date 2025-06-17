@@ -6,13 +6,12 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { SettingsIcon, Users, Globe, KeyRound, ShieldCheck, Loader2, DollarSign } from 'lucide-react';
-// PasswordPromptDialog and related imports removed
 
 export default function ConfiguracionHubPage() {
   const router = useRouter();
 
+  // The password prompt is now handled by the config layout
   const handlePrivacyDataClick = () => {
-    // Navigate directly instead of showing password dialog
     router.push('/config/privacidad');
   };
 
