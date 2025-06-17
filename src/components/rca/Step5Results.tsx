@@ -151,6 +151,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     return ctmTree.trim() ? ctmTree : "(No se definieron elementos para el Árbol de Causas)";
   };
 
+  // This function is kept for potential use in `onPrintReport` or other non-email contexts.
   const generateReportText = (): string => {
     let report = `INFORME FINAL DE ANÁLISIS DE CAUSA RAÍZ\n`;
     report += `Evento ID: ${eventId || "No generado"}\n`;
@@ -267,15 +268,17 @@ export const Step5Results: FC<Step5ResultsProps> = ({
       return;
     }
 
-    const reportText = generateReportText();
     const emailSubject = `Informe RCA: ${eventData.focusEventDescription || `Evento ID ${eventId}`}`;
+    // Updated email body to be concise
+    const emailBody = `Estimado/a,\n\nSe ha completado el Análisis de Causa Raíz para el evento: "${eventData.focusEventDescription || eventId}" (ID: ${eventId}).\n\nEl informe completo está disponible en la aplicación o puede ser exportado a PDF desde el Paso 5.\n\n(Este correo simula que el informe PDF se adjuntaría aquí si la funcionalidad estuviera completamente implementada.)\n\nSaludos,\nSistema RCA Assistant`;
+    
     let emailsSentCount = 0;
 
     for (const email of selectedUserEmails) {
       const result = await sendEmailAction({
         to: email,
         subject: emailSubject,
-        body: `Estimado/a,\n\nAdjunto (simulado) encontrará el informe de Análisis de Causa Raíz para el evento: "${eventData.focusEventDescription || eventId}".\n\n--- INICIO DEL INFORME ---\n${reportText}\n--- FIN DEL INFORME ---\n\nSaludos,\nSistema RCA Assistant`,
+        body: emailBody, 
       });
       if(result.success) emailsSentCount++;
     }
@@ -449,7 +452,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
               {identifiedRootCauses.length > 0 ? (
                 <ul className="list-disc pl-6 space-y-1">
                   {identifiedRootCauses.map((rc, index) => (
-                    rc.description.trim() && <li key={rc.id}><strong>Causa Raíz #${index + 1}:</strong> {rc.description}</li>
+                    rc.description.trim() && <li key={rc.id}><strong>Causa Raíz #{index + 1}:</strong> {rc.description}</li>
                   ))}
                    {identifiedRootCauses.every(rc => !rc.description.trim()) && <p>Se han añadido entradas de causa raíz pero ninguna tiene descripción.</p>}
                 </ul>
