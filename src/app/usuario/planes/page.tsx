@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { ListTodo, FileText, ImageIcon, Paperclip, UploadCloud, CheckCircle2, Save, Info, MessageSquare, UserCog, Loader2, CalendarCheck, History, Trash2, Mail, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
+import { ListTodo, FileText, ImageIcon, Paperclip, UploadCloud, CheckCircle2, Save, Info, MessageSquare, UserCog, Loader2, CalendarCheck, History, Trash2, Mail, ArrowUp, ArrowDown, ChevronsUpDown, UserCircle } from 'lucide-react'; // Added UserCircle
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
@@ -19,6 +19,7 @@ import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { sendEmailAction } from '@/app/actions';
 import { sanitizeForFirestore } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
 
 interface ActionPlan {
   id: string;
@@ -55,9 +56,9 @@ const NONE_USER_VALUE = "--NONE--";
 
 export default function UserActionPlansPage() {
   const { toast } = useToast();
+  const { currentUser, userProfile, loadingAuth } = useAuth(); // Get userProfile from useAuth
 
   const [availableUsers, setAvailableUsers] = useState<FullUserProfile[]>([]);
-  const [selectedSimulatedUserName, setSelectedSimulatedUserName] = useState<string | null>(null);
   const [allRcaDocuments, setAllRcaDocuments] = useState<RCAAnalysisDocument[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [isLoadingActions, setIsLoadingActions] = useState(true);
@@ -107,7 +108,8 @@ export default function UserActionPlansPage() {
   }, [fetchUsers, fetchRcaDocuments]);
 
   const currentUserActionPlans = useMemo(() => {
-    if (!selectedSimulatedUserName || allRcaDocuments.length === 0) {
+    // Wait for userProfile to be available
+    if (loadingAuth || !userProfile || !userProfile.name || allRcaDocuments.length === 0) {
       return [];
     }
     const plans: ActionPlan[] = [];
@@ -116,7 +118,8 @@ export default function UserActionPlansPage() {
     allRcaDocuments.forEach(rcaDoc => {
       if (rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
         rcaDoc.plannedActions.forEach(pa => {
-          if (pa.responsible === selectedSimulatedUserName) {
+          // Filter by the authenticated user's name
+          if (pa.responsible === userProfile.name) {
             const uniqueKey = pa.id;
             if (!uniqueTracker.has(uniqueKey)) {
               uniqueTracker.add(uniqueKey);
@@ -171,7 +174,7 @@ export default function UserActionPlansPage() {
       }
     });
     return plans;
-  }, [selectedSimulatedUserName, allRcaDocuments]);
+  }, [userProfile, allRcaDocuments, loadingAuth]);
 
   const requestSort = (key: SortableActionPlanKey) => {
     let direction: 'ascending' | 'descending' = 'ascending';
@@ -333,7 +336,7 @@ export default function UserActionPlansPage() {
             userMarkedReadyDate: userMarkedReadyTimestamp,
             validationDate: validationTimestamp,
             ultimaActualizacion: {
-              usuario: selectedSimulatedUserName || "Sistema",
+              usuario: userProfile?.name || "Sistema", // Use logged-in user's name
               mensaje: "Datos actualizados en Firestore.",
               fechaRelativa: format(new Date(), 'dd/MM/yyyy HH:mm', { locale: es })
             }
@@ -364,7 +367,7 @@ export default function UserActionPlansPage() {
   };
 
   const handleSignalTaskReadyForValidation = async () => {
-    if (!selectedPlan) return;
+    if (!selectedPlan || !userProfile || !userProfile.name) return; // Ensure userProfile and name are available
     if (selectedPlan.estado === 'Completado') {
       toast({ title: "Acción ya Completada", description: "Esta tarea ya ha sido validada y completada.", variant: "default" });
       return;
@@ -401,11 +404,11 @@ export default function UserActionPlansPage() {
     } else {
       // Si no hay comentarios del usuario y es la primera vez que se marca lista, o no hay evidencias.
       if (selectedPlan.estado === 'Pendiente' && (!newEvidencesArray || newEvidencesArray.length === 0)) {
-         commentsToSave = (commentsToSave ? commentsToSave + "\n\n" : "") + `[Sistema] Tarea marcada como lista para validación por ${selectedSimulatedUserName || 'el responsable'} el ${formattedCurrentDate}.`;
+         commentsToSave = (commentsToSave ? commentsToSave + "\n\n" : "") + `[Sistema] Tarea marcada como lista para validación por ${userProfile.name} el ${formattedCurrentDate}.`;
          if (fileToUpload) commentsToSave += ` Se adjuntó evidencia: ${fileToUpload.name}.`;
          updatesForAction.userComments = commentsToSave;
       } else if (fileToUpload) { // Si hay archivo pero no comentarios, añadir nota sobre el archivo
-         commentsToSave = (commentsToSave ? commentsToSave + "\n\n" : "") + `[Sistema] Evidencia '${fileToUpload.name}' adjuntada por ${selectedSimulatedUserName || 'el responsable'} el ${formattedCurrentDate}.`;
+         commentsToSave = (commentsToSave ? commentsToSave + "\n\n" : "") + `[Sistema] Evidencia '${fileToUpload.name}' adjuntada por ${userProfile.name} el ${formattedCurrentDate}.`;
          updatesForAction.userComments = commentsToSave;
       }
     }
@@ -436,7 +439,7 @@ export default function UserActionPlansPage() {
         const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
         const validationLink = `${baseUrl}/analisis?id=${selectedPlan._originalRcaDocId}&step=4`;
   
-        const emailBody = `Estimado/a ${validatorProfile.name},\n\nEl usuario ${selectedSimulatedUserName || 'el responsable'} ha marcado la siguiente acción como lista para su validación:\n\nEvento RCA: ${selectedPlan.tituloDetalle} (ID: ${selectedPlan.codigoRCA})\nAcción Planificada: ${selectedPlan.descripcionDetallada}\nFecha de Cierre (Usuario): ${formattedCurrentDate}\n\nComentarios del Usuario:\n${updatesForAction.userComments || "Sin comentarios adicionales."}\n\nEvidencias Adjuntas:\n${evidencesList}\n\nPor favor, proceda a validar esta acción en el sistema RCA Assistant. Puede acceder directamente mediante el siguiente enlace:\n${validationLink}\n\nSaludos,\nSistema RCA Assistant`;
+        const emailBody = `Estimado/a ${validatorProfile.name},\n\nEl usuario ${userProfile.name} ha marcado la siguiente acción como lista para su validación:\n\nEvento RCA: ${selectedPlan.tituloDetalle} (ID: ${selectedPlan.codigoRCA})\nAcción Planificada: ${selectedPlan.descripcionDetallada}\nFecha de Cierre (Usuario): ${formattedCurrentDate}\n\nComentarios del Usuario:\n${updatesForAction.userComments || "Sin comentarios adicionales."}\n\nEvidencias Adjuntas:\n${evidencesList}\n\nPor favor, proceda a validar esta acción en el sistema RCA Assistant. Puede acceder directamente mediante el siguiente enlace:\n${validationLink}\n\nSaludos,\nSistema RCA Assistant`;
   
         const emailResult = await sendEmailAction({
           to: validatorProfile.email,
@@ -471,8 +474,7 @@ export default function UserActionPlansPage() {
     }
   };
 
-  const isLoading = isLoadingUsers || isLoadingActions;
-  const validUsersForSelect = useMemo(() => availableUsers.filter(user => user.name && user.name.trim() !== ""), [availableUsers]);
+  const isLoadingPage = loadingAuth || isLoadingUsers || isLoadingActions;
 
   const renderSortIcon = (columnKey: SortableActionPlanKey) => {
     if (sortConfig.key === columnKey) {
@@ -481,60 +483,37 @@ export default function UserActionPlansPage() {
     return <ChevronsUpDown className="h-3 w-3 opacity-30" />;
   };
 
+  if (isLoadingPage) {
+    return (
+      <div className="flex flex-col justify-center items-center min-h-[calc(100vh-10rem)] text-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-lg text-muted-foreground">Cargando datos de tareas...</p>
+      </div>
+    );
+  }
+
+  if (!currentUser || !userProfile) {
+     return (
+      <div className="flex flex-col justify-center items-center min-h-[calc(100vh-10rem)] text-center">
+        <p className="text-lg text-muted-foreground">Debe iniciar sesión para ver sus tareas.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 py-8">
       <header className="text-center mb-6">
-        <h1 className="text-3xl font-bold font-headline text-primary">
-          Mis Planes de Acción
+        <h1 className="text-3xl font-bold font-headline text-primary flex items-center justify-center">
+           <UserCircle className="mr-3 h-8 w-8" /> Mis Planes de Acción 
         </h1>
-        <p className="text-sm text-muted-foreground">Gestione las tareas que le han sido asignadas.</p>
+        <p className="text-sm text-muted-foreground">
+          Tareas asignadas a: <span className="font-semibold">{userProfile.name}</span> ({userProfile.email})
+        </p>
       </header>
 
       <Card className="shadow-md">
         <CardHeader>
-          <Label htmlFor="simulatedUser" className="flex items-center font-medium text-primary">
-            <UserCog className="mr-2 h-5 w-5" />
-            Visualizar Tareas Asignadas a:
-          </Label>
-        </CardHeader>
-        <CardContent>
-          <Select
-            value={selectedSimulatedUserName || NONE_USER_VALUE}
-            onValueChange={(value) => {
-              setSelectedSimulatedUserName(value === NONE_USER_VALUE ? null : value);
-              setSelectedPlan(null);
-            }}
-            disabled={isLoadingUsers}
-          >
-            <SelectTrigger id="simulatedUser" className="max-w-md">
-              <SelectValue placeholder="-- Seleccione un Usuario --" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE_USER_VALUE}>-- Ninguno --</SelectItem>
-              {validUsersForSelect.length > 0
-                ? validUsersForSelect.map(user => (
-                  user.name && user.name.trim() !== "" && (
-                    <SelectItem key={user.id} value={user.name}>
-                      {user.name} ({user.email})
-                    </SelectItem>
-                  )
-                ))
-                : (
-                  <div className="px-2 py-1.5 text-sm text-muted-foreground text-center">
-                    {availableUsers.length === 0 ? "No hay usuarios configurados" : "No hay usuarios con nombres válidos"}
-                  </div>
-                )
-              }
-            </SelectContent>
-          </Select>
-          {isLoadingUsers && <p className="text-xs text-muted-foreground mt-1 flex items-center"><Loader2 className="h-3 w-3 animate-spin mr-1" />Cargando usuarios...</p>}
-        </CardContent>
-      </Card>
-
-
-      <Card className="shadow-md">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold text-primary">Resumen Rápido (Para: {selectedSimulatedUserName || "Nadie"})</CardTitle>
+          <CardTitle className="text-lg font-semibold text-primary">Resumen Rápido</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
           <div className="p-3 bg-secondary/40 rounded-md">
@@ -566,12 +545,8 @@ export default function UserActionPlansPage() {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <p className="ml-2 text-muted-foreground">Cargando acciones...</p>
             </div>
-          ) : !selectedSimulatedUserName ? (
-            <p className="text-center text-muted-foreground py-10">Por favor, seleccione un usuario para ver sus tareas asignadas.</p>
-          ) : sortedActionPlans.length === 0 && currentUserActionPlans.length > 0 ? (
-            <p className="text-center text-muted-foreground py-10">No hay planes de acción que coincidan con los criterios de ordenamiento actuales (aunque existen para el usuario).</p>
-          ) : currentUserActionPlans.length === 0 ? (
-             <p className="text-center text-muted-foreground py-10">No hay planes de acción asignados a {selectedSimulatedUserName}.</p>
+          ) : sortedActionPlans.length === 0 ? (
+             <p className="text-center text-muted-foreground py-10">No hay planes de acción asignados a {userProfile.name}.</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -777,4 +752,3 @@ export default function UserActionPlansPage() {
     </div>
   );
 }
-
