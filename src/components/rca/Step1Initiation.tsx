@@ -17,6 +17,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useRouter } from 'next/navigation'; // Import useRouter
 
 interface Step1InitiationProps {
   eventData: RCAEventData;
@@ -29,7 +30,7 @@ interface Step1InitiationProps {
   availableUsers: FullUserProfile[];
   onContinue: () => void;
   onForceEnsureEventId: () => string; 
-  onSaveAnalysis: (showToast?: boolean) => Promise<boolean>;
+  onSaveAnalysis: (showToast?: boolean, options?: { suppressNavigation?: boolean }) => Promise<{ success: boolean; newEventId?: string; needsNavigationUrl?: string }>;
   isSaving: boolean;
   onApproveEvent: () => Promise<void>; 
   onRejectEvent: () => Promise<void>; 
@@ -244,9 +245,11 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
 }) => {
   const { toast } = useToast();
   const { userProfile } = useAuth(); 
+  const router = useRouter();
   const [clientSideMaxDate, setClientSideMaxDate] = useState<string | undefined>(undefined);
   const [isNotifyDialogOpen, setIsNotifyDialogOpen] = useState(false);
   const [eventDetailsForNotification, setEventDetailsForNotification] = useState<{id: string, description: string, site: string} | null>(null);
+  const [navigationTaskUrl, setNavigationTaskUrl] = useState<string | null>(null);
   
   useEffect(() => {
     const getTodayDateString = () => {
@@ -258,6 +261,15 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     };
     setClientSideMaxDate(getTodayDateString());
   }, []); 
+
+  useEffect(() => {
+    if (!isNotifyDialogOpen && navigationTaskUrl) {
+      router.replace(navigationTaskUrl, { scroll: false });
+      setNavigationTaskUrl(null); // Clear after navigation
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isNotifyDialogOpen, navigationTaskUrl]); // Do not add router here to prevent loops
+
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, field: keyof RCAEventData) => {
     onEventDataChange(field, e.target.value);
@@ -284,16 +296,23 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   const handlePrepareNotification = async () => {
     let currentEventId = eventData.id;
     if (!currentEventId) {
-      currentEventId = onForceEnsureEventId(); 
+      currentEventId = onForceEnsureEventId(); // This updates parent's eventData.id and analysisDocumentId
     }
-    const saveSuccess = await onSaveAnalysis(false); // Guarda silenciosamente primero
     
-    if (saveSuccess) {
+    const saveResult = await onSaveAnalysis(false, { suppressNavigation: true }); 
+    
+    if (saveResult.success) {
+        const finalEventId = saveResult.newEventId || eventData.id; // Use ID from save result if new
         setEventDetailsForNotification({
-            id: currentEventId, 
+            id: finalEventId!, 
             description: eventData.focusEventDescription,
             site: eventData.place
         });
+        if (saveResult.needsNavigationUrl) {
+            setNavigationTaskUrl(saveResult.needsNavigationUrl);
+        } else {
+            setNavigationTaskUrl(null);
+        }
         setIsNotifyDialogOpen(true);
     } else {
         toast({
@@ -324,8 +343,9 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     
     if (!eventData.id) { 
       onForceEnsureEventId(); 
-      const saveSuccess = await onSaveAnalysis(false); 
-      if (!saveSuccess) return; 
+      // Allow save to handle navigation if it's a new event
+      const saveResult = await onSaveAnalysis(false, { suppressNavigation: false }); 
+      if (!saveResult.success) return; 
     }
     onContinue();
   };
@@ -516,7 +536,13 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
       {eventDetailsForNotification && (
         <NotifyEventCreationDialog
           isOpen={isNotifyDialogOpen}
-          onOpenChange={setIsNotifyDialogOpen}
+          onOpenChange={(open) => {
+            setIsNotifyDialogOpen(open);
+            if (!open && navigationTaskUrl) { // Si el diálogo se cierra y hay una tarea de navegación
+                router.replace(navigationTaskUrl, { scroll: false });
+                setNavigationTaskUrl(null);
+            }
+          }}
           eventId={eventDetailsForNotification.id}
           eventDescription={eventDetailsForNotification.description}
           eventSite={eventDetailsForNotification.site}
@@ -526,4 +552,3 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     </>
   );
 };
-
