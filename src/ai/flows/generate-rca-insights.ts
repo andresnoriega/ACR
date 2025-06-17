@@ -29,7 +29,7 @@ const GenerateRcaInsightsInputSchema = z.object({
 export type GenerateRcaInsightsInput = z.infer<typeof GenerateRcaInsightsInputSchema>;
 
 const GenerateRcaInsightsOutputSchema = z.object({
-  summary: z.string().describe('A comprehensive summary and insights derived from the RCA data.'),
+  summary: z.string().describe('A comprehensive summary and insights derived from the RCA data, written in Spanish.'),
 });
 export type GenerateRcaInsightsOutput = z.infer<typeof GenerateRcaInsightsOutputSchema>;
 
@@ -39,48 +39,50 @@ const prompt = ai.definePrompt({
   input: {schema: GenerateRcaInsightsInputSchema},
   output: {schema: GenerateRcaInsightsOutputSchema},
   prompt: `
-    You are an expert RCA (Root Cause Analysis) analyst. Based on the following information from an RCA process,
-    generate a concise and insightful executive summary. This summary should be suitable for inclusion in the "Final Comments"
-    section of the RCA report.
+    Usted es un analista experto en RCA (Análisis de Causa Raíz). Basándose en la siguiente información de un proceso RCA,
+    genere un resumen ejecutivo conciso y perspicaz. Este resumen debe ser adecuado para su inclusión en la sección "Comentarios Finales"
+    del informe RCA.
 
-    Highlight:
-    1.  A brief restatement of the core problem (focus event).
-    2.  The most critical root cause(s) identified.
-    3.  The key corrective action(s) proposed to address these root causes.
-    4.  Any significant learnings or broader implications if apparent from the data.
-    5.  Mention any relevant attached documentation if it seems pertinent to the summary.
-    6.  Maintain a professional and objective tone.
+    **Importante: El resumen ejecutivo DEBE estar escrito en ESPAÑOL.**
 
-    Do NOT invent information. Stick to the data provided.
-    If a piece of information (like analysis technique notes or preserved facts) is missing or not provided, acknowledge its absence implicitly by not referring to it.
+    Destaque:
+    1.  Una breve reformulación del problema central (evento foco).
+    2.  La(s) causa(s) raíz más crítica(s) identificada(s).
+    3.  La(s) acción(es) correctiva(s) clave propuesta(s) para abordar estas causas raíz.
+    4.  Cualquier aprendizaje significativo o implicación más amplia si se desprende de los datos.
+    5.  Mencione cualquier documentación adjunta relevante si parece pertinente para el resumen.
+    6.  Mantenga un tono profesional y objetivo.
 
-    RCA Data:
-    - Event Focus: {{{focusEventDescription}}}
-    - Summary of Facts: {{{detailedFactsSummary}}}
-    {{#if analysisTechnique}}- Analysis Technique Used: {{{analysisTechnique}}}{{/if}}
-    {{#if analysisTechniqueNotes}}- Notes from Analysis Technique: {{{analysisTechniqueNotes}}}{{/if}}
+    NO invente información. Cíñase a los datos proporcionados.
+    Si falta una pieza de información (como notas de la técnica de análisis o hechos preservados) o no se proporciona, reconozca su ausencia implícitamente al no referirse a ella.
+
+    Datos del RCA:
+    - Evento Foco: {{{focusEventDescription}}}
+    - Resumen de Hechos: {{{detailedFactsSummary}}}
+    {{#if analysisTechnique}}- Técnica de Análisis Utilizada: {{{analysisTechnique}}}{{/if}}
+    {{#if analysisTechniqueNotes}}- Notas de la Técnica de Análisis: {{{analysisTechniqueNotes}}}{{/if}}
     {{#if preservedFactsInfo}}
-    - Preserved Facts / Attached Documents (Note: You have metadata, not full content):
+    - Hechos Preservados / Documentos Adjuntos (Nota: Usted tiene metadatos, no el contenido completo):
       {{#each preservedFactsInfo}}
-      - Document Name: {{{this.name}}}, Category: {{{this.category}}}, User Description: {{{this.description}}}
+      - Nombre del Documento: {{{this.name}}}, Categoría: {{{this.category}}}, Descripción del Usuario: {{{this.description}}}
       {{else}}
-      - No specific documents were detailed.
+      - No se detallaron documentos específicos.
       {{/each}}
     {{/if}}
-    - Identified Root Causes:
+    - Causas Raíz Identificadas:
       {{#each identifiedRootCauses}}
       - {{{this}}}
       {{else}}
-      - No specific root causes were detailed.
+      - No se detallaron causas raíz específicas.
       {{/each}}
-    - Planned Corrective Actions:
+    - Acciones Correctivas Planificadas:
       {{#each plannedActionsSummary}}
       - {{{this}}}
       {{else}}
-      - No specific planned actions were detailed.
+      - No se detallaron acciones planificadas específicas.
       {{/each}}
 
-    Generate the summary below:
+    Genere el resumen a continuación:
   `,
 });
 
