@@ -48,8 +48,10 @@ export interface PlannedAction {
 export interface Validation {
   actionId: string;
   eventId: string;
-  status: 'pending' | 'validated';
-  validatedAt?: string; // ISO string, new field
+  status: 'pending' | 'validated' | 'rejected'; // Added 'rejected'
+  validatedAt?: string; // ISO string
+  rejectionReason?: string; // New field for rejection reason
+  rejectedAt?: string; // ISO string, when it was rejected
 }
 
 export type AnalysisTechnique = '' | 'WhyWhy' | 'Ishikawa' | 'CTM';
@@ -215,3 +217,4 @@ export interface RCAAnalysisDocument {
   updatedAt: string; // ISO string
   createdBy?: string; // User ID (Firebase UID) or name
 }
+

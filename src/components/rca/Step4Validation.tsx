@@ -7,24 +7,26 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input'; // Added Input
 import {
  Accordion,
  AccordionContent,
  AccordionItem,
 } from "@/components/ui/accordion";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
-import { ChevronDown, CheckCircle2, Circle, Eye, FileText, ImageIcon, Paperclip, Loader2, Save, MessageSquare, CalendarCheck, History, Info } from 'lucide-react';
+import { ChevronDown, CheckCircle2, Circle, Eye, FileText, ImageIcon, Paperclip, Loader2, Save, MessageSquare, CalendarCheck, History, Info, XCircle, AlertTriangle } from 'lucide-react'; // Added XCircle
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea'; // Added Textarea
 
 
 interface Step4ValidationProps {
   plannedActions: PlannedAction[];
   validations: Validation[];
-  onToggleValidation: (actionId: string) => void;
+  onToggleValidation: (actionId: string, newStatus: Validation['status'], rejectionReason?: string) => void; // Modified to include newStatus and reason
   projectLeader: string;
   availableUserProfiles: FullUserProfile[]; 
   onPrevious: () => void;
@@ -80,6 +82,68 @@ const ViewEvidenceDialog: FC<{ evidence: Evidence | null; isOpen: boolean; onClo
   );
 };
 
+const RejectActionDialog: FC<{
+  action: PlannedAction;
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirmReject: (actionId: string, reason: string) => void;
+}> = ({ action, isOpen, onClose, onConfirmReject }) => {
+  const [reason, setReason] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!reason.trim()) {
+      // Optionally show a toast here if reason is mandatory
+      return;
+    }
+    setIsSubmitting(true);
+    await onConfirmReject(action.id, reason);
+    setIsSubmitting(false);
+    setReason(''); // Reset reason for next use
+    onClose();
+  };
+  
+  // Reset reason when dialog is opened for a new action or re-opened
+  React.useEffect(() => {
+    if (isOpen) {
+      setReason('');
+    }
+  }, [isOpen]);
+
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => {if(!isSubmitting) onClose()}}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center"><XCircle className="mr-2 h-5 w-5 text-destructive" />Rechazar Acción Planificada</DialogTitle>
+          <DialogDescription>
+            Está a punto de rechazar la acción: "{action.description}". Por favor, proporcione un motivo.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4">
+          <Label htmlFor="rejectionReason">Motivo del Rechazo <span className="text-destructive">*</span></Label>
+          <Textarea
+            id="rejectionReason"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Explique por qué se rechaza esta acción..."
+            rows={3}
+            className="mt-1"
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
+          <Button variant="destructive" onClick={handleSubmit} disabled={!reason.trim() || isSubmitting}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Confirmar Rechazo
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+
 export const Step4Validation: FC<Step4ValidationProps> = ({
   plannedActions,
   validations,
@@ -94,17 +158,15 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   const { toast } = useToast();
   const [isSavingLocally, setIsSavingLocally] = useState(false);
   const [viewingEvidence, setViewingEvidence] = useState<Evidence | null>(null);
+  const [rejectingAction, setRejectingAction] = useState<PlannedAction | null>(null);
 
   const uniquePlannedActions = useMemo(() => {
     if (!Array.isArray(plannedActions)) {
-      console.warn("Step4Validation: plannedActions prop is not an array. Defaulting to empty.", plannedActions);
       return [];
     }
-
     const seenIds = new Set<string>();
     return plannedActions.filter(action => {
       if (!action || !action.id) { 
-        console.warn("Step4Validation: Filtered out a malformed planned action (missing action or action.id)", action);
         return false;
       }
       if (seenIds.has(action.id)) {
@@ -115,44 +177,33 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
     });
   }, [plannedActions]);
 
-  const getValidationStatus = (actionId: string) => {
-    const validation = validations.find(v => v.actionId === actionId);
-    return validation ? validation.status : 'pending';
+  const getValidation = (actionId: string): Validation | undefined => {
+    return validations.find(v => v.actionId === actionId);
   };
   
   const canValidateActions = (loggedInUserName: string | null): boolean => {
     if (!loggedInUserName) return false; 
-    
     const currentUserProfile = availableUserProfiles.find(up => up.name === loggedInUserName);
     if (!currentUserProfile) return false;
-
     if (currentUserProfile.name === projectLeader) return true;
     if (currentUserProfile.role === 'Admin' && currentUserProfile.permissionLevel === 'Total') return true;
     if (currentUserProfile.role === 'Super User') return true;
-
     return false;
   };
 
+  const handleValidateClick = async (actionId: string) => {
+    const currentValidation = getValidation(actionId);
+    const newStatus = currentValidation?.status === 'validated' ? 'pending' : 'validated';
+    onToggleValidation(actionId, newStatus);
+  };
 
-  const handleValidationToggleAttempt = async (actionId: string) => {
-    const actionToValidate = uniquePlannedActions.find(pa => pa.id === actionId);
-    if (!actionToValidate) return;
+  const handleRejectClick = (action: PlannedAction) => {
+    setRejectingAction(action);
+  };
 
-    const isReadyForValidationByLeader = 
-          (actionToValidate.evidencias && actionToValidate.evidencias.length > 0) || 
-          (actionToValidate.userComments && actionToValidate.userComments.trim() !== '') || 
-          actionToValidate.markedAsReadyAt;
-
-    if(!isReadyForValidationByLeader && getValidationStatus(actionId) === 'pending') {
-        toast({
-            title: "Acción no Lista",
-            description: "Esta acción aún no ha sido marcada como lista por el responsable (no tiene evidencias, comentarios ni fecha de 'listo'). No se puede validar aún.",
-            variant: "destructive",
-            duration: 6000,
-        });
-        return;
-    }
-    onToggleValidation(actionId); 
+  const handleConfirmRejectAction = async (actionId: string, reason: string) => {
+    onToggleValidation(actionId, 'rejected', reason);
+    setRejectingAction(null);
   };
 
 
@@ -163,6 +214,22 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   };
 
   const handleNextLocal = async () => {
+     // Check if all actions are either 'validated' or 'rejected' before proceeding
+    const pendingActions = uniquePlannedActions.filter(action => {
+      const validation = getValidation(action.id);
+      return !validation || validation.status === 'pending';
+    });
+
+    if (pendingActions.length > 0) {
+      toast({
+        title: "Acciones Pendientes de Decisión",
+        description: `Aún hay ${pendingActions.length} acción(es) que no han sido validadas ni rechazadas. Por favor, revise todas las acciones.`,
+        variant: "destructive",
+        duration: 7000,
+      });
+      return;
+    }
+
     setIsSavingLocally(true);
     await onSaveAnalysis(false); 
     setIsSavingLocally(false);
@@ -171,14 +238,13 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
 
   const isStepSaving = isSaving || isSavingLocally;
 
-
   return (
     <>
       <Card>
         <CardHeader>
           <CardTitle className="font-headline">Paso 4: Validación de Acciones</CardTitle>
           <CardDescription>
-            El Líder del Proyecto o un Administrador (con Edición Total) valida la efectividad de las acciones implementadas. Expanda cada acción para ver detalles.
+            El Líder del Proyecto o un Administrador (con Edición Total) valida o rechaza la efectividad de las acciones implementadas. Expanda cada acción para ver detalles.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -195,36 +261,46 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
             ) : (
               <Accordion type="multiple" className="w-full">
                 {uniquePlannedActions.map((action) => {
-                  const status = getValidationStatus(action.id);
+                  const validation = getValidation(action.id);
+                  const status = validation?.status || 'pending';
                   
                   const hasInformationToVisualize = 
                     (action.evidencias && action.evidencias.length > 0) || 
                     (action.userComments && action.userComments.trim() !== '') || 
                     action.markedAsReadyAt;
 
-                  const shouldShowVisualIndicator = hasInformationToVisualize && status !== 'validated';
-                  
                   const isReadyForValidationByLeader = 
                     (action.evidencias && action.evidencias.length > 0) || 
                     (action.userComments && action.userComments.trim() !== '') || 
                     action.markedAsReadyAt;
                   
-                  const showNotReadyWarning = !isReadyForValidationByLeader && status !== 'validated';
+                  const showNotReadyWarning = !isReadyForValidationByLeader && status === 'pending';
+                  
+                  let statusDisplay;
+                  let statusColorClass = "text-muted-foreground";
+                  let StatusIcon = Circle;
 
-                  let computedCheckboxDisabled = isStepSaving;
-                  if (showNotReadyWarning && status !== 'validated') { 
-                    computedCheckboxDisabled = true;
+                  if (status === 'validated') {
+                    statusDisplay = "Validado";
+                    statusColorClass = "text-green-600";
+                    StatusIcon = CheckCircle2;
+                  } else if (status === 'rejected') {
+                    statusDisplay = "Rechazado";
+                    statusColorClass = "text-destructive";
+                    StatusIcon = XCircle;
+                  } else {
+                    statusDisplay = "Pendiente";
                   }
                   
                   return (
                     <AccordionItem value={action.id} key={action.id} className="border-b">
                       <Card className="shadow-none border-0 rounded-none w-full">
                         <AccordionPrimitive.Header className="flex items-center p-4 w-full">
-                          <div className="flex-shrink-0 pr-3" title={shouldShowVisualIndicator ? "Esta acción tiene información adjunta (evidencias/comentarios) y está pendiente de validación." : undefined}>
-                            {shouldShowVisualIndicator ? (
+                          <div className="flex-shrink-0 pr-3" title={hasInformationToVisualize && status === 'pending' ? "Esta acción tiene información adjunta (evidencias/comentarios) y está pendiente de validación." : undefined}>
+                            {hasInformationToVisualize && status === 'pending' ? (
                               <Info className="h-5 w-5 text-blue-500" />
                             ) : (
-                              <div className="w-5 h-5"></div>
+                              <div className="w-5 h-5"></div> // Placeholder for alignment
                             )}
                           </div>
                           <AccordionPrimitive.Trigger className="flex flex-1 items-center text-left hover:underline focus:outline-none group data-[state=open]:text-primary">
@@ -235,22 +311,31 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                             <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
                           </AccordionPrimitive.Trigger>
 
-                          <div className="flex items-center space-x-3 ml-4 shrink-0 pl-2">
-                            <Label htmlFor={`validation-${action.id}`} className={cn(`flex items-center text-sm`, computedCheckboxDisabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer')}>
-                              <Checkbox
-                                id={`validation-${action.id}`}
-                                checked={status === 'validated'}
-                                onCheckedChange={() => handleValidationToggleAttempt(action.id)}
-                                className="mr-2"
-                                disabled={computedCheckboxDisabled}
-                                aria-label={status === 'validated' ? 'Desmarcar como validado' : 'Marcar como validado'}
-                              />
-                              {status === 'validated' ? (
-                                <span className="text-accent font-medium flex items-center"><CheckCircle2 className="mr-1 h-5 w-5" /> Validado</span>
-                              ) : (
-                                <span className="text-muted-foreground flex items-center"><Circle className="mr-1 h-5 w-5" /> Pendiente</span>
-                              )}
-                            </Label>
+                          <div className="flex items-center space-x-2 ml-4 shrink-0 pl-2">
+                            <span className={cn("text-sm font-medium flex items-center", statusColorClass)}>
+                              <StatusIcon className="mr-1.5 h-5 w-5" /> {statusDisplay}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleValidateClick(action.id)}
+                              disabled={isStepSaving || status === 'validated' || showNotReadyWarning}
+                              className={cn(status === 'validated' ? "bg-green-100 hover:bg-green-200 text-green-700" : "hover:bg-green-50", "transition-colors")}
+                              title={showNotReadyWarning ? "Acción no lista para validar" : (status === 'validated' ? "Validado (Click para marcar como pendiente)" : "Marcar como Validado")}
+                            >
+                              {status === 'validated' ? 'Validado' : 'Validar'}
+                            </Button>
+                             <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRejectClick(action)}
+                              disabled={isStepSaving || status === 'rejected'}
+                              className={cn(status === 'rejected' ? "bg-red-100 hover:bg-red-200 text-red-700" : "hover:bg-red-50", "transition-colors")}
+                              title={status === 'rejected' ? "Rechazado (Click para cambiar estado)" : "Rechazar esta acción"}
+
+                            >
+                              {status === 'rejected' ? 'Rechazado' : 'Rechazar'}
+                            </Button>
                           </div>
                         </AccordionPrimitive.Header>
                         <AccordionContent className="p-4 pt-0">
@@ -261,13 +346,24 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                                 <p className="ml-5">{format(parseISO(action.markedAsReadyAt), 'dd/MM/yyyy HH:mm', { locale: es })}</p>
                               </div>
                             )}
-                             {status === 'validated' && validations.find(v=>v.actionId === action.id)?.validatedAt && (
+                             {status === 'validated' && validation?.validatedAt && isValidDate(parseISO(validation.validatedAt)) && (
                                   <div>
                                       <h5 className="font-semibold text-green-600 mb-0.5 flex items-center">
                                           <CalendarCheck className="mr-1.5 h-3.5 w-3.5" />
                                           Validado el:
                                       </h5>
-                                      <p className="ml-5">{format(parseISO(validations.find(v=>v.actionId === action.id)!.validatedAt!), 'dd/MM/yyyy HH:mm', { locale: es })}</p>
+                                      <p className="ml-5">{format(parseISO(validation.validatedAt), 'dd/MM/yyyy HH:mm', { locale: es })}</p>
+                                  </div>
+                              )}
+                              {status === 'rejected' && validation?.rejectedAt && isValidDate(parseISO(validation.rejectedAt)) && (
+                                  <div>
+                                      <h5 className="font-semibold text-destructive mb-0.5 flex items-center">
+                                          <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                                          Rechazado el:
+                                      </h5>
+                                      <p className="ml-5">{format(parseISO(validation.rejectedAt), 'dd/MM/yyyy HH:mm', { locale: es })}</p>
+                                      <p className="font-semibold text-destructive mb-0.5 flex items-center mt-1"><MessageSquare className="mr-1.5 h-3.5 w-3.5" />Motivo del Rechazo:</p>
+                                      <p className="ml-5 whitespace-pre-wrap p-1.5 bg-red-50 rounded-sm">{validation.rejectionReason || "No se proporcionó motivo."}</p>
                                   </div>
                               )}
                             <div>
@@ -301,7 +397,8 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                             </div>
                             
                             {showNotReadyWarning && (
-                               <p className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded-md border border-yellow-200 ml-5">
+                               <p className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded-md border border-yellow-200 ml-5 flex items-center">
+                                  <AlertTriangle className="h-4 w-4 mr-2 shrink-0" />
                                   Esta acción aún no ha sido marcada como lista por el responsable. No se puede validar.
                                </p>
                             )}
@@ -335,6 +432,15 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
         isOpen={!!viewingEvidence}
         onClose={() => setViewingEvidence(null)}
       />
+      {rejectingAction && (
+        <RejectActionDialog
+          action={rejectingAction}
+          isOpen={!!rejectingAction}
+          onClose={() => setRejectingAction(null)}
+          onConfirmReject={handleConfirmRejectAction}
+        />
+      )}
     </>
   );
 };
+
