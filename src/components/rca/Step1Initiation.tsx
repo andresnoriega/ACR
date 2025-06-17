@@ -15,6 +15,7 @@ import { sendEmailAction } from '@/app/actions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
 
 interface Step1InitiationProps {
   eventData: RCAEventData;
@@ -29,7 +30,7 @@ interface Step1InitiationProps {
   onForceEnsureEventId: () => string; 
   onSaveAnalysis: (showToast?: boolean) => Promise<boolean>;
   isSaving: boolean;
-  onRejectEvent: () => Promise<void>;
+  onRejectEvent: () => Promise<void>; // Changed from () => void for consistency if it becomes async
   isEventFinalized: boolean;
   currentEventStatus: ReportedEventStatus;
 }
@@ -120,8 +121,8 @@ const NotifyEventCreationDialog: FC<NotifyEventCreationDialogProps> = ({
     }
     
     toast({ 
-      title: "Notificaciones de Evento (Simulación)", 
-      description: `${emailsSentCount} de ${finalRecipients.length} correos fueron procesados "exitosamente". Verifique la consola del servidor.`
+      title: "Notificaciones de Evento", 
+      description: `${emailsSentCount} de ${finalRecipients.length} correos fueron procesados exitosamente.`
     });
     setIsSendingEmails(false);
     onOpenChange(false); 
@@ -234,6 +235,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   currentEventStatus,
 }) => {
   const { toast } = useToast();
+  const { userProfile } = useAuth(); // Get userProfile
   const [clientSideMaxDate, setClientSideMaxDate] = useState<string | undefined>(undefined);
   const [isNotifyDialogOpen, setIsNotifyDialogOpen] = useState(false);
   const [eventDetailsForNotification, setEventDetailsForNotification] = useState<{id: string, description: string, site: string} | null>(null);
@@ -339,7 +341,20 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     onContinue();
   };
 
-  const isRejectButtonDisabled = !eventData.id || isEventFinalized || currentEventStatus === 'Rechazado' || isSaving;
+  const canUserRejectEvent = useMemo(() => {
+    if (!userProfile) return false;
+    return userProfile.role === 'Admin' || userProfile.role === 'Super User';
+  }, [userProfile]);
+
+  const isRejectButtonDisabled = !eventData.id || isEventFinalized || currentEventStatus === 'Rechazado' || isSaving || !canUserRejectEvent;
+  
+  const getRejectButtonTitle = () => {
+    if (!eventData.id) return "El evento debe guardarse primero para poder rechazarlo.";
+    if (isEventFinalized) return "El evento ya está finalizado.";
+    if (currentEventStatus === 'Rechazado') return "El evento ya está rechazado.";
+    if (!canUserRejectEvent) return "No tiene permisos para rechazar este evento.";
+    return "Rechazar este reporte de evento";
+  };
 
 
   return (
@@ -478,12 +493,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
             variant="destructive" 
             className="w-full sm:w-auto transition-transform hover:scale-105" 
             disabled={isRejectButtonDisabled}
-            title={
-              !eventData.id ? "El evento debe guardarse primero para poder rechazarlo." 
-              : isEventFinalized ? "El evento ya está finalizado." 
-              : currentEventStatus === 'Rechazado' ? "El evento ya está rechazado." 
-              : "Rechazar este reporte de evento" // Simplified, relies on role-based access to the config page itself.
-            }
+            title={getRejectButtonTitle()}
           >
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             <XCircle className="mr-2 h-4 w-4" /> Rechazar Reporte
