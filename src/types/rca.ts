@@ -199,6 +199,7 @@ export interface RCAAnalysisDocument {
   analysisDetails: string;
   preservedFacts: PreservedFact[];
   // From Step 3
+  brainstormingNotes?: string; // Added field for brainstorming
   analysisTechnique: AnalysisTechnique;
   analysisTechniqueNotes: string;
   ishikawaData: IshikawaData;
@@ -217,4 +218,3 @@ export interface RCAAnalysisDocument {
   updatedAt: string; // ISO string
   createdBy?: string; // User NAME who created the analysis document
 }
-

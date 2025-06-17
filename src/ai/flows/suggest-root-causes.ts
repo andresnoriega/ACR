@@ -71,6 +71,7 @@ const CTMDataSchema = z.array(FailureModeSchema);
 // --- Esquema de Entrada ---
 const SuggestRootCausesInputSchema = z.object({
   focusEventDescription: z.string().describe('La descripción principal del evento que se está analizando.'),
+  brainstormingNotes: z.string().optional().describe('Notas de una sesión de lluvia de ideas inicial sobre posibles causas.'), // Added
   analysisTechnique: z.enum(['', 'WhyWhy', 'Ishikawa', 'CTM']).describe('La técnica de análisis principal seleccionada.'),
   analysisTechniqueNotes: z.string().optional().describe('Notas generales o específicas sobre la aplicación de la técnica de análisis.'),
   ishikawaData: IshikawaDataSchema.optional().describe('Datos del diagrama de Ishikawa, si esa fue la técnica utilizada.'),
@@ -103,6 +104,11 @@ const suggestRootCausesPrompt = ai.definePrompt({
 
     Evento Foco:
     {{{focusEventDescription}}}
+
+    {{#if brainstormingNotes}}
+    Notas de Lluvia de Ideas Inicial:
+    {{{brainstormingNotes}}}
+    {{/if}}
 
     {{#if analysisTechnique}}
     Técnica de Análisis Utilizada: {{{analysisTechnique}}}
@@ -152,7 +158,7 @@ const suggestRootCausesPrompt = ai.definePrompt({
     {{/each}}
     {{/if}}
 
-    Considera toda la información anterior, especialmente las causas directas y humanas.
+    Considera toda la información anterior, especialmente las causas directas y humanas, y las notas de lluvia de ideas.
     Ahora, genera una lista de posibles **CAUSAS LATENTES** que podrían haber contribuido al evento.
     Cada causa latente debe ser una descripción clara y accionable de un problema sistémico u organizacional.
     No repitas las causas latentes que el usuario ya pudo haber identificado en el CTM. Busca nuevas perspectivas.
@@ -172,15 +178,29 @@ const suggestRootCausesFlowInternal = ai.defineFlow(
   },
   async (input) => {
     // Validar que al menos uno de los datos de técnica esté presente si la técnica está seleccionada
-    if (input.analysisTechnique === 'Ishikawa' && (!input.ishikawaData || input.ishikawaData.length === 0 || input.ishikawaData.every(cat => cat.causes.length === 0))) {
-      return { suggestedRootCauses: ["[Sugerencia IA no disponible: Faltan datos o causas detalladas para Ishikawa.]"] };
+    // O que existan notas de lluvia de ideas si no hay técnica
+    let hasSufficientInput = false;
+    if (input.brainstormingNotes && input.brainstormingNotes.trim().length > 10) { // Check for meaningful brainstorming notes
+        hasSufficientInput = true;
     }
-    if (input.analysisTechnique === 'WhyWhy' && (!input.fiveWhysData || input.fiveWhysData.length === 0 || input.fiveWhysData.every(entry => !entry.why.trim() && !entry.because.trim()))) {
-       return { suggestedRootCauses: ["[Sugerencia IA no disponible: Faltan datos o entradas completas para 5 Porqués.]"] };
+    if (input.analysisTechnique === 'Ishikawa' && input.ishikawaData && input.ishikawaData.length > 0 && input.ishikawaData.some(cat => cat.causes.length > 0)) {
+        hasSufficientInput = true;
     }
-     if (input.analysisTechnique === 'CTM' && (!input.ctmData || input.ctmData.length === 0 || input.ctmData.every(fm => !fm.description.trim() && fm.hypotheses.length === 0))) {
-       return { suggestedRootCauses: ["[Sugerencia IA no disponible: Faltan datos o modos de falla detallados para CTM.]"] };
+    if (input.analysisTechnique === 'WhyWhy' && input.fiveWhysData && input.fiveWhysData.length > 0 && input.fiveWhysData.some(entry => entry.why.trim() || entry.because.trim())) {
+        hasSufficientInput = true;
     }
+    if (input.analysisTechnique === 'CTM' && input.ctmData && input.ctmData.length > 0 && input.ctmData.some(fm => fm.description.trim() || fm.hypotheses.length > 0)) {
+        hasSufficientInput = true;
+    }
+     if (input.analysisTechniqueNotes && input.analysisTechniqueNotes.trim().length > 10) { // Check for meaningful general notes
+        hasSufficientInput = true;
+    }
+
+
+    if (!hasSufficientInput) {
+      return { suggestedRootCauses: ["[Sugerencia IA no disponible: Se requiere más información del análisis o de la lluvia de ideas para generar sugerencias.]"] };
+    }
+
 
     const { output } = await suggestRootCausesPrompt(input);
     if (!output || !output.suggestedRootCauses) {
@@ -215,4 +235,3 @@ export async function suggestRootCauses(input: SuggestRootCausesInput): Promise<
     return { suggestedRootCauses: [errorMessage] };
   }
 }
-
