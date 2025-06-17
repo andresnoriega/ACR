@@ -430,42 +430,42 @@ export default function ConfiguracionUsuariosPage() {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[25%]">Nombre</TableHead>
-                    <TableHead className="w-[25%]">Correo Electrónico</TableHead>
-                    <TableHead className="w-[15%]">Rol</TableHead>
-                    <TableHead className="w-[15%]">Empresa</TableHead> {/* New Column */}
-                    <TableHead className="w-[10%]">Notif. Email</TableHead>
-                    <TableHead className="w-[10%] text-right">Acciones</TableHead>
-                  </TableRow>
+                  <TableRow>{/*
+                  */}<TableHead className="w-[25%]">Nombre</TableHead>{/*
+                  */}<TableHead className="w-[25%]">Correo Electrónico</TableHead>{/*
+                  */}<TableHead className="w-[15%]">Rol</TableHead>{/*
+                  */}<TableHead className="w-[15%]">Empresa</TableHead>{/*
+                  */}<TableHead className="w-[10%]">Notif. Email</TableHead>{/*
+                  */}<TableHead className="w-[10%] text-right">Acciones</TableHead>{/*
+                */}</TableRow>
                 </TableHeader>
                 <TableBody>
                   {users.length > 0 ? (
                     users.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell className="font-medium">{user.name}</TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell>{user.role || 'N/A'}</TableCell>
-                        <TableCell>{user.empresa || '-'}</TableCell> {/* Display company */}
-                        <TableCell>{user.emailNotifications ? 'Sí' : 'No'}</TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" className="mr-2 hover:text-primary" onClick={() => openEditUserDialog(user)} disabled={isSubmitting}>
-                            <Edit2 className="h-4 w-4" />
-                            <span className="sr-only">Editar</span>
-                          </Button>
-                          <Button variant="ghost" size="icon" className="hover:text-destructive" onClick={() => openDeleteDialog(user)} disabled={isSubmitting}>
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Eliminar</span>
-                          </Button>
-                        </TableCell>
-                      </TableRow>
+                      <TableRow key={user.id}>{/*
+                      */}<TableCell className="font-medium">{user.name}</TableCell>{/*
+                      */}<TableCell>{user.email}</TableCell>{/*
+                      */}<TableCell>{user.role || 'N/A'}</TableCell>{/*
+                      */}<TableCell>{user.empresa || '-'}</TableCell>{/*
+                      */}<TableCell>{user.emailNotifications ? 'Sí' : 'No'}</TableCell>{/*
+                      */}<TableCell className="text-right">{/*
+                        */}<Button variant="ghost" size="icon" className="mr-2 hover:text-primary" onClick={() => openEditUserDialog(user)} disabled={isSubmitting}>{/*
+                          */}<Edit2 className="h-4 w-4" />{/*
+                          */}<span className="sr-only">Editar</span>{/*
+                        */}</Button>{/*
+                        */}<Button variant="ghost" size="icon" className="hover:text-destructive" onClick={() => openDeleteDialog(user)} disabled={isSubmitting}>{/*
+                          */}<Trash2 className="h-4 w-4" />{/*
+                          */}<span className="sr-only">Eliminar</span>{/*
+                        */}</Button>{/*
+                      */}</TableCell>{/*
+                    */}</TableRow>
                     ))
                   ) : (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground h-24"> {/* Increased colSpan */}
-                        No hay perfiles de usuario registrados. Puede añadir uno usando el botón de arriba o importando desde Excel.
-                      </TableCell>
-                    </TableRow>
+                    <TableRow>{/*
+                      */}<TableCell colSpan={6} className="text-center text-muted-foreground h-24">{/*
+                        */}No hay perfiles de usuario registrados. Puede añadir uno usando el botón de arriba o importando desde Excel.{/*
+                      */}</TableCell>{/*
+                    */}</TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -494,3 +494,4 @@ export default function ConfiguracionUsuariosPage() {
     </div>
   );
 }
+
