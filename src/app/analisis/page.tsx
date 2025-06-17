@@ -396,7 +396,6 @@ export default function RCAAnalysisPage() {
 
     setIsSaving(true);
     const currentIsFinalized = finalizedOverride !== undefined ? finalizedOverride : isFinalized;
-    // eventData.id should already be correct due to ensureEventId or prior loading
     const consistentEventData = { ...eventData, id: currentId }; 
 
     let currentRejectionDetailsToSave = rejectionDetails;
@@ -413,7 +412,7 @@ export default function RCAAnalysisPage() {
     let currentCreatedByState = createdBy;
     if (!currentCreatedByState && userProfile?.name) {
       currentCreatedByState = userProfile.name;
-      if (!createdBy) setCreatedBy(currentCreatedByState); // Sync state if it wasn't set
+      if (!createdBy) setCreatedBy(currentCreatedByState);
     }
 
 
@@ -544,9 +543,9 @@ export default function RCAAnalysisPage() {
       return true;
     } catch (error) {
       console.error("Error saving data to Firestore: ", error);
-      if (isNewEventCreation) { // Revert ID if save failed for a new event
+      if (isNewEventCreation) { 
         setAnalysisDocumentId(null);
-        lastLoadedAnalysisIdRef.current = null; // Ensure it might try to reload differently or reset
+        lastLoadedAnalysisIdRef.current = null; 
       }
       if (showToast) {
         toast({ title: "Error al Guardar", description: `No se pudo guardar la información. Error: ${(error as Error).message}`, variant: "destructive" });
@@ -586,7 +585,7 @@ export default function RCAAnalysisPage() {
 
   const handleApproveEvent = async () => {
     let currentId = analysisDocumentId;
-    if (!currentId) { // If ID doesn't exist yet, ensure it's created and set for saving
+    if (!currentId) { 
         currentId = ensureEventId();
         setAnalysisDocumentId(currentId);
     }
@@ -653,19 +652,24 @@ export default function RCAAnalysisPage() {
     setIsSaving(true);
     
     let rcaDocCreatorName = 'Creador Desconocido';
-    const currentCreatedByState = createdBy; 
+    let rcaDocCreatorId = createdBy; // User NAME
 
-    if (currentCreatedByState) {
-        rcaDocCreatorName = currentCreatedByState;
-    } else {
+    if (rcaDocCreatorId) { // if createdBy (name) is already in state
+      const creatorUser = availableUsersFromDB.find(u => u.name === rcaDocCreatorId);
+      if (creatorUser) rcaDocCreatorName = creatorUser.name;
+    } else { // Try to fetch from DB if not in state
         try {
             const rcaDocRef = doc(db, "rcaAnalyses", currentId);
             const rcaDocSnap = await getDoc(rcaDocRef);
             if (rcaDocSnap.exists()) {
                 const rcaData = rcaDocSnap.data() as RCAAnalysisDocument;
-                rcaDocCreatorName = rcaData.createdBy || rcaDocCreatorName;
-                if (rcaData.createdBy && createdBy !== rcaData.createdBy) {
-                    setCreatedBy(rcaData.createdBy); 
+                rcaDocCreatorId = rcaData.createdBy; // This should be the name
+                if (rcaDocCreatorId) {
+                  const creatorUser = availableUsersFromDB.find(u => u.name === rcaDocCreatorId);
+                  rcaDocCreatorName = creatorUser ? creatorUser.name : 'Creador Desconocido (No encontrado)';
+                  if (rcaData.createdBy && createdBy !== rcaData.createdBy) {
+                      setCreatedBy(rcaData.createdBy); 
+                  }
                 }
             }
         } catch (fetchError) {
@@ -684,7 +688,7 @@ export default function RCAAnalysisPage() {
       toast({ title: "Evento Rechazado", description: `El evento ${currentId} ha sido marcado como rechazado.` });
       setCurrentEventStatus("Rechazado"); 
 
-      const creatorNameToNotify = rcaDocCreatorName; 
+      const creatorNameToNotify = rcaDocCreatorId; 
       const creatorProfile = availableUsersFromDB.find(u => u.name === creatorNameToNotify);
       
       let emailNotificationStatus = `Evento ${currentId} rechazado. `;
@@ -749,7 +753,31 @@ export default function RCAAnalysisPage() {
     return true;
   }, [identifiedRootCauses, plannedActions]);
 
-  const handleGoToStep = (targetStep: number) => {
+  const validateStep1PreRequisites = (): { isValid: boolean, message?: string } => {
+    const missingFields = [];
+    if (!eventData.place) missingFields.push("Lugar del Evento");
+    if (!eventData.date) missingFields.push("Fecha del Evento");
+    if (!eventData.eventType) missingFields.push("Tipo de Evento");
+    if (!eventData.priority) missingFields.push("Prioridad");
+    if (!eventData.focusEventDescription.trim()) missingFields.push("Descripción del Evento Foco");
+
+    if (missingFields.length > 0) {
+      return {
+        isValid: false,
+        message: `Complete los campos obligatorios del Paso 1: ${missingFields.join(', ')}.`,
+      };
+    }
+    if (currentEventStatus === 'Pendiente') {
+      return { isValid: false, message: "Este evento debe ser aprobado antes de continuar con el análisis." };
+    }
+    if (currentEventStatus === 'Rechazado') {
+      return { isValid: false, message: "Este evento ha sido rechazado y no puede continuar el análisis." };
+    }
+    return { isValid: true };
+  };
+
+
+  const handleGoToStep = async (targetStep: number) => {
     if (targetStep === 4 && step === 3 && !isStep3ValidForNavigation) {
        toast({
         title: "Validación Requerida en Paso 3",
@@ -763,15 +791,37 @@ export default function RCAAnalysisPage() {
     if (targetStep > step && targetStep > maxCompletedStep + 1 && targetStep !== 1) {
       return;
     }
-    if (targetStep >=1 && !analysisDocumentId && targetStep > 1 ) { // Use analysisDocumentId from state
-        // This logic may need refinement if ensureEventId behavior changes significantly
-        const tempId = ensureEventId();
-        setAnalysisDocumentId(tempId); // Ensure state ID is set
-        router.replace(`/analisis?id=${tempId}&step=${targetStep}`, { scroll: false });
-    } else if (analysisDocumentId) {
-      router.replace(`/analisis?id=${analysisDocumentId}&step=${targetStep}`, { scroll: false });
+
+    // Validaciones específicas al intentar avanzar desde el Paso 1
+    if (step === 1 && targetStep > 1) {
+      const step1Validation = validateStep1PreRequisites();
+      if (!step1Validation.isValid) {
+        toast({
+          title: "Acción Requerida en Paso 1",
+          description: step1Validation.message,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
+    let currentId = analysisDocumentId;
+    let isNewEventForNav = false;
+    if (targetStep >=1 && !currentId && targetStep > 1 ) {
+        currentId = ensureEventId();
+        setAnalysisDocumentId(currentId); 
+        isNewEventForNav = true;
     }
 
+    if (isNewEventForNav && currentId) {
+       const saveSuccess = await handleSaveAnalysisData(false);
+       if (!saveSuccess) {
+         if (analysisDocumentId === currentId) setAnalysisDocumentId(null); // Revert ID if save failed
+         return;
+       }
+    }
+
+    router.replace(`/analisis?id=${currentId || analysisDocumentId}&step=${targetStep}`, { scroll: false });
     setStep(targetStep);
     if (targetStep > maxCompletedStep && targetStep > step ) {
         setMaxCompletedStep(targetStep -1);
@@ -779,14 +829,28 @@ export default function RCAAnalysisPage() {
   };
 
   const handleNextStep = async () => {
-    let currentId = analysisDocumentId;
-    if (!currentId && step >= 1) { // If no ID and trying to proceed from step 1 or later
-        currentId = ensureEventId();
-        setAnalysisDocumentId(currentId);
-        // The save below will handle the router.replace if it's a new event
+    // Validaciones específicas al intentar avanzar desde el Paso 1
+    if (step === 1) {
+      const step1Validation = validateStep1PreRequisites();
+      if (!step1Validation.isValid) {
+        toast({
+          title: "Acción Requerida en Paso 1",
+          description: step1Validation.message,
+          variant: "destructive",
+        });
+        return;
+      }
     }
     
-    if (!currentId && step >= 1) { // Double check after attempt to ensure
+    let currentId = analysisDocumentId;
+    let isNewEventCreation = false;
+    if (!currentId && step >= 1) { 
+        currentId = ensureEventId();
+        setAnalysisDocumentId(currentId);
+        isNewEventCreation = true;
+    }
+    
+    if (!currentId && step >= 1) { 
         toast({ title: "Error de Sincronización", description: "Por favor, complete el Paso 1 para generar un ID antes de continuar.", variant: "destructive"});
         setStep(1);
         return;
@@ -836,7 +900,7 @@ export default function RCAAnalysisPage() {
       const newMaxCompletedStep = Math.max(maxCompletedStep, step);
       setStep(newStep);
       setMaxCompletedStep(newMaxCompletedStep);
-       if (currentId && (analysisDocumentId || isNewEventCreation)) { // Ensure ID used for router.replace is the one now in state/URL
+       if (currentId && (analysisDocumentId || isNewEventCreation)) {
          const idForNav = analysisDocumentId || currentId;
          router.replace(`/analisis?id=${idForNav}&step=${newStep}`, { scroll: false });
        }
@@ -862,8 +926,8 @@ export default function RCAAnalysisPage() {
   const handleAddImmediateAction = () => {
     let tempEventId = eventData.id;
     if (!tempEventId) {
-        tempEventId = ensureEventId(); // ensures eventData.id is set
-        setAnalysisDocumentId(tempEventId); // Also set the main analysisDocumentId
+        tempEventId = ensureEventId(); 
+        setAnalysisDocumentId(tempEventId); 
     }
     const newActionId = `${tempEventId}-IMA-${String(immediateActionCounter).padStart(3, '0')}`;
     setImmediateActions(prev => [...prev, { id: newActionId, eventId: tempEventId, description: '', responsible: '', dueDate: '' }]);
@@ -1031,7 +1095,6 @@ export default function RCAAnalysisPage() {
       return v;
     });
     
-    // Update the state immediately so the UI reflects the change
     setValidations(newValidationsArray);
 
     await handleSaveAnalysisData(
@@ -1286,10 +1349,3 @@ export default function RCAAnalysisPage() {
     </>
   );
 }
-
-
-    
-
-    
-
-

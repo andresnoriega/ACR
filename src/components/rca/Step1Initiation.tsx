@@ -281,30 +281,12 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     onUpdateImmediateAction(index, 'responsible', value);
   };
 
-  const validateFields = (): boolean => {
-    const missingFields = [];
-    if (!eventData.place) missingFields.push("Lugar del Evento");
-    if (!eventData.date) missingFields.push("Fecha del Evento");
-    if (!eventData.eventType) missingFields.push("Tipo de Evento");
-    if (!eventData.priority) missingFields.push("Prioridad");
-    if (!eventData.focusEventDescription.trim()) missingFields.push("Descripción del Evento Foco");
-
-    if (missingFields.length > 0) {
-      toast({
-        title: "Campos Obligatorios Faltantes",
-        description: `Por favor, complete los siguientes campos: ${missingFields.join(', ')}.`,
-        variant: "destructive",
-      });
-      return false;
-    }
-    return true;
-  };
-
   const handleSaveEvent = async () => {
-    if (!validateFields()) {
-      return;
+    // Basic validation of fields is done by parent on `onContinue` or `handleGoToStep` if needed.
+    // Here we just ensure ID exists if it's being saved for the first time.
+    if (!eventData.id) {
+      onForceEnsureEventId();
     }
-    onForceEnsureEventId(); 
     const success = await onSaveAnalysis(true); 
     if (success) {
         // Optional: Logic after successful save
@@ -312,10 +294,11 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   };
   
   const handlePrepareNotification = async () => {
-    if (!validateFields()) {
-      return;
+    // Basic validation of fields is done by parent on `onContinue` or `handleGoToStep` if needed.
+    let currentEventId = eventData.id;
+    if (!currentEventId) {
+      currentEventId = onForceEnsureEventId();
     }
-    const currentEventId = onForceEnsureEventId(); 
     const saveSuccess = await onSaveAnalysis(false); 
     
     if (saveSuccess) {
@@ -335,20 +318,11 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   };
   
   const handleContinueToNextStep = async () => {
-    if (currentEventStatus === 'Pendiente') {
-      toast({title: "Evento Pendiente", description: "Este evento debe ser aprobado antes de continuar con el análisis.", variant: "default"});
-      return;
-    }
-    if (currentEventStatus === 'Rechazado') {
-      toast({title: "Evento Rechazado", description: "Este evento ha sido rechazado y no puede continuar el análisis.", variant: "destructive"});
-      return;
-    }
-    if (!validateFields()) {
-      return;
-    }
+    // Parent (RCAAnalysisPage) will handle field validations and status checks via onContinue -> handleNextStep
     if (!eventData.id) { 
       onForceEnsureEventId(); 
-      await onSaveAnalysis(false); 
+      const saveSuccess = await onSaveAnalysis(false); 
+      if (!saveSuccess) return; 
     }
     onContinue();
   };
@@ -363,7 +337,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   const getManageStateButtonTitle = () => {
     if (!eventData.id) return "El evento debe guardarse primero para poder gestionar su estado.";
     if (isEventFinalized) return "El evento ya está finalizado, no se puede cambiar el estado.";
-    if (currentEventStatus === 'Rechazado') return "El evento ya está rechazado."; // No necesita "no se puede cambiar estado aquí" si se muestra el dropdown
+    if (currentEventStatus === 'Rechazado') return "El evento ya está rechazado.";
     if (!canUserManageEventState) return "No tiene permisos para aprobar o rechazar este reporte de evento.";
     return "Aprobar o Rechazar este reporte de evento";
   };
@@ -553,4 +527,3 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     </>
   );
 };
-
