@@ -288,6 +288,21 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
       return;
     }
 
+    const rejectedActions = uniquePlannedActions.filter(action => {
+      const validation = getValidation(action.id);
+      return validation?.status === 'rejected';
+    });
+
+    if (rejectedActions.length > 0) {
+      toast({
+        title: "Acciones Rechazadas Presentes",
+        description: `Existen ${rejectedActions.length} acción(es) rechazadas. No puede continuar hasta que todas las acciones estén validadas.`,
+        variant: "destructive",
+        duration: 7000,
+      });
+      return;
+    }
+
     setIsSavingLocally(true);
     await onSaveAnalysis(false); 
     setIsSavingLocally(false);
@@ -392,7 +407,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                                 className={cn(status === 'rejected' ? "bg-red-100 hover:bg-red-200 text-red-700" : "hover:bg-red-50", "transition-colors")}
                                 title={status === 'rejected' ? "Rechazado (Click para marcar como pendiente)" : "Rechazar esta acción"}
                               >
-                                {status === 'rejected' ? 'Rechazado' : 'Rechazar'}
+                                {status === 'rejected' ? 'Anular Rechazo' : 'Rechazar'}
                               </Button>
                             )}
                           </div>
