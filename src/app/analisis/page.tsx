@@ -19,9 +19,8 @@ import { sanitizeForFirestore } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-// Import useAuth if direct access to authenticated user details is needed here.
-// For this pass, we simplify and remove direct reliance on simulated user.
-// import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { sendEmailAction } from '@/app/actions';
 
 const initialIshikawaData: IshikawaData = [
   { id: 'manpower', name: 'Mano de Obra', causes: [] },
@@ -72,7 +71,7 @@ export default function RCAAnalysisPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
-  // const { userProfile } = useAuth(); // Would be needed for precise user attribution
+  const { userProfile } = useAuth(); 
 
   const [step, setStep] = useState(1);
   const [maxCompletedStep, setMaxCompletedStep] = useState(0);
@@ -390,15 +389,17 @@ export default function RCAAnalysisPage() {
     const currentIsFinalized = finalizedOverride !== undefined ? finalizedOverride : isFinalized;
     const consistentEventData = { ...eventData, id: currentId };
 
-    let currentRejectionDetails = rejectionDetails;
+    let currentRejectionDetailsToSave = rejectionDetails;
     if (statusOverride === "Rechazado" && currentRejectionReason) {
-      const rejectedBy = "Usuario del Sistema"; 
-      currentRejectionDetails = {
+      currentRejectionDetailsToSave = {
         reason: currentRejectionReason,
-        rejectedBy: rejectedBy,
+        rejectedBy: userProfile?.name || "Sistema",
         rejectedAt: new Date().toISOString(),
       };
+    } else if (statusOverride === "En análisis" || statusOverride === "Pendiente") {
+        currentRejectionDetailsToSave = undefined; // Clear rejection details if approved or moved to pending
     }
+
 
     const rcaDocPayload: Partial<RCAAnalysisDocument> = {
       eventData: consistentEventData, immediateActions, projectLeader, detailedFacts, analysisDetails,
@@ -406,7 +407,7 @@ export default function RCAAnalysisPage() {
       fiveWhysData, ctmData, identifiedRootCauses, plannedActions,
       validations: (validationsOverride !== undefined) ? validationsOverride : validations,
       finalComments, isFinalized: currentIsFinalized,
-      rejectionDetails: currentRejectionDetails,
+      rejectionDetails: currentRejectionDetailsToSave,
     };
 
     try {
@@ -415,13 +416,16 @@ export default function RCAAnalysisPage() {
 
       let finalCommentsToSave = finalComments;
       if (statusOverride === "Rechazado" && currentRejectionReason) {
-          const rejecterName = "Usuario del Sistema"; 
+          const rejecterName = userProfile?.name || "Sistema";
           let baseRejectMsg = `Evento Rechazado por ${rejecterName} el ${new Date().toLocaleDateString('es-CL')}.`;
           if (currentRejectionReason) {
             baseRejectMsg += `\nMotivo: ${currentRejectionReason}`;
           }
           finalCommentsToSave = `${baseRejectMsg}${finalComments && !finalComments.startsWith('Evento Rechazado') ? `\n\nComentarios Adicionales Previos:\n${finalComments}` : ''}`;
+      } else if ( (statusOverride === "En análisis" || statusOverride === "Pendiente") && finalComments.startsWith("Evento Rechazado")) {
+           finalCommentsToSave = finalComments.split("\n\nComentarios Adicionales Previos:\n")[1] || "";
       }
+
 
       const dataToSave: RCAAnalysisDocument = {
         ...(rcaDocPayload as Omit<RCAAnalysisDocument, 'createdAt' | 'updatedAt' | 'createdBy'>),
@@ -445,8 +449,8 @@ export default function RCAAnalysisPage() {
       if (finalizedOverride !== undefined && isFinalized !== finalizedOverride) {
         setIsFinalized(finalizedOverride);
       }
-      if (statusOverride === "Rechazado" && rcaDocPayload.rejectionDetails) {
-        setRejectionDetails(rcaDocPayload.rejectionDetails);
+      if (currentRejectionDetailsToSave !== rejectionDetails) {
+         setRejectionDetails(currentRejectionDetailsToSave);
       }
       if (validationsOverride) {
         setValidations(validationsOverride); 
@@ -569,6 +573,26 @@ export default function RCAAnalysisPage() {
     if (success) {
       toast({ title: "Evento Aprobado", description: `El evento ${analysisDocumentId} ha sido marcado como "En análisis".` });
       setCurrentEventStatus("En análisis");
+
+      // Notification logic for approval
+      const siteInfo = availableSitesFromDB.find(s => s.name === eventData.place);
+      if (siteInfo && siteInfo.empresa) {
+        const usersInCompany = availableUsersFromDB.filter(u => u.empresa === siteInfo.empresa);
+        let emailsSentCount = 0;
+        for (const user of usersInCompany) {
+          if (user.email && (user.emailNotifications === undefined || user.emailNotifications)) {
+            const emailSubject = `Evento RCA Aprobado: ${eventData.focusEventDescription.substring(0, 40)}... (ID: ${analysisDocumentId})`;
+            const emailBody = `Estimado/a ${user.name},\n\nEl evento "${eventData.focusEventDescription}" (ID: ${analysisDocumentId}) reportado en el sitio "${siteInfo.name}" (Empresa: "${siteInfo.empresa}") ha sido aprobado y ha pasado al estado 'En análisis'.\n\nPuede revisarlo en el sistema.\n\nSaludos,\nSistema RCA Assistant`;
+            const emailResult = await sendEmailAction({ to: user.email, subject: emailSubject, body: emailBody });
+            if(emailResult.success) emailsSentCount++;
+          }
+        }
+        if (usersInCompany.length > 0) {
+          toast({ title: "Notificaciones de Aprobación", description: `${emailsSentCount} de ${usersInCompany.length} correos de notificación enviados a usuarios de la empresa '${siteInfo.empresa}'.` });
+        }
+      } else {
+        toast({ title: "Notificación Parcial", description: "No se pudo determinar la empresa del sitio o no hay usuarios para notificar.", variant: "default" });
+      }
     } else {
       toast({ title: "Error al Aprobar", description: "No se pudo actualizar el estado del evento.", variant: "destructive" });
     }
@@ -597,6 +621,27 @@ export default function RCAAnalysisPage() {
 
     if (success) {
       toast({ title: "Evento Rechazado", description: `El evento ${analysisDocumentId} ha sido marcado como rechazado.` });
+      setCurrentEventStatus("Rechazado"); // Update local status immediately
+
+      // Notification logic for rejection
+      const rcaProjectLeaderName = projectLeader; // Assuming projectLeader state is up-to-date
+      const leaderProfile = availableUsersFromDB.find(u => u.name === rcaProjectLeaderName);
+      
+      if (leaderProfile && leaderProfile.email) {
+        const emailSubject = `Evento RCA Rechazado: ${eventData.focusEventDescription.substring(0, 40)}... (ID: ${analysisDocumentId})`;
+        const rejectedByName = userProfile?.name || "Sistema";
+        const formattedRejectionDate = new Date().toLocaleDateString('es-CL', { year: 'numeric', month: 'long', day: 'numeric' });
+        const emailBody = `Estimado/a ${leaderProfile.name},\n\nEl evento "${eventData.focusEventDescription}" (ID: ${analysisDocumentId}) que usted lidera (o reportó) ha sido rechazado.\n\nMotivo del Rechazo: ${rejectionReason}\nRechazado por: ${rejectedByName}\nFecha de Rechazo: ${formattedRejectionDate}\n\nPor favor, revise los detalles en el sistema si es necesario.\n\nSaludos,\nSistema RCA Assistant`;
+        const emailResult = await sendEmailAction({ to: leaderProfile.email, subject: emailSubject, body: emailBody });
+        if (emailResult.success) {
+          toast({ title: "Notificación de Rechazo", description: `Correo de rechazo enviado a ${leaderProfile.name}.` });
+        } else {
+          toast({ title: "Error de Notificación", description: `No se pudo enviar el correo de rechazo a ${leaderProfile.name}: ${emailResult.message}`, variant: "destructive" });
+        }
+      } else {
+        toast({ title: "Notificación Pendiente", description: `No se pudo notificar al líder del proyecto (${rcaProjectLeaderName || 'No asignado'}) por correo.`, variant: "default" });
+      }
+
       setRejectionReason('');
       setIsRejectConfirmOpen(false);
     } else {
@@ -1154,3 +1199,6 @@ export default function RCAAnalysisPage() {
     </>
   );
 }
+
+
+    
