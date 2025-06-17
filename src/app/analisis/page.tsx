@@ -201,32 +201,36 @@ export default function RCAAnalysisPage() {
         setMaxCompletedStep(prevMax => Math.max(prevMax, data.isFinalized ? 5 : (data.validations?.length > 0 && data.plannedActions?.every(pa => data.validations.find(v => v.actionId === pa.id)?.status === 'validated') ? 4 : (data.identifiedRootCauses?.length > 0 ? 3 : (data.projectLeader ? 2 : 1)))));
         return true;
       } else {
-        toast({ title: "Análisis No Encontrado", description: `No se encontró un análisis con ID: ${id}. Iniciando nuevo análisis.`, variant: "destructive" });
-        setEventData(initialRCAAnalysisState.eventData);
-        setImmediateActions(initialRCAAnalysisState.immediateActions);
-        setImmediateActionCounter(1);
-        setProjectLeader(initialRCAAnalysisState.projectLeader);
-        setDetailedFacts(initialRCAAnalysisState.detailedFacts);
-        setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
-        setPreservedFacts(initialRCAAnalysisState.preservedFacts);
-        setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
-        setAnalysisTechniqueNotes(initialRCAAnalysisState.analysisTechniqueNotes);
-        setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
-        setFiveWhysData(JSON.parse(JSON.stringify(initialFiveWhysData)));
-        setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
-        setIdentifiedRootCauses(initialRCAAnalysisState.identifiedRootCauses);
-        setPlannedActions(initialRCAAnalysisState.plannedActions);
-        setPlannedActionCounter(1);
-        setValidations(initialRCAAnalysisState.validations);
-        setFinalComments(initialRCAAnalysisState.finalComments);
-        setIsFinalized(initialRCAAnalysisState.isFinalized);
-        setRejectionDetails(initialRCAAnalysisState.rejectionDetails);
-        setCreatedBy(initialRCAAnalysisState.createdBy);
-        setCurrentEventStatus('Pendiente');
-        setAnalysisDocumentId(null);
-        setMaxCompletedStep(0);
-        lastLoadedAnalysisIdRef.current = null;
-        router.replace('/analisis', { scroll: false });
+        // Only show "Not Found" and reset if the ID is different from what we might have just tried to create
+        // OR if there was no previous loaded ID (meaning it's a direct navigation to a non-existent ID).
+        if (lastLoadedAnalysisIdRef.current !== id || lastLoadedAnalysisIdRef.current === null) {
+            toast({ title: "Análisis No Encontrado", description: `No se encontró un análisis con ID: ${id}. Iniciando nuevo análisis.`, variant: "destructive" });
+            setEventData(initialRCAAnalysisState.eventData);
+            setImmediateActions(initialRCAAnalysisState.immediateActions);
+            setImmediateActionCounter(1);
+            setProjectLeader(initialRCAAnalysisState.projectLeader);
+            setDetailedFacts(initialRCAAnalysisState.detailedFacts);
+            setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
+            setPreservedFacts(initialRCAAnalysisState.preservedFacts);
+            setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
+            setAnalysisTechniqueNotes(initialRCAAnalysisState.analysisTechniqueNotes);
+            setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
+            setFiveWhysData(JSON.parse(JSON.stringify(initialFiveWhysData)));
+            setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
+            setIdentifiedRootCauses(initialRCAAnalysisState.identifiedRootCauses);
+            setPlannedActions(initialRCAAnalysisState.plannedActions);
+            setPlannedActionCounter(1);
+            setValidations(initialRCAAnalysisState.validations);
+            setFinalComments(initialRCAAnalysisState.finalComments);
+            setIsFinalized(initialRCAAnalysisState.isFinalized);
+            setRejectionDetails(initialRCAAnalysisState.rejectionDetails);
+            setCreatedBy(initialRCAAnalysisState.createdBy);
+            setCurrentEventStatus('Pendiente');
+            setAnalysisDocumentId(null);
+            setMaxCompletedStep(0);
+            lastLoadedAnalysisIdRef.current = null;
+            router.replace('/analisis', { scroll: false });
+        }
         return false;
       }
     } catch (error) {
@@ -270,6 +274,10 @@ export default function RCAAnalysisPage() {
     const previousLoadedId = lastLoadedAnalysisIdRef.current;
 
     if (currentId) {
+        if (currentId === previousLoadedId && !stepParam) {
+             setIsLoadingPage(false);
+             return;
+        }
         setIsLoadingPage(true);
         loadAnalysisData(currentId).then(success => {
             if (success) {
@@ -279,15 +287,12 @@ export default function RCAAnalysisPage() {
                         setStep(targetStep);
                     }
                 } else if (previousLoadedId === currentId) {
-                    // If same ID is loaded again (e.g. page refresh on step 3), keep current step
                     setStep(prevStep => (prevStep >= 1 && prevStep <= 5 ? prevStep : 1));
                 } else {
-                    // New ID loaded without step param, default to step 1
                     setStep(1);
                 }
             } else {
-                // If loading failed (e.g. non-existent ID)
-                if (currentId !== previousLoadedId) { // Reset only if it's a new attempt to load a different (bad) ID
+                if (currentId !== previousLoadedId) { 
                     setStep(1);
                     setMaxCompletedStep(0);
                 }
@@ -295,11 +300,9 @@ export default function RCAAnalysisPage() {
         }).finally(() => {
             setIsLoadingPage(false);
         });
-    } else { // No ID in params
-        // If there was a previously loaded ID, means user navigated from an existing analysis to a new one (e.g. "New Analysis" button)
+    } else { 
         if (lastLoadedAnalysisIdRef.current !== null) {
-            setIsLoadingPage(true); // Show loader while resetting
-            // Reset all state to initial
+            setIsLoadingPage(true); 
             setEventData(initialRCAAnalysisState.eventData);
             setImmediateActions(initialRCAAnalysisState.immediateActions);
             setImmediateActionCounter(1);
@@ -324,10 +327,9 @@ export default function RCAAnalysisPage() {
             setAnalysisDocumentId(null);
             setMaxCompletedStep(0);
             setStep(1);
-            lastLoadedAnalysisIdRef.current = null; // Clear last loaded ID
+            lastLoadedAnalysisIdRef.current = null; 
             setIsLoadingPage(false);
         } else {
-             // No ID in params and no previously loaded ID, just ensure loading is false and step is 1
              setIsLoadingPage(false);
              setStep(1);
              setMaxCompletedStep(0);
@@ -363,25 +365,14 @@ export default function RCAAnalysisPage() {
 
 
   const ensureEventId = useCallback((): string => {
-    if (!eventData.id) {
-      const newEventID = `E-${String(Date.now()).slice(-5)}-${String(eventCounter).padStart(3, '0')}`;
-      setEventData(prev => ({ ...prev, id: newEventID }));
-      setEventCounter(prev => prev + 1);
-      setAnalysisDocumentId(newEventID); // Also set the main analysisDocumentId
-      if (!createdBy && userProfile?.name) { 
-        setCreatedBy(userProfile.name);
-      }
-      router.replace(`/analisis?id=${newEventID}`, { scroll: false }); 
-      return newEventID;
+    const newEventID = `E-${String(Date.now()).slice(-5)}-${String(eventCounter).padStart(3, '0')}`;
+    setEventData(prev => ({ ...prev, id: newEventID }));
+    setEventCounter(prev => prev + 1);
+    if (!createdBy && userProfile?.name) { 
+      setCreatedBy(userProfile.name);
     }
-    if (!analysisDocumentId && eventData.id) { 
-        setAnalysisDocumentId(eventData.id);
-    }
-    if (!createdBy && userProfile?.name && eventData.id) {
-        setCreatedBy(userProfile.name);
-    }
-    return eventData.id;
-  }, [eventData.id, eventCounter, analysisDocumentId, router, createdBy, userProfile?.name]);
+    return newEventID;
+  }, [eventCounter, createdBy, userProfile?.name]);
 
  const handleSaveAnalysisData = async (
     showToast: boolean = true,
@@ -390,7 +381,14 @@ export default function RCAAnalysisPage() {
     currentRejectionReason?: string,
     validationsOverride?: Validation[]
   ): Promise<boolean> => {
-    const currentId = analysisDocumentId || ensureEventId();
+    let currentId = analysisDocumentId;
+    let isNewEventCreation = false;
+
+    if (!currentId) {
+      currentId = ensureEventId(); // Generates ID, updates eventData.id, eventCounter, createdBy
+      setAnalysisDocumentId(currentId); // Set main analysisDocumentId state
+      isNewEventCreation = true;
+    }
     if (!currentId) {
       if (showToast) toast({ title: "Error Crítico", description: "No se pudo obtener o generar un ID para el análisis.", variant: "destructive" });
       return false;
@@ -398,7 +396,8 @@ export default function RCAAnalysisPage() {
 
     setIsSaving(true);
     const currentIsFinalized = finalizedOverride !== undefined ? finalizedOverride : isFinalized;
-    const consistentEventData = { ...eventData, id: currentId };
+    // eventData.id should already be correct due to ensureEventId or prior loading
+    const consistentEventData = { ...eventData, id: currentId }; 
 
     let currentRejectionDetailsToSave = rejectionDetails;
     if (statusOverride === "Rechazado" && currentRejectionReason) {
@@ -411,9 +410,10 @@ export default function RCAAnalysisPage() {
         currentRejectionDetailsToSave = undefined; 
     }
 
-    let currentCreatedBy = createdBy;
-    if (!currentCreatedBy && userProfile?.name) {
-      currentCreatedBy = userProfile.name;
+    let currentCreatedByState = createdBy;
+    if (!currentCreatedByState && userProfile?.name) {
+      currentCreatedByState = userProfile.name;
+      if (!createdBy) setCreatedBy(currentCreatedByState); // Sync state if it wasn't set
     }
 
 
@@ -424,7 +424,7 @@ export default function RCAAnalysisPage() {
       validations: (validationsOverride !== undefined) ? validationsOverride : validations,
       finalComments, isFinalized: currentIsFinalized,
       rejectionDetails: currentRejectionDetailsToSave,
-      createdBy: currentCreatedBy, 
+      createdBy: currentCreatedByState, 
     };
 
     try {
@@ -449,18 +449,12 @@ export default function RCAAnalysisPage() {
         finalComments: finalCommentsToSave,
         updatedAt: new Date().toISOString(),
         createdAt: rcaDocSnap.exists() && rcaDocSnap.data().createdAt ? rcaDocSnap.data().createdAt : new Date().toISOString(),
-        createdBy: (rcaDocSnap.exists() && rcaDocSnap.data().createdBy) ? rcaDocSnap.data().createdBy : currentCreatedBy,
+        createdBy: (rcaDocSnap.exists() && rcaDocSnap.data().createdBy) ? rcaDocSnap.data().createdBy : currentCreatedByState,
       };
 
       const sanitizedDataToSave = sanitizeForFirestore(dataToSave);
       await setDoc(rcaDocRef, sanitizedDataToSave, { merge: true });
 
-      if (eventData.id !== currentId) {
-        setEventData(prev => ({ ...prev, id: currentId }));
-      }
-      if (!analysisDocumentId && currentId) {
-        setAnalysisDocumentId(currentId);
-      }
       if (finalCommentsToSave !== finalComments) {
           setFinalComments(finalCommentsToSave);
       }
@@ -539,12 +533,21 @@ export default function RCAAnalysisPage() {
         await updateDoc(reportedEventRef, sanitizeForFirestore(updatePayload));
       }
 
+      if (isNewEventCreation) {
+        lastLoadedAnalysisIdRef.current = currentId;
+        router.replace(`/analisis?id=${currentId}&step=${step}`, { scroll: false });
+      }
+
       if (showToast) {
         toast({ title: "Progreso Guardado", description: `Análisis ${currentId} guardado. Evento reportado actualizado a estado: ${statusForReportedEvent}.` });
       }
       return true;
     } catch (error) {
       console.error("Error saving data to Firestore: ", error);
+      if (isNewEventCreation) { // Revert ID if save failed for a new event
+        setAnalysisDocumentId(null);
+        lastLoadedAnalysisIdRef.current = null; // Ensure it might try to reload differently or reset
+      }
       if (showToast) {
         toast({ title: "Error al Guardar", description: `No se pudo guardar la información. Error: ${(error as Error).message}`, variant: "destructive" });
       }
@@ -582,10 +585,16 @@ export default function RCAAnalysisPage() {
   };
 
   const handleApproveEvent = async () => {
-    if (!analysisDocumentId) {
+    let currentId = analysisDocumentId;
+    if (!currentId) { // If ID doesn't exist yet, ensure it's created and set for saving
+        currentId = ensureEventId();
+        setAnalysisDocumentId(currentId);
+    }
+    if (!currentId) {
       toast({ title: "Error", description: "No se puede aprobar un evento sin ID.", variant: "destructive" });
       return;
     }
+
     if (currentEventStatus !== 'Pendiente') {
       toast({ title: "Acción no Válida", description: `El evento ya está "${currentEventStatus}". No se puede aprobar.`, variant: "default" });
       return;
@@ -593,7 +602,7 @@ export default function RCAAnalysisPage() {
     setIsSaving(true);
     const success = await handleSaveAnalysisData(false, undefined, "En análisis");
     if (success) {
-      toast({ title: "Evento Aprobado", description: `El evento ${analysisDocumentId} ha sido marcado como "En análisis".` });
+      toast({ title: "Evento Aprobado", description: `El evento ${currentId} ha sido marcado como "En análisis".` });
       setCurrentEventStatus("En análisis");
 
       const siteInfo = availableSitesFromDB.find(s => s.name === eventData.place);
@@ -604,8 +613,8 @@ export default function RCAAnalysisPage() {
         for (const user of usersInCompany) {
           if (user.email && (user.emailNotifications === undefined || user.emailNotifications)) {
             attemptedEmails++;
-            const emailSubject = `Evento RCA Aprobado: ${eventData.focusEventDescription.substring(0, 40)}... (ID: ${analysisDocumentId})`;
-            const emailBody = `Estimado/a ${user.name},\n\nEl evento "${eventData.focusEventDescription}" (ID: ${analysisDocumentId}) reportado en el sitio "${siteInfo.name}" (Empresa: "${siteInfo.empresa}") ha sido aprobado y ha pasado al estado 'En análisis'.\n\nPuede revisarlo en el sistema.\n\nSaludos,\nSistema RCA Assistant`;
+            const emailSubject = `Evento RCA Aprobado: ${eventData.focusEventDescription.substring(0, 40)}... (ID: ${currentId})`;
+            const emailBody = `Estimado/a ${user.name},\n\nEl evento "${eventData.focusEventDescription}" (ID: ${currentId}) reportado en el sitio "${siteInfo.name}" (Empresa: "${siteInfo.empresa}") ha sido aprobado y ha pasado al estado 'En análisis'.\n\nPuede revisarlo en el sistema.\n\nSaludos,\nSistema RCA Assistant`;
             const emailResult = await sendEmailAction({ to: user.email, subject: emailSubject, body: emailBody });
             if(emailResult.success) emailsSentCount++;
           }
@@ -625,7 +634,12 @@ export default function RCAAnalysisPage() {
   };
 
   const handleRejectEvent = async () => {
-    if (!analysisDocumentId) {
+    let currentId = analysisDocumentId;
+    if (!currentId) { 
+        currentId = ensureEventId();
+        setAnalysisDocumentId(currentId);
+    }
+     if (!currentId) {
       toast({ title: "Error", description: "No se puede rechazar un evento sin ID.", variant: "destructive" });
       setIsRejectConfirmOpen(false);
       setRejectionReason('');
@@ -639,19 +653,19 @@ export default function RCAAnalysisPage() {
     setIsSaving(true);
     
     let rcaDocCreatorName = 'Creador Desconocido';
-    const currentCreatedByState = createdBy; // Capture current state value
+    const currentCreatedByState = createdBy; 
 
     if (currentCreatedByState) {
         rcaDocCreatorName = currentCreatedByState;
     } else {
         try {
-            const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
+            const rcaDocRef = doc(db, "rcaAnalyses", currentId);
             const rcaDocSnap = await getDoc(rcaDocRef);
             if (rcaDocSnap.exists()) {
                 const rcaData = rcaDocSnap.data() as RCAAnalysisDocument;
                 rcaDocCreatorName = rcaData.createdBy || rcaDocCreatorName;
                 if (rcaData.createdBy && createdBy !== rcaData.createdBy) {
-                    setCreatedBy(rcaData.createdBy); // Sync state if different
+                    setCreatedBy(rcaData.createdBy); 
                 }
             }
         } catch (fetchError) {
@@ -667,18 +681,18 @@ export default function RCAAnalysisPage() {
     );
 
     if (success) {
-      toast({ title: "Evento Rechazado", description: `El evento ${analysisDocumentId} ha sido marcado como rechazado.` });
+      toast({ title: "Evento Rechazado", description: `El evento ${currentId} ha sido marcado como rechazado.` });
       setCurrentEventStatus("Rechazado"); 
 
       const creatorNameToNotify = rcaDocCreatorName; 
       const creatorProfile = availableUsersFromDB.find(u => u.name === creatorNameToNotify);
       
-      let emailNotificationStatus = `Evento ${analysisDocumentId} rechazado. `;
+      let emailNotificationStatus = `Evento ${currentId} rechazado. `;
       if (creatorProfile && creatorProfile.email && (creatorProfile.emailNotifications === undefined || creatorProfile.emailNotifications)) {
-        const emailSubject = `Evento RCA Rechazado: ${eventData.focusEventDescription.substring(0, 40)}... (ID: ${analysisDocumentId})`;
+        const emailSubject = `Evento RCA Rechazado: ${eventData.focusEventDescription.substring(0, 40)}... (ID: ${currentId})`;
         const rejectedByName = userProfile?.name || "Sistema";
         const formattedRejectionDate = new Date().toLocaleDateString('es-CL', { year: 'numeric', month: 'long', day: 'numeric' });
-        const emailBody = `Estimado/a ${creatorProfile.name},\n\nEl evento "${eventData.focusEventDescription}" (ID: ${analysisDocumentId}) que usted creó/reportó ha sido rechazado.\n\nMotivo del Rechazo: ${rejectionReason}\nRechazado por: ${rejectedByName}\nFecha de Rechazo: ${formattedRejectionDate}\n\nPor favor, revise los detalles en el sistema si es necesario.\n\nSaludos,\nSistema RCA Assistant`;
+        const emailBody = `Estimado/a ${creatorProfile.name},\n\nEl evento "${eventData.focusEventDescription}" (ID: ${currentId}) que usted creó/reportó ha sido rechazado.\n\nMotivo del Rechazo: ${rejectionReason}\nRechazado por: ${rejectedByName}\nFecha de Rechazo: ${formattedRejectionDate}\n\nPor favor, revise los detalles en el sistema si es necesario.\n\nSaludos,\nSistema RCA Assistant`;
         const emailResult = await sendEmailAction({ to: creatorProfile.email, subject: emailSubject, body: emailBody });
         if (emailResult.success) {
           emailNotificationStatus += `Notificación de rechazo enviada a ${creatorProfile.name} (creador del evento).`;
@@ -749,21 +763,30 @@ export default function RCAAnalysisPage() {
     if (targetStep > step && targetStep > maxCompletedStep + 1 && targetStep !== 1) {
       return;
     }
-    if (targetStep >=1 && !eventData.id && targetStep > 1 ) {
-        ensureEventId();
+    if (targetStep >=1 && !analysisDocumentId && targetStep > 1 ) { // Use analysisDocumentId from state
+        // This logic may need refinement if ensureEventId behavior changes significantly
+        const tempId = ensureEventId();
+        setAnalysisDocumentId(tempId); // Ensure state ID is set
+        router.replace(`/analisis?id=${tempId}&step=${targetStep}`, { scroll: false });
+    } else if (analysisDocumentId) {
+      router.replace(`/analisis?id=${analysisDocumentId}&step=${targetStep}`, { scroll: false });
     }
+
     setStep(targetStep);
     if (targetStep > maxCompletedStep && targetStep > step ) {
         setMaxCompletedStep(targetStep -1);
     }
-    if (analysisDocumentId) {
-      router.replace(`/analisis?id=${analysisDocumentId}&step=${targetStep}`, { scroll: false });
-    }
   };
 
   const handleNextStep = async () => {
-    const currentId = analysisDocumentId || ensureEventId();
-    if (!currentId && step >= 1) {
+    let currentId = analysisDocumentId;
+    if (!currentId && step >= 1) { // If no ID and trying to proceed from step 1 or later
+        currentId = ensureEventId();
+        setAnalysisDocumentId(currentId);
+        // The save below will handle the router.replace if it's a new event
+    }
+    
+    if (!currentId && step >= 1) { // Double check after attempt to ensure
         toast({ title: "Error de Sincronización", description: "Por favor, complete el Paso 1 para generar un ID antes de continuar.", variant: "destructive"});
         setStep(1);
         return;
@@ -813,8 +836,9 @@ export default function RCAAnalysisPage() {
       const newMaxCompletedStep = Math.max(maxCompletedStep, step);
       setStep(newStep);
       setMaxCompletedStep(newMaxCompletedStep);
-       if (currentId) {
-         router.replace(`/analisis?id=${currentId}&step=${newStep}`, { scroll: false });
+       if (currentId && (analysisDocumentId || isNewEventCreation)) { // Ensure ID used for router.replace is the one now in state/URL
+         const idForNav = analysisDocumentId || currentId;
+         router.replace(`/analisis?id=${idForNav}&step=${newStep}`, { scroll: false });
        }
     }
   };
@@ -836,7 +860,11 @@ export default function RCAAnalysisPage() {
   };
 
   const handleAddImmediateAction = () => {
-    const tempEventId = eventData.id || ensureEventId();
+    let tempEventId = eventData.id;
+    if (!tempEventId) {
+        tempEventId = ensureEventId(); // ensures eventData.id is set
+        setAnalysisDocumentId(tempEventId); // Also set the main analysisDocumentId
+    }
     const newActionId = `${tempEventId}-IMA-${String(immediateActionCounter).padStart(3, '0')}`;
     setImmediateActions(prev => [...prev, { id: newActionId, eventId: tempEventId, description: '', responsible: '', dueDate: '' }]);
     setImmediateActionCounter(prev => prev + 1);
@@ -859,7 +887,11 @@ export default function RCAAnalysisPage() {
   };
 
   const handleAddPreservedFact = (fact: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId'>) => {
-    const currentEventId = ensureEventId();
+    let currentEventId = analysisDocumentId;
+    if (!currentEventId) {
+      currentEventId = ensureEventId();
+      setAnalysisDocumentId(currentEventId);
+    }
     if (!currentEventId) {
       toast({ title: "Error", description: "ID de evento no encontrado para asociar el hecho preservado.", variant: "destructive" });
       return;
@@ -932,7 +964,11 @@ export default function RCAAnalysisPage() {
   };
 
   const handleAddPlannedAction = () => {
-    const currentEventId = ensureEventId();
+    let currentEventId = analysisDocumentId;
+    if (!currentEventId) {
+        currentEventId = ensureEventId();
+        setAnalysisDocumentId(currentEventId);
+    }
     if (!currentEventId) {
       toast({ title: "Error", description: "No se pudo generar/obtener ID de evento para la acción planificada.", variant: "destructive" });
       return;
@@ -1015,10 +1051,11 @@ export default function RCAAnalysisPage() {
   };
 
   const handleMarkAsFinalized = async () => {
-    const currentEventIdUsedForToast = analysisDocumentId || eventData.id;
-    setIsSaving(true);
-
-    const currentId = analysisDocumentId || ensureEventId();
+    let currentId = analysisDocumentId;
+    if (!currentId) {
+      currentId = ensureEventId();
+      setAnalysisDocumentId(currentId);
+    }
 
     if (!currentId) {
         toast({ title: "Error", description: "No se pudo obtener el ID del análisis para finalizar.", variant: "destructive" });
@@ -1026,12 +1063,13 @@ export default function RCAAnalysisPage() {
         return;
     }
 
+    setIsSaving(true);
     setIsFinalized(true); 
 
     const success = await handleSaveAnalysisData(false, true, "Finalizado");
 
     if (success) {
-      toast({ title: "Proceso Finalizado", description: `Análisis ${currentEventIdUsedForToast || currentId} marcado como finalizado y evento reportado actualizado.`, className: "bg-primary text-primary-foreground"});
+      toast({ title: "Proceso Finalizado", description: `Análisis ${currentId} marcado como finalizado y evento reportado actualizado.`, className: "bg-primary text-primary-foreground"});
     } else {
       setIsFinalized(false);
       toast({ title: "Error al Finalizar", description: "No se pudo guardar el estado finalizado del análisis. Intente de nuevo.", variant: "destructive" });
@@ -1253,4 +1291,5 @@ export default function RCAAnalysisPage() {
     
 
     
+
 
