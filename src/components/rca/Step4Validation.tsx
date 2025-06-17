@@ -326,17 +326,18 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                             >
                               {status === 'validated' ? 'Validado' : 'Validar'}
                             </Button>
-                             <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleRejectClick(action)}
-                              disabled={isStepSaving || status === 'rejected'}
-                              className={cn(status === 'rejected' ? "bg-red-100 hover:bg-red-200 text-red-700" : "hover:bg-red-50", "transition-colors")}
-                              title={status === 'rejected' ? "Rechazado (Click para cambiar estado)" : "Rechazar esta acción"}
-
-                            >
-                              {status === 'rejected' ? 'Rechazado' : 'Rechazar'}
-                            </Button>
+                            {status !== 'validated' && (
+                               <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleRejectClick(action)}
+                                disabled={isStepSaving || status === 'rejected'}
+                                className={cn(status === 'rejected' ? "bg-red-100 hover:bg-red-200 text-red-700" : "hover:bg-red-50", "transition-colors")}
+                                title={status === 'rejected' ? "Rechazado (Click para cambiar estado)" : "Rechazar esta acción"}
+                              >
+                                {status === 'rejected' ? 'Rechazado' : 'Rechazar'}
+                              </Button>
+                            )}
                           </div>
                         </AccordionPrimitive.Header>
                         <AccordionContent className="p-4 pt-0">
