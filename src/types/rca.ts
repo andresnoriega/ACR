@@ -215,6 +215,6 @@ export interface RCAAnalysisDocument {
   // Metadata
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
-  createdBy?: string; // User ID (Firebase UID) or name
+  createdBy?: string; // User NAME who created the analysis document
 }
 
