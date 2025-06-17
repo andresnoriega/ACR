@@ -281,7 +281,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     }
 
     toast({
-        title: "Envío de Informes (Simulación)",
+        title: "Envío de Informes",
         description: `${emailsSentCount} de ${selectedUserEmails.length} correos fueron procesados "exitosamente". Verifique la consola del servidor.`
     });
     setIsSendingEmails(false);
@@ -566,7 +566,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
             </DialogClose>
             <Button type="button" onClick={handleConfirmSendEmail} disabled={isSendingEmails}>
               {isSendingEmails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Enviar (Simulación)
+              Enviar
             </Button>
           </DialogFooter>
         </DialogContent>
