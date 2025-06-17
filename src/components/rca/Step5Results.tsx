@@ -269,8 +269,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     }
 
     const emailSubject = `Informe RCA: ${eventData.focusEventDescription || `Evento ID ${eventId}`}`;
-    // Updated email body to be concise
-    const emailBody = `Estimado/a,\n\nSe ha completado el Análisis de Causa Raíz para el evento: "${eventData.focusEventDescription || eventId}" (ID: ${eventId}).\n\nEl informe completo está disponible en la aplicación o puede ser exportado a PDF desde el Paso 5.\n\n(Este correo simula que el informe PDF se adjuntaría aquí si la funcionalidad estuviera completamente implementada.)\n\nSaludos,\nSistema RCA Assistant`;
+    const emailBody = `Estimado/a,\n\nSe ha completado el Análisis de Causa Raíz para el evento: "${eventData.focusEventDescription || eventId}" (ID: ${eventId}).\n\nEl informe completo está disponible en la aplicación o puede ser exportado a PDF desde el Paso 5.\n\nSaludos,\nSistema RCA Assistant`;
     
     let emailsSentCount = 0;
 
