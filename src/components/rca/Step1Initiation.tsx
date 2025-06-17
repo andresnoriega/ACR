@@ -9,13 +9,14 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Trash2, Save, Send, Mail, Loader2, Bell, UserCog, XCircle } from 'lucide-react';
+import { PlusCircle, Trash2, Save, Send, Mail, Loader2, Bell, UserCog, XCircle, CheckCircle, Edit, Settings2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { sendEmailAction } from '@/app/actions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
+import { useAuth } from '@/contexts/AuthContext';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface Step1InitiationProps {
   eventData: RCAEventData;
@@ -30,7 +31,8 @@ interface Step1InitiationProps {
   onForceEnsureEventId: () => string; 
   onSaveAnalysis: (showToast?: boolean) => Promise<boolean>;
   isSaving: boolean;
-  onRejectEvent: () => Promise<void>; // Changed from () => void for consistency if it becomes async
+  onApproveEvent: () => Promise<void>; // Nueva prop para aprobar
+  onRejectEvent: () => Promise<void>; 
   isEventFinalized: boolean;
   currentEventStatus: ReportedEventStatus;
 }
@@ -230,12 +232,13 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   onForceEnsureEventId,
   onSaveAnalysis,
   isSaving,
+  onApproveEvent,
   onRejectEvent,
   isEventFinalized,
   currentEventStatus,
 }) => {
   const { toast } = useToast();
-  const { userProfile } = useAuth(); // Get userProfile
+  const { userProfile } = useAuth(); 
   const [clientSideMaxDate, setClientSideMaxDate] = useState<string | undefined>(undefined);
   const [isNotifyDialogOpen, setIsNotifyDialogOpen] = useState(false);
   const [eventDetailsForNotification, setEventDetailsForNotification] = useState<{id: string, description: string, site: string} | null>(null);
@@ -341,19 +344,19 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     onContinue();
   };
 
-  const canUserRejectEvent = useMemo(() => {
+  const canUserManageEventState = useMemo(() => {
     if (!userProfile) return false;
     return userProfile.role === 'Admin' || userProfile.role === 'Super User';
   }, [userProfile]);
 
-  const isRejectButtonDisabled = !eventData.id || isEventFinalized || currentEventStatus === 'Rechazado' || isSaving || !canUserRejectEvent;
+  const isManageStateButtonDisabled = !eventData.id || isEventFinalized || isSaving || !canUserManageEventState;
   
-  const getRejectButtonTitle = () => {
-    if (!eventData.id) return "El evento debe guardarse primero para poder rechazarlo.";
-    if (isEventFinalized) return "El evento ya está finalizado.";
-    if (currentEventStatus === 'Rechazado') return "El evento ya está rechazado.";
-    if (!canUserRejectEvent) return "No tiene permisos para rechazar este evento.";
-    return "Rechazar este reporte de evento";
+  const getManageStateButtonTitle = () => {
+    if (!eventData.id) return "El evento debe guardarse primero para poder gestionar su estado.";
+    if (isEventFinalized) return "El evento ya está finalizado, no se puede cambiar el estado.";
+    if (currentEventStatus === 'Rechazado') return "El evento ya está rechazado, no se puede cambiar el estado aquí.";
+    if (!canUserManageEventState) return "No tiene permisos para aprobar o rechazar este evento.";
+    return "Aprobar o Rechazar este reporte de evento";
   };
 
 
@@ -488,16 +491,39 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             <Bell className="mr-2 h-4 w-4" /> Notificar Evento
           </Button>
-          <Button 
-            onClick={onRejectEvent} 
-            variant="destructive" 
-            className="w-full sm:w-auto transition-transform hover:scale-105" 
-            disabled={isRejectButtonDisabled}
-            title={getRejectButtonTitle()}
-          >
-            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            <XCircle className="mr-2 h-4 w-4" /> Rechazar Reporte
-          </Button>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="destructive" 
+                className="w-full sm:w-auto transition-transform hover:scale-105" 
+                disabled={isManageStateButtonDisabled}
+                title={getManageStateButtonTitle()}
+              >
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Settings2 className="mr-2 h-4 w-4" /> Gestionar Estado
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Acciones de Estado</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={onApproveEvent}
+                disabled={isSaving || currentEventStatus !== 'Pendiente' || isEventFinalized || !canUserManageEventState}
+                className="text-green-600 focus:bg-green-100 focus:text-green-700"
+              >
+                <CheckCircle className="mr-2 h-4 w-4" /> Aprobar Evento
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={onRejectEvent}
+                disabled={isSaving || currentEventStatus === 'Rechazado' || currentEventStatus === 'Finalizado' || isEventFinalized || !canUserManageEventState}
+                className="text-red-600 focus:bg-red-100 focus:text-red-700"
+              >
+                <XCircle className="mr-2 h-4 w-4" /> Rechazar Reporte
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button onClick={handleContinueToNextStep} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || currentEventStatus === 'Rechazado' || isEventFinalized}>
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Continuar
@@ -518,4 +544,3 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     </>
   );
 };
-

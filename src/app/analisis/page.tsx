@@ -555,6 +555,26 @@ export default function RCAAnalysisPage() {
     }
   };
 
+  const handleApproveEvent = async () => {
+    if (!analysisDocumentId) {
+      toast({ title: "Error", description: "No se puede aprobar un evento sin ID.", variant: "destructive" });
+      return;
+    }
+    if (currentEventStatus !== 'Pendiente') {
+      toast({ title: "Acción no Válida", description: `El evento ya está "${currentEventStatus}". No se puede aprobar.`, variant: "default" });
+      return;
+    }
+    setIsSaving(true);
+    const success = await handleSaveAnalysisData(false, undefined, "En análisis");
+    if (success) {
+      toast({ title: "Evento Aprobado", description: `El evento ${analysisDocumentId} ha sido marcado como "En análisis".` });
+      setCurrentEventStatus("En análisis");
+    } else {
+      toast({ title: "Error al Aprobar", description: "No se pudo actualizar el estado del evento.", variant: "destructive" });
+    }
+    setIsSaving(false);
+  };
+
   const handleRejectEvent = async () => {
     if (!analysisDocumentId) {
       toast({ title: "Error", description: "No se puede rechazar un evento sin ID.", variant: "destructive" });
@@ -984,6 +1004,7 @@ export default function RCAAnalysisPage() {
             onForceEnsureEventId={ensureEventId}
             onSaveAnalysis={handleSaveAnalysisData}
             isSaving={isSaving}
+            onApproveEvent={handleApproveEvent}
             onRejectEvent={() => {
               setRejectionReason('');
               setIsRejectConfirmOpen(true);
@@ -1133,4 +1154,3 @@ export default function RCAAnalysisPage() {
     </>
   );
 }
-
