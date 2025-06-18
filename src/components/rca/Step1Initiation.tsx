@@ -17,7 +17,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { useRouter } from 'next/navigation'; // Import useRouter
+import { useRouter } from 'next/navigation';
 
 interface Step1InitiationProps {
   eventData: RCAEventData;
@@ -36,6 +36,7 @@ interface Step1InitiationProps {
   onRejectEvent: () => Promise<void>; 
   isEventFinalized: boolean;
   currentEventStatus: ReportedEventStatus;
+  validateStep1PreRequisites: () => { isValid: boolean, message?: string }; // Added prop
 }
 
 const EVENT_TYPES: EventType[] = ['Incidente', 'Accidente', 'Falla', 'No Conformidad'];
@@ -242,6 +243,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   onRejectEvent,
   isEventFinalized,
   currentEventStatus,
+  validateStep1PreRequisites,
 }) => {
   const { toast } = useToast();
   const { userProfile } = useAuth(); 
@@ -265,10 +267,10 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   useEffect(() => {
     if (!isNotifyDialogOpen && navigationTaskUrl) {
       router.replace(navigationTaskUrl, { scroll: false });
-      setNavigationTaskUrl(null); // Clear after navigation
+      setNavigationTaskUrl(null); 
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isNotifyDialogOpen, navigationTaskUrl]); // Do not add router here to prevent loops
+  }, [isNotifyDialogOpen, navigationTaskUrl]); 
 
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, field: keyof RCAEventData) => {
@@ -294,15 +296,25 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   };
   
   const handlePrepareNotification = async () => {
+    const validationResult = validateStep1PreRequisites();
+    if (!validationResult.isValid && validationResult.message?.includes("Complete los campos obligatorios")) {
+        toast({
+            title: "Campos Incompletos",
+            description: validationResult.message,
+            variant: "destructive",
+        });
+        return;
+    }
+    
     let currentEventId = eventData.id;
     if (!currentEventId) {
-      currentEventId = onForceEnsureEventId(); // This updates parent's eventData.id and analysisDocumentId
+      currentEventId = onForceEnsureEventId(); 
     }
     
     const saveResult = await onSaveAnalysis(false, { suppressNavigation: true }); 
     
     if (saveResult.success) {
-        const finalEventId = saveResult.newEventId || eventData.id; // Use ID from save result if new
+        const finalEventId = saveResult.newEventId || eventData.id; 
         setEventDetailsForNotification({
             id: finalEventId!, 
             description: eventData.focusEventDescription,
@@ -324,18 +336,11 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   };
   
   const handleContinueToNextStep = async () => {
-    if (currentEventStatus === 'Pendiente') {
+    const validationResult = validateStep1PreRequisites();
+    if (!validationResult.isValid) {
       toast({
         title: "Acción Requerida",
-        description: "Este evento debe ser aprobado antes de continuar con el análisis.",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (currentEventStatus === 'Rechazado') {
-       toast({
-        title: "Evento Rechazado",
-        description: "Este evento ha sido rechazado y no puede continuar el análisis.",
+        description: validationResult.message,
         variant: "destructive",
       });
       return;
@@ -343,7 +348,6 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     
     if (!eventData.id) { 
       onForceEnsureEventId(); 
-      // Allow save to handle navigation if it's a new event
       const saveResult = await onSaveAnalysis(false, { suppressNavigation: false }); 
       if (!saveResult.success) return; 
     }
@@ -538,7 +542,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
           isOpen={isNotifyDialogOpen}
           onOpenChange={(open) => {
             setIsNotifyDialogOpen(open);
-            if (!open && navigationTaskUrl) { // Si el diálogo se cierra y hay una tarea de navegación
+            if (!open && navigationTaskUrl) { 
                 router.replace(navigationTaskUrl, { scroll: false });
                 setNavigationTaskUrl(null);
             }
