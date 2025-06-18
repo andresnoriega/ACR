@@ -2,15 +2,15 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useCallback, useEffect } from 'react'; 
-import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhysData, RCAEventData, CTMData, IdentifiedRootCause, FullUserProfile, BrainstormIdea, BrainstormIdeaType } from '@/types/rca'; // Added BrainstormIdea, BrainstormIdeaType
-import { BRAINSTORM_IDEA_TYPES } from '@/types/rca'; // Import BRAINSTORM_IDEA_TYPES
+import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhysData, RCAEventData, CTMData, IdentifiedRootCause, FullUserProfile, BrainstormIdea, BrainstormIdeaType } from '@/types/rca';
+import { BRAINSTORM_IDEA_TYPES } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2, Save, Send, Loader2, Mail, Sparkles, ClipboardCopy, ChevronLeft, ChevronRight, AlertTriangle, Lightbulb, Edit3 } from 'lucide-react';
+import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2, Save, Send, Loader2, Mail, Sparkles, ClipboardCopy, ChevronLeft, ChevronRight, AlertTriangle, Lightbulb, Edit3, X } from 'lucide-react'; // Added X
 import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
 import { FiveWhysInteractive } from './FiveWhysInteractive';
@@ -151,10 +151,10 @@ const NotifyTasksDialog: FC<NotifyTasksDialogProps> = ({
 // --- Step3Analysis Component ---
 interface Step3AnalysisProps {
   eventData: RCAEventData;
-  brainstormingIdeas: BrainstormIdea[]; // Changed from brainstormingNotes
-  onAddBrainstormIdea: () => void; // Added
-  onUpdateBrainstormIdea: (id: string, field: 'type' | 'description', value: string) => void; // Added
-  onRemoveBrainstormIdea: (id: string) => void; // Added
+  brainstormingIdeas: BrainstormIdea[];
+  onAddBrainstormIdea: () => void;
+  onUpdateBrainstormIdea: (id: string, field: 'type' | 'description', value: string) => void;
+  onRemoveBrainstormIdea: (id: string) => void;
   analysisTechnique: AnalysisTechnique;
   onAnalysisTechniqueChange: (value: AnalysisTechnique) => void;
   analysisTechniqueNotes: string;
@@ -184,10 +184,10 @@ interface Step3AnalysisProps {
 
 export const Step3Analysis: FC<Step3AnalysisProps> = ({
   eventData,
-  brainstormingIdeas, // Changed
-  onAddBrainstormIdea, // Added
-  onUpdateBrainstormIdea, // Added
-  onRemoveBrainstormIdea, // Added
+  brainstormingIdeas,
+  onAddBrainstormIdea,
+  onUpdateBrainstormIdea,
+  onRemoveBrainstormIdea,
   analysisTechnique,
   onAnalysisTechniqueChange,
   analysisTechniqueNotes,
@@ -217,7 +217,12 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const { toast } = useToast();
   const [isNotifyTasksDialogOpen, setIsNotifyTasksDialogOpen] = useState(false);
   const [actionsForNotificationDialog, setActionsForNotificationDialog] = useState<PlannedAction[]>([]);
+  
   const [isSuggestingCauses, setIsSuggestingCauses] = useState(false);
+  const [suggestedAiCauses, setSuggestedAiCauses] = useState<string[]>([]);
+  const [currentSuggestionIndex, setCurrentSuggestionIndex] = useState(0);
+  const [showAiSuggestionsBox, setShowAiSuggestionsBox] = useState(false);
+
 
   useEffect(() => {
     if (identifiedRootCauses.length === 0) {
@@ -378,7 +383,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const handleSaveProgressLocal = async () => {
     const isTechniqueSelected = analysisTechnique !== '';
     const hasNotes = analysisTechniqueNotes.trim() !== '';
-    const hasBrainstorming = brainstormingIdeas.length > 0 && brainstormingIdeas.some(idea => idea.description.trim() !== ''); // Updated
+    const hasBrainstorming = brainstormingIdeas.length > 0 && brainstormingIdeas.some(idea => idea.description.trim() !== '');
     
     const hasAnyRootCause = identifiedRootCauses.length > 0 && identifiedRootCauses.some(rc => rc.description.trim() !== '');
     const hasPlannedActions = uniquePlannedActions.length > 0;
@@ -526,10 +531,12 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
 
   const handleSuggestRootCausesClick = async () => {
     setIsSuggestingCauses(true);
+    setSuggestedAiCauses([]);
+    setShowAiSuggestionsBox(false);
     try {
       const input: SuggestRootCausesInput = {
         focusEventDescription: eventData.focusEventDescription || "No especificado",
-        brainstormingIdeas: brainstormingIdeas.length > 0 ? brainstormingIdeas.map(idea => ({ type: idea.type, description: idea.description })) : undefined, // Pass structured ideas
+        brainstormingIdeas: brainstormingIdeas.length > 0 ? brainstormingIdeas.map(idea => ({ type: idea.type, description: idea.description })) : undefined,
         analysisTechnique: analysisTechnique,
         analysisTechniqueNotes: analysisTechniqueNotes || undefined,
         ishikawaData: analysisTechnique === 'Ishikawa' ? ishikawaData : undefined,
@@ -541,24 +548,46 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
         const validSuggestions = result.suggestedRootCauses.filter(s => !s.startsWith("[Sugerencia IA no disponible") && s.trim() !== "");
         
         if (validSuggestions.length > 0) {
+           setSuggestedAiCauses(validSuggestions);
+           setCurrentSuggestionIndex(0);
+           setShowAiSuggestionsBox(true);
            toast({ 
             title: `IA Sugirió ${validSuggestions.length} Posible(s) Causa(s) Raíz Latente(s)`,
-            description: `Sugerencias: ${validSuggestions.join('; ')}. Puede copiarlas a la lista de Causas Raíz Identificadas.`,
-            duration: 10000,
+            description: `Revise las sugerencias en el cuadro interactivo.`,
+            duration: 7000,
           });
         } else if (result.suggestedRootCauses.length === 1 && result.suggestedRootCauses[0].startsWith("[")) {
           toast({ title: "Sugerencias IA", description: result.suggestedRootCauses[0], variant: result.suggestedRootCauses[0].includes("Error") || result.suggestedRootCauses[0].includes("no disponible") ? "destructive" : "default" });
+          setShowAiSuggestionsBox(false);
         } else {
           toast({ title: "Sugerencias IA", description: "La IA no generó nuevas sugerencias válidas.", variant: "default" });
+          setShowAiSuggestionsBox(false);
         }
       } else {
         toast({ title: "Sugerencias IA", description: "La IA no generó nuevas sugerencias o hubo un error.", variant: "default" });
+        setShowAiSuggestionsBox(false);
       }
     } catch (error) {
       console.error("Error al sugerir causas raíz con IA:", error);
       toast({ title: "Error con IA", description: "No se pudieron obtener sugerencias de la IA.", variant: "destructive" });
+      setShowAiSuggestionsBox(false);
     }
     setIsSuggestingCauses(false);
+  };
+  
+  const handlePreviousSuggestion = () => {
+    setCurrentSuggestionIndex(prev => Math.max(0, prev - 1));
+  };
+
+  const handleNextSuggestion = () => {
+    setCurrentSuggestionIndex(prev => Math.min(suggestedAiCauses.length - 1, prev + 1));
+  };
+
+  const handleCopySuggestion = () => {
+    if (suggestedAiCauses.length > 0 && suggestedAiCauses[currentSuggestionIndex]) {
+      navigator.clipboard.writeText(suggestedAiCauses[currentSuggestionIndex]);
+      toast({ title: "Sugerencia Copiada", description: "La sugerencia actual ha sido copiada al portapapeles." });
+    }
   };
 
   return (
@@ -706,6 +735,58 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                     Sugerir con IA
                 </Button>
             </div>
+
+            {showAiSuggestionsBox && suggestedAiCauses.length > 0 && (
+              <Card className="p-4 bg-accent/10 border-accent shadow-md">
+                <CardHeader className="p-0 pb-2">
+                  <div className="flex justify-between items-center">
+                    <CardTitle className="text-base font-semibold text-accent-foreground">Sugerencias de Causa Raíz por IA</CardTitle>
+                    <Button variant="ghost" size="icon" onClick={() => setShowAiSuggestionsBox(false)} className="h-7 w-7">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0 space-y-2">
+                  <p className="text-sm text-muted-foreground p-2 border rounded-md bg-background min-h-[60px]">
+                    {suggestedAiCauses[currentSuggestionIndex]}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handlePreviousSuggestion}
+                      disabled={currentSuggestionIndex === 0 || isSuggestingCauses}
+                    >
+                      <ChevronLeft className="mr-1 h-4 w-4" /> Anterior
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      Sugerencia {currentSuggestionIndex + 1} de {suggestedAiCauses.length}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleNextSuggestion}
+                      disabled={currentSuggestionIndex === suggestedAiCauses.length - 1 || isSuggestingCauses}
+                    >
+                      Siguiente <ChevronRight className="ml-1 h-4 w-4" />
+                    </Button>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="w-full"
+                    onClick={handleCopySuggestion}
+                    disabled={isSuggestingCauses}
+                  >
+                    <ClipboardCopy className="mr-2 h-4 w-4" /> Copiar Sugerencia
+                  </Button>
+                  <p className="text-xs text-muted-foreground text-center pt-1">
+                    Copie la sugerencia y luego agréguela a la lista de "Causas Raíz Identificadas" si es relevante.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
 
             {identifiedRootCauses.map((rc, index) => (
               <Card key={rc.id} className="p-4 bg-card shadow-sm">
