@@ -46,10 +46,12 @@ const getEvidenceIconLocal = (tipo?: Evidence['tipo']) => {
 };
 
 const ViewEvidenceDialog: FC<{ evidence: Evidence | null; isOpen: boolean; onClose: () => void }> = ({ evidence, isOpen, onClose }) => {
-  if (!evidence) return null;
+  if (!isOpen || !evidence) {
+    return null;
+  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onClose} key={evidence.id}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center">
@@ -57,7 +59,7 @@ const ViewEvidenceDialog: FC<{ evidence: Evidence | null; isOpen: boolean; onClo
             Detalles de la Evidencia
           </DialogTitle>
           <DialogDescription>
-            Información registrada para la evidencia.
+            Información registrada para la evidencia: {evidence.nombre || "Nombre no especificado"} ({evidence.tipo || "Tipo no especificado"}).
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-y-3 py-3 text-sm">
@@ -72,7 +74,7 @@ const ViewEvidenceDialog: FC<{ evidence: Evidence | null; isOpen: boolean; onClo
           <div>
             <Label htmlFor="ev-dialog-comment" className="font-semibold text-xs text-muted-foreground">Comentario del Usuario:</Label>
             <div id="ev-dialog-comment" className="mt-1 p-2 border rounded-md bg-muted/50 text-xs whitespace-pre-wrap overflow-auto max-h-[150px] min-h-[50px] text-foreground">
-              {evidence.comment && evidence.comment.trim() ? (
+              {(evidence.comment && evidence.comment.trim()) ? (
                 evidence.comment
               ) : (
                 <span className="italic text-muted-foreground">Sin comentarios adicionales.</span>
@@ -237,7 +239,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
         const emailSubject = `Acción RCA Rechazada: ${actionBeingRejected.description.substring(0, 30)}...`;
         const eventId = actionBeingRejected.eventId;
 
-        const emailBody = `Estimado/a ${responsibleUser.name},\n\nLa siguiente acción planificada ha sido RECHAZADA en el análisis RCA (ID Evento: ${eventId}):\n\nAcción: ${actionBeingRejected.description}\nMotivo del Rechazo: ${reason}\n\nPor favor, revise la acción y tome las medidas necesarias.\n\nSaludos,\nSistema RCA Assistant`;
+        const emailBody = \`Estimado/a \${responsibleUser.name},\n\nLa siguiente acción planificada ha sido RECHAZADA en el análisis RCA (ID Evento: \${eventId}):\n\nAcción: \${actionBeingRejected.description}\nMotivo del Rechazo: \${reason}\n\nPor favor, revise la acción y tome las medidas necesarias.\n\nSaludos,\nSistema RCA Assistant\`;
 
         const emailResult = await sendEmailAction({
           to: responsibleUser.email,
@@ -245,17 +247,17 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
           body: emailBody,
         });
         if (emailResult.success) {
-          emailNotificationStatus = `Notificación de rechazo enviada a ${responsibleUser.name}.`;
+          emailNotificationStatus = \`Notificación de rechazo enviada a \${responsibleUser.name}.\`;
         } else {
-          emailNotificationStatus = `Se intentó enviar notificación a ${responsibleUser.name}, pero falló: ${emailResult.message}`;
+          emailNotificationStatus = \`Se intentó enviar notificación a \${responsibleUser.name}, pero falló: \${emailResult.message}\`;
         }
       } else {
-        emailNotificationStatus = `No se pudo enviar notificación: responsable "${responsibleUserName}" no encontrado o sin email.`;
+        emailNotificationStatus = \`No se pudo enviar notificación: responsable "\${responsibleUserName}" no encontrado o sin email.\`;
       }
 
       toast({
         title: "Acción Rechazada",
-        description: `La acción ha sido marcada como rechazada. ${emailNotificationStatus}`,
+        description: \`La acción ha sido marcada como rechazada. \${emailNotificationStatus}\`,
         variant: "destructive",
         duration: 7000
       });
@@ -286,7 +288,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
     if (pendingActions.length > 0) {
       toast({
         title: "Acciones Pendientes de Decisión",
-        description: `Aún hay ${pendingActions.length} acción(es) que no han sido validadas ni rechazadas. Por favor, revise todas las acciones.`,
+        description: \`Aún hay \${pendingActions.length} acción(es) que no han sido validadas ni rechazadas. Por favor, revise todas las acciones.\`,
         variant: "destructive",
         duration: 7000,
       });
@@ -301,7 +303,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
     if (rejectedActions.length > 0) {
       toast({
         title: "Acciones Rechazadas Presentes",
-        description: `Existen ${rejectedActions.length} acción(es) rechazadas. No puede continuar hasta que todas las acciones estén validadas.`,
+        description: \`Existen \${rejectedActions.length} acción(es) rechazadas. No puede continuar hasta que todas las acciones estén validadas.\`,
         variant: "destructive",
         duration: 7000,
       });
@@ -522,3 +524,5 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
     </>
   );
 };
+
+    
