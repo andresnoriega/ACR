@@ -2,13 +2,11 @@
 'use client';
 import * as React from "react";
 import type { FC } from 'react';
-import { useMemo, useState, useEffect } from 'react'; // Added useEffect
+import { useMemo, useState, useEffect } from 'react';
 import type { PlannedAction, Validation, FullUserProfile, Evidence } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input'; 
 import {
  Accordion,
  AccordionContent,
@@ -21,16 +19,16 @@ import { cn } from '@/lib/utils';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea'; 
+import { Textarea } from '@/components/ui/textarea';
 import { sendEmailAction } from '@/app/actions';
 
 
 interface Step4ValidationProps {
   plannedActions: PlannedAction[];
   validations: Validation[];
-  onToggleValidation: (actionId: string, newStatus: Validation['status'], rejectionReason?: string) => Promise<void>; 
+  onToggleValidation: (actionId: string, newStatus: Validation['status'], rejectionReason?: string) => Promise<void>;
   projectLeader: string;
-  availableUserProfiles: FullUserProfile[]; 
+  availableUserProfiles: FullUserProfile[];
   onPrevious: () => void;
   onNext: () => void;
   onSaveAnalysis: (showToast?: boolean) => Promise<void>;
@@ -59,17 +57,21 @@ const ViewEvidenceDialog: FC<{ evidence: Evidence | null; isOpen: boolean; onClo
             Detalles de la Evidencia
           </DialogTitle>
           <DialogDescription>
-            Información registrada para la evidencia: {evidence.nombre}
+            Información registrada para la evidencia.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-3 py-3 text-sm">
-          <p><strong>Nombre:</strong> {evidence.nombre}</p>
-          <p><strong>Tipo:</strong> {evidence.tipo || "No especificado"}</p>
-          <div className="mt-2">
-            <p><strong>Comentario del Usuario:</strong></p>
-            <div 
-              className="mt-1 p-2 border rounded-md bg-muted/50 text-xs whitespace-pre-wrap overflow-auto max-h-[150px]"
-            >
+        <div className="grid gap-y-3 py-3 text-sm">
+          <div>
+            <Label htmlFor="ev-dialog-name" className="font-semibold text-xs text-muted-foreground">Nombre del Archivo:</Label>
+            <p id="ev-dialog-name" className="mt-0.5 text-foreground">{evidence.nombre || "No especificado"}</p>
+          </div>
+          <div>
+            <Label htmlFor="ev-dialog-type" className="font-semibold text-xs text-muted-foreground">Tipo de Archivo:</Label>
+            <p id="ev-dialog-type" className="mt-0.5 text-foreground">{evidence.tipo || "No especificado"}</p>
+          </div>
+          <div>
+            <Label htmlFor="ev-dialog-comment" className="font-semibold text-xs text-muted-foreground">Comentario del Usuario:</Label>
+            <div id="ev-dialog-comment" className="mt-1 p-2 border rounded-md bg-muted/50 text-xs whitespace-pre-wrap overflow-auto max-h-[150px] min-h-[50px] text-foreground">
               {evidence.comment && evidence.comment.trim() ? (
                 evidence.comment
               ) : (
@@ -104,10 +106,10 @@ const RejectActionDialog: FC<{
     setIsSubmitting(true);
     await onConfirmReject(action.id, reason);
     setIsSubmitting(false);
-    setReason(''); 
+    setReason('');
     onClose();
   };
-  
+
   useEffect(() => {
     if (isOpen) {
       setReason('');
@@ -153,7 +155,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   validations,
   onToggleValidation,
   projectLeader,
-  availableUserProfiles, 
+  availableUserProfiles,
   onPrevious,
   onNext,
   onSaveAnalysis,
@@ -172,7 +174,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
     }
     const seenIds = new Set<string>();
     return plannedActions.filter(action => {
-      if (!action || !action.id) { 
+      if (!action || !action.id) {
         return false;
       }
       if (seenIds.has(action.id)) {
@@ -186,9 +188,9 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   const getValidation = (actionId: string): Validation | undefined => {
     return validations.find(v => v.actionId === actionId);
   };
-  
+
   const canValidateActions = (loggedInUserName: string | null): boolean => {
-    if (!loggedInUserName) return false; 
+    if (!loggedInUserName) return false;
     const currentUserProfile = availableUserProfiles.find(up => up.name === loggedInUserName);
     if (!currentUserProfile) return false;
     if (currentUserProfile.name === projectLeader) return true;
@@ -225,7 +227,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
     setIsSavingLocally(true);
     setIsProcessingEmail(true);
     try {
-      await onToggleValidation(actionId, 'rejected', reason); 
+      await onToggleValidation(actionId, 'rejected', reason);
 
       const responsibleUserName = actionBeingRejected.responsible;
       const responsibleUser = availableUserProfiles.find(up => up.name === responsibleUserName);
@@ -233,10 +235,10 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
       let emailNotificationStatus = "No se pudo determinar el estado del envío de correo.";
       if (responsibleUser && responsibleUser.email) {
         const emailSubject = `Acción RCA Rechazada: ${actionBeingRejected.description.substring(0, 30)}...`;
-        const eventId = actionBeingRejected.eventId; 
-        
+        const eventId = actionBeingRejected.eventId;
+
         const emailBody = `Estimado/a ${responsibleUser.name},\n\nLa siguiente acción planificada ha sido RECHAZADA en el análisis RCA (ID Evento: ${eventId}):\n\nAcción: ${actionBeingRejected.description}\nMotivo del Rechazo: ${reason}\n\nPor favor, revise la acción y tome las medidas necesarias.\n\nSaludos,\nSistema RCA Assistant`;
-        
+
         const emailResult = await sendEmailAction({
           to: responsibleUser.email,
           subject: emailSubject,
@@ -250,9 +252,9 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
       } else {
         emailNotificationStatus = `No se pudo enviar notificación: responsable "${responsibleUserName}" no encontrado o sin email.`;
       }
-      
-      toast({ 
-        title: "Acción Rechazada", 
+
+      toast({
+        title: "Acción Rechazada",
         description: `La acción ha sido marcada como rechazada. ${emailNotificationStatus}`,
         variant: "destructive",
         duration: 7000
@@ -271,7 +273,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
 
   const handleSaveProgressLocal = async () => {
     setIsSavingLocally(true);
-    await onSaveAnalysis(); 
+    await onSaveAnalysis();
     setIsSavingLocally(false);
   };
 
@@ -307,7 +309,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
     }
 
     setIsSavingLocally(true);
-    await onSaveAnalysis(false); 
+    await onSaveAnalysis(false);
     setIsSavingLocally(false);
     onNext();
   };
@@ -339,19 +341,19 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                 {uniquePlannedActions.map((action) => {
                   const validation = getValidation(action.id);
                   const status = validation?.status || 'pending';
-                  
-                  const hasInformationToVisualize = 
-                    (action.evidencias && action.evidencias.length > 0) || 
-                    (action.userComments && action.userComments.trim() !== '') || 
+
+                  const hasInformationToVisualize =
+                    (action.evidencias && action.evidencias.length > 0) ||
+                    (action.userComments && action.userComments.trim() !== '') ||
                     action.markedAsReadyAt;
 
-                  const isReadyForValidationByLeader = 
-                    (action.evidencias && action.evidencias.length > 0) || 
-                    (action.userComments && action.userComments.trim() !== '') || 
+                  const isReadyForValidationByLeader =
+                    (action.evidencias && action.evidencias.length > 0) ||
+                    (action.userComments && action.userComments.trim() !== '') ||
                     action.markedAsReadyAt;
-                  
+
                   const showNotReadyWarning = !isReadyForValidationByLeader && status === 'pending';
-                  
+
                   let statusDisplay;
                   let statusColorClass = "text-muted-foreground";
                   let StatusIcon = Circle;
@@ -367,7 +369,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                   } else {
                     statusDisplay = "Pendiente";
                   }
-                  
+
                   return (
                     <AccordionItem value={action.id} key={action.id} className="border-b">
                       <Card className="shadow-none border-0 rounded-none w-full">
@@ -376,7 +378,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                             {hasInformationToVisualize && status === 'pending' ? (
                               <Info className="h-5 w-5 text-blue-500" />
                             ) : (
-                              <div className="w-5 h-5"></div> 
+                              <div className="w-5 h-5"></div>
                             )}
                           </div>
                           <AccordionPrimitive.Trigger className="flex flex-1 items-center text-left hover:underline focus:outline-none group data-[state=open]:text-primary">
@@ -451,7 +453,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                                 <p className="text-muted-foreground ml-5">No hay comentarios del usuario.</p>
                               )}
                             </div>
-                            
+
                             <div>
                               <h5 className="font-semibold text-primary/90 mb-0.5 flex items-center"><FileText className="mr-1.5 h-3.5 w-3.5" />Evidencias Adjuntas:</h5>
                               {action.evidencias && action.evidencias.length > 0 ? (
@@ -472,7 +474,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                                 <p className="text-muted-foreground ml-5">No hay evidencias adjuntas.</p>
                               )}
                             </div>
-                            
+
                             {showNotReadyWarning && (
                                <p className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded-md border border-yellow-200 ml-5 flex items-center">
                                   <AlertTriangle className="h-4 w-4 mr-2 shrink-0" />
