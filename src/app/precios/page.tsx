@@ -63,6 +63,7 @@ const plans = [
       'Análisis RCA ilimitados',
       'Todas las técnicas de análisis avanzadas',
       'Gestión avanzada de usuarios y roles',
+      'Integraciones y API (Próximamente)', // Reinserted line
       'Auditoría de cambios y seguridad mejorada',
       'Soporte prioritario dedicado y SLA',
     ],
@@ -286,3 +287,4 @@ ${contactMessage}
     </div>
   );
 }
+
