@@ -2,12 +2,12 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useCallback, useEffect } from 'react'; 
-import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhysData, RCAEventData, CTMData, IdentifiedRootCause, FullUserProfile, BrainstormIdea, BrainstormIdeaType } from '@/types/rca';
+import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhysData, RCAEventData, CTMData, IdentifiedRootCause, FullUserProfile, BrainstormIdea, BrainstormIdeaType, TimelineEvent } from '@/types/rca';
 import { BRAINSTORM_IDEA_TYPES } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectSeparator } from '@/components/ui/select'; // Added SelectSeparator
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectSeparator } from '@/components/ui/select'; 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2, Save, Send, Loader2, Mail, Sparkles, ClipboardCopy, ChevronLeft, ChevronRight, AlertTriangle, Lightbulb, Edit3, X } from 'lucide-react';
@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
 import { FiveWhysInteractive } from './FiveWhysInteractive';
 import { CTMInteractive } from './CTMInteractive';
+import { TimelineComponent } from './TimelineComponent'; // Import TimelineComponent
 import { useToast } from "@/hooks/use-toast";
 import { sendEmailAction } from '@/app/actions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -151,6 +152,8 @@ const NotifyTasksDialog: FC<NotifyTasksDialogProps> = ({
 // --- Step3Analysis Component ---
 interface Step3AnalysisProps {
   eventData: RCAEventData;
+  timelineEvents: TimelineEvent[]; // Added for timeline
+  onSetTimelineEvents: (events: TimelineEvent[]) => void; // Added for timeline
   brainstormingIdeas: BrainstormIdea[];
   onAddBrainstormIdea: () => void;
   onUpdateBrainstormIdea: (id: string, field: 'type' | 'description', value: string) => void;
@@ -184,6 +187,8 @@ interface Step3AnalysisProps {
 
 export const Step3Analysis: FC<Step3AnalysisProps> = ({
   eventData,
+  timelineEvents, // Destructure timeline props
+  onSetTimelineEvents, // Destructure timeline props
   brainstormingIdeas,
   onAddBrainstormIdea,
   onUpdateBrainstormIdea,
@@ -385,6 +390,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     const isTechniqueSelected = analysisTechnique !== '';
     const hasNotes = analysisTechniqueNotes.trim() !== '';
     const hasBrainstorming = brainstormingIdeas.length > 0 && brainstormingIdeas.some(idea => idea.description.trim() !== '');
+    const hasTimelineEvents = timelineEvents.length > 0; // Check for timeline events
     
     const hasAnyRootCause = identifiedRootCauses.length > 0 && identifiedRootCauses.some(rc => rc.description.trim() !== '');
     const hasPlannedActions = uniquePlannedActions.length > 0;
@@ -407,6 +413,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
       !isTechniqueSelected &&
       !hasNotes &&
       !hasBrainstorming && 
+      !hasTimelineEvents && // Include timeline events in check
       !hasAnyRootCause && 
       !hasPlannedActions &&
       !isIshikawaEdited &&
@@ -604,6 +611,10 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
         <CardDescription>Seleccione la técnica de análisis, defina la causa raíz y el plan de acción.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        
+        <TimelineComponent events={timelineEvents} onSetEvents={onSetTimelineEvents} />
+        <Separator className="my-6" />
+
 
         <div className="space-y-4">
             <Label htmlFor="brainstormingIdeas" className="text-lg font-semibold font-headline flex items-center">

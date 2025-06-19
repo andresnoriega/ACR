@@ -198,6 +198,13 @@ export interface BrainstormIdea {
   description: string;
 }
 
+// --- Timeline Event Type ---
+export interface TimelineEvent {
+  id: number; // Using Date.now() which is a number
+  description: string;
+  datetime: string; // "YYYY-MM-DD HH:MM"
+}
+
 // Document structure for an RCA Analysis in Firestore
 export interface RCAAnalysisDocument {
   // From Step 1
@@ -209,7 +216,8 @@ export interface RCAAnalysisDocument {
   analysisDetails: string;
   preservedFacts: PreservedFact[];
   // From Step 3
-  brainstormingIdeas?: BrainstormIdea[]; // Changed from brainstormingNotes
+  timelineEvents?: TimelineEvent[]; // New field for timeline
+  brainstormingIdeas?: BrainstormIdea[]; 
   analysisTechnique: AnalysisTechnique;
   analysisTechniqueNotes: string;
   ishikawaData: IshikawaData;

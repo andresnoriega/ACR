@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -53,6 +53,7 @@ const initialRCAAnalysisState: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedA
   detailedFacts: { ...initialDetailedFacts },
   analysisDetails: '',
   preservedFacts: [],
+  timelineEvents: [], // Added timelineEvents
   brainstormingIdeas: [],
   analysisTechnique: '',
   analysisTechniqueNotes: '',
@@ -96,6 +97,7 @@ export default function RCAAnalysisPage() {
   const [analysisDetails, setAnalysisDetails] = useState(initialRCAAnalysisState.analysisDetails);
   const [preservedFacts, setPreservedFacts] = useState<PreservedFact[]>(initialRCAAnalysisState.preservedFacts);
 
+  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>(initialRCAAnalysisState.timelineEvents || []); // Added timelineEvents state
   const [brainstormingIdeas, setBrainstormingIdeas] = useState<BrainstormIdea[]>(initialRCAAnalysisState.brainstormingIdeas || []);
   const [analysisTechnique, setAnalysisTechnique] = useState<AnalysisTechnique>(initialRCAAnalysisState.analysisTechnique);
   const [analysisTechniqueNotes, setAnalysisTechniqueNotes] = useState(initialRCAAnalysisState.analysisTechniqueNotes);
@@ -162,6 +164,7 @@ export default function RCAAnalysisPage() {
         setDetailedFacts(data.detailedFacts || { ...initialDetailedFacts });
         setAnalysisDetails(data.analysisDetails || '');
         setPreservedFacts(data.preservedFacts || []);
+        setTimelineEvents(data.timelineEvents || []); // Load timelineEvents
         setBrainstormingIdeas(data.brainstormingIdeas || []);
         setAnalysisTechnique(data.analysisTechnique || '');
         setAnalysisTechniqueNotes(data.analysisTechniqueNotes || '');
@@ -213,6 +216,7 @@ export default function RCAAnalysisPage() {
             setDetailedFacts(initialRCAAnalysisState.detailedFacts);
             setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
             setPreservedFacts(initialRCAAnalysisState.preservedFacts);
+            setTimelineEvents(initialRCAAnalysisState.timelineEvents || []); // Reset timelineEvents
             setBrainstormingIdeas(initialRCAAnalysisState.brainstormingIdeas || []);
             setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
             setAnalysisTechniqueNotes(initialRCAAnalysisState.analysisTechniqueNotes);
@@ -245,6 +249,7 @@ export default function RCAAnalysisPage() {
         setDetailedFacts(initialRCAAnalysisState.detailedFacts);
         setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
         setPreservedFacts(initialRCAAnalysisState.preservedFacts);
+        setTimelineEvents(initialRCAAnalysisState.timelineEvents || []); // Reset timelineEvents
         setBrainstormingIdeas(initialRCAAnalysisState.brainstormingIdeas || []);
         setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
         setAnalysisTechniqueNotes(initialRCAAnalysisState.analysisTechniqueNotes);
@@ -304,9 +309,8 @@ export default function RCAAnalysisPage() {
             setIsLoadingPage(false);
         });
     } else { 
-        if (lastLoadedAnalysisIdRef.current !== null) { // Si antes teníamos un ID y ahora no
+        if (lastLoadedAnalysisIdRef.current !== null) { 
             setIsLoadingPage(true); 
-            // Resetear todos los estados
             setEventData(initialRCAAnalysisState.eventData);
             setImmediateActions(initialRCAAnalysisState.immediateActions);
             setImmediateActionCounter(1);
@@ -314,6 +318,7 @@ export default function RCAAnalysisPage() {
             setDetailedFacts(initialRCAAnalysisState.detailedFacts);
             setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
             setPreservedFacts(initialRCAAnalysisState.preservedFacts);
+            setTimelineEvents(initialRCAAnalysisState.timelineEvents || []); // Reset timelineEvents
             setBrainstormingIdeas(initialRCAAnalysisState.brainstormingIdeas || []);
             setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
             setAnalysisTechniqueNotes(initialRCAAnalysisState.analysisTechniqueNotes);
@@ -333,7 +338,6 @@ export default function RCAAnalysisPage() {
             setMaxCompletedStep(0); 
             setStep(1); 
             lastLoadedAnalysisIdRef.current = null; 
-            // router.replace('/analisis', { scroll: false }); // This line was removed in a previous step.
             setIsLoadingPage(false);
         } else {
              setIsLoadingPage(false);
@@ -405,7 +409,6 @@ export default function RCAAnalysisPage() {
       const generatedId = ensureEventId(); 
       currentId = generatedId;
       isNewEventCreation = true;
-      // IMPORTANT: Set analysisDocumentId in state BEFORE saving, so it's available for Firestore doc path
       setAnalysisDocumentId(currentId); 
     }
     if (!currentId) {
@@ -436,7 +439,7 @@ export default function RCAAnalysisPage() {
 
     const rcaDocPayload: Partial<RCAAnalysisDocument> = {
       eventData: consistentEventData, immediateActions, projectLeader, detailedFacts, analysisDetails,
-      preservedFacts, brainstormingIdeas, analysisTechnique, analysisTechniqueNotes, ishikawaData,
+      preservedFacts, timelineEvents, brainstormingIdeas, analysisTechnique, analysisTechniqueNotes, ishikawaData, // Added timelineEvents
       fiveWhysData, ctmData, identifiedRootCauses, plannedActions,
       validations: (validationsOverride !== undefined) ? validationsOverride : validations,
       finalComments, isFinalized: currentIsFinalized,
@@ -471,13 +474,12 @@ export default function RCAAnalysisPage() {
       const sanitizedDataToSave = sanitizeForFirestore(dataToSave);
       await setDoc(rcaDocRef, sanitizedDataToSave, { merge: true });
 
-      // Update local state after successful save
       if (finalCommentsToSave !== finalComments) setFinalComments(finalCommentsToSave);
       if (finalizedOverride !== undefined && isFinalized !== finalizedOverride) setIsFinalized(finalizedOverride);
       if (currentRejectionDetailsToSave !== rejectionDetails) setRejectionDetails(currentRejectionDetailsToSave);
       if (validationsOverride !== undefined && validationsOverride !== validations) setValidations(validationsOverride); 
       if (dataToSave.createdBy && createdBy !== dataToSave.createdBy) setCreatedBy(dataToSave.createdBy);
-      if(consistentEventData.id !== eventData.id) setEventData(consistentEventData); // Ensure local eventData has the ID
+      if(consistentEventData.id !== eventData.id) setEventData(consistentEventData);
 
 
       const reportedEventRef = doc(db, "reportedEvents", currentId);
@@ -796,8 +798,7 @@ export default function RCAAnalysisPage() {
         message: `Complete los campos obligatorios del Paso 1: ${missingFields.join(', ')}.`,
       };
     }
-    // This part of validation is specific to *advancing* from step 1, not just saving.
-    if (step === 1) { // Only check status if currently in Step 1 and trying to advance
+    if (step === 1) { 
       if (currentEventStatus === 'Pendiente') {
         return { isValid: false, message: "Este evento debe ser aprobado antes de continuar con el análisis." };
       }
@@ -1287,6 +1288,8 @@ export default function RCAAnalysisPage() {
       {step === 3 && (
         <Step3Analysis
           eventData={eventData}
+          timelineEvents={timelineEvents} // Pass timelineEvents
+          onSetTimelineEvents={setTimelineEvents} // Pass setter for timelineEvents
           brainstormingIdeas={brainstormingIdeas}
           onAddBrainstormIdea={handleAddBrainstormIdea}
           onUpdateBrainstormIdea={handleUpdateBrainstormIdea}
