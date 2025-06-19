@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect, type FC } from "react";
+import { useState, useEffect, useMemo, type FC } from "react"; // Added useMemo
 import type { TimelineEvent } from "@/types/rca";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -300,3 +300,4 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
 };
 
 export default TimelineComponent;
+
