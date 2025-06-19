@@ -1,27 +1,26 @@
-
 'use client';
-import * as React from "react"; // Added this line
+import * as React from "react";
 import type { FC } from 'react';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react'; // Added useEffect
 import type { PlannedAction, Validation, FullUserProfile, Evidence } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input'; // Added Input
+import { Input } from '@/components/ui/input'; 
 import {
  Accordion,
  AccordionContent,
  AccordionItem,
 } from "@/components/ui/accordion";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
-import { ChevronDown, CheckCircle2, Circle, Eye, FileText, ImageIcon, Paperclip, Loader2, Save, MessageSquare, CalendarCheck, History, Info, XCircle, AlertTriangle } from 'lucide-react'; // Added XCircle
+import { ChevronDown, CheckCircle2, Circle, Eye, FileText, ImageIcon, Paperclip, Loader2, Save, MessageSquare, CalendarCheck, History, Info, XCircle, AlertTriangle } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea'; // Added Textarea
+import { Textarea } from '@/components/ui/textarea'; 
 import { sendEmailAction } from '@/app/actions';
 
 
@@ -95,7 +94,6 @@ const RejectActionDialog: FC<{
 
   const handleSubmit = async () => {
     if (!reason.trim()) {
-      // Optionally show a toast here if reason is mandatory
       return;
     }
     setIsSubmitting(true);
@@ -105,7 +103,7 @@ const RejectActionDialog: FC<{
     onClose();
   };
   
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       setReason('');
     }
@@ -517,4 +515,3 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
     </>
   );
 };
-
