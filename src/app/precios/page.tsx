@@ -9,8 +9,8 @@ import Link from 'next/link';
 const plans = [
   {
     name: 'Básico',
-    price: '$0',
-    period: '/mes (Limitado)',
+    price: '$9.990',
+    period: '/mes (CLP)',
     description: 'Ideal para individuos o equipos pequeños que inician con RCA.',
     features: [
       'Hasta 3 análisis RCA al mes',
@@ -18,38 +18,38 @@ const plans = [
       '1 usuario',
       'Soporte comunitario',
     ],
-    cta: 'Comenzar Gratis',
+    cta: 'Comenzar Ahora', // Changed from "Comenzar Gratis"
     href: '/analisis',
   },
   {
     name: 'Profesional',
-    price: '$29',
-    period: '/mes',
+    price: '$29.000',
+    period: '/mes (CLP)',
     description: 'Perfecto para equipos en crecimiento y uso regular de RCA.',
     features: [
       'Hasta 25 análisis RCA al mes',
       'Todas las técnicas de análisis (5 Porqués, Ishikawa, CTM)',
-      'Hasta 10 usuarios', // Changed from 5
+      'Hasta 10 usuarios',
       'Exportación de informes avanzada',
-      'Soporte técnico por email', // Changed wording
+      'Soporte técnico por email',
     ],
     cta: 'Elegir Profesional',
     href: '#',
     highlighted: true,
-    badge: 'Más Popular', // Added badge
+    badge: 'Más Popular',
   },
   {
     name: 'Empresa',
-    price: '$99',
-    period: '/mes',
+    price: '$99.000',
+    period: '/mes (CLP)',
     description: 'Solución completa para organizaciones con necesidades complejas y a gran escala.',
     features: [
       'Análisis RCA ilimitados',
       'Todas las técnicas de análisis avanzadas',
-      'Gestión avanzada de usuarios y roles', // Rephrased
-      'Integraciones y API (Próximamente)', // Added feature
-      'Auditoría de cambios y seguridad mejorada', // Expanded
-      'Soporte prioritario dedicado y SLA', // Expanded
+      'Gestión avanzada de usuarios y roles',
+      'Integraciones y API (Próximamente)',
+      'Auditoría de cambios y seguridad mejorada',
+      'Soporte prioritario dedicado y SLA',
     ],
     cta: 'Contactar Ventas',
     href: '#',
@@ -119,7 +119,7 @@ export default function PreciosPage() {
 
       <div className="text-center text-muted-foreground text-sm mt-10">
         <p>¿Necesita una solución personalizada o tiene preguntas? <Link href="#" className="text-primary hover:underline">Contáctenos</Link>.</p>
-        <p>Todos los precios están en USD. Pueden aplicarse impuestos adicionales.</p>
+        <p>Todos los precios están en Pesos Chilenos (CLP). Pueden aplicarse impuestos adicionales.</p>
       </div>
     </div>
   );
