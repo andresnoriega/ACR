@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { PlusCircle, Edit2, Copy, Trash2, CalendarClock, Loader2 } from "lucide-react";
+import { PlusCircle, Edit2, Trash2, CalendarClock, Loader2 } from "lucide-react"; // Removed Copy icon
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 
 interface TimelineComponentProps {
@@ -27,7 +27,6 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
   const parseDateTimeString = (dateTimeStr: string): Date | null => {
     if (!dateTimeStr) return null;
     try {
-      // datetime-local input format is "YYYY-MM-DDTHH:MM"
       const parsed = new Date(dateTimeStr);
       if (isNaN(parsed.getTime())) return null;
       return parsed;
@@ -40,13 +39,15 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
     if (events.length === 0) {
       return null; 
     }
+    // Create a mutable copy for sorting
     const sortedForReference = [...events].sort((a, b) => {
       const dateA = parseDateTimeString(a.datetime);
       const dateB = parseDateTimeString(b.datetime);
-      if (!dateA || !dateB) return 0;
+      if (!dateA || !dateB) return 0; // Should ideally not happen with validated data
+      // Sort descending to get the latest as the first element
       return dateB.getTime() - dateA.getTime(); 
     });
-    const refEvent = sortedForReference[0];
+    const refEvent = sortedForReference[0]; // This is the latest event
     return parseDateTimeString(refEvent.datetime);
   }, [events]);
 
@@ -58,22 +59,24 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
       return false;
     }
 
-    // First event can be any date
+    // If there are no events, or if we are editing the only event, any date is fine.
     if (events.length === 0 || (events.length === 1 && editingEventId && events[0].id === editingEventId)) {
         return true;
     }
     
+    // If editing an existing event that IS the current reference (latest) event, its new date can be anything.
+    // The reference will be recalculated.
     if (editingEventId && referenceEventDateTime) {
         const eventBeingEdited = events.find(e => e.id === editingEventId);
         if (eventBeingEdited) {
             const currentDateTimeOfEditingEvent = parseDateTimeString(eventBeingEdited.datetime);
             if (currentDateTimeOfEditingEvent && referenceEventDateTime && currentDateTimeOfEditingEvent.getTime() === referenceEventDateTime.getTime()) {
-                // Editing the reference event, its new date can be anything.
                 return true;
             }
         }
     }
 
+    // For new events or editing non-reference events, it must be strictly before the reference.
     if (referenceEventDateTime) {
       if (newEventDateTime >= referenceEventDateTime) {
         toast({
@@ -99,9 +102,10 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
     const newEvent: TimelineEvent = {
       id: Date.now(),
       description,
-      datetime: dateTimeValue, // Store as "YYYY-MM-DDTHH:MM"
+      datetime: dateTimeValue, 
     };
 
+    // Add new event and re-sort
     onSetEvents([...events, newEvent].sort((a, b) => {
         const dateA = parseDateTimeString(a.datetime);
         const dateB = parseDateTimeString(b.datetime);
@@ -117,7 +121,7 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
     if (event) {
       setSelectedId(id);
       setDescription(event.description);
-      setDateTimeValue(event.datetime); // Set combined value
+      setDateTimeValue(event.datetime); 
     }
   };
 
@@ -150,6 +154,7 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
   const handleDeleteConfirm = () => {
     if (!selectedId) return;
     setIsProcessing(true);
+    // Filter out the event and re-sort
     onSetEvents(events.filter((event) => event.id !== selectedId).sort((a, b) => {
         const dateA = parseDateTimeString(a.datetime);
         const dateB = parseDateTimeString(b.datetime);
@@ -161,40 +166,6 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
     setIsProcessing(false);
   };
 
-  const duplicateSelectedEvent = () => {
-    if (!selectedId) {
-      toast({ title: "Sin Selección", description: "Selecciona un evento para duplicarlo.", variant: "default" });
-      return;
-    }
-
-    const eventToDuplicate = events.find((e) => e.id === selectedId);
-    if (!eventToDuplicate) return;
-    
-    // Prompt for new datetime
-    const newDateTimeInput = prompt("Introduce la nueva fecha y hora (YYYY-MM-DDTHH:MM):", eventToDuplicate.datetime);
-    if (!newDateTimeInput) return; 
-
-    if (!validateDateTime(newDateTimeInput)) return;
-
-    const duplicatedEvent: TimelineEvent = {
-      ...eventToDuplicate,
-      id: Date.now(),
-      datetime: newDateTimeInput,
-    };
-
-    onSetEvents([...events, duplicatedEvent].sort((a, b) => {
-        const dateA = parseDateTimeString(a.datetime);
-        const dateB = parseDateTimeString(b.datetime);
-        if (!dateA || !dateB) return 0;
-        return dateA.getTime() - dateB.getTime();
-    }));
-    
-    setSelectedId(duplicatedEvent.id);
-    setDescription(duplicatedEvent.description);
-    setDateTimeValue(newDateTimeInput);
-    toast({ title: "Evento Duplicado", description: "El evento ha sido duplicado y seleccionado."});
-  };
-
   const clearForm = () => {
     setDescription("");
     setDateTimeValue("");
@@ -202,10 +173,11 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
   };
   
   const sortedEvents = useMemo(() => {
+    // Create a mutable copy before sorting
     return [...events].sort((a, b) => {
       const dateA = parseDateTimeString(a.datetime);
       const dateB = parseDateTimeString(b.datetime);
-      if (!dateA || !dateB) return 0;
+      if (!dateA || !dateB) return 0; // Should ideally not happen with validated data
       return dateA.getTime() - dateB.getTime();
     });
   }, [events]);
@@ -258,9 +230,6 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
             </Button>
             <Button onClick={editSelectedEvent} size="sm" variant="outline" disabled={!selectedId || isProcessing}>
               <Edit2 className="mr-2 h-4 w-4" /> Editar Seleccionado
-            </Button>
-            <Button onClick={duplicateSelectedEvent} size="sm" variant="outline" disabled={!selectedId || isProcessing}>
-              <Copy className="mr-2 h-4 w-4" /> Duplicar Seleccionado
             </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -325,3 +294,4 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
 };
 
 export default TimelineComponent;
+
