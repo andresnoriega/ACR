@@ -25,46 +25,85 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
   const [isProcessing, setIsProcessing] = useState(false);
 
   const parseDateTime = (dateStr: string, timeStr: string): Date | null => {
-    return dateStr && timeStr ? new Date(`${dateStr}T${timeStr}`) : null;
+    if (!dateStr || !timeStr) return null;
+    try {
+      const parsed = new Date(`${dateStr}T${timeStr}`);
+      if (isNaN(parsed.getTime())) return null;
+      return parsed;
+    } catch (e) {
+      return null;
+    }
   };
+  
+  const referenceEventDateTime = useMemo(() => {
+    if (events.length === 0) {
+      return null; 
+    }
+    const sortedForReference = [...events].sort((a, b) => {
+      const dateA = parseDateTime(a.datetime.split(" ")[0], a.datetime.split(" ")[1]);
+      const dateB = parseDateTime(b.datetime.split(" ")[0], b.datetime.split(" ")[1]);
+      if (!dateA || !dateB) return 0;
+      return dateB.getTime() - dateA.getTime(); 
+    });
+    const refEvent = sortedForReference[0];
+    return parseDateTime(refEvent.datetime.split(" ")[0], refEvent.datetime.split(" ")[1]);
+  }, [events]);
 
-  const validateDateOrder = (newDate: Date | null): boolean => {
-    if (!newDate) return false;
-    if (events.length === 0) return true;
 
-    // Assuming events[0] is the reference event (earliest or first entered)
-    const firstEventParts = events[0].datetime.split(" ");
-    const firstEventDate = parseDateTime(firstEventParts[0], firstEventParts[1]);
-
-    if (firstEventDate && newDate > firstEventDate) {
-      toast({
-        title: "Error de Fecha",
-        description: "El evento debe tener una fecha menor o igual al primer evento en la línea de tiempo.",
-        variant: "destructive",
-      });
+  const validateDateTime = (newDateStr: string, newTimeStr: string, editingEventId?: number): boolean => {
+    const newEventDateTime = parseDateTime(newDateStr, newTimeStr);
+    if (!newEventDateTime) {
+      toast({ title: "Fecha/Hora Inválida", description: "El formato de fecha u hora no es válido. Use YYYY-MM-DD y HH:MM.", variant: "destructive" });
       return false;
+    }
+
+    if (events.length === 0 || (events.length === 1 && editingEventId && events[0].id === editingEventId)) {
+        return true;
+    }
+    
+    if (editingEventId && referenceEventDateTime) {
+        const eventBeingEdited = events.find(e => e.id === editingEventId);
+        if (eventBeingEdited) {
+            const currentDateTimeOfEditingEvent = parseDateTime(eventBeingEdited.datetime.split(" ")[0], eventBeingEdited.datetime.split(" ")[1]);
+            if (currentDateTimeOfEditingEvent && referenceEventDateTime && currentDateTimeOfEditingEvent.getTime() === referenceEventDateTime.getTime()) {
+                // Estamos editando el actual evento de referencia (el más reciente).
+                // Su nueva fecha puede ser cualquiera, ya que la referencia se recalculará.
+                // Sin embargo, si hay otros eventos, la nueva fecha del ancla no debería ser anterior a *todos* ellos,
+                // pero esa es una lógica de re-validación más compleja que no se implementa aquí.
+                return true;
+            }
+        }
+    }
+
+    if (referenceEventDateTime) {
+      if (newEventDateTime >= referenceEventDateTime) {
+        toast({
+          title: "Error de Orden Cronológico",
+          description: `El evento debe ser anterior al evento de referencia más reciente en la línea de tiempo (${referenceEventDateTime.toLocaleDateString('es-CL', {year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'})}).`,
+          variant: "destructive",
+          duration: 7000,
+        });
+        return false;
+      }
     }
     return true;
   };
+
 
   const addEvent = () => {
     if (!description.trim() || !date || !time) {
         toast({ title: "Campos Requeridos", description: "Por favor, complete la descripción, fecha y hora.", variant: "destructive"});
         return;
     }
-    const datetime = `${date} ${time}`;
-    const newDateObj = parseDateTime(date, time);
-
-    // const isValidOrder = validateDateOrder(newDateObj); // Consider re-evaluating this validation logic if it causes issues
-    // if (!isValidOrder) return;
+    if (!validateDateTime(date, time)) return;
 
     const newEvent: TimelineEvent = {
       id: Date.now(),
       description,
-      datetime,
+      datetime: `${date} ${time}`,
     };
 
-    onSetEvents([newEvent, ...events].sort((a, b) => {
+    onSetEvents([...events, newEvent].sort((a, b) => {
         const dateA = parseDateTime(a.datetime.split(" ")[0], a.datetime.split(" ")[1]);
         const dateB = parseDateTime(b.datetime.split(" ")[0], b.datetime.split(" ")[1]);
         if (!dateA || !dateB) return 0;
@@ -94,6 +133,7 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
         toast({ title: "Campos Requeridos", description: "Por favor, complete la descripción, fecha y hora para editar.", variant: "destructive"});
         return;
     }
+    if (!validateDateTime(date, time, selectedId)) return;
 
     const updatedEvents = events.map((event) =>
       event.id === selectedId
@@ -135,21 +175,12 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
 
     const [originalDate] = eventToDuplicate.datetime.split(" ");
     
-    // Note: Using window.prompt is generally not recommended for modern UX.
-    // Consider replacing with a custom dialog if more complex input is needed.
     const newDateInput = prompt("Introduce la nueva fecha (YYYY-MM-DD):", originalDate);
-    if (!newDateInput) return; // User cancelled or entered nothing
+    if (!newDateInput) return; 
     const newTimeInput = prompt("Introduce la nueva hora (HH:MM):", "00:00");
-    if (!newTimeInput) return; // User cancelled or entered nothing
+    if (!newTimeInput) return; 
 
-    const parsedNewDate = parseDateTime(newDateInput, newTimeInput);
-    if (!parsedNewDate) {
-        toast({ title: "Fecha/Hora Inválida", description: "El formato de fecha u hora ingresado no es válido.", variant: "destructive"});
-        return;
-    }
-
-    // const validation = validateDateOrder(parsedNewDate);
-    // if (!validation) return;
+    if (!validateDateTime(newDateInput, newTimeInput)) return;
 
     const duplicatedEvent: TimelineEvent = {
       ...eventToDuplicate,
@@ -157,14 +188,13 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
       datetime: `${newDateInput} ${newTimeInput}`,
     };
 
-    onSetEvents([duplicatedEvent, ...events].sort((a, b) => {
+    onSetEvents([...events, duplicatedEvent].sort((a, b) => {
         const dateA = parseDateTime(a.datetime.split(" ")[0], a.datetime.split(" ")[1]);
         const dateB = parseDateTime(b.datetime.split(" ")[0], b.datetime.split(" ")[1]);
         if (!dateA || !dateB) return 0;
         return dateA.getTime() - dateB.getTime();
     }));
     
-    // Update form to reflect the new duplicated event for immediate editing if desired
     setSelectedId(duplicatedEvent.id);
     setDescription(duplicatedEvent.description);
     setDate(newDateInput);
@@ -179,7 +209,6 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
     setSelectedId(null);
   };
   
-  // Sort events chronologically for display
   const sortedEvents = useMemo(() => {
     return [...events].sort((a, b) => {
       const dateA = parseDateTime(a.datetime.split(" ")[0], a.datetime.split(" ")[1]);
@@ -300,4 +329,3 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
 };
 
 export default TimelineComponent;
-
