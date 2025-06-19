@@ -56,14 +56,13 @@ const plans = [
   },
   {
     name: 'Empresa',
-    price: 'Contáctanos', // Updated price
-    period: '', // Removed period
+    price: 'Contáctanos',
+    period: '',
     description: 'Solución completa para organizaciones con necesidades complejas y a gran escala.',
     features: [
       'Análisis RCA ilimitados',
       'Todas las técnicas de análisis avanzadas',
       'Gestión avanzada de usuarios y roles',
-      'Integraciones y API (Próximamente)',
       'Auditoría de cambios y seguridad mejorada',
       'Soporte prioritario dedicado y SLA',
     ],
