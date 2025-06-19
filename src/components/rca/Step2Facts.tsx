@@ -10,12 +10,10 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Calendar as CalendarIcon, PlusCircle, Trash2, FileText, Paperclip, UserCircle, Save, Loader2 } from 'lucide-react';
-import { format, parse, isValid } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
 
@@ -32,7 +30,7 @@ interface Step2FactsProps {
   onRemovePreservedFact: (id: string) => void;
   onPrevious: () => void;
   onNext: () => void;
-  onSaveAnalysis: (showToast?: boolean) => Promise<void>; // Changed to specific save function for Step 2
+  onSaveAnalysis: (showToast?: boolean) => Promise<void>;
   isSaving: boolean;
 }
 
@@ -151,117 +149,42 @@ export const Step2Facts: FC<Step2FactsProps> = ({
   onRemovePreservedFact,
   onPrevious,
   onNext,
-  onSaveAnalysis, // This prop now calls handleSaveFromStep2 from the parent
+  onSaveAnalysis,
   isSaving,
 }) => {
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | undefined>();
   const [isAddFactDialogOpen, setIsAddFactDialogOpen] = useState(false);
   const { toast } = useToast();
-
-  const { derivedDate, derivedTime } = useMemo(() => {
-    const text = detailedFacts.cuando;
-    let dDate: Date | undefined;
-    let tString = "";
-
-    const dateMatchDMY = text.match(/(\d{2}-\d{2}-\d{4})/);
-    if (dateMatchDMY?.[1]) {
-      const parsed = parse(dateMatchDMY[1], "dd-MM-yyyy", new Date());
-      if (isValid(parsed)) {
-        dDate = parsed;
-      }
-    } else {
-      const dateMatchYMD = text.match(/(\d{4}-\d{2}-\d{2})/);
-      if (dateMatchYMD?.[1]) {
-        const parsed = parse(dateMatchYMD[1], "yyyy-MM-dd", new Date());
-        if (isValid(parsed)) {
-          dDate = parsed;
-        }
-      }
-    }
-    
-    const timeMatch = text.match(/(\d{2}:\d{2}(?::\d{2})?)/);
-    if (timeMatch?.[1]) {
-      tString = timeMatch[1].substring(0,5);
-    }
-    return { derivedDate: dDate, derivedTime: tString };
-  }, [detailedFacts.cuando]);
+  const [clientSideMaxDateTime, setClientSideMaxDateTime] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    setSelectedCalendarDate(derivedDate);
-  }, [derivedDate]);
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    setClientSideMaxDateTime(`${year}-${month}-${day}T${hours}:${minutes}`);
+  }, []);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, field: keyof DetailedFacts) => {
     onDetailedFactChange(field, e.target.value);
   };
   
-  const handleDateSelect = (date?: Date) => {
-    setSelectedCalendarDate(date);
-    const newDateString = date ? format(date, "dd-MM-yyyy") : "";
-    const currentTimeString = derivedTime;
-
-    let finalCuando = "";
-    if (newDateString) {
-      if (currentTimeString) {
-        finalCuando = `A las ${currentTimeString} del ${newDateString}`;
-      } else {
-        finalCuando = newDateString;
+  const formatDateTimeLocalForDisplay = (dateTimeLocalString: string): string => {
+    if (!dateTimeLocalString) return 'CUÁNDO (no especificado)';
+    try {
+      const date = parseISO(dateTimeLocalString);
+      if (isValid(date)) {
+        return format(date, "dd-MM-yyyy 'a las' HH:mm", { locale: es });
       }
-    } else { 
-      if (currentTimeString) {
-        finalCuando = `A las ${currentTimeString}`;
-      } else {
-        finalCuando = '';
-      }
-    }
-    onDetailedFactChange('cuando', finalCuando);
+    } catch (e) { /* ignore error, return original or placeholder */ }
+    return dateTimeLocalString; // Fallback
   };
-
-  const handleTimeChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const newTime = e.target.value; 
-    
-    const dateString = selectedCalendarDate ? format(selectedCalendarDate, "dd-MM-yyyy") : (derivedDate ? format(derivedDate, "dd-MM-yyyy") : "");
-
-    let finalCuando = "";
-    if (newTime) {
-      if (dateString) {
-        finalCuando = `A las ${newTime} del ${dateString}`;
-      } else {
-        const existingDateMatch = detailedFacts.cuando.match(/(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})/);
-        if (existingDateMatch?.[0]) {
-           const parsedExisting = parse(existingDateMatch[0], existingDateMatch[0].includes('-') && existingDateMatch[0].length === 10 && existingDateMatch[0][4] === '-' ? "yyyy-MM-dd" : "dd-MM-yyyy", new Date());
-           if (isValid(parsedExisting)) {
-             finalCuando = `A las ${newTime} del ${format(parsedExisting, "dd-MM-yyyy")}`;
-           } else {
-             finalCuando = `A las ${newTime}`;
-           }
-        } else {
-          finalCuando = `A las ${newTime}`;
-        }
-      }
-    } else { 
-      if (dateString) {
-        finalCuando = dateString; 
-      } else {
-        const existingDateMatch = detailedFacts.cuando.match(/(\d{2}-\d{2}-\d{4}|\d{4}-\d{2}-\d{2})/);
-         if (existingDateMatch?.[0]) {
-            const parsedExisting = parse(existingDateMatch[0], existingDateMatch[0].includes('-') && existingDateMatch[0].length === 10 && existingDateMatch[0][4] === '-' ? "yyyy-MM-dd" : "dd-MM-yyyy", new Date());
-            if (isValid(parsedExisting)) {
-                finalCuando = format(parsedExisting, "dd-MM-yyyy");
-            } else {
-                finalCuando = '';
-            }
-        } else {
-           finalCuando = ''; 
-        }
-      }
-    }
-     onDetailedFactChange('cuando', finalCuando);
-  };
-
+  
   const constructedPhenomenonDescription = `La desviación ocurrió de la siguiente manera: "${detailedFacts.como || 'CÓMO (no especificado)'}".
 El evento identificado fue: "${detailedFacts.que || 'QUÉ (no especificado)'}".
 Esto tuvo lugar en: "${detailedFacts.donde || 'DÓNDE (no especificado)'}".
-Sucedió el: "${detailedFacts.cuando || 'CUÁNDO (no especificado)'}".
+Sucedió el: "${formatDateTimeLocalForDisplay(detailedFacts.cuando)}".
 El impacto o tendencia fue: "${detailedFacts.cualCuanto || 'CUÁL/CUÁNTO (no especificado)'}".
 Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no especificado)'}".`;
 
@@ -300,14 +223,14 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
       });
       return;
     }
-    await onSaveAnalysis(); // Calls handleSaveFromStep2 from parent
+    await onSaveAnalysis();
   };
 
   const handleNextWithSave = async () => {
     if (!validateFieldsForNext()) {
       return;
     }
-    await onSaveAnalysis(false); // Calls handleSaveFromStep2 from parent, save silently before moving
+    await onSaveAnalysis(false);
     onNext();
   };
 
@@ -352,42 +275,14 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
           
           <div className="space-y-2">
             <Label htmlFor="cuando-input">CUÁNDO (Fecha y Hora) <span className="text-destructive">*</span></Label>
-            <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-                <Input 
-                    id="cuando-input" 
-                    value={detailedFacts.cuando} 
-                    onChange={(e) => handleInputChange(e, 'cuando')} 
-                    placeholder="Ej: A las 18:13 del 28-05-2021"
-                    className="flex-grow"
-                />
-                <div className="flex gap-2 shrink-0">
-                    <Popover>
-                        <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-auto aspect-square p-2.5">
-                            <CalendarIcon className="h-4 w-4" />
-                            <span className="sr-only">Abrir calendario</span>
-                        </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                        <Calendar
-                            mode="single"
-                            selected={selectedCalendarDate}
-                            onSelect={handleDateSelect}
-                            initialFocus
-                            locale={es}
-                            disabled={{ after: new Date() }}
-                        />
-                        </PopoverContent>
-                    </Popover>
-                    <Input 
-                        type="time"
-                        value={derivedTime}
-                        onChange={handleTimeChange}
-                        className="w-auto shrink-0"
-                        aria-label="Seleccionar hora"
-                    />
-                </div>
-            </div>
+            <Input 
+                id="cuando-input" 
+                type="datetime-local"
+                value={detailedFacts.cuando} 
+                onChange={(e) => handleInputChange(e, 'cuando')}
+                max={clientSideMaxDateTime}
+                className="flex-grow"
+            />
           </div>
 
           <div className="space-y-2">

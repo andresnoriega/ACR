@@ -21,6 +21,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { sendEmailAction } from '@/app/actions';
+import { format, parse, isValid, parseISO } from 'date-fns';
+import { es } from 'date-fns/locale';
+
 
 const initialIshikawaData: IshikawaData = [
   { id: 'manpower', name: 'Mano de Obra', causes: [] },
@@ -41,7 +44,7 @@ const initialDetailedFacts: DetailedFacts = {
   quien: '',
   que: '',
   donde: '',
-  cuando: '',
+  cuando: '', // Se almacenará como YYYY-MM-DDTHH:MM
   cualCuanto: '',
   como: '',
 };
@@ -53,7 +56,7 @@ const initialRCAAnalysisState: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedA
   detailedFacts: { ...initialDetailedFacts },
   analysisDetails: '',
   preservedFacts: [],
-  timelineEvents: [], // Added timelineEvents
+  timelineEvents: [],
   brainstormingIdeas: [],
   analysisTechnique: '',
   analysisTechniqueNotes: '',
@@ -68,6 +71,59 @@ const initialRCAAnalysisState: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedA
   rejectionDetails: undefined,
   createdBy: undefined,
 };
+
+// Helper function to convert old 'cuando' string to datetime-local format
+function convertOldCuandoToDateTimeLocal(cuandoString: string | undefined): string {
+  if (!cuandoString) return "";
+
+  // Check if already in YYYY-MM-DDTHH:MM format
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(cuandoString)) {
+    return cuandoString;
+  }
+
+  // Attempt to parse "A las HH:MM del DD-MM-YYYY"
+  const fullMatch = cuandoString.match(/A las (\d{2}:\d{2}) del (\d{2}-\d{2}-\d{4})/);
+  if (fullMatch && fullMatch[1] && fullMatch[2]) {
+    const timePart = fullMatch[1];
+    const [day, month, year] = fullMatch[2].split('-');
+    if (day && month && year) {
+      return `${year}-${month}-${day}T${timePart}`;
+    }
+  }
+
+  // Attempt to parse "DD-MM-YYYY" (assuming default time like 00:00 or keep existing time if any)
+  const dateOnlyMatchDMY = cuandoString.match(/^(\d{2}-\d{2}-\d{4})$/);
+  if (dateOnlyMatchDMY && dateOnlyMatchDMY[1]) {
+    const [day, month, year] = dateOnlyMatchDMY[1].split('-');
+    if (day && month && year) {
+      return `${year}-${month}-${day}T00:00`; // Default to midnight
+    }
+  }
+  
+  // Attempt to parse "YYYY-MM-DD" (assuming default time like 00:00)
+  const dateOnlyMatchYMD = cuandoString.match(/^(\d{4}-\d{2}-\d{2})$/);
+  if (dateOnlyMatchYMD && dateOnlyMatchYMD[1]) {
+      return `${dateOnlyMatchYMD[1]}T00:00`; // Default to midnight
+  }
+
+  // If only time "A las HH:MM" - this case is less likely to be useful alone, but handle it
+  const timeOnlyMatch = cuandoString.match(/^A las (\d{2}:\d{2})$/);
+  if (timeOnlyMatch && timeOnlyMatch[1]) {
+    // Cannot form a full datetime-local without a date. Return empty or original.
+    return ""; // Or perhaps `cuandoString` if you want to preserve partial data, but input will be blank
+  }
+  
+  // Fallback: if it's some other format or unparseable, return empty so input is blank
+  // Or, try to parse as ISO if it's close, then reformat. For simplicity, we'll return empty.
+  try {
+    const parsedISO = parseISO(cuandoString);
+    if(isValid(parsedISO)) {
+        return format(parsedISO, "yyyy-MM-dd'T'HH:mm");
+    }
+  } catch (e) { /* ignore */ }
+
+  return "";
+}
 
 
 export default function RCAAnalysisPage() {
@@ -97,7 +153,7 @@ export default function RCAAnalysisPage() {
   const [analysisDetails, setAnalysisDetails] = useState(initialRCAAnalysisState.analysisDetails);
   const [preservedFacts, setPreservedFacts] = useState<PreservedFact[]>(initialRCAAnalysisState.preservedFacts);
 
-  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>(initialRCAAnalysisState.timelineEvents || []); // Added timelineEvents state
+  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>(initialRCAAnalysisState.timelineEvents || []);
   const [brainstormingIdeas, setBrainstormingIdeas] = useState<BrainstormIdea[]>(initialRCAAnalysisState.brainstormingIdeas || []);
   const [analysisTechnique, setAnalysisTechnique] = useState<AnalysisTechnique>(initialRCAAnalysisState.analysisTechnique);
   const [analysisTechniqueNotes, setAnalysisTechniqueNotes] = useState(initialRCAAnalysisState.analysisTechniqueNotes);
@@ -161,10 +217,17 @@ export default function RCAAnalysisPage() {
         }
 
         setProjectLeader(data.projectLeader || '');
-        setDetailedFacts(data.detailedFacts || { ...initialDetailedFacts });
+        
+        // Convert 'cuando' for detailedFacts
+        const loadedDetailedFacts = data.detailedFacts || { ...initialDetailedFacts };
+        if (loadedDetailedFacts.cuando) {
+          loadedDetailedFacts.cuando = convertOldCuandoToDateTimeLocal(loadedDetailedFacts.cuando);
+        }
+        setDetailedFacts(loadedDetailedFacts);
+
         setAnalysisDetails(data.analysisDetails || '');
         setPreservedFacts(data.preservedFacts || []);
-        setTimelineEvents(data.timelineEvents || []); // Load timelineEvents
+        setTimelineEvents(data.timelineEvents || []);
         setBrainstormingIdeas(data.brainstormingIdeas || []);
         setAnalysisTechnique(data.analysisTechnique || '');
         setAnalysisTechniqueNotes(data.analysisTechniqueNotes || '');
@@ -216,7 +279,7 @@ export default function RCAAnalysisPage() {
             setDetailedFacts(initialRCAAnalysisState.detailedFacts);
             setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
             setPreservedFacts(initialRCAAnalysisState.preservedFacts);
-            setTimelineEvents(initialRCAAnalysisState.timelineEvents || []); // Reset timelineEvents
+            setTimelineEvents(initialRCAAnalysisState.timelineEvents || []);
             setBrainstormingIdeas(initialRCAAnalysisState.brainstormingIdeas || []);
             setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
             setAnalysisTechniqueNotes(initialRCAAnalysisState.analysisTechniqueNotes);
@@ -249,7 +312,7 @@ export default function RCAAnalysisPage() {
         setDetailedFacts(initialRCAAnalysisState.detailedFacts);
         setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
         setPreservedFacts(initialRCAAnalysisState.preservedFacts);
-        setTimelineEvents(initialRCAAnalysisState.timelineEvents || []); // Reset timelineEvents
+        setTimelineEvents(initialRCAAnalysisState.timelineEvents || []);
         setBrainstormingIdeas(initialRCAAnalysisState.brainstormingIdeas || []);
         setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
         setAnalysisTechniqueNotes(initialRCAAnalysisState.analysisTechniqueNotes);
@@ -318,7 +381,7 @@ export default function RCAAnalysisPage() {
             setDetailedFacts(initialRCAAnalysisState.detailedFacts);
             setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
             setPreservedFacts(initialRCAAnalysisState.preservedFacts);
-            setTimelineEvents(initialRCAAnalysisState.timelineEvents || []); // Reset timelineEvents
+            setTimelineEvents(initialRCAAnalysisState.timelineEvents || []);
             setBrainstormingIdeas(initialRCAAnalysisState.brainstormingIdeas || []);
             setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
             setAnalysisTechniqueNotes(initialRCAAnalysisState.analysisTechniqueNotes);
@@ -439,7 +502,7 @@ export default function RCAAnalysisPage() {
 
     const rcaDocPayload: Partial<RCAAnalysisDocument> = {
       eventData: consistentEventData, immediateActions, projectLeader, detailedFacts, analysisDetails,
-      preservedFacts, timelineEvents, brainstormingIdeas, analysisTechnique, analysisTechniqueNotes, ishikawaData, // Added timelineEvents
+      preservedFacts, timelineEvents, brainstormingIdeas, analysisTechnique, analysisTechniqueNotes, ishikawaData,
       fiveWhysData, ctmData, identifiedRootCauses, plannedActions,
       validations: (validationsOverride !== undefined) ? validationsOverride : validations,
       finalComments, isFinalized: currentIsFinalized,
@@ -1288,8 +1351,8 @@ export default function RCAAnalysisPage() {
       {step === 3 && (
         <Step3Analysis
           eventData={eventData}
-          timelineEvents={timelineEvents} // Pass timelineEvents
-          onSetTimelineEvents={setTimelineEvents} // Pass setter for timelineEvents
+          timelineEvents={timelineEvents}
+          onSetTimelineEvents={setTimelineEvents}
           brainstormingIdeas={brainstormingIdeas}
           onAddBrainstormIdea={handleAddBrainstormIdea}
           onUpdateBrainstormIdea={handleUpdateBrainstormIdea}
