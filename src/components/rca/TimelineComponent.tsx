@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect, useMemo, type FC } from "react"; // Added useMemo
+import { useState, useEffect, useMemo, type FC } from "react";
 import type { TimelineEvent } from "@/types/rca";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { PlusCircle, Edit2, Copy, Trash2, CalendarClock, Loader2 } from "lucide-react";
+import { format, parseISO, isValid as isValidDate } from 'date-fns';
 
 interface TimelineComponentProps {
   events: TimelineEvent[];
@@ -19,15 +20,15 @@ interface TimelineComponentProps {
 const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) => {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [description, setDescription] = useState("");
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
+  const [dateTimeValue, setDateTimeValue] = useState(""); // Combined date and time "YYYY-MM-DDTHH:MM"
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const parseDateTime = (dateStr: string, timeStr: string): Date | null => {
-    if (!dateStr || !timeStr) return null;
+  const parseDateTimeString = (dateTimeStr: string): Date | null => {
+    if (!dateTimeStr) return null;
     try {
-      const parsed = new Date(`${dateStr}T${timeStr}`);
+      // datetime-local input format is "YYYY-MM-DDTHH:MM"
+      const parsed = new Date(dateTimeStr);
       if (isNaN(parsed.getTime())) return null;
       return parsed;
     } catch (e) {
@@ -40,23 +41,24 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
       return null; 
     }
     const sortedForReference = [...events].sort((a, b) => {
-      const dateA = parseDateTime(a.datetime.split(" ")[0], a.datetime.split(" ")[1]);
-      const dateB = parseDateTime(b.datetime.split(" ")[0], b.datetime.split(" ")[1]);
+      const dateA = parseDateTimeString(a.datetime);
+      const dateB = parseDateTimeString(b.datetime);
       if (!dateA || !dateB) return 0;
       return dateB.getTime() - dateA.getTime(); 
     });
     const refEvent = sortedForReference[0];
-    return parseDateTime(refEvent.datetime.split(" ")[0], refEvent.datetime.split(" ")[1]);
+    return parseDateTimeString(refEvent.datetime);
   }, [events]);
 
 
-  const validateDateTime = (newDateStr: string, newTimeStr: string, editingEventId?: number): boolean => {
-    const newEventDateTime = parseDateTime(newDateStr, newTimeStr);
+  const validateDateTime = (newDateTimeStr: string, editingEventId?: number): boolean => {
+    const newEventDateTime = parseDateTimeString(newDateTimeStr);
     if (!newEventDateTime) {
-      toast({ title: "Fecha/Hora Inválida", description: "El formato de fecha u hora no es válido. Use YYYY-MM-DD y HH:MM.", variant: "destructive" });
+      toast({ title: "Fecha/Hora Inválida", description: "El formato de fecha y hora no es válido. Asegúrese de que esté completo.", variant: "destructive" });
       return false;
     }
 
+    // First event can be any date
     if (events.length === 0 || (events.length === 1 && editingEventId && events[0].id === editingEventId)) {
         return true;
     }
@@ -64,12 +66,9 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
     if (editingEventId && referenceEventDateTime) {
         const eventBeingEdited = events.find(e => e.id === editingEventId);
         if (eventBeingEdited) {
-            const currentDateTimeOfEditingEvent = parseDateTime(eventBeingEdited.datetime.split(" ")[0], eventBeingEdited.datetime.split(" ")[1]);
+            const currentDateTimeOfEditingEvent = parseDateTimeString(eventBeingEdited.datetime);
             if (currentDateTimeOfEditingEvent && referenceEventDateTime && currentDateTimeOfEditingEvent.getTime() === referenceEventDateTime.getTime()) {
-                // Estamos editando el actual evento de referencia (el más reciente).
-                // Su nueva fecha puede ser cualquiera, ya que la referencia se recalculará.
-                // Sin embargo, si hay otros eventos, la nueva fecha del ancla no debería ser anterior a *todos* ellos,
-                // pero esa es una lógica de re-validación más compleja que no se implementa aquí.
+                // Editing the reference event, its new date can be anything.
                 return true;
             }
         }
@@ -79,7 +78,7 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
       if (newEventDateTime >= referenceEventDateTime) {
         toast({
           title: "Error de Orden Cronológico",
-          description: `El evento debe ser anterior al evento de referencia más reciente en la línea de tiempo (${referenceEventDateTime.toLocaleDateString('es-CL', {year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'})}).`,
+          description: `El evento debe ser anterior al evento de referencia más reciente en la línea de tiempo (${format(referenceEventDateTime, "dd/MM/yyyy HH:mm")}).`,
           variant: "destructive",
           duration: 7000,
         });
@@ -91,21 +90,21 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
 
 
   const addEvent = () => {
-    if (!description.trim() || !date || !time) {
-        toast({ title: "Campos Requeridos", description: "Por favor, complete la descripción, fecha y hora.", variant: "destructive"});
+    if (!description.trim() || !dateTimeValue) {
+        toast({ title: "Campos Requeridos", description: "Por favor, complete la descripción y la fecha/hora.", variant: "destructive"});
         return;
     }
-    if (!validateDateTime(date, time)) return;
+    if (!validateDateTime(dateTimeValue)) return;
 
     const newEvent: TimelineEvent = {
       id: Date.now(),
       description,
-      datetime: `${date} ${time}`,
+      datetime: dateTimeValue, // Store as "YYYY-MM-DDTHH:MM"
     };
 
     onSetEvents([...events, newEvent].sort((a, b) => {
-        const dateA = parseDateTime(a.datetime.split(" ")[0], a.datetime.split(" ")[1]);
-        const dateB = parseDateTime(b.datetime.split(" ")[0], b.datetime.split(" ")[1]);
+        const dateA = parseDateTimeString(a.datetime);
+        const dateB = parseDateTimeString(b.datetime);
         if (!dateA || !dateB) return 0;
         return dateA.getTime() - dateB.getTime();
     }));
@@ -118,9 +117,7 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
     if (event) {
       setSelectedId(id);
       setDescription(event.description);
-      const [d, t] = event.datetime.split(" ");
-      setDate(d);
-      setTime(t);
+      setDateTimeValue(event.datetime); // Set combined value
     }
   };
 
@@ -129,19 +126,19 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
       toast({ title: "Sin Selección", description: "Selecciona un evento para editarlo.", variant: "default" });
       return;
     }
-     if (!description.trim() || !date || !time) {
-        toast({ title: "Campos Requeridos", description: "Por favor, complete la descripción, fecha y hora para editar.", variant: "destructive"});
+     if (!description.trim() || !dateTimeValue) {
+        toast({ title: "Campos Requeridos", description: "Por favor, complete la descripción y la fecha/hora para editar.", variant: "destructive"});
         return;
     }
-    if (!validateDateTime(date, time, selectedId)) return;
+    if (!validateDateTime(dateTimeValue, selectedId)) return;
 
     const updatedEvents = events.map((event) =>
       event.id === selectedId
-        ? { ...event, description, datetime: `${date} ${time}` }
+        ? { ...event, description, datetime: dateTimeValue }
         : event
     ).sort((a, b) => {
-        const dateA = parseDateTime(a.datetime.split(" ")[0], a.datetime.split(" ")[1]);
-        const dateB = parseDateTime(b.datetime.split(" ")[0], b.datetime.split(" ")[1]);
+        const dateA = parseDateTimeString(a.datetime);
+        const dateB = parseDateTimeString(b.datetime);
         if (!dateA || !dateB) return 0;
         return dateA.getTime() - dateB.getTime();
     });
@@ -154,8 +151,8 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
     if (!selectedId) return;
     setIsProcessing(true);
     onSetEvents(events.filter((event) => event.id !== selectedId).sort((a, b) => {
-        const dateA = parseDateTime(a.datetime.split(" ")[0], a.datetime.split(" ")[1]);
-        const dateB = parseDateTime(b.datetime.split(" ")[0], b.datetime.split(" ")[1]);
+        const dateA = parseDateTimeString(a.datetime);
+        const dateB = parseDateTimeString(b.datetime);
         if (!dateA || !dateB) return 0;
         return dateA.getTime() - dateB.getTime();
     }));
@@ -172,51 +169,57 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
 
     const eventToDuplicate = events.find((e) => e.id === selectedId);
     if (!eventToDuplicate) return;
-
-    const [originalDate] = eventToDuplicate.datetime.split(" ");
     
-    const newDateInput = prompt("Introduce la nueva fecha (YYYY-MM-DD):", originalDate);
-    if (!newDateInput) return; 
-    const newTimeInput = prompt("Introduce la nueva hora (HH:MM):", "00:00");
-    if (!newTimeInput) return; 
+    // Prompt for new datetime
+    const newDateTimeInput = prompt("Introduce la nueva fecha y hora (YYYY-MM-DDTHH:MM):", eventToDuplicate.datetime);
+    if (!newDateTimeInput) return; 
 
-    if (!validateDateTime(newDateInput, newTimeInput)) return;
+    if (!validateDateTime(newDateTimeInput)) return;
 
     const duplicatedEvent: TimelineEvent = {
       ...eventToDuplicate,
       id: Date.now(),
-      datetime: `${newDateInput} ${newTimeInput}`,
+      datetime: newDateTimeInput,
     };
 
     onSetEvents([...events, duplicatedEvent].sort((a, b) => {
-        const dateA = parseDateTime(a.datetime.split(" ")[0], a.datetime.split(" ")[1]);
-        const dateB = parseDateTime(b.datetime.split(" ")[0], b.datetime.split(" ")[1]);
+        const dateA = parseDateTimeString(a.datetime);
+        const dateB = parseDateTimeString(b.datetime);
         if (!dateA || !dateB) return 0;
         return dateA.getTime() - dateB.getTime();
     }));
     
     setSelectedId(duplicatedEvent.id);
     setDescription(duplicatedEvent.description);
-    setDate(newDateInput);
-    setTime(newTimeInput);
+    setDateTimeValue(newDateTimeInput);
     toast({ title: "Evento Duplicado", description: "El evento ha sido duplicado y seleccionado."});
   };
 
   const clearForm = () => {
     setDescription("");
-    setDate("");
-    setTime("");
+    setDateTimeValue("");
     setSelectedId(null);
   };
   
   const sortedEvents = useMemo(() => {
     return [...events].sort((a, b) => {
-      const dateA = parseDateTime(a.datetime.split(" ")[0], a.datetime.split(" ")[1]);
-      const dateB = parseDateTime(b.datetime.split(" ")[0], b.datetime.split(" ")[1]);
+      const dateA = parseDateTimeString(a.datetime);
+      const dateB = parseDateTimeString(b.datetime);
       if (!dateA || !dateB) return 0;
       return dateA.getTime() - dateB.getTime();
     });
   }, [events]);
+
+  const formatDisplayDateTime = (dateTimeStr: string): { date: string, time: string } => {
+    const parsedDate = parseDateTimeString(dateTimeStr);
+    if (parsedDate && isValidDate(parsedDate)) {
+      return {
+        date: format(parsedDate, "dd/MM/yyyy"),
+        time: format(parsedDate, "HH:mm")
+      };
+    }
+    return { date: "Fecha Inválida", time: "Hora Inválida" };
+  };
 
 
   return (
@@ -239,25 +242,15 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
               rows={2}
             />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="timeline-date">Fecha</Label>
-              <Input
-                id="timeline-date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="timeline-time">Hora</Label>
-              <Input
-                id="timeline-time"
-                type="time"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-              />
-            </div>
+          <div>
+            <Label htmlFor="timeline-datetime">Fecha y Hora del Evento</Label>
+            <Input
+              id="timeline-datetime"
+              type="datetime-local"
+              value={dateTimeValue}
+              onChange={(e) => setDateTimeValue(e.target.value)}
+              className="border border-gray-300 rounded px-4 py-2"
+            />
           </div>
           <div className="flex flex-wrap gap-2 pt-2">
             <Button onClick={addEvent} size="sm" disabled={isProcessing}>
@@ -304,22 +297,25 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
               {sortedEvents.length === 0 && (
                 <p className="italic text-muted-foreground text-center w-full py-10">No hay eventos registrados en la línea de tiempo.</p>
               )}
-              {sortedEvents.map((event, index) => (
-                <div
-                  key={event.id}
-                  onClick={() => selectEvent(event.id)}
-                  className={`relative z-10 w-48 min-w-[12rem] p-3 border-2 rounded-lg shadow-sm text-center cursor-pointer transition-transform duration-200 hover:scale-105 flex-shrink-0
-                    ${selectedId === event.id ? "bg-primary/10 border-primary ring-2 ring-primary/50" : "bg-card border-border hover:border-primary/50"}`}
-                  style={{ marginLeft: index === 0 ? '0' : undefined }}
-                >
-                  <p className="font-semibold text-sm truncate" title={event.description}>{event.description}</p>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {event.datetime.split(" ")[0]}
-                    <br />
-                    {event.datetime.split(" ")[1]}
+              {sortedEvents.map((event, index) => {
+                const displayDateTime = formatDisplayDateTime(event.datetime);
+                return (
+                  <div
+                    key={event.id}
+                    onClick={() => selectEvent(event.id)}
+                    className={`relative z-10 w-48 min-w-[12rem] p-3 border-2 rounded-lg shadow-sm text-center cursor-pointer transition-transform duration-200 hover:scale-105 flex-shrink-0
+                      ${selectedId === event.id ? "bg-primary/10 border-primary ring-2 ring-primary/50" : "bg-card border-border hover:border-primary/50"}`}
+                    style={{ marginLeft: index === 0 ? '0' : undefined }}
+                  >
+                    <p className="font-semibold text-sm truncate" title={event.description}>{event.description}</p>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {displayDateTime.date}
+                      <br />
+                      {displayDateTime.time}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

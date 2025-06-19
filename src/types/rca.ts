@@ -202,7 +202,7 @@ export interface BrainstormIdea {
 export interface TimelineEvent {
   id: number; // Using Date.now() which is a number
   description: string;
-  datetime: string; // "YYYY-MM-DD HH:MM"
+  datetime: string; // "YYYY-MM-DDTHH:MM" format for datetime-local input
 }
 
 // Document structure for an RCA Analysis in Firestore
