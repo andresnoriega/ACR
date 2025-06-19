@@ -379,31 +379,6 @@ export default function ConfiguracionPrivacidadPage() {
       <Card className="max-w-2xl mx-auto shadow-lg">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <Mail className="h-6 w-6 text-primary" />
-            <CardTitle className="text-2xl">Verificar Integración de Correo</CardTitle>
-          </div>
-          <CardDescription>Envíe un correo de prueba para verificar su configuración de SendGrid.</CardDescription>
-        </CardHeader>
-        <CardContent>
-           <p className="text-sm text-muted-foreground mb-3">
-            Este botón enviará un correo de prueba desde la dirección configurada como `SENDER_EMAIL_ADDRESS` (en sus variables de entorno del servidor) a esa misma dirección.
-            Asegúrese de que su `SENDGRID_API_KEY` esté correctamente configurada y que `SENDER_EMAIL_ADDRESS` esté verificada en SendGrid.
-          </p>
-          <Button onClick={handleSendTestEmail} disabled={isSendingTestEmail || isResetting} className="w-full">
-            {isSendingTestEmail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
-            Enviar Correo de Prueba SendGrid
-          </Button>
-        </CardContent>
-         <CardFooter>
-          <p className="text-xs text-muted-foreground">
-            Después de enviar, revise la bandeja de entrada de su `SENDER_EMAIL_ADDRESS` y luego verifique la integración en la página de SendGrid.
-          </p>
-        </CardFooter>
-      </Card>
-
-      <Card className="max-w-2xl mx-auto shadow-lg">
-        <CardHeader>
-          <div className="flex items-center gap-3">
             <DatabaseZap className="h-6 w-6 text-primary" />
             <CardTitle className="text-2xl">Gestión de Datos de Análisis</CardTitle>
           </div>
@@ -617,5 +592,6 @@ export default function ConfiguracionPrivacidadPage() {
     
 
     
+
 
 
