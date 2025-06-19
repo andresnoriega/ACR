@@ -7,10 +7,10 @@ import { BRAINSTORM_IDEA_TYPES } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectSeparator } from '@/components/ui/select'; // Added SelectSeparator
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2, Save, Send, Loader2, Mail, Sparkles, ClipboardCopy, ChevronLeft, ChevronRight, AlertTriangle, Lightbulb, Edit3, X } from 'lucide-react'; // Added X
+import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2, Save, Send, Loader2, Mail, Sparkles, ClipboardCopy, ChevronLeft, ChevronRight, AlertTriangle, Lightbulb, Edit3, X } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
 import { FiveWhysInteractive } from './FiveWhysInteractive';
@@ -222,6 +222,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const [suggestedAiCauses, setSuggestedAiCauses] = useState<string[]>([]);
   const [currentSuggestionIndex, setCurrentSuggestionIndex] = useState(0);
   const [showAiSuggestionsBox, setShowAiSuggestionsBox] = useState(false);
+  const [responsibleSearchTerm, setResponsibleSearchTerm] = useState('');
 
 
   useEffect(() => {
@@ -590,6 +591,11 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     }
   };
 
+  const filteredResponsibles = availableUsers.filter(user =>
+    user.name.toLowerCase().includes(responsibleSearchTerm.toLowerCase()) ||
+    user.email.toLowerCase().includes(responsibleSearchTerm.toLowerCase())
+  );
+
   return (
     <>
     <Card>
@@ -889,14 +895,40 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor={`pa-resp-${index}`}>Responsable <span className="text-destructive">*</span></Label>
-                  <Select value={action.responsible} onValueChange={(value) => handleActionResponsibleChange(index, value)}>
+                  <Select 
+                    value={action.responsible} 
+                    onValueChange={(value) => handleActionResponsibleChange(index, value)}
+                    onOpenChange={(isOpen) => {
+                      if (!isOpen) {
+                        setResponsibleSearchTerm(''); 
+                      }
+                    }}
+                  >
                     <SelectTrigger id={`pa-resp-${index}`}>
                       <SelectValue placeholder="-- Seleccione un responsable --" />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableUsers.map(user => (
-                        <SelectItem key={user.id} value={user.name}>{user.name} ({user.email})</SelectItem>
-                      ))}
+                      <div className="p-2 border-b sticky top-0 bg-popover z-10">
+                        <Input
+                          placeholder="Buscar por nombre o correo..."
+                          value={responsibleSearchTerm}
+                          onChange={(e) => setResponsibleSearchTerm(e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="h-9 w-full"
+                        />
+                      </div>
+                      <SelectSeparator />
+                      <ScrollArea className="max-h-[200px]">
+                        {filteredResponsibles.length > 0 ? (
+                          filteredResponsibles.map(user => (
+                            <SelectItem key={user.id} value={user.name}>{user.name} ({user.email})</SelectItem>
+                          ))
+                        ) : (
+                           <div className="p-2 text-center text-xs text-muted-foreground">
+                            {availableUsers.length === 0 ? "No hay usuarios configurados." : "Ningún usuario coincide."}
+                          </div>
+                        )}
+                      </ScrollArea>
                     </SelectContent>
                   </Select>
                 </div>
