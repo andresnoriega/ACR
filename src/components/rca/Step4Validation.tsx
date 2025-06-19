@@ -1,3 +1,4 @@
+
 'use client';
 import * as React from "react";
 import type { FC } from 'react';
@@ -64,13 +65,17 @@ const ViewEvidenceDialog: FC<{ evidence: Evidence | null; isOpen: boolean; onClo
         <div className="space-y-3 py-3 text-sm">
           <p><strong>Nombre:</strong> {evidence.nombre}</p>
           <p><strong>Tipo:</strong> {evidence.tipo || "No especificado"}</p>
-          <p><strong>Comentario del Usuario:</strong></p>
-          <div className="p-2 border rounded-md bg-muted/50 min-h-[50px]">
-            {evidence.comment && evidence.comment.trim() ? (
-              <p className="whitespace-pre-wrap">{evidence.comment}</p>
-            ) : (
-              <p className="italic text-muted-foreground">Sin comentarios adicionales.</p>
-            )}
+          <div className="mt-2">
+            <p><strong>Comentario del Usuario:</strong></p>
+            <div 
+              className="mt-1 p-2 border rounded-md bg-muted/50 text-xs whitespace-pre-wrap overflow-auto max-h-[150px]"
+            >
+              {evidence.comment && evidence.comment.trim() ? (
+                evidence.comment
+              ) : (
+                <span className="italic text-muted-foreground">Sin comentarios adicionales.</span>
+              )}
+            </div>
           </div>
         </div>
         <DialogFooter>
