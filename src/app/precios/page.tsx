@@ -56,8 +56,8 @@ const plans = [
   },
   {
     name: 'Empresa',
-    price: 'Contáctanos',
-    period: '',
+    price: 'Contáctanos', // Updated price
+    period: '', // Updated period
     description: 'Solución completa para organizaciones con necesidades complejas y a gran escala.',
     features: [
       'Análisis RCA ilimitados',
