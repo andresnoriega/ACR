@@ -42,7 +42,14 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
 
   sgMail.setApiKey(apiKey);
 
-  const recipientEmail = payload.to === SPECIAL_TEST_ADDRESS ? senderEmail : payload.to;
+  // Logs para depuración
+  console.log(`[sendEmailAction] Debug: payload.to = "${payload.to}", SPECIAL_TEST_ADDRESS = "${SPECIAL_TEST_ADDRESS}"`);
+  const isTestAddress = payload.to === SPECIAL_TEST_ADDRESS;
+  console.log(`[sendEmailAction] Debug: payload.to === SPECIAL_TEST_ADDRESS is ${isTestAddress}`);
+
+  const recipientEmail = isTestAddress ? senderEmail : payload.to;
+  console.log(`[sendEmailAction] Determined recipientEmail: '${recipientEmail}' (Sender for test if used: '${senderEmail}')`);
+
 
   const msg = {
     to: recipientEmail,
@@ -52,7 +59,7 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
     html: payload.htmlBody || payload.body, // Fallback to text body if htmlBody is not provided
   };
 
-  console.log(`[sendEmailAction] Attempting to send email via SendGrid to: ${recipientEmail} with subject: "${payload.subject}"`);
+  console.log(`[sendEmailAction] Attempting to send email via SendGrid to: ${recipientEmail} with subject: "${payload.subject}" from: ${senderEmail}`);
 
   try {
     await sgMail.send(msg);
