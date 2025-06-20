@@ -19,6 +19,7 @@ const PreservedFactInfoSchema = z.object({
 
 const GenerateRcaInsightsInputSchema = z.object({
   focusEventDescription: z.string().describe('The main description of the event being analyzed.'),
+  equipo: z.string().optional().describe('El equipo principal involucrado en el evento.'), // Nuevo campo
   detailedFactsSummary: z.string().describe('A summary of the detailed facts (who, what, where, when, how, which/how much).'),
   analysisTechnique: z.string().optional().describe('The primary analysis technique used (e.g., Ishikawa, 5 Whys, CTM).'),
   analysisTechniqueNotes: z.string().optional().describe('Specific notes or findings from the chosen analysis technique.'),
@@ -47,17 +48,19 @@ const prompt = ai.definePrompt({
 
     Destaque:
     1.  Una breve reformulación del problema central (evento foco).
-    2.  La(s) causa(s) raíz más crítica(s) identificada(s).
-    3.  La(s) acción(es) correctiva(s) clave propuesta(s) para abordar estas causas raíz.
-    4.  Cualquier aprendizaje significativo o implicación más amplia si se desprende de los datos.
-    5.  Mencione cualquier documentación adjunta relevante si parece pertinente para el resumen.
-    6.  Mantenga un tono profesional y objetivo.
+    2.  El equipo involucrado, si se especifica.
+    3.  La(s) causa(s) raíz más crítica(s) identificada(s).
+    4.  La(s) acción(es) correctiva(s) clave propuesta(s) para abordar estas causas raíz.
+    5.  Cualquier aprendizaje significativo o implicación más amplia si se desprende de los datos.
+    6.  Mencione cualquier documentación adjunta relevante si parece pertinente para el resumen.
+    7.  Mantenga un tono profesional y objetivo.
 
     NO invente información. Cíñase a los datos proporcionados.
     Si falta una pieza de información (como notas de la técnica de análisis o hechos preservados) o no se proporciona, reconozca su ausencia implícitamente al no referirse a ella.
 
     Datos del RCA:
     - Evento Foco: {{{focusEventDescription}}}
+    {{#if equipo}}- Equipo Involucrado: {{{equipo}}}{{/if}}
     - Resumen de Hechos: {{{detailedFactsSummary}}}
     {{#if analysisTechnique}}- Técnica de Análisis Utilizada: {{{analysisTechnique}}}{{/if}}
     {{#if analysisTechniqueNotes}}- Notas de la Técnica de Análisis: {{{analysisTechniqueNotes}}}{{/if}}

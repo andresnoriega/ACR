@@ -50,7 +50,7 @@ const initialDetailedFacts: DetailedFacts = {
 };
 
 const initialRCAAnalysisState: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedAt' > = {
-  eventData: { id: '', place: '', date: '', eventType: '', priority: '', focusEventDescription: '' },
+  eventData: { id: '', place: '', equipo: '', date: '', eventType: '', priority: '', focusEventDescription: '' },
   immediateActions: [],
   projectLeader: '',
   detailedFacts: { ...initialDetailedFacts },
@@ -194,7 +194,7 @@ export default function RCAAnalysisPage() {
 
       if (docSnap.exists()) {
         const data = docSnap.data() as RCAAnalysisDocument;
-        setEventData(data.eventData);
+        setEventData(data.eventData); // Includes equipo: data.eventData.equipo || ''
 
         const loadedImmediateActions = data.immediateActions || [];
         setImmediateActions(loadedImmediateActions);
@@ -580,6 +580,7 @@ export default function RCAAnalysisPage() {
         id: currentId,
         title: consistentEventData.focusEventDescription || "Evento sin título asignado",
         site: consistentEventData.place || "Sin sitio especificado",
+        equipo: consistentEventData.equipo || "No especificado", // Include equipo
         date: consistentEventData.date || new Date().toISOString().split('T')[0],
         type: consistentEventData.eventType || '',
         priority: consistentEventData.priority || '',
@@ -596,6 +597,7 @@ export default function RCAAnalysisPage() {
         const updatePayload: Partial<ReportedEvent> = {
             title: sanitizedReportedEventPayload.title,
             site: sanitizedReportedEventPayload.site,
+            equipo: sanitizedReportedEventPayload.equipo, // Include equipo in update
             date: sanitizedReportedEventPayload.date,
             type: sanitizedReportedEventPayload.type,
             priority: sanitizedReportedEventPayload.priority,
@@ -850,6 +852,7 @@ export default function RCAAnalysisPage() {
  const validateStep1PreRequisites = (): { isValid: boolean, message?: string } => {
     const missingFields = [];
     if (!eventData.place) missingFields.push("Lugar del Evento");
+    if (!eventData.equipo.trim()) missingFields.push("Equipo"); // Added Equipo validation
     if (!eventData.date) missingFields.push("Fecha del Evento");
     if (!eventData.eventType) missingFields.push("Tipo de Evento");
     if (!eventData.priority) missingFields.push("Prioridad");

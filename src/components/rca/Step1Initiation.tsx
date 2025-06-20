@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Trash2, Save, Send, Mail, Loader2, Bell, UserCog, XCircle, CheckCircle, Edit, Settings2 } from 'lucide-react';
+import { PlusCircle, Trash2, Save, Send, Mail, Loader2, Bell, UserCog, XCircle, CheckCircle, Edit, Settings2, HardHat } from 'lucide-react'; // Added HardHat for Equipo
 import { useToast } from "@/hooks/use-toast";
 import { sendEmailAction } from '@/app/actions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -39,7 +39,7 @@ interface Step1InitiationProps {
   validateStep1PreRequisites: () => { isValid: boolean, message?: string }; // Added prop
 }
 
-const EVENT_TYPES: EventType[] = ['Incidente', 'Accidente', 'Falla', 'No Conformidad'];
+const EVENT_TYPES: EventType[] = ['Incidente', 'Accidente', 'Falla de Equipo', 'No Conformidad', 'Evento Operacional'];
 const PRIORITIES: PriorityType[] = ['Alta', 'Media', 'Baja'];
 
 // --- NotifyEventCreationDialog Component ---
@@ -277,12 +277,12 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     onEventDataChange(field, e.target.value);
   };
 
-  const handleSelectChange = (value: string, field: keyof Pick<RCAEventData, 'place' | 'eventType' | 'priority'>) => {
+  const handleSelectChange = (value: string, field: keyof Pick<RCAEventData, 'place' | 'eventType' | 'priority' | 'equipo'>) => {
     if (field === 'eventType') {
       onEventDataChange(field, value as EventType);
     } else if (field === 'priority') {
       onEventDataChange(field, value as PriorityType);
-    } else {
+    } else { // 'place' or 'equipo'
       onEventDataChange(field, value);
     }
   };
@@ -394,6 +394,18 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
                 )}
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="equipo" className="flex items-center">
+              <HardHat className="mr-2 h-4 w-4 text-primary" />
+              Equipo Involucrado <span className="text-destructive">*</span>
+            </Label>
+            <Input 
+              id="equipo" 
+              value={eventData.equipo} 
+              onChange={(e) => handleInputChange(e, 'equipo')} 
+              placeholder="Ej: Bomba P-101, Molino SAG, Transformador Principal" 
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="date">Fecha del Evento <span className="text-destructive">*</span></Label>

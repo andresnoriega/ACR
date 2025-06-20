@@ -28,7 +28,7 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 
 
-const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Fallo', 'Accidente', 'No Conformidad'];
+const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Falla de Equipo', 'Accidente', 'No Conformidad', 'Evento Operacional'];
 const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
 const ALL_FILTER_VALUE = "__ALL__";
 const NO_SITES_PLACEHOLDER_VALUE = "__NO_SITES_PLACEHOLDER__";

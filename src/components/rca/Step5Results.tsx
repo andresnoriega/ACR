@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Sparkles } from 'lucide-react';
+import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Sparkles, HardHat } from 'lucide-react'; // Added HardHat
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
@@ -159,6 +159,8 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     report += `INTRODUCCIÓN / COMENTARIOS FINALES:\n${finalComments || "No proporcionados."}\n\n`;
     report += `HECHOS:\n`;
     report += `  Evento Foco: ${eventData.focusEventDescription || "No definido."}\n`;
+    report += `  Lugar: ${eventData.place || "No definido."}\n`;
+    report += `  Equipo: ${eventData.equipo || "No definido."}\n`; // Added Equipo
     report += `  Descripción Detallada del Fenómeno:\n  ${formatDetailedFacts().replace(/\n/g, '\n  ')}\n`;
     if (preservedFacts && preservedFacts.length > 0) {
       report += `  Hechos Preservados/Documentación Adjunta:\n`;
@@ -211,6 +213,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
 
       const input: GenerateRcaInsightsInput = {
         focusEventDescription: eventData.focusEventDescription || "No especificado",
+        equipo: eventData.equipo || undefined, // Add equipo to AI input
         detailedFactsSummary: formatDetailedFacts() || "No disponible",
         analysisTechnique: analysisTechnique || undefined,
         analysisTechniqueNotes: analysisTechniqueNotes || undefined,
@@ -388,6 +391,10 @@ export const Step5Results: FC<Step5ResultsProps> = ({
             <SectionContent>
               <p className="font-medium mb-1">Evento Foco:</p>
               <p className="pl-2 mb-2">{eventData.focusEventDescription || "No definido."}</p>
+              <p className="font-medium mb-1">Lugar:</p>
+              <p className="pl-2 mb-2">{eventData.place || "No definido."}</p>
+              <p className="font-medium mb-1 flex items-center"><HardHat className="mr-1.5 h-4 w-4 text-primary"/>Equipo Involucrado:</p>
+              <p className="pl-2 mb-2">{eventData.equipo || "No definido."}</p>
               <p className="font-medium mb-1">Descripción Detallada del Fenómeno:</p>
               <p className="pl-2 whitespace-pre-line">{formatDetailedFacts()}</p>
               

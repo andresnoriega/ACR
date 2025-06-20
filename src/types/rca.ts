@@ -1,10 +1,11 @@
 
-export type EventType = 'Incidente' | 'Accidente' | 'Falla' | 'No Conformidad' | '';
+export type EventType = 'Incidente' | 'Accidente' | 'Falla de Equipo' | 'No Conformidad' | 'Evento Operacional' | '';
 export type PriorityType = 'Alta' | 'Media' | 'Baja' | '';
 
 export interface RCAEventData {
   id: string;
   place: string;
+  equipo: string; // Nuevo campo
   date: string;
   eventType: EventType;
   priority: PriorityType;
@@ -155,7 +156,7 @@ export interface FullUserProfile {
 }
 
 // Types for Eventos Reportados page
-export type ReportedEventType = 'Incidente' | 'Fallo' | 'Accidente' | 'No Conformidad' | '';
+export type ReportedEventType = 'Incidente' | 'Fallo de Equipo' | 'Accidente' | 'No Conformidad' | 'Evento Operacional' | '';
 export type ReportedEventStatus = 'Pendiente' | 'En análisis' | 'En validación' | 'Finalizado' | 'Rechazado' | '';
 
 
@@ -163,6 +164,7 @@ export interface ReportedEvent {
   id: string;
   title: string;
   site: string;
+  equipo?: string; // Nuevo campo
   date: string;
   type: ReportedEventType;
   priority: PriorityType;

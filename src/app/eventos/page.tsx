@@ -24,7 +24,7 @@ import { Input } from '@/components/ui/input';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 
-const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Fallo', 'Accidente', 'No Conformidad'];
+const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Falla de Equipo', 'Accidente', 'No Conformidad', 'Evento Operacional'];
 const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
 const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'En validación', 'Finalizado', 'Rechazado'];
 
@@ -261,6 +261,7 @@ export default function EventosReportadosPage() {
       'ID Evento': event.id,
       'Título': event.title,
       'Sitio/Planta': event.site,
+      'Equipo': event.equipo || 'N/A', // Add equipo
       'Fecha': formatDateForDisplay(event.date),
       'Tipo': event.type,
       'Prioridad': event.priority,
@@ -273,8 +274,8 @@ export default function EventosReportadosPage() {
     XLSX.utils.book_append_sheet(workbook, worksheet, "Eventos Reportados");
 
     worksheet['!cols'] = [
-      { wch: 15 }, { wch: 40 }, { wch: 25 }, { wch: 12 },
-      { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 50 },
+      { wch: 15 }, { wch: 40 }, { wch: 25 }, { wch: 20 }, // Added width for Equipo
+      { wch: 12 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 50 },
     ];
     
     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
@@ -521,7 +522,7 @@ export default function EventosReportadosPage() {
                   <TableHead className="w-[10%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortEvents('id')}>
                     <div className="flex items-center gap-1">ID {renderSortIconEvents('id')}</div>
                   </TableHead>
-                  <TableHead className="w-[25%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortEvents('title')}>
+                  <TableHead className="w-[20%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortEvents('title')}>
                     <div className="flex items-center gap-1">Título {renderSortIconEvents('title')}</div>
                   </TableHead>
                   <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortEvents('site')}>
@@ -536,7 +537,7 @@ export default function EventosReportadosPage() {
                   <TableHead className="w-[10%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortEvents('priority')}>
                     <div className="flex items-center gap-1">Prioridad {renderSortIconEvents('priority')}</div>
                   </TableHead>
-                  <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortEvents('status')}>
+                  <TableHead className="w-[10%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortEvents('status')}>
                     <div className="flex items-center gap-1">Estado {renderSortIconEvents('status')}</div>
                   </TableHead>
                 </TableRow>
@@ -647,6 +648,7 @@ export default function EventosReportadosPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div><strong>Sitio:</strong> {selectedEvent.site}</div>
+            {selectedEvent.equipo && <div><strong>Equipo:</strong> {selectedEvent.equipo}</div>}
             <div><strong>Fecha:</strong> {formatDateForDisplay(selectedEvent.date)}</div>
             <div><strong>Tipo:</strong> {selectedEvent.type}</div>
             <div><strong>Prioridad:</strong> {selectedEvent.priority}</div>
