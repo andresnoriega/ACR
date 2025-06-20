@@ -50,14 +50,14 @@ const plans = [
       'Soporte técnico por email',
     ],
     cta: 'Elegir Profesional',
-    href: '#', // Placeholder, as this plan might also need a contact form or purchase flow
+    href: '#', 
     highlighted: true,
     badge: 'Más Popular',
   },
   {
     name: 'Empresa',
-    price: 'Contáctanos', // Updated price
-    period: '', // Updated period
+    price: 'Contáctanos', 
+    period: '', 
     description: 'Solución completa para organizaciones con necesidades complejas y a gran escala.',
     features: [
       'Análisis RCA ilimitados',
@@ -68,7 +68,6 @@ const plans = [
       'Soporte prioritario dedicado y SLA',
     ],
     cta: 'Contactar Ventas',
-    // href will be handled by onClick to open dialog
   },
 ];
 
@@ -127,17 +126,19 @@ ${contactMessage}
       body: emailBody,
     });
 
+    let toastTitle = "Solicitud de Contacto";
+    let toastDescription = "";
+    let toastVariant: "default" | "destructive" = "default";
+
     if (resultPrimary.success && resultSecondary.success) {
-      toast({
-        title: "Solicitud Enviada",
-        description: "Gracias por su interés. Nos pondremos en contacto con usted pronto. La solicitud ha sido enviada a ambos destinatarios.",
-      });
+      toastDescription = "Gracias por su interés. Nos pondremos en contacto con usted pronto. La solicitud ha sido enviada a ambos destinatarios.";
       setContactName('');
       setContactEmail('');
       setContactPhone('');
       setContactMessage('');
       setIsContactDialogOpen(false);
     } else {
+      toastVariant = "destructive";
       let errorMessages = [];
       if (!resultPrimary.success) {
         errorMessages.push(`Falló envío a contacto@damc.cl: ${resultPrimary.message}`);
@@ -145,13 +146,16 @@ ${contactMessage}
       if (!resultSecondary.success) {
         errorMessages.push(`Falló envío a andres_noriega_1@hotmail.com: ${resultSecondary.message}`);
       }
-      toast({
-        title: "Error al Enviar Solicitud",
-        description: `No se pudo enviar su solicitud a todos los destinatarios. Detalles: ${errorMessages.join('; ')}`,
-        variant: "destructive",
-        duration: 7000,
-      });
+      toastDescription = `No se pudo enviar su solicitud a todos los destinatarios. Detalles: ${errorMessages.join('; ')}`;
     }
+    
+    toast({
+      title: toastTitle,
+      description: toastDescription,
+      variant: toastVariant,
+      duration: 7000,
+    });
+
     setIsSendingContact(false);
   };
 
