@@ -63,7 +63,7 @@ const plans = [
       'Análisis RCA ilimitados',
       'Todas las técnicas de análisis avanzadas',
       'Gestión avanzada de usuarios y roles',
-      'Integraciones y API (Próximamente)', // Reinserted line
+      'Integraciones y API (Próximamente)',
       'Auditoría de cambios y seguridad mejorada',
       'Soporte prioritario dedicado y SLA',
     ],
@@ -101,6 +101,7 @@ export default function PreciosPage() {
     }
 
     setIsSendingContact(true);
+    const emailSubject = 'Solicitud de Información - Plan Empresa RCA Assistant';
     const emailBody = `
 Nueva solicitud de información para el Plan Empresa (RCA Assistant):
 
@@ -112,16 +113,24 @@ Mensaje:
 ${contactMessage}
     `;
 
-    const result = await sendEmailAction({
+    // Send to primary contact
+    const resultPrimary = await sendEmailAction({
       to: 'contacto@damc.cl',
-      subject: 'Solicitud de Información - Plan Empresa RCA Assistant',
+      subject: emailSubject,
       body: emailBody,
     });
 
-    if (result.success) {
+    // Send to secondary contact
+    const resultSecondary = await sendEmailAction({
+      to: 'andres_noriega_1@hotmail.com',
+      subject: emailSubject,
+      body: emailBody,
+    });
+
+    if (resultPrimary.success && resultSecondary.success) {
       toast({
         title: "Solicitud Enviada",
-        description: "Gracias por su interés. Nos pondremos en contacto con usted pronto.",
+        description: "Gracias por su interés. Nos pondremos en contacto con usted pronto. La solicitud ha sido enviada a ambos destinatarios.",
       });
       setContactName('');
       setContactEmail('');
@@ -129,10 +138,18 @@ ${contactMessage}
       setContactMessage('');
       setIsContactDialogOpen(false);
     } else {
+      let errorMessages = [];
+      if (!resultPrimary.success) {
+        errorMessages.push(`Falló envío a contacto@damc.cl: ${resultPrimary.message}`);
+      }
+      if (!resultSecondary.success) {
+        errorMessages.push(`Falló envío a andres_noriega_1@hotmail.com: ${resultSecondary.message}`);
+      }
       toast({
         title: "Error al Enviar Solicitud",
-        description: result.message || "No se pudo enviar su solicitud. Por favor, inténtelo de nuevo más tarde.",
+        description: `No se pudo enviar su solicitud a todos los destinatarios. Detalles: ${errorMessages.join('; ')}`,
         variant: "destructive",
+        duration: 7000,
       });
     }
     setIsSendingContact(false);
@@ -149,7 +166,7 @@ ${contactMessage}
           Planes Flexibles para Cada Necesidad
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Elija el plan de RCA Assistant que mejor se adapte al tamaño y los requisitos de su equipo.
+          Elija el plan de RCA Assistant que mejor se adapte al tamaño y los requisitos de su equipo. Todos los precios están en Pesos Chilenos (CLP).
         </p>
       </header>
 
