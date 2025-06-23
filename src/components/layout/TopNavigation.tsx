@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -66,8 +65,16 @@ export function TopNavigation() {
       if (item.allowedRoles.length === 0) { // No specific roles required, just auth
         return true;
       }
+      
+      // If user profile with a role is loaded, use it to filter
       if (userProfile && typeof userProfile.role === 'string' && userProfile.role.trim() !== '') {
         return item.allowedRoles.includes(userProfile.role);
+      }
+      
+      // FALLBACK: If user is authenticated but profile/role is not yet loaded/defined,
+      // show them the 'Inicio' menu as a default safe landing page.
+      if (item.href === '/inicio') {
+        return true;
       }
       
       return false; // Role not matched or profile not loaded with role
