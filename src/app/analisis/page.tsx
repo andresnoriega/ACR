@@ -24,6 +24,7 @@ import { sendEmailAction } from '@/app/actions';
 import { format, parse, isValid, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
+export const dynamic = 'force-dynamic';
 
 const initialIshikawaData: IshikawaData = [
   { id: 'manpower', name: 'Mano de Obra', causes: [] },
