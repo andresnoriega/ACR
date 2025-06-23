@@ -31,7 +31,8 @@ export function TopNavigation() {
   }, []);
 
   const visibleMenuItems = useMemo(() => {
-    if (!hasMounted || loadingAuth) {
+    // 1. Before hydration on client, or if not authenticated, show a minimal public menu.
+    if (!hasMounted || !currentUser) {
       return mainMenuItemsBase.filter(item => {
         if (item.href === '/precios') {
           return (pathname === '/login' || pathname === '/registro');
@@ -40,33 +41,34 @@ export function TopNavigation() {
       });
     }
 
+    // 2. User is authenticated (currentUser exists).
+    // If the main auth state is still loading OR the user profile specifically hasn't loaded yet,
+    // show a minimal but stable menu for authenticated users (just 'Inicio').
+    // This prevents an empty menu flash after login.
+    if (loadingAuth || !userProfile) {
+        return mainMenuItemsBase.filter(item => item.href === '/inicio');
+    }
+
+    // 3. Now, user is authenticated and their profile is loaded.
+    // We can apply the full role-based logic.
     return mainMenuItemsBase.filter(item => {
-      if (item.href === '/precios') {
-        return (pathname === '/login' || pathname === '/registro');
-      }
-
-      if (!item.requiresAuth) {
-        return true;
-      }
-
-      if (!currentUser) {
-        return false;
-      }
-
-      if (userProfile && typeof userProfile.role === 'string' && userProfile.role.trim() !== '') {
-        // Special case for 'Usuario Pendiente'
-        if (userProfile.role === 'Usuario Pendiente') {
-          return item.href === '/inicio';
+        if (!item.requiresAuth) { // This handles public pages like /precios if ever needed post-login
+            // Re-check for /precios specifically, as it should only show on login/register pages
+            if (item.href === '/precios') {
+                return (pathname === '/login' || pathname === '/registro');
+            }
+            return true;
         }
-        return item.allowedRoles.includes(userProfile.role);
-      }
 
-      if (item.href === '/inicio') {
-        return true;
-      }
-      
-      return false;
+        // Handle 'Usuario Pendiente' as a special case
+        if (userProfile.role === 'Usuario Pendiente') {
+            return item.href === '/inicio';
+        }
+        
+        // For all other authenticated users with a role, check their permissions
+        return item.allowedRoles.includes(userProfile.role);
     });
+
   }, [hasMounted, pathname, currentUser, loadingAuth, userProfile]);
 
   const handleLogout = async () => {
