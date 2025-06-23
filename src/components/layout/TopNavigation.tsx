@@ -31,25 +31,17 @@ export function TopNavigation() {
   }, []);
 
   const visibleMenuItems = useMemo(() => {
-    // On the server, or if not mounted yet, or if auth is loading,
-    // render a minimal, predictable set of menu items.
-    // This should match what the server would output for an unauthenticated user
-    // or a generic state.
     if (!hasMounted || loadingAuth) {
       return mainMenuItemsBase.filter(item => {
-        // Special handling for /precios during initial render/SSR
         if (item.href === '/precios') {
           return (pathname === '/login' || pathname === '/registro');
         }
-        // Only show non-auth-required items
         return !item.requiresAuth;
       });
     }
 
-    // Client-side, after mount and auth has loaded: calculate full menu visibility
     return mainMenuItemsBase.filter(item => {
       if (item.href === '/precios') {
-        // Show "Precios" only on /login or /registro pages
         return (pathname === '/login' || pathname === '/registro');
       }
 
@@ -57,27 +49,23 @@ export function TopNavigation() {
         return true;
       }
 
-      if (!currentUser) { // No user logged in (auth loaded, but no user)
+      if (!currentUser) {
         return false;
       }
 
-      // User is logged in, check roles
-      if (item.allowedRoles.length === 0) { // No specific roles required, just auth
-        return true;
-      }
-      
-      // If user profile with a role is loaded, use it to filter
       if (userProfile && typeof userProfile.role === 'string' && userProfile.role.trim() !== '') {
+        // Special case for 'Usuario Pendiente'
+        if (userProfile.role === 'Usuario Pendiente') {
+          return item.href === '/inicio';
+        }
         return item.allowedRoles.includes(userProfile.role);
       }
-      
-      // FALLBACK: If user is authenticated but profile/role is not yet loaded/defined,
-      // show them the 'Inicio' menu as a default safe landing page.
+
       if (item.href === '/inicio') {
         return true;
       }
       
-      return false; // Role not matched or profile not loaded with role
+      return false;
     });
   }, [hasMounted, pathname, currentUser, loadingAuth, userProfile]);
 
@@ -98,13 +86,8 @@ export function TopNavigation() {
         <div className="flex items-center justify-between h-16">
           {/* Menu Items Section */}
           <div className="flex space-x-1 sm:space-x-2 md:space-x-4 overflow-x-auto py-2">
-            {/* 
-              visibleMenuItems is now calculated to be SSR-safe.
-              It will be minimal on server/initial client, and full after mount/auth.
-            */}
             {visibleMenuItems.map((item) => {
               let isActive = false;
-              // isActive logic needs pathname, which is available.
               if (item.href === '/') { 
                   isActive = pathname === '/';
                   if (item.section === 'inicio') isActive = isActive || pathname === '/inicio';
@@ -165,8 +148,6 @@ export function TopNavigation() {
                 )}
               </>
             ) : (
-              // Placeholder for auth buttons area to maintain layout stability
-              // Ensure this placeholder is simple and static.
               <div className="h-9 w-28"></div> 
             )}
           </div>
