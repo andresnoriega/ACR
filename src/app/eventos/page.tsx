@@ -16,7 +16,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { ReportedEvent, ReportedEventType, ReportedEventStatus, PriorityType, Site, RCAAnalysisDocument } from '@/types/rca';
-import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, PlayCircle, Info, Loader2, Eye, Fingerprint, FileDown, ArrowUp, ArrowDown, ChevronsUpDown, XCircle, ShieldAlert } from 'lucide-react';
+import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, PlayCircle, Info, Loader2, Eye, Fingerprint, FileDown, ArrowUp, ArrowDown, ChevronsUpDown, XCircle, ShieldAlert, HardHat } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/firestore";
@@ -40,7 +40,7 @@ interface Filters {
   eventId: string;
 }
 
-type SortableReportedEventKey = 'id' | 'title' | 'site' | 'date' | 'type' | 'priority' | 'status';
+type SortableReportedEventKey = 'id' | 'title' | 'site' | 'date' | 'type' | 'priority' | 'status' | 'equipo';
 
 interface SortConfigReportedEvent {
   key: SortableReportedEventKey | null;
@@ -274,8 +274,8 @@ export default function EventosReportadosPage() {
     XLSX.utils.book_append_sheet(workbook, worksheet, "Eventos Reportados");
 
     worksheet['!cols'] = [
-      { wch: 15 }, { wch: 40 }, { wch: 25 }, { wch: 20 }, // Added width for Equipo
-      { wch: 12 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 50 },
+      { wch: 20 }, { wch: 40 }, { wch: 25 }, { wch: 25 }, 
+      { wch: 12 }, { wch: 20 }, { wch: 12 }, { wch: 15 }, { wch: 50 },
     ];
     
     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
@@ -528,6 +528,9 @@ export default function EventosReportadosPage() {
                   <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortEvents('site')}>
                     <div className="flex items-center gap-1">Sitio {renderSortIconEvents('site')}</div>
                   </TableHead>
+                  <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortEvents('equipo')}>
+                    <div className="flex items-center gap-1">Equipo {renderSortIconEvents('equipo')}</div>
+                  </TableHead>
                   <TableHead className="w-[10%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortEvents('date')}>
                     <div className="flex items-center gap-1">Fecha {renderSortIconEvents('date')}</div>
                   </TableHead>
@@ -545,7 +548,7 @@ export default function EventosReportadosPage() {
               <TableBody>
                 {isLoadingData ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center h-24">
+                    <TableCell colSpan={9} className="text-center h-24">
                       <div className="flex justify-center items-center">
                         <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
                         Cargando eventos...
@@ -568,11 +571,11 @@ export default function EventosReportadosPage() {
                           checked={selectedEvent?.id === event.id}
                           onCheckedChange={() => handleSelectEvent(event)}
                           aria-label={`Seleccionar evento ${event.title}`}
-                        /></TableCell><TableCell className="font-mono text-xs">{event.id}</TableCell><TableCell className="font-medium">{event.title}</TableCell><TableCell>{event.site}</TableCell><TableCell>{formatDateForDisplay(event.date)}</TableCell><TableCell>{event.type}</TableCell><TableCell>{event.priority}</TableCell><TableCell>{renderStatusBadge(event.status)}</TableCell></TableRow>
+                        /></TableCell><TableCell className="font-mono text-xs">{event.id}</TableCell><TableCell className="font-medium">{event.title}</TableCell><TableCell>{event.site}</TableCell><TableCell>{event.equipo || 'N/A'}</TableCell><TableCell>{formatDateForDisplay(event.date)}</TableCell><TableCell>{event.type}</TableCell><TableCell>{event.priority}</TableCell><TableCell>{renderStatusBadge(event.status)}</TableCell></TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground h-24">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground h-24">
                       No hay eventos que coincidan con los filtros seleccionados o no hay eventos en la base de datos.
                     </TableCell>
                   </TableRow>
@@ -648,7 +651,7 @@ export default function EventosReportadosPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div><strong>Sitio:</strong> {selectedEvent.site}</div>
-            {selectedEvent.equipo && <div><strong>Equipo:</strong> {selectedEvent.equipo}</div>}
+            {selectedEvent.equipo && <div className="flex items-center"><strong><HardHat className="inline mr-1.5 h-4 w-4"/>Equipo:</strong><span className="ml-1">{selectedEvent.equipo}</span></div>}
             <div><strong>Fecha:</strong> {formatDateForDisplay(selectedEvent.date)}</div>
             <div><strong>Tipo:</strong> {selectedEvent.type}</div>
             <div><strong>Prioridad:</strong> {selectedEvent.priority}</div>
