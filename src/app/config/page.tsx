@@ -85,23 +85,6 @@ export default function ConfiguracionHubPage() {
           <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
             <CardHeader>
               <div className="flex items-center gap-3 mb-2">
-                <DollarSign className="h-7 w-7 text-primary" />
-                <CardTitle className="text-2xl">Planes y Suscripción</CardTitle>
-              </div>
-              <CardDescription>Revise los planes disponibles y gestione su suscripción actual.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Link href="/precios" passHref>
-                <Button className="w-full" size="lg">
-                  Ver Planes
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-            <CardHeader>
-              <div className="flex items-center gap-3 mb-2">
                 <ShieldCheck className="h-7 w-7 text-primary" />
                 <CardTitle className="text-2xl">Privacidad y Datos</CardTitle>
               </div>

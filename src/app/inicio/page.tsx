@@ -56,9 +56,6 @@ export default function InicioPage() {
         </header>
         <Card className="max-w-md mx-auto shadow-md">
             <CardContent className="pt-6">
-                 <Button onClick={() => router.push('/precios')} className="w-full mb-2">
-                    Ver Planes (Informativo)
-                </Button>
                 <Button onClick={() => router.push('/login')} variant="outline" className="w-full">
                     Volver a Inicio de Sesión
                 </Button>
