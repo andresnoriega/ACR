@@ -273,26 +273,29 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   const handleViewEvidence = (dataUrl: string | null, fileName: string) => {
     if (!dataUrl) {
       toast({
-        title: 'Error',
-        description: 'La URL de datos para esta evidencia no está disponible.',
+        title: 'Error de Datos',
+        description: 'La URL de datos para esta evidencia no está disponible o está corrupta.',
         variant: 'destructive',
       });
       return;
     }
     try {
       const newWindow = window.open(dataUrl, '_blank');
-      if (!newWindow) {
+      // This is the key check for a pop-up blocker.
+      // If window.open() is blocked, it returns null.
+      if (newWindow === null) {
         toast({
-          title: 'Bloqueador de Pop-ups',
-          description: 'Por favor, permita las ventanas emergentes para ver la evidencia.',
+          title: 'Pop-up Bloqueado',
+          description: 'Su navegador ha bloqueado la apertura de una nueva pestaña. Por favor, permita las ventanas emergentes para este sitio en la barra de direcciones y vuelva a intentarlo.',
           variant: 'destructive',
+          duration: 10000, // Make it last longer
         });
       }
     } catch (error) {
-      console.error("Error opening data URL:", error);
+      console.error("Error al intentar abrir la evidencia:", error);
       toast({
-        title: 'Error al Abrir Evidencia',
-        description: 'Hubo un problema al intentar mostrar el archivo.',
+        title: 'Error Inesperado',
+        description: 'Hubo un problema al intentar mostrar el archivo. Verifique la consola para más detalles.',
         variant: 'destructive',
       });
     }
