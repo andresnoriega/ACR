@@ -11,14 +11,14 @@ import {
  Accordion,
  AccordionContent,
  AccordionItem,
+ AccordionTrigger,
 } from "@/components/ui/accordion";
-import * as AccordionPrimitive from "@radix-ui/react-accordion";
 import { ChevronDown, CheckCircle2, Circle, Eye, FileText, ImageIcon, Paperclip, Loader2, Save, MessageSquare, CalendarCheck, History, Info, XCircle, AlertTriangle } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { sendEmailAction } from '@/app/actions';
 
@@ -120,6 +120,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   const [isSavingLocally, setIsSavingLocally] = useState(false);
   const [rejectingAction, setRejectingAction] = useState<PlannedAction | null>(null);
   const [isProcessingEmail, setIsProcessingEmail] = useState(false);
+  const [viewingEvidence, setViewingEvidence] = useState<Evidence | null>(null); // State for the single dialog
 
 
   const uniquePlannedActions = useMemo(() => {
@@ -296,11 +297,6 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                   const validation = getValidation(action.id);
                   const status = validation?.status || 'pending';
 
-                  const hasInformationToVisualize =
-                    (action.evidencias && action.evidencias.length > 0) ||
-                    (action.userComments && action.userComments.trim() !== '') ||
-                    action.markedAsReadyAt;
-
                   const isReadyForValidationByLeader =
                     (action.evidencias && action.evidencias.length > 0) ||
                     (action.userComments && action.userComments.trim() !== '') ||
@@ -326,159 +322,111 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
 
                   return (
                     <AccordionItem value={action.id} key={action.id} className="border-b">
-                      <Card className="shadow-none border-0 rounded-none w-full">
-                        <AccordionPrimitive.Header className="flex items-center p-4 w-full">
-                          <div className="flex-shrink-0 pr-3" title={hasInformationToVisualize && status === 'pending' ? "Esta acción tiene información adjunta (evidencias/comentarios) y está pendiente de validación." : undefined}>
-                            {hasInformationToVisualize && status === 'pending' ? (
-                              <Info className="h-5 w-5 text-blue-500" />
-                            ) : (
-                              <div className="w-5 h-5"></div>
-                            )}
+                      <AccordionTrigger className="p-4 hover:no-underline flex justify-between items-center w-full">
+                        <div className="flex items-center text-left flex-grow">
+                          {isReadyForValidationByLeader && status === 'pending' && (
+                            <Info className="h-5 w-5 text-blue-500 mr-3 flex-shrink-0" title="Esta acción tiene información adjunta y está lista para validación." />
+                          )}
+                          <div className="flex-1">
+                            <h4 className="font-semibold">{action.description}</h4>
+                            <p className="text-xs text-muted-foreground">Responsable: {action.responsible} | Límite: {action.dueDate || 'N/A'}</p>
                           </div>
-                          <AccordionPrimitive.Trigger className="flex flex-1 items-center text-left hover:underline focus:outline-none group data-[state=open]:text-primary">
-                            <div className="flex-1">
-                              <h4 className="font-semibold">{action.description}</h4>
-                              <p className="text-xs text-muted-foreground">Responsable: {action.responsible} | Límite: {action.dueDate || 'N/A'} | ID: {action.id.substring(0,10)}...</p>
-                            </div>
-                            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                          </AccordionPrimitive.Trigger>
+                        </div>
 
-                          <div className="flex items-center space-x-2 ml-4 shrink-0 pl-2">
-                            <span className={cn("text-sm font-medium flex items-center", statusColorClass)}>
-                              <StatusIcon className="mr-1.5 h-5 w-5" /> {statusDisplay}
-                            </span>
-                            <Button
+                        <div className="flex items-center space-x-2 ml-4 shrink-0 pl-2">
+                          <span className={cn("text-sm font-medium flex items-center", statusColorClass)}>
+                            <StatusIcon className="mr-1.5 h-5 w-5" /> {statusDisplay}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => { e.stopPropagation(); handleValidateClick(action.id); }}
+                            disabled={isStepSaving || status === 'validated' || showNotReadyWarning}
+                            className={cn(status === 'validated' ? "bg-green-100 hover:bg-green-200 text-green-700" : "hover:bg-green-50", "transition-colors")}
+                            title={showNotReadyWarning ? "Acción no lista para validar" : (status === 'validated' ? "Validado (Click para marcar como pendiente)" : "Marcar como Validado")}
+                          >
+                            {status === 'validated' ? 'Validado' : 'Validar'}
+                          </Button>
+                          {status !== 'validated' && (
+                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleValidateClick(action.id)}
-                              disabled={isStepSaving || status === 'validated' || showNotReadyWarning}
-                              className={cn(status === 'validated' ? "bg-green-100 hover:bg-green-200 text-green-700" : "hover:bg-green-50", "transition-colors")}
-                              title={showNotReadyWarning ? "Acción no lista para validar" : (status === 'validated' ? "Validado (Click para marcar como pendiente)" : "Marcar como Validado")}
+                              onClick={(e) => { e.stopPropagation(); status === 'rejected' ? onToggleValidation(action.id, 'pending') : handleRejectClick(action); }}
+                              disabled={isStepSaving}
+                              className={cn(status === 'rejected' ? "bg-red-100 hover:bg-red-200 text-red-700" : "hover:bg-red-50", "transition-colors")}
+                              title={status === 'rejected' ? "Rechazado (Click para marcar como pendiente)" : "Rechazar esta acción"}
                             >
-                              {status === 'validated' ? 'Validado' : 'Validar'}
+                              {status === 'rejected' ? 'Anular Rechazo' : 'Rechazar'}
                             </Button>
-                            {status !== 'validated' && (
-                               <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => status === 'rejected' ? onToggleValidation(action.id, 'pending') : handleRejectClick(action)}
-                                disabled={isStepSaving}
-                                className={cn(status === 'rejected' ? "bg-red-100 hover:bg-red-200 text-red-700" : "hover:bg-red-50", "transition-colors")}
-                                title={status === 'rejected' ? "Rechazado (Click para marcar como pendiente)" : "Rechazar esta acción"}
-                              >
-                                {status === 'rejected' ? 'Anular Rechazo' : 'Rechazar'}
-                              </Button>
-                            )}
-                          </div>
-                        </AccordionPrimitive.Header>
-                        <AccordionContent className="p-4 pt-0">
-                          <div className="space-y-4 text-xs pl-2 border-l-2 border-primary/30 ml-1">
-                            {action.markedAsReadyAt && isValidDate(parseISO(action.markedAsReadyAt)) && (
+                          )}
+                           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 data-[state=open]:rotate-180 ml-2" />
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="p-4 pt-0">
+                        <div className="space-y-4 text-xs pl-2 border-l-2 border-primary/30 ml-1">
+                          {action.markedAsReadyAt && isValidDate(parseISO(action.markedAsReadyAt)) && (
+                            <div>
+                              <h5 className="font-semibold text-primary/90 mb-0.5 flex items-center"><History className="mr-1.5 h-3.5 w-3.5" />Marcado como Listo el:</h5>
+                              <p className="ml-5">{format(parseISO(action.markedAsReadyAt), 'dd/MM/yyyy HH:mm', { locale: es })}</p>
+                            </div>
+                          )}
+                          {status === 'validated' && validation?.validatedAt && isValidDate(parseISO(validation.validatedAt)) && (
+                            <div>
+                                <h5 className="font-semibold text-green-600 mb-0.5 flex items-center">
+                                    <CalendarCheck className="mr-1.5 h-3.5 w-3.5" />
+                                    Validado el:
+                                </h5>
+                                <p className="ml-5">{format(parseISO(validation.validatedAt), 'dd/MM/yyyy HH:mm', { locale: es })}</p>
+                            </div>
+                          )}
+                          {status === 'rejected' && validation?.rejectedAt && isValidDate(parseISO(validation.rejectedAt)) && (
                               <div>
-                                <h5 className="font-semibold text-primary/90 mb-0.5 flex items-center"><History className="mr-1.5 h-3.5 w-3.5" />Marcado como Listo el:</h5>
-                                <p className="ml-5">{format(parseISO(action.markedAsReadyAt), 'dd/MM/yyyy HH:mm', { locale: es })}</p>
+                                  <h5 className="font-semibold text-destructive mb-0.5 flex items-center">
+                                      <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                                      Rechazado el:
+                                  </h5>
+                                  <p className="ml-5">{format(parseISO(validation.rejectedAt), 'dd/MM/yyyy HH:mm', { locale: es })}</p>
+                                  <p className="font-semibold text-destructive mb-0.5 flex items-center mt-1"><MessageSquare className="mr-1.5 h-3.5 w-3.5" />Motivo del Rechazo:</p>
+                                  <p className="ml-5 whitespace-pre-wrap p-1.5 bg-red-50 rounded-sm">{validation.rejectionReason || "No se proporcionó motivo."}</p>
                               </div>
+                          )}
+                          <div>
+                            <h5 className="font-semibold text-primary/90 mb-0.5 flex items-center"><MessageSquare className="mr-1.5 h-3.5 w-3.5" />Comentarios del Usuario (Responsable):</h5>
+                            {action.userComments && action.userComments.trim() ? (
+                              <p className="whitespace-pre-wrap p-1.5 bg-muted/30 rounded-sm ml-5">{action.userComments}</p>
+                            ) : (
+                              <p className="text-muted-foreground ml-5">No hay comentarios del usuario.</p>
                             )}
-                             {status === 'validated' && validation?.validatedAt && isValidDate(parseISO(validation.validatedAt)) && (
-                                  <div>
-                                      <h5 className="font-semibold text-green-600 mb-0.5 flex items-center">
-                                          <CalendarCheck className="mr-1.5 h-3.5 w-3.5" />
-                                          Validado el:
-                                      </h5>
-                                      <p className="ml-5">{format(parseISO(validation.validatedAt), 'dd/MM/yyyy HH:mm', { locale: es })}</p>
-                                  </div>
-                              )}
-                              {status === 'rejected' && validation?.rejectedAt && isValidDate(parseISO(validation.rejectedAt)) && (
-                                  <div>
-                                      <h5 className="font-semibold text-destructive mb-0.5 flex items-center">
-                                          <XCircle className="mr-1.5 h-3.5 w-3.5" />
-                                          Rechazado el:
-                                      </h5>
-                                      <p className="ml-5">{format(parseISO(validation.rejectedAt), 'dd/MM/yyyy HH:mm', { locale: es })}</p>
-                                      <p className="font-semibold text-destructive mb-0.5 flex items-center mt-1"><MessageSquare className="mr-1.5 h-3.5 w-3.5" />Motivo del Rechazo:</p>
-                                      <p className="ml-5 whitespace-pre-wrap p-1.5 bg-red-50 rounded-sm">{validation.rejectionReason || "No se proporcionó motivo."}</p>
-                                  </div>
-                              )}
-                            <div>
-                              <h5 className="font-semibold text-primary/90 mb-0.5 flex items-center"><MessageSquare className="mr-1.5 h-3.5 w-3.5" />Comentarios del Usuario (Responsable):</h5>
-                              {action.userComments && action.userComments.trim() ? (
-                                <p className="whitespace-pre-wrap p-1.5 bg-muted/30 rounded-sm ml-5">{action.userComments}</p>
-                              ) : (
-                                <p className="text-muted-foreground ml-5">No hay comentarios del usuario.</p>
-                              )}
-                            </div>
-
-                            <div>
-                              <h5 className="font-semibold text-primary/90 mb-0.5 flex items-center"><FileText className="mr-1.5 h-3.5 w-3.5" />Evidencias Adjuntas:</h5>
-                              {action.evidencias && action.evidencias.length > 0 ? (
-                                <ul className="space-y-1 ml-5">
-                                  {action.evidencias.map(ev => (
-                                    <li key={ev.id} className="flex items-center justify-between bg-muted/30 p-1.5 rounded-sm">
-                                      <div className="flex items-center">
-                                        {getEvidenceIconLocal(ev.tipo)}
-                                        <span className="text-xs">{ev.nombre}</span>
-                                      </div>
-                                      <Dialog>
-                                        <DialogTrigger asChild>
-                                          <Button variant="link" size="sm" className="p-0 h-auto text-xs">
-                                            <Eye className="mr-1 h-3 w-3"/>Ver
-                                          </Button>
-                                        </DialogTrigger>
-                                        <DialogContent>
-                                          <DialogHeader>
-                                            <DialogTitle className="flex items-center">
-                                              {getEvidenceIconLocal(ev.tipo)}
-                                              Detalles de la Evidencia
-                                            </DialogTitle>
-                                            <DialogDescription>
-                                              Información registrada para la evidencia: {ev.nombre || "Nombre no especificado"} ({ev.tipo || "Tipo no especificado"}).
-                                            </DialogDescription>
-                                          </DialogHeader>
-                                          <div className="grid gap-y-3 py-3 text-sm">
-                                            <div>
-                                              <Label htmlFor="ev-dialog-name" className="font-semibold text-xs text-muted-foreground">Nombre del Archivo:</Label>
-                                              <p id="ev-dialog-name" className="mt-0.5 text-foreground">{ev.nombre || "No especificado"}</p>
-                                            </div>
-                                            <div>
-                                              <Label htmlFor="ev-dialog-type" className="font-semibold text-xs text-muted-foreground">Tipo de Archivo:</Label>
-                                              <p id="ev-dialog-type" className="mt-0.5 text-foreground">{ev.tipo || "No especificado"}</p>
-                                            </div>
-                                            <div>
-                                              <Label htmlFor="ev-dialog-comment" className="font-semibold text-xs text-muted-foreground">Comentario del Usuario:</Label>
-                                              <div id="ev-dialog-comment" className="mt-1 p-2 border rounded-md bg-muted/50 text-xs whitespace-pre-wrap overflow-auto max-h-[150px] min-h-[50px] text-foreground">
-                                                {(ev.comment && ev.comment.trim()) ? (
-                                                  ev.comment
-                                                ) : (
-                                                  <span className="italic text-muted-foreground">Sin comentarios adicionales.</span>
-                                                )}
-                                              </div>
-                                            </div>
-                                          </div>
-                                          <DialogFooter>
-                                            <DialogClose asChild>
-                                              <Button type="button" variant="outline">Cerrar</Button>
-                                            </DialogClose>
-                                          </DialogFooter>
-                                        </DialogContent>
-                                      </Dialog>
-                                    </li>
-                                  ))}
-                                </ul>
-                              ) : (
-                                <p className="text-muted-foreground ml-5">No hay evidencias adjuntas.</p>
-                              )}
-                            </div>
-
-                            {showNotReadyWarning && (
-                               <p className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded-md border border-yellow-200 ml-5 flex items-center">
-                                  <AlertTriangle className="h-4 w-4 mr-2 shrink-0" />
-                                  Esta acción aún no ha sido marcada como lista por el responsable. No se puede validar.
-                               </p>
-                            )}
-
                           </div>
-                        </AccordionContent>
-                      </Card>
+                          <div>
+                            <h5 className="font-semibold text-primary/90 mb-0.5 flex items-center"><FileText className="mr-1.5 h-3.5 w-3.5" />Evidencias Adjuntas:</h5>
+                            {action.evidencias && action.evidencias.length > 0 ? (
+                              <ul className="space-y-1 ml-5">
+                                {action.evidencias.map(ev => (
+                                  <li key={ev.id} className="flex items-center justify-between bg-muted/30 p-1.5 rounded-sm">
+                                    <div className="flex items-center">
+                                      {getEvidenceIconLocal(ev.tipo)}
+                                      <span className="text-xs">{ev.nombre}</span>
+                                    </div>
+                                    <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={() => setViewingEvidence(ev)}>
+                                      <Eye className="mr-1 h-3 w-3"/>Ver
+                                    </Button>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-muted-foreground ml-5">No hay evidencias adjuntas.</p>
+                            )}
+                          </div>
+
+                          {showNotReadyWarning && (
+                             <p className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded-md border border-yellow-200 ml-5 flex items-center">
+                                <AlertTriangle className="h-4 w-4 mr-2 shrink-0" />
+                                Esta acción aún no ha sido marcada como lista por el responsable. No se puede validar.
+                             </p>
+                          )}
+                        </div>
+                      </AccordionContent>
                     </AccordionItem>
                   );
                 })}
@@ -508,6 +456,47 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
           onClose={() => setRejectingAction(null)}
           onConfirmReject={handleConfirmRejectAction}
         />
+      )}
+
+      {viewingEvidence && (
+        <Dialog open={!!viewingEvidence} onOpenChange={(isOpen) => { if (!isOpen) setViewingEvidence(null); }}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle className="flex items-center">
+                    {getEvidenceIconLocal(viewingEvidence.tipo)}
+                    Detalles de la Evidencia
+                    </DialogTitle>
+                    <DialogDescription>
+                    Información registrada para la evidencia: {viewingEvidence.nombre || "Nombre no especificado"} ({viewingEvidence.tipo || "Tipo no especificado"}).
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-y-3 py-3 text-sm">
+                    <div>
+                    <Label htmlFor="ev-dialog-name" className="font-semibold text-xs text-muted-foreground">Nombre del Archivo:</Label>
+                    <p id="ev-dialog-name" className="mt-0.5 text-foreground">{viewingEvidence.nombre || "No especificado"}</p>
+                    </div>
+                    <div>
+                    <Label htmlFor="ev-dialog-type" className="font-semibold text-xs text-muted-foreground">Tipo de Archivo:</Label>
+                    <p id="ev-dialog-type" className="mt-0.5 text-foreground">{viewingEvidence.tipo || "No especificado"}</p>
+                    </div>
+                    <div>
+                    <Label htmlFor="ev-dialog-comment" className="font-semibold text-xs text-muted-foreground">Comentario del Usuario:</Label>
+                    <div id="ev-dialog-comment" className="mt-1 p-2 border rounded-md bg-muted/50 text-xs whitespace-pre-wrap overflow-auto max-h-[150px] min-h-[50px] text-foreground">
+                        {(viewingEvidence.comment && viewingEvidence.comment.trim()) ? (
+                        viewingEvidence.comment
+                        ) : (
+                        <span className="italic text-muted-foreground">Sin comentarios adicionales.</span>
+                        )}
+                    </div>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild>
+                    <Button type="button" variant="outline">Cerrar</Button>
+                    </DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
       )}
     </>
   );
