@@ -3,6 +3,7 @@
 import { initializeApp, getApps, getApp, FirebaseError } from "firebase/app"; // Added FirebaseError
 import { getAuth, type User as FirebaseUser } from "firebase/auth"; // Import FirebaseUser type
 import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage"; // Import Firebase Storage
 
 console.log("[Firebase] Initializing Firebase app (src/lib/firebase.ts)...");
 
@@ -11,7 +12,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyA3a8UytRbwFKWT9ISF1OlYaizC37b3rZQ",
   authDomain: "rca-assistant-jk3ja.firebaseapp.com",
   projectId: "rca-assistant-jk3ja",
-  storageBucket: "rca-assistant-jk3ja.firebasestorage.app",
+  storageBucket: "rca-assistant-jk3ja.appspot.com", // Corrected storage bucket URL
   messagingSenderId: "1044963774198",
   appId: "1:1044963774198:web:4ae00d1ee674f1864ea6d7"
 };
@@ -78,8 +79,21 @@ if (app) {
   console.error("[Firebase] Firebase app object is undefined. Cannot initialize Firestore.");
 }
 
+let storage;
+if (app) {
+  try {
+    console.log("[Firebase] Calling getStorage().");
+    storage = getStorage(app);
+    console.log("[Firebase] getStorage() successful.");
+  } catch (e: any) {
+    console.error("[Firebase] ERROR during getStorage():", e);
+  }
+} else {
+  console.error("[Firebase] Firebase app object is undefined. Cannot initialize Storage.");
+}
+
 console.log("[Firebase] Firebase module (src/lib/firebase.ts) fully processed.");
 if (app) console.log("[Firebase] App instance name:", app.name);
 
 
-export { app, auth, db, type FirebaseUser }; // Export FirebaseUser type
+export { app, auth, db, storage, type FirebaseUser }; // Export FirebaseUser type

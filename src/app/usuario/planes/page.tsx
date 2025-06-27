@@ -14,8 +14,9 @@ import { useToast } from '@/hooks/use-toast';
 import { ListTodo, FileText, ImageIcon, Paperclip, UploadCloud, CheckCircle2, Save, Info, MessageSquare, UserCog, Loader2, CalendarCheck, History, Trash2, Mail, ArrowUp, ArrowDown, ChevronsUpDown, UserCircle, FolderKanban, CheckSquare, Link2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, query, orderBy } from "firebase/firestore";
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { sendEmailAction } from '@/app/actions';
@@ -86,7 +87,6 @@ export default function UserActionPlansPage() {
   const [selectedPlan, setSelectedPlan] = useState<ActionPlan | null>(null);
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
   const [evidenceComment, setEvidenceComment] = useState('');
-  const [evidenceUrl, setEvidenceUrl] = useState('');
   
   const [sortConfigAssigned, setSortConfigAssigned] = useState<SortConfigAssigned>({ key: 'plazoLimite', direction: 'ascending' });
   const [sortConfigValidation, setSortConfigValidation] = useState<SortConfigValidation>({ key: 'actionMarkedReadyAt', direction: 'descending' });
@@ -316,7 +316,6 @@ export default function UserActionPlansPage() {
     }
     setFileToUpload(null);
     setEvidenceComment('');
-    setEvidenceUrl('');
   };
 
 
@@ -439,30 +438,28 @@ export default function UserActionPlansPage() {
     let updatesForAction: Partial<FirestorePlannedAction> = { markedAsReadyAt: currentDateISO };
     let newEvidencesArray = selectedPlan.evidencias || [];
 
-    const trimmedUrl = evidenceUrl.trim();
-    if (trimmedUrl) {
+    if (fileToUpload) {
+      toast({ title: 'Subiendo evidencia...', description: 'Por favor espere.' });
       try {
-        new URL(trimmedUrl); // Validate URL format
-      } catch (_) {
-        toast({ title: "URL Inválida", description: "Por favor, ingrese una URL válida (ej: https://...).", variant: "destructive" });
-        setIsUpdatingAction(false);
-        return;
-      }
-      
-      let evidenceName = fileToUpload?.name || trimmedUrl.split('/').pop() || 'Enlace';
-      let evidenceType: FirestoreEvidence['tipo'] = 'link';
-      if (fileToUpload) {
-          evidenceType = (fileToUpload.name.split('.').pop()?.toLowerCase() as FirestoreEvidence['tipo']) || 'other';
-      }
+          const fileRef = storageRef(storage, `evidence/${selectedPlan._originalRcaDocId}/${Date.now()}-${fileToUpload.name}`);
+          const uploadResult = await uploadBytes(fileRef, fileToUpload);
+          const downloadURL = await getDownloadURL(uploadResult.ref);
 
-      const newEvidencePayload: FirestoreEvidence = {
-        id: `ev-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        nombre: evidenceName,
-        tipo: evidenceType,
-        url: trimmedUrl,
-        comment: evidenceComment.trim() || undefined,
-      };
-      newEvidencesArray = [...newEvidencesArray, newEvidencePayload];
+          const newEvidencePayload: FirestoreEvidence = {
+              id: `ev-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+              nombre: fileToUpload.name,
+              tipo: (fileToUpload.type.split('/')[1] as FirestoreEvidence['tipo']) || 'other',
+              url: downloadURL,
+              comment: evidenceComment.trim() || undefined,
+              fileSize: fileToUpload.size,
+          };
+          newEvidencesArray = [...newEvidencesArray, newEvidencePayload];
+      } catch (uploadError) {
+          console.error("Error uploading evidence file:", uploadError);
+          toast({ title: "Error de Carga", description: "No se pudo subir el archivo de evidencia.", variant: "destructive" });
+          setIsUpdatingAction(false);
+          return;
+      }
     }
     
     updatesForAction.evidencias = newEvidencesArray;
@@ -471,13 +468,8 @@ export default function UserActionPlansPage() {
     if (selectedPlan.userComments && selectedPlan.userComments.trim()) {
         updatesForAction.userComments = selectedPlan.userComments.trim();
     }
-
-    if (trimmedUrl) {
-        commentsToSave = (commentsToSave ? commentsToSave + "\n\n" : "") + `[Sistema] Evidencia URL '${trimmedUrl}' adjuntada por ${userProfile.name} el ${formattedCurrentDate}.`;
-        updatesForAction.userComments = commentsToSave;
-    }
     
-    if (updatesForAction.userComments === (selectedPlan.userComments || "") && !trimmedUrl) {
+    if (updatesForAction.userComments === (selectedPlan.userComments || "")) {
         if (selectedPlan.estado === 'Pendiente' || selectedPlan.estado === 'En proceso') {
             commentsToSave = (commentsToSave ? commentsToSave + "\n\n" : "") + `[Sistema] Tarea marcada como lista para validación por ${userProfile.name} el ${formattedCurrentDate}.`;
             updatesForAction.userComments = commentsToSave;
@@ -490,9 +482,7 @@ export default function UserActionPlansPage() {
     if (updateSuccess) {
       let notificationMessage = `La tarea "${selectedPlan.accionResumen || selectedPlan.descripcionDetallada.substring(0,30)+"..."}" se ha actualizado y está lista para validación.`;
       
-      if (trimmedUrl) {
-        notificationMessage += ` Enlace de evidencia registrado.`;
-        setEvidenceUrl('');
+      if (fileToUpload) {
         setEvidenceComment('');
         setFileToUpload(null);
         const fileInput = document.getElementById('evidence-file-input') as HTMLInputElement;
@@ -710,13 +700,19 @@ export default function UserActionPlansPage() {
                           <Button variant="ghost" size="icon" className="h-6 w-6 ml-2 shrink-0 hover:bg-destructive/10" onClick={() => handleRemoveEvidence(ev.id)} disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} aria-label="Eliminar evidencia"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button></li>))}</ul>
                   ) : <p className="text-xs text-muted-foreground">No hay evidencias adjuntas.</p>}</div>
                 <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Adjuntar nueva evidencia]</h4>
-                  <div className="space-y-2"><Label htmlFor="evidence-url">URL de la Evidencia (Ej: Google Drive, Dropbox) <span className="text-destructive">*</span></Label><Input id="evidence-url" type="url" placeholder="https://..." value={evidenceUrl} onChange={(e) => setEvidenceUrl(e.target.value)} disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} /><Label htmlFor="evidence-file-input">Opcional: Seleccionar archivo para registrar nombre/tipo</Label><Input id="evidence-file-input" type="file" onChange={handleFileChange} className="text-xs h-9" disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} /><Label htmlFor="evidence-comment">Comentario para esta evidencia (opcional)</Label><Input id="evidence-comment" type="text" placeholder="..." value={evidenceComment} onChange={(e) => setEvidenceComment(e.target.value)} className="text-xs h-9" disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} /></div>
-                  {fileToUpload && <p className="text-xs text-muted-foreground mt-1">Archivo seleccionado: {fileToUpload.name}</p>}</div>
+                  <div className="space-y-2">
+                    <Label htmlFor="evidence-file-input">Archivo de Evidencia</Label>
+                    <Input id="evidence-file-input" type="file" onChange={handleFileChange} className="text-xs h-9" disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} />
+                    <Label htmlFor="evidence-comment">Comentario para esta evidencia (opcional)</Label>
+                    <Input id="evidence-comment" type="text" placeholder="Ej: Foto de la reparación, documento de capacitación..." value={evidenceComment} onChange={(e) => setEvidenceComment(e.target.value)} className="text-xs h-9" disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} />
+                  </div>
+                  {fileToUpload && <p className="text-xs text-muted-foreground mt-1">Archivo seleccionado para subir: {fileToUpload.name}</p>}
+                </div>
                 <div className="pt-2"><div className="flex justify-between items-center mb-1"><h4 className="font-semibold text-primary flex items-center"><MessageSquare className="mr-1.5 h-4 w-4" />[Mis Comentarios Generales para la Tarea]</h4></div>
                   <Textarea value={selectedPlan.userComments || ''} onChange={(e) => setSelectedPlan(prev => prev ? { ...prev, userComments: e.target.value } : null)} placeholder="Añada sus comentarios sobre el progreso o finalización de esta tarea..." rows={3} className="text-sm" disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} /></div>
                 <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Actualizar estado de esta tarea]</h4>
                   <div className="flex items-center gap-2">
-                     <Button size="sm" variant="default" onClick={handleSignalTaskReadyForValidation} disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} title={selectedPlan.estado === 'Completado' ? "Esta tarea ya ha sido validada y no puede modificarse." : "Guardar evidencias, comentarios y marcar la tarea como lista para ser validada por el Líder del Proyecto."}>
+                     <Button size="sm" variant="default" onClick={handleSignalTaskReadyForValidation} disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || !fileToUpload} title={selectedPlan.estado === 'Completado' ? "Esta tarea ya ha sido validada y no puede modificarse." : !fileToUpload ? "Debe seleccionar un archivo para adjuntar como evidencia." : "Guardar evidencias, comentarios y marcar la tarea como lista para ser validada por el Líder del Proyecto."}>
                       {isUpdatingAction ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />} Marcar como listo para validación</Button>
                     {selectedPlan.userMarkedReadyDate && (<span className="text-xs text-green-600 flex items-center ml-2 p-1.5 bg-green-50 border border-green-200 rounded-md"><CheckCircle2 className="mr-1 h-3.5 w-3.5" />Listo para Validar</span>)}</div></div>
                 <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Notas del sistema]</h4>
