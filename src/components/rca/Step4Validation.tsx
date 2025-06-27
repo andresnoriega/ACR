@@ -36,8 +36,9 @@ interface Step4ValidationProps {
 }
 
 const getEvidenceIconLocal = (tipo?: Evidence['tipo']) => {
-  if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
-  switch (tipo.toLowerCase()) {
+  const safeTipo = tipo?.toLowerCase() || 'other';
+  if (!safeTipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
+  switch (safeTipo) {
     case 'link': return <Link2 className="h-4 w-4 mr-2 flex-shrink-0 text-indigo-600" />;
     case 'pdf': return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
     case 'jpg': case 'jpeg': case 'png': case 'gif': return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
@@ -268,6 +269,35 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
     setIsSavingLocally(false);
     onNext();
   };
+  
+  const handleViewEvidence = (dataUrl: string | null, fileName: string) => {
+    if (!dataUrl) {
+      toast({
+        title: 'Error',
+        description: 'La URL de datos para esta evidencia no está disponible.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    try {
+      const newWindow = window.open(dataUrl, '_blank');
+      if (!newWindow) {
+        toast({
+          title: 'Bloqueador de Pop-ups',
+          description: 'Por favor, permita las ventanas emergentes para ver la evidencia.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error("Error opening data URL:", error);
+      toast({
+        title: 'Error al Abrir Evidencia',
+        description: 'Hubo un problema al intentar mostrar el archivo.',
+        variant: 'destructive',
+      });
+    }
+  };
+
 
   const isStepSaving = isSaving || isSavingLocally || isProcessingEmail;
 
@@ -411,17 +441,14 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                                           {ev.comment && <span className="text-xs italic text-muted-foreground">"{ev.comment}"</span>}
                                       </div>
                                     </div>
-                                    {ev.dataUrl ? (
-                                      <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
-                                        <a href={ev.dataUrl} target="_blank" rel="noopener noreferrer">
-                                          <ExternalLink className="mr-1 h-3 w-3"/>Ver Evidencia
-                                        </a>
-                                      </Button>
-                                    ) : (
-                                       <Button variant="link" size="sm" className="p-0 h-auto text-xs text-muted-foreground" disabled>
-                                          <Link2 className="mr-1 h-3 w-3"/>No URL
-                                       </Button>
-                                    )}
+                                    <Button
+                                      variant="link"
+                                      size="sm"
+                                      onClick={() => handleViewEvidence(ev.dataUrl, ev.nombre)}
+                                      className="p-0 h-auto text-xs"
+                                    >
+                                      <ExternalLink className="mr-1 h-3 w-3" />Ver Evidencia
+                                    </Button>
                                   </li>
                                 ))}
                               </ul>
