@@ -82,8 +82,9 @@ if (app) {
 let storage;
 if (app) {
   try {
-    console.log("[Firebase] Calling getStorage().");
-    storage = getStorage(app);
+    const bucketUrl = `gs://${firebaseConfig.storageBucket}`;
+    console.log(`[Firebase] Calling getStorage() with explicit bucket URL: ${bucketUrl}`);
+    storage = getStorage(app, bucketUrl);
     console.log("[Firebase] getStorage() successful.");
   } catch (e: any) {
     console.error("[Firebase] ERROR during getStorage():", e);
