@@ -128,7 +128,7 @@ export async function uploadFileAction(formData: FormData): Promise<{ success: b
         // Provide a more user-friendly message for common errors.
         switch(error.code) {
             case 'storage/unknown':
-                errorMessage = "Error desconocido del servidor de almacenamiento. Esto puede deberse a un problema de permisos en el bucket de Storage (IAM) o a una configuración incorrecta del proyecto. Por favor, verifique la consola de Google Cloud.";
+                errorMessage = "Error de Permisos del Servidor (storage/unknown). La cuenta de servicio de App Hosting probablemente no tiene el rol 'Storage Object Admin' en IAM. Por favor, verifique los permisos en la consola de Google Cloud.";
                 break;
             case 'storage/unauthorized':
                 errorMessage = "No autorizado. Verifique las reglas de seguridad de Firebase Storage para permitir escrituras desde el servidor.";
