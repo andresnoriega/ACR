@@ -417,11 +417,19 @@ export default function UserActionPlansPage() {
   const handleRemoveEvidence = async (evidenceIdToRemove: string) => {
     if (!selectedPlan) return;
     const updatedEvidences = selectedPlan.evidencias.filter(ev => ev.id !== evidenceIdToRemove);
-    const success = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, {
-      evidencias: updatedEvidences
-    });
+    
+    const updates: Partial<FirestorePlannedAction> = {
+      evidencias: updatedEvidences,
+    };
+    
+    // If we've just removed the last piece of evidence, reset the 'marked as ready' timestamp.
+    if (updatedEvidences.length === 0) {
+      updates.markedAsReadyAt = ''; // This will clear the timestamp.
+    }
+
+    const success = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, updates);
     if (success) {
-      toast({ title: "Evidencia Eliminada", description: `La evidencia ha sido eliminada del plan "${selectedPlan.tituloDetalle}". El estado de la tarea puede haber cambiado.` , variant: 'destructive' });
+      toast({ title: "Evidencia Eliminada", description: `La evidencia ha sido eliminada del plan. El estado de la tarea puede haber cambiado.`, variant: 'destructive' });
     }
   };
   
@@ -451,7 +459,6 @@ export default function UserActionPlansPage() {
     }
 
     const currentDateISO = new Date().toISOString();
-    const formattedCurrentDate = format(parseISO(currentDateISO), 'dd/MM/yyyy HH:mm', { locale: es });
     let updatesForAction: Partial<FirestorePlannedAction> = { markedAsReadyAt: currentDateISO };
     let newEvidencesArray = selectedPlan.evidencias || [];
 
@@ -468,15 +475,15 @@ export default function UserActionPlansPage() {
     updatesForAction.evidencias = newEvidencesArray;
 
     let commentsToSave = selectedPlan.userComments || "";
-    if (selectedPlan.userComments && selectedPlan.userComments.trim()) {
-        updatesForAction.userComments = selectedPlan.userComments.trim();
+    
+    // Only add the system message if the task was not previously marked as ready.
+    if (!selectedPlan.userMarkedReadyDate) {
+        const formattedCurrentDate = format(parseISO(currentDateISO), 'dd/MM/yyyy HH:mm', { locale: es });
+        commentsToSave = (commentsToSave.trim() ? commentsToSave.trim() + "\n\n" : "") + `[Sistema] Tarea marcada como lista para validación por ${userProfile.name} el ${formattedCurrentDate}.`;
     }
     
-    if (selectedPlan.estado === 'Pendiente' || selectedPlan.estado === 'En proceso') {
-        commentsToSave = (commentsToSave ? commentsToSave + "\n\n" : "") + `[Sistema] Tarea marcada como lista para validación por ${userProfile.name} el ${formattedCurrentDate}.`;
-        updatesForAction.userComments = commentsToSave;
-    }
-
+    updatesForAction.userComments = commentsToSave;
+    
     const updateSuccess = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, updatesForAction);
 
     if (updateSuccess) {
@@ -494,7 +501,7 @@ export default function UserActionPlansPage() {
             const emailSubject = `Acción Lista para Validación: ${selectedPlan.accionResumen || selectedPlan.descripcionDetallada.substring(0,30)+"..."} (RCA: ${selectedPlan.codigoRCA})`;
             const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
             const validationLink = `${baseUrl}/analisis?id=${selectedPlan._originalRcaDocId}&step=4`;
-            const emailBody = `Estimado/a ${validatorProfile.name},\n\nEl usuario ${userProfile.name} ha marcado la siguiente acción como lista para su validación:\n\nEvento RCA: ${selectedPlan.tituloDetalle} (ID: ${selectedPlan.codigoRCA})\nAcción Planificada: ${selectedPlan.descripcionDetallada}\nFecha de Cierre (Usuario): ${formattedCurrentDate}\n\nComentarios del Usuario:\n${updatesForAction.userComments || "Sin comentarios adicionales."}\n\nPor favor, proceda a validar esta acción en el sistema RCA Assistant. Puede acceder directamente mediante el siguiente enlace:\n${validationLink}\n\nSaludos,\nSistema RCA Assistant`;
+            const emailBody = `Estimado/a ${validatorProfile.name},\n\nEl usuario ${userProfile.name} ha marcado la siguiente acción como lista para su validación:\n\nEvento RCA: ${selectedPlan.tituloDetalle} (ID: ${selectedPlan.codigoRCA})\nAcción Planificada: ${selectedPlan.descripcionDetallada}\nFecha de Cierre (Usuario): ${format(parseISO(currentDateISO), 'dd/MM/yyyy HH:mm', { locale: es })}\n\nComentarios del Usuario:\n${updatesForAction.userComments || "Sin comentarios adicionales."}\n\nPor favor, proceda a validar esta acción en el sistema RCA Assistant. Puede acceder directamente mediante el siguiente enlace:\n${validationLink}\n\nSaludos,\nSistema RCA Assistant`;
             const emailResult = await sendEmailAction({ to: validatorProfile.email, subject: emailSubject, body: emailBody });
             if (emailResult.success) notificationMessage += ` Se envió una notificación por correo a ${validatorProfile.name}.`;
             else notificationMessage += ` No se pudo enviar la notificación por correo a ${validatorProfile.name} (${emailResult.message}).`;
