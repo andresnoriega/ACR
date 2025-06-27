@@ -2,6 +2,9 @@
 'use server';
 
 import sgMail from '@sendgrid/mail';
+import { storage } from '@/lib/firebase';
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+
 
 interface EmailPayload {
   to: string;
@@ -88,3 +91,39 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
   }
 }
 
+
+/**
+ * Uploads a file to Firebase Storage via a Server Action to bypass client-side CORS issues.
+ * @param formData The FormData object containing the file and rcaId.
+ * @returns A promise that resolves with the upload result.
+ */
+export async function uploadFileAction(formData: FormData): Promise<{ success: boolean; url?: string; error?: string }> {
+  const file = formData.get('file') as File | null;
+  const rcaId = formData.get('rcaId') as string | null;
+
+  if (!file) {
+    return { success: false, error: 'No se encontró ningún archivo para subir.' };
+  }
+  if (!rcaId) {
+    return { success: false, error: 'Falta el ID del RCA para la ruta de almacenamiento.' };
+  }
+
+  try {
+    const fileBuffer = await file.arrayBuffer();
+    const fileRef = storageRef(storage, `evidence/${rcaId}/${Date.now()}-${file.name}`);
+    
+    console.log(`[uploadFileAction] Attempting to upload '${file.name}' to '${fileRef.fullPath}'`);
+    const snapshot = await uploadBytes(fileRef, fileBuffer, {
+      contentType: file.type
+    });
+    
+    const downloadURL = await getDownloadURL(snapshot.ref);
+    console.log(`[uploadFileAction] File uploaded successfully. URL: ${downloadURL}`);
+
+    return { success: true, url: downloadURL };
+  } catch (error: any) {
+    console.error('[uploadFileAction] Error uploading file to Firebase Storage:', error);
+    const errorMessage = error.code ? `Error de servidor: ${error.code} - ${error.message}` : 'Error desconocido en el servidor de subida.';
+    return { success: false, error: errorMessage };
+  }
+}

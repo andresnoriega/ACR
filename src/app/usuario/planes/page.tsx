@@ -10,16 +10,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox'; // Import Checkbox
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from "@/hooks/use-toast";
 import { ListTodo, FileText, ImageIcon, Paperclip, UploadCloud, CheckCircle2, Save, Info, MessageSquare, UserCog, Loader2, CalendarCheck, History, Trash2, Mail, ArrowUp, ArrowDown, ChevronsUpDown, UserCircle, FolderKanban, CheckSquare, Link2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, query, orderBy } from "firebase/firestore";
-import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { sendEmailAction } from '@/app/actions';
+import { sendEmailAction, uploadFileAction } from '@/app/actions';
 import { sanitizeForFirestore } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -84,7 +83,6 @@ export default function UserActionPlansPage() {
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [isLoadingActions, setIsLoadingActions] = useState(true);
   const [isUpdatingAction, setIsUpdatingAction] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   const [selectedPlan, setSelectedPlan] = useState<ActionPlan | null>(null);
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
@@ -435,64 +433,40 @@ export default function UserActionPlansPage() {
     }
 
     setIsUpdatingAction(true);
-    setUploadProgress(null);
     const currentDateISO = new Date().toISOString();
     const formattedCurrentDate = format(parseISO(currentDateISO), 'dd/MM/yyyy HH:mm', { locale: es });
     let updatesForAction: Partial<FirestorePlannedAction> = { markedAsReadyAt: currentDateISO };
     let newEvidencesArray = selectedPlan.evidencias || [];
+    let fileUrl = '';
 
     if (fileToUpload) {
-      const fileRef = storageRef(storage, `evidence/${selectedPlan._originalRcaDocId}/${Date.now()}-${fileToUpload.name}`);
-      const uploadTask = uploadBytesResumable(fileRef, fileToUpload);
+      const formData = new FormData();
+      formData.append('file', fileToUpload);
+      formData.append('rcaId', selectedPlan._originalRcaDocId);
 
-      try {
-        await new Promise<void>((resolve, reject) => {
-          uploadTask.on('state_changed',
-            (snapshot) => {
-              const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-              console.log('Upload is ' + progress + '% done');
-              setUploadProgress(progress);
-            },
-            (error) => {
-              console.error("Firebase Storage upload error:", error);
-              setUploadProgress(null);
-              toast({
-                title: "Error de Carga",
-                description: `No se pudo subir el archivo. Código: ${error.code}. Verifique las reglas de CORS en su bucket de Firebase Storage.`,
-                variant: "destructive",
-                duration: 10000,
-              });
-              reject(error);
-            },
-            () => {
-              console.log('Upload successful, getting download URL...');
-              resolve();
-            }
-          );
-        });
+      const uploadResult = await uploadFileAction(formData);
 
-        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-        console.log('File available at', downloadURL);
-
+      if (uploadResult.success && uploadResult.url) {
+        fileUrl = uploadResult.url;
         const newEvidencePayload: FirestoreEvidence = {
             id: `ev-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
             nombre: fileToUpload.name,
             tipo: (fileToUpload.type.split('/')[1] as FirestoreEvidence['tipo']) || 'other',
-            url: downloadURL,
+            url: fileUrl,
             comment: evidenceComment.trim() || undefined,
-            fileSize: fileToUpload.size,
         };
         newEvidencesArray = [...newEvidencesArray, newEvidencePayload];
-      
-      } catch (uploadError) {
-          console.error("Error during the upload process:", uploadError);
-          setIsUpdatingAction(false);
-          setUploadProgress(null);
-          return;
+      } else {
+        toast({
+          title: "Error de Carga",
+          description: `No se pudo subir el archivo. ${uploadResult.error || 'Error desconocido.'}`,
+          variant: "destructive",
+        });
+        setIsUpdatingAction(false);
+        return;
       }
     }
     
-    setUploadProgress(null);
     updatesForAction.evidencias = newEvidencesArray;
 
     let commentsToSave = selectedPlan.userComments || "";
@@ -737,14 +711,7 @@ export default function UserActionPlansPage() {
                     <Label htmlFor="evidence-comment">Comentario para esta evidencia (opcional)</Label>
                     <Input id="evidence-comment" type="text" placeholder="Ej: Foto de la reparación, documento de capacitación..." value={evidenceComment} onChange={(e) => setEvidenceComment(e.target.value)} className="text-xs h-9" disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} />
                   </div>
-                  {uploadProgress !== null && (
-                    <div className="mt-2 space-y-1">
-                      <Label>Progreso de Carga</Label>
-                      <Progress value={uploadProgress} />
-                      <p className="text-xs text-muted-foreground">{Math.round(uploadProgress)}% completado</p>
-                    </div>
-                  )}
-                  {fileToUpload && uploadProgress === null && <p className="text-xs text-muted-foreground mt-1">Archivo seleccionado: {fileToUpload.name}</p>}
+                  {fileToUpload && <p className="text-xs text-muted-foreground mt-1">Archivo seleccionado: {fileToUpload.name}</p>}
                 </div>
                 <div className="pt-2"><div className="flex justify-between items-center mb-1"><h4 className="font-semibold text-primary flex items-center"><MessageSquare className="mr-1.5 h-4 w-4" />[Mis Comentarios Generales para la Tarea]</h4></div>
                   <Textarea value={selectedPlan.userComments || ''} onChange={(e) => setSelectedPlan(prev => prev ? { ...prev, userComments: e.target.value } : null)} placeholder="Añada sus comentarios sobre el progreso o finalización de esta tarea..." rows={3} className="text-sm" disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} /></div>
@@ -752,7 +719,7 @@ export default function UserActionPlansPage() {
                   <div className="flex items-center gap-2">
                      <Button size="sm" variant="default" onClick={handleSignalTaskReadyForValidation} disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || (!fileToUpload && !selectedPlan.userComments)} title={selectedPlan.estado === 'Completado' ? "Esta tarea ya ha sido validada y no puede modificarse." : (!fileToUpload && !selectedPlan.userComments) ? "Debe adjuntar un archivo o agregar un comentario para marcar la tarea como lista." : "Guardar evidencias, comentarios y marcar la tarea como lista para ser validada por el Líder del Proyecto."}>
                       {isUpdatingAction ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />} 
-                      {isUpdatingAction ? `Subiendo...${uploadProgress !== null ? ` (${Math.round(uploadProgress)}%)` : ''}` : 'Marcar como listo para validación'}
+                      {isUpdatingAction ? `Subiendo...` : 'Marcar como listo para validación'}
                     </Button>
                     {selectedPlan.userMarkedReadyDate && (<span className="text-xs text-green-600 flex items-center ml-2 p-1.5 bg-green-50 border border-green-200 rounded-md"><CheckCircle2 className="mr-1 h-3.5 w-3.5" />Listo para Validar</span>)}</div></div>
                 <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Notas del sistema]</h4>
