@@ -120,7 +120,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   const [isSavingLocally, setIsSavingLocally] = useState(false);
   const [rejectingAction, setRejectingAction] = useState<PlannedAction | null>(null);
   const [isProcessingEmail, setIsProcessingEmail] = useState(false);
-  const [viewingEvidence, setViewingEvidence] = useState<Evidence | null>(null); // State for the single dialog
+  const [viewingEvidence, setViewingEvidence] = useState<Evidence | null>(null); 
 
 
   const uniquePlannedActions = useMemo(() => {
@@ -322,25 +322,26 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
 
                   return (
                     <AccordionItem value={action.id} key={action.id} className="border-b">
-                      <AccordionTrigger className="p-4 hover:no-underline flex justify-between items-center w-full">
-                        <div className="flex items-center text-left flex-grow">
-                          {isReadyForValidationByLeader && status === 'pending' && (
-                            <Info className="h-5 w-5 text-blue-500 mr-3 flex-shrink-0" title="Esta acción tiene información adjunta y está lista para validación." />
-                          )}
-                          <div className="flex-1">
-                            <h4 className="font-semibold">{action.description}</h4>
-                            <p className="text-xs text-muted-foreground">Responsable: {action.responsible} | Límite: {action.dueDate || 'N/A'}</p>
+                      <div className="flex w-full items-center p-4">
+                        <AccordionTrigger className="flex-1 p-0 text-left hover:no-underline [&>svg]:ml-auto">
+                          <div className="flex items-center text-left">
+                            {isReadyForValidationByLeader && status === 'pending' && (
+                              <Info className="h-5 w-5 text-blue-500 mr-3 flex-shrink-0" title="Esta acción tiene información adjunta y está lista para validación." />
+                            )}
+                            <div className="flex-1">
+                              <h4 className="font-semibold">{action.description}</h4>
+                              <p className="text-xs text-muted-foreground">Responsable: {action.responsible} | Límite: {action.dueDate || 'N/A'}</p>
+                            </div>
                           </div>
-                        </div>
-
-                        <div className="flex items-center space-x-2 ml-4 shrink-0 pl-2">
+                        </AccordionTrigger>
+                        <div className="flex items-center space-x-2 ml-4 shrink-0">
                           <span className={cn("text-sm font-medium flex items-center", statusColorClass)}>
                             <StatusIcon className="mr-1.5 h-5 w-5" /> {statusDisplay}
                           </span>
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={(e) => { e.stopPropagation(); handleValidateClick(action.id); }}
+                            onClick={() => handleValidateClick(action.id)}
                             disabled={isStepSaving || status === 'validated' || showNotReadyWarning}
                             className={cn(status === 'validated' ? "bg-green-100 hover:bg-green-200 text-green-700" : "hover:bg-green-50", "transition-colors")}
                             title={showNotReadyWarning ? "Acción no lista para validar" : (status === 'validated' ? "Validado (Click para marcar como pendiente)" : "Marcar como Validado")}
@@ -351,7 +352,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                              <Button
                               variant="outline"
                               size="sm"
-                              onClick={(e) => { e.stopPropagation(); status === 'rejected' ? onToggleValidation(action.id, 'pending') : handleRejectClick(action); }}
+                              onClick={() => { status === 'rejected' ? onToggleValidation(action.id, 'pending') : handleRejectClick(action); }}
                               disabled={isStepSaving}
                               className={cn(status === 'rejected' ? "bg-red-100 hover:bg-red-200 text-red-700" : "hover:bg-red-50", "transition-colors")}
                               title={status === 'rejected' ? "Rechazado (Click para marcar como pendiente)" : "Rechazar esta acción"}
@@ -359,9 +360,8 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                               {status === 'rejected' ? 'Anular Rechazo' : 'Rechazar'}
                             </Button>
                           )}
-                           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 data-[state=open]:rotate-180 ml-2" />
                         </div>
-                      </AccordionTrigger>
+                      </div>
                       <AccordionContent className="p-4 pt-0">
                         <div className="space-y-4 text-xs pl-2 border-l-2 border-primary/30 ml-1">
                           {action.markedAsReadyAt && isValidDate(parseISO(action.markedAsReadyAt)) && (
