@@ -419,8 +419,7 @@ export default function UserActionPlansPage() {
 
         // Recalculate the display status based on the new state.
         const hasComments = newPlanState.userComments && newPlanState.userComments.trim() !== '';
-        if (!!newPlanState.userMarkedReadyDate) {
-          // This case should not be met if markedAsReadyAt was just cleared, but for safety.
+        if (newPlanState.userMarkedReadyDate && (newPlanState.evidencias.length > 0 || hasComments)) {
           newPlanState.estado = 'En Validación';
         } else if (newPlanState.evidencias.length > 0 || hasComments) {
           newPlanState.estado = 'En proceso';
@@ -617,27 +616,7 @@ export default function UserActionPlansPage() {
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[5%] p-2"></TableHead>
-                        <TableHead className="w-[20%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('accionResumen')}>
-                          <div className="flex items-center gap-1">Acción (Resumen) {renderSortIconAssigned('accionResumen')}</div>
-                        </TableHead>
-                        <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('id')}>
-                          <div className="flex items-center gap-1">ID Acción {renderSortIconAssigned('id')}</div>
-                        </TableHead>
-                        <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('estado')}>
-                          <div className="flex items-center gap-1">Estado {renderSortIconAssigned('estado')}</div>
-                        </TableHead>
-                        <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('plazoLimite')}>
-                          <div className="flex items-center gap-1">Plazo Límite {renderSortIconAssigned('plazoLimite')}</div>
-                        </TableHead>
-                        <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('validatorName')}>
-                          <div className="flex items-center gap-1">Validador {renderSortIconAssigned('validatorName')}</div>
-                        </TableHead>
-                        <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('codigoRCA')}>
-                          <div className="flex items-center gap-1">ID RCA {renderSortIconAssigned('codigoRCA')}</div>
-                        </TableHead>
-                      </TableRow>
+                      <TableRow><TableHead className="w-[5%] p-2"></TableHead><TableHead className="w-[20%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('accionResumen')}><div className="flex items-center gap-1">Acción (Resumen) {renderSortIconAssigned('accionResumen')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('id')}><div className="flex items-center gap-1">ID Acción {renderSortIconAssigned('id')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('estado')}><div className="flex items-center gap-1">Estado {renderSortIconAssigned('estado')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('plazoLimite')}><div className="flex items-center gap-1">Plazo Límite {renderSortIconAssigned('plazoLimite')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('validatorName')}><div className="flex items-center gap-1">Validador {renderSortIconAssigned('validatorName')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('codigoRCA')}><div className="flex items-center gap-1">ID RCA {renderSortIconAssigned('codigoRCA')}</div></TableHead></TableRow>
                     </TableHeader>
                     <TableBody>
                       {sortedAssignedActionPlans.map((plan) => (
@@ -647,29 +626,21 @@ export default function UserActionPlansPage() {
                             "cursor-pointer hover:bg-muted/50",
                             selectedPlan?.id === plan.id && selectedPlan?._originalRcaDocId === plan._originalRcaDocId && "bg-accent/50 hover:bg-accent/60"
                           )}
-                        >
-                          <TableCell onClick={(e) => e.stopPropagation()} className="p-2">
+                        ><TableCell onClick={(e) => e.stopPropagation()} className="p-2">
                             <Checkbox
                                 id={`select-plan-${plan.id}`}
                                 checked={selectedPlan?.id === plan.id && selectedPlan?._originalRcaDocId === plan._originalRcaDocId}
                                 onCheckedChange={() => handleSelectPlan(plan)}
                                 aria-label={`Seleccionar plan ${plan.accionResumen}`}
                               />
-                          </TableCell>
-                          <TableCell className="font-medium" onClick={() => handleSelectPlan(plan)}>{plan.accionResumen}</TableCell>
-                          <TableCell className="font-mono text-xs" onClick={() => handleSelectPlan(plan)}>{plan.id.substring(0,15)}{plan.id.length > 15 ? "..." : ""}</TableCell>
-                          <TableCell onClick={() => handleSelectPlan(plan)}>
+                          </TableCell><TableCell className="font-medium" onClick={() => handleSelectPlan(plan)}>{plan.accionResumen}</TableCell><TableCell className="font-mono text-xs" onClick={() => handleSelectPlan(plan)}>{plan.id.substring(0,15)}{plan.id.length > 15 ? "..." : ""}</TableCell><TableCell onClick={() => handleSelectPlan(plan)}>
                             <span className={cn("px-2 py-0.5 rounded-full text-xs font-semibold",
                               plan.estado === 'Pendiente' && 'bg-red-100 text-red-700',
                               plan.estado === 'En proceso' && 'bg-yellow-100 text-yellow-700',
                               plan.estado === 'En Validación' && 'bg-blue-100 text-blue-700',
                               plan.estado === 'Completado' && 'bg-green-100 text-green-700'
                             )}>{plan.estado}</span>
-                          </TableCell>
-                          <TableCell onClick={() => handleSelectPlan(plan)}>{plan.plazoLimite}</TableCell>
-                          <TableCell onClick={() => handleSelectPlan(plan)}>{plan.validatorName || 'N/A'}</TableCell>
-                          <TableCell className="font-mono text-xs" onClick={() => handleSelectPlan(plan)}>{plan.codigoRCA.substring(0, 8)}...</TableCell>
-                        </TableRow>
+                          </TableCell><TableCell onClick={() => handleSelectPlan(plan)}>{plan.plazoLimite}</TableCell><TableCell onClick={() => handleSelectPlan(plan)}>{plan.validatorName || 'N/A'}</TableCell><TableCell className="font-mono text-xs" onClick={() => handleSelectPlan(plan)}>{plan.codigoRCA.substring(0, 8)}...</TableCell></TableRow>
                       ))}
                     </TableBody>
                   </Table>
@@ -741,27 +712,13 @@ export default function UserActionPlansPage() {
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[25%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortValidation('rcaTitle')}><div className="flex items-center gap-1">Evento RCA {renderSortIconValidation('rcaTitle')}</div></TableHead>
-                        <TableHead className="w-[30%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortValidation('actionDescription')}><div className="flex items-center gap-1">Acción {renderSortIconValidation('actionDescription')}</div></TableHead>
-                        <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortValidation('actionResponsible')}><div className="flex items-center gap-1">Responsable Acción {renderSortIconValidation('actionResponsible')}</div></TableHead>
-                        <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortValidation('actionMarkedReadyAt')}><div className="flex items-center gap-1">Fecha Lista {renderSortIconValidation('actionMarkedReadyAt')}</div></TableHead>
-                        <TableHead className="w-[15%] text-right">Acción</TableHead>
-                      </TableRow>
+                      <TableRow><TableHead className="w-[25%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortValidation('rcaTitle')}><div className="flex items-center gap-1">Evento RCA {renderSortIconValidation('rcaTitle')}</div></TableHead><TableHead className="w-[30%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortValidation('actionDescription')}><div className="flex items-center gap-1">Acción {renderSortIconValidation('actionDescription')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortValidation('actionResponsible')}><div className="flex items-center gap-1">Responsable Acción {renderSortIconValidation('actionResponsible')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortValidation('actionMarkedReadyAt')}><div className="flex items-center gap-1">Fecha Lista {renderSortIconValidation('actionMarkedReadyAt')}</div></TableHead><TableHead className="w-[15%] text-right">Acción</TableHead></TableRow>
                     </TableHeader>
                     <TableBody>
                       {sortedValidationActionPlans.map((task) => (
-                        <TableRow key={task.id}>
-                          <TableCell className="font-medium text-sm">{task.rcaTitle}</TableCell>
-                          <TableCell className="text-sm">{task.actionDescription}</TableCell>
-                          <TableCell className="text-sm">{task.actionResponsible}</TableCell>
-                          <TableCell className="text-sm">{task.actionMarkedReadyAt}</TableCell>
-                          <TableCell className="text-right">
-                            <Button variant="outline" size="sm" onClick={() => router.push(`/analisis?id=${task.rcaId}&step=4`)}>
+                        <TableRow key={task.id}><TableCell className="font-medium text-sm">{task.rcaTitle}</TableCell><TableCell className="text-sm">{task.actionDescription}</TableCell><TableCell className="text-sm">{task.actionResponsible}</TableCell><TableCell className="text-sm">{task.actionMarkedReadyAt}</TableCell><TableCell className="text-right"><Button variant="outline" size="sm" onClick={() => router.push(`/analisis?id=${task.rcaId}&step=4`)}>
                               Ir a Validar
-                            </Button>
-                          </TableCell>
-                        </TableRow>
+                            </Button></TableCell></TableRow>
                       ))}
                     </TableBody>
                   </Table>
@@ -789,5 +746,3 @@ export default function UserActionPlansPage() {
     </div>
   );
 }
-
-    

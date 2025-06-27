@@ -795,36 +795,15 @@ export default function DashboardRCAPage() {
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[40%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAnalisis('proyecto')}>
-                    <div className="flex items-center gap-1">Proyecto/Evento {renderSortIconAnalisis('proyecto')}</div>
-                  </TableHead>
-                  <TableHead className="w-[30%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAnalisis('currentStep')}>
-                    <div className="flex items-center gap-1">Paso Actual {renderSortIconAnalisis('currentStep')}</div>
-                  </TableHead>
-                  <TableHead className="w-[30%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAnalisis('progreso')}>
-                    <div className="flex items-center gap-1">Progreso Estimado {renderSortIconAnalisis('progreso')}</div>
-                  </TableHead>
-                </TableRow>
+                <TableRow><TableHead className="w-[40%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAnalisis('proyecto')}><div className="flex items-center gap-1">Proyecto/Evento {renderSortIconAnalisis('proyecto')}</div></TableHead><TableHead className="w-[30%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAnalisis('currentStep')}><div className="flex items-center gap-1">Paso Actual {renderSortIconAnalisis('currentStep')}</div></TableHead><TableHead className="w-[30%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAnalisis('progreso')}><div className="flex items-center gap-1">Progreso Estimado {renderSortIconAnalisis('progreso')}</div></TableHead></TableRow>
               </TableHeader>
               <TableBody>
                 {sortedAnalisisEnCurso.length > 0 ? sortedAnalisisEnCurso.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.proyecto}</TableCell>
-                    <TableCell>Paso {item.currentStep} de 5</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Progress value={item.progreso} className="h-2.5" />
-                        <span className="text-xs text-muted-foreground">{item.progreso}%</span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                  <TableRow key={item.id}><TableCell className="font-medium">{item.proyecto}</TableCell><TableCell>Paso {item.currentStep} de 5</TableCell><TableCell><div className="flex items-center gap-2"><Progress value={item.progreso} className="h-2.5" /><span className="text-xs text-muted-foreground">{item.progreso}%</span></div></TableCell></TableRow>
                 )) : (
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-center text-muted-foreground h-24">
+                  <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground h-24">
                       No hay análisis en curso que coincidan con los filtros o no se pudieron cargar.
-                    </TableCell>
-                  </TableRow>
+                    </TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
@@ -849,50 +828,15 @@ export default function DashboardRCAPage() {
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[15%] text-xs cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('rcaId')}>
-                    <div className="flex items-center gap-1">ID Evento {renderSortIconPlanes('rcaId')}</div>
-                  </TableHead>
-                  <TableHead className="w-[15%] text-xs cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('actionId')}>
-                     <div className="flex items-center gap-1">ID Acción {renderSortIconPlanes('actionId')}</div>
-                  </TableHead>
-                  <TableHead className="w-[25%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('accion')}>
-                    <div className="flex items-center gap-1">Acción (Análisis: <span className="italic text-xs">Título RCA</span>) {renderSortIconPlanes('accion')}</div>
-                  </TableHead>
-                  <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('responsable')}>
-                    <div className="flex items-center gap-1">Responsable {renderSortIconPlanes('responsable')}</div>
-                  </TableHead>
-                  <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('fechaLimite')}>
-                    <div className="flex items-center gap-1">Fecha Límite {renderSortIconPlanes('fechaLimite')}</div>
-                  </TableHead>
-                  <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('estado')}>
-                    <div className="flex items-center gap-1">Estado Acción {renderSortIconPlanes('estado')}</div>
-                  </TableHead>
-                </TableRow>
+                <TableRow><TableHead className="w-[15%] text-xs cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('rcaId')}><div className="flex items-center gap-1">ID Evento {renderSortIconPlanes('rcaId')}</div></TableHead><TableHead className="w-[15%] text-xs cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('actionId')}><div className="flex items-center gap-1">ID Acción {renderSortIconPlanes('actionId')}</div></TableHead><TableHead className="w-[25%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('accion')}><div className="flex items-center gap-1">Acción (Análisis: <span className="italic text-xs">Título RCA</span>) {renderSortIconPlanes('accion')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('responsable')}><div className="flex items-center gap-1">Responsable {renderSortIconPlanes('responsable')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('fechaLimite')}><div className="flex items-center gap-1">Fecha Límite {renderSortIconPlanes('fechaLimite')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('estado')}><div className="flex items-center gap-1">Estado Acción {renderSortIconPlanes('estado')}</div></TableHead></TableRow>
               </TableHeader>
               <TableBody>
                 {sortedPlanesAccionPendientes.length > 0 ? sortedPlanesAccionPendientes.slice(0,5).map((item) => ( // Only show top 5
-                  <TableRow key={`${item.rcaId}-${item.actionId}`}>
-                    <TableCell className="font-mono text-xs">{item.rcaId.substring(0, 8)}...</TableCell>
-                    <TableCell className="font-mono text-xs">{item.actionId.substring(0, 8)}...</TableCell>
-                    <TableCell className="font-medium text-sm">
-                      {item.accion}
-                      <p className="text-xs text-muted-foreground italic mt-0.5">Del Análisis: {item.rcaTitle}</p>
-                    </TableCell>
-                    <TableCell className="text-sm">{item.responsable}</TableCell>
-                    <TableCell className="text-sm">{item.fechaLimite}</TableCell>
-                    <TableCell>
-                       <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">
-                        {item.estado}
-                       </span>
-                    </TableCell>
-                  </TableRow>
+                  <TableRow key={`${item.rcaId}-${item.actionId}`}><TableCell className="font-mono text-xs">{item.rcaId.substring(0, 8)}...</TableCell><TableCell className="font-mono text-xs">{item.actionId.substring(0, 8)}...</TableCell><TableCell className="font-medium text-sm">{item.accion}<p className="text-xs text-muted-foreground italic mt-0.5">Del Análisis: {item.rcaTitle}</p></TableCell><TableCell className="text-sm">{item.responsable}</TableCell><TableCell className="text-sm">{item.fechaLimite}</TableCell><TableCell><span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">{item.estado}</span></TableCell></TableRow>
                 )) : (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
+                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground h-24">
                        No hay planes de acción activos que coincidan con los filtros o no se pudieron cargar.
-                    </TableCell>
-                  </TableRow>
+                    </TableCell></TableRow>
                 )}
               </TableBody>
             </Table>

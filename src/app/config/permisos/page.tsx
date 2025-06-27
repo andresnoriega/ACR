@@ -139,33 +139,16 @@ export default function ConfiguracionPermisosPage() {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[30%]">Usuario</TableHead>
-                    <TableHead className="w-[30%]">Rol (Acceso)</TableHead>
-                    <TableHead className="w-[30%]">Nivel de Permiso (Edición)</TableHead>
-                    <TableHead className="w-[10%] text-right">Acción</TableHead>
-                  </TableRow>
+                  <TableRow><TableHead className="w-[30%]">Usuario</TableHead><TableHead className="w-[30%]">Rol (Acceso)</TableHead><TableHead className="w-[30%]">Nivel de Permiso (Edición)</TableHead><TableHead className="w-[10%] text-right">Acción</TableHead></TableRow>
                 </TableHeader>
                 <TableBody>
                   {userProfiles.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.name}</TableCell>
-                      <TableCell>{getProjectAccessDisplay(user.role)}</TableCell>
-                      <TableCell>{getEditionDisplay(user.permissionLevel)}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(user)} className="hover:text-primary" disabled={isSubmitting}>
-                          <Edit2 className="h-4 w-4" />
-                          <span className="sr-only">Editar Permisos</span>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+                    <TableRow key={user.id}><TableCell className="font-medium">{user.name}</TableCell><TableCell>{getProjectAccessDisplay(user.role)}</TableCell><TableCell>{getEditionDisplay(user.permissionLevel)}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => openEditDialog(user)} className="hover:text-primary" disabled={isSubmitting}><Edit2 className="h-4 w-4" /><span className="sr-only">Editar Permisos</span></Button></TableCell></TableRow>
                   ))}
                   {userProfiles.length === 0 && !isLoading && (
-                      <TableRow>
-                          <TableCell colSpan={4} className="text-center text-muted-foreground h-24">
+                      <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground h-24">
                           No hay usuarios para mostrar. Verifique la sección de 'Configuración de Usuarios'.
-                          </TableCell>
-                      </TableRow>
+                          </TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>

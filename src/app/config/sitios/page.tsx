@@ -605,21 +605,12 @@ export default function ConfiguracionSitiosPage() {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[20%]">Nombre</TableHead>
-                    <TableHead className="w-[20%]">Empresa</TableHead> {/* New column */}
-                    <TableHead className="w-[25%]">Dirección</TableHead>
-                    <TableHead className="w-[15%]">País</TableHead>
-                    <TableHead className="w-[20%] text-right">Acciones</TableHead> {/* Adjusted width */}
-                  </TableRow>
+                  <TableRow><TableHead className="w-[20%]">Nombre</TableHead><TableHead className="w-[20%]">Empresa</TableHead><TableHead className="w-[25%]">Dirección</TableHead><TableHead className="w-[15%]">País</TableHead><TableHead className="w-[20%] text-right">Acciones</TableHead></TableRow>
                 </TableHeader>
                 <TableBody>
                   {sites.length > 0 ? (
                     sites.map((site) => (
-                      <TableRow key={site.id}>
-                        <TableCell className="font-medium">{site.name}</TableCell>
-                        <TableCell>{site.empresa || '-'}</TableCell> {/* Display company */}
-                        <TableCell>
+                      <TableRow key={site.id}><TableCell className="font-medium">{site.name}</TableCell><TableCell>{site.empresa || '-'}</TableCell><TableCell>
                           {site.address ? (
                             <a
                               href={getGoogleMapsLink(site.address)}
@@ -633,9 +624,7 @@ export default function ConfiguracionSitiosPage() {
                           ) : (
                             '-'
                           )}
-                        </TableCell>
-                        <TableCell>{site.country || '-'}</TableCell>
-                        <TableCell className="text-right">
+                        </TableCell><TableCell>{site.country || '-'}</TableCell><TableCell className="text-right">
                           <Button variant="ghost" size="icon" className="mr-2 hover:text-primary" onClick={() => openEditSiteDialog(site)} disabled={isSubmitting}>
                             <Edit2 className="h-4 w-4" />
                             <span className="sr-only">Editar</span>
@@ -644,15 +633,12 @@ export default function ConfiguracionSitiosPage() {
                             <Trash2 className="h-4 w-4" />
                             <span className="sr-only">Eliminar</span>
                           </Button>
-                        </TableCell>
-                      </TableRow>
+                        </TableCell></TableRow>
                     ))
                   ) : (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground h-24"> {/* Increased colSpan */}
+                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground h-24">
                         No hay sitios registrados. Puede añadir uno usando el botón de arriba o importando desde Excel.
-                      </TableCell>
-                    </TableRow>
+                      </TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
