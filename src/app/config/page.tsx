@@ -1,11 +1,10 @@
-
 'use client';
 
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { SettingsIcon, Users, Globe, KeyRound, ShieldCheck, Loader2, DollarSign } from 'lucide-react';
+import { SettingsIcon, Users, Globe, KeyRound, ShieldCheck, Loader2 } from 'lucide-react';
 
 export default function ConfiguracionHubPage() {
   const router = useRouter();
