@@ -29,8 +29,9 @@ export interface IdentifiedRootCause {
 export interface Evidence {
   id: string;
   nombre: string;
-  tipo: 'pdf' | 'jpg' | 'jpeg' | 'png' | 'doc' | 'docx' | 'other'; // Added 'jpeg', 'png', 'doc'
-  comment?: string; // Nuevo campo para comentario de evidencia
+  tipo: 'pdf' | 'jpg' | 'jpeg' | 'png' | 'doc' | 'docx' | 'other' | 'link'; // Added 'link' type
+  comment?: string;
+  url?: string;
 }
 
 export interface PlannedAction {
@@ -156,7 +157,7 @@ export interface FullUserProfile {
 }
 
 // Types for Eventos Reportados page
-export type ReportedEventType = 'Incidente' | 'Fallo de Equipo' | 'Accidente' | 'No Conformidad' | 'Evento Operacional' | '';
+export type ReportedEventType = 'Incidente' | 'Falla de Equipo' | 'Accidente' | 'No Conformidad' | 'Evento Operacional' | '';
 export type ReportedEventStatus = 'Pendiente' | 'En análisis' | 'En validación' | 'Finalizado' | 'Rechazado' | '';
 
 

@@ -13,7 +13,7 @@ import {
  AccordionItem,
  AccordionTrigger,
 } from "@/components/ui/accordion";
-import { ChevronDown, CheckCircle2, Circle, Eye, FileText, ImageIcon, Paperclip, Loader2, Save, MessageSquare, CalendarCheck, History, Info, XCircle, AlertTriangle } from 'lucide-react';
+import { ChevronDown, CheckCircle2, Circle, Eye, FileText, ImageIcon, Paperclip, Loader2, Save, MessageSquare, CalendarCheck, History, Info, XCircle, AlertTriangle, ExternalLink, Link2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
@@ -38,6 +38,7 @@ interface Step4ValidationProps {
 const getEvidenceIconLocal = (tipo?: Evidence['tipo']) => {
   if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
   switch (tipo.toLowerCase()) {
+    case 'link': return <Link2 className="h-4 w-4 mr-2 flex-shrink-0 text-indigo-600" />;
     case 'pdf': return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
     case 'jpg': case 'jpeg': case 'png': case 'gif': return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
     case 'doc': case 'docx': return <Paperclip className="h-4 w-4 mr-2 flex-shrink-0 text-sky-700" />;
@@ -120,7 +121,6 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   const [isSavingLocally, setIsSavingLocally] = useState(false);
   const [rejectingAction, setRejectingAction] = useState<PlannedAction | null>(null);
   const [isProcessingEmail, setIsProcessingEmail] = useState(false);
-  const [viewingEvidence, setViewingEvidence] = useState<Evidence | null>(null); 
 
 
   const uniquePlannedActions = useMemo(() => {
@@ -406,11 +406,22 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                                   <li key={ev.id} className="flex items-center justify-between bg-muted/30 p-1.5 rounded-sm">
                                     <div className="flex items-center">
                                       {getEvidenceIconLocal(ev.tipo)}
-                                      <span className="text-xs">{ev.nombre}</span>
+                                      <div className="flex flex-col">
+                                          <span className="text-xs font-semibold">{ev.nombre}</span>
+                                          {ev.comment && <span className="text-xs italic text-muted-foreground">"{ev.comment}"</span>}
+                                      </div>
                                     </div>
-                                    <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={() => setViewingEvidence(ev)}>
-                                      <Eye className="mr-1 h-3 w-3"/>Ver
-                                    </Button>
+                                    {ev.url ? (
+                                      <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
+                                        <a href={ev.url} target="_blank" rel="noopener noreferrer">
+                                          <ExternalLink className="mr-1 h-3 w-3"/>Ver Evidencia
+                                        </a>
+                                      </Button>
+                                    ) : (
+                                       <Button variant="link" size="sm" className="p-0 h-auto text-xs text-muted-foreground" disabled>
+                                          <Link2 className="mr-1 h-3 w-3"/>No URL
+                                       </Button>
+                                    )}
                                   </li>
                                 ))}
                               </ul>
@@ -458,46 +469,6 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
         />
       )}
 
-      {viewingEvidence && (
-        <Dialog open={!!viewingEvidence} onOpenChange={(isOpen) => { if (!isOpen) setViewingEvidence(null); }}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle className="flex items-center">
-                    {getEvidenceIconLocal(viewingEvidence.tipo)}
-                    Detalles de la Evidencia
-                    </DialogTitle>
-                    <DialogDescription>
-                    Información registrada para la evidencia: {viewingEvidence.nombre || "Nombre no especificado"} ({viewingEvidence.tipo || "Tipo no especificado"}).
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-y-3 py-3 text-sm">
-                    <div>
-                    <Label htmlFor="ev-dialog-name" className="font-semibold text-xs text-muted-foreground">Nombre del Archivo:</Label>
-                    <p id="ev-dialog-name" className="mt-0.5 text-foreground">{viewingEvidence.nombre || "No especificado"}</p>
-                    </div>
-                    <div>
-                    <Label htmlFor="ev-dialog-type" className="font-semibold text-xs text-muted-foreground">Tipo de Archivo:</Label>
-                    <p id="ev-dialog-type" className="mt-0.5 text-foreground">{viewingEvidence.tipo || "No especificado"}</p>
-                    </div>
-                    <div>
-                    <Label htmlFor="ev-dialog-comment" className="font-semibold text-xs text-muted-foreground">Comentario del Usuario:</Label>
-                    <div id="ev-dialog-comment" className="mt-1 p-2 border rounded-md bg-muted/50 text-xs whitespace-pre-wrap overflow-auto max-h-[150px] min-h-[50px] text-foreground">
-                        {(viewingEvidence.comment && viewingEvidence.comment.trim()) ? (
-                        viewingEvidence.comment
-                        ) : (
-                        <span className="italic text-muted-foreground">Sin comentarios adicionales.</span>
-                        )}
-                    </div>
-                    </div>
-                </div>
-                <DialogFooter>
-                    <DialogClose asChild>
-                    <Button type="button" variant="outline">Cerrar</Button>
-                    </DialogClose>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-      )}
     </>
   );
 };
