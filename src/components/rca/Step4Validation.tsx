@@ -13,7 +13,7 @@ import {
  AccordionItem,
  AccordionTrigger,
 } from "@/components/ui/accordion";
-import { ChevronDown, CheckCircle2, Circle, Eye, FileText, ImageIcon, Paperclip, Loader2, Save, MessageSquare, CalendarCheck, History, Info, XCircle, AlertTriangle, ExternalLink, Link2 } from 'lucide-react';
+import { CheckCircle2, Circle, FileText, ImageIcon, Paperclip, Loader2, Save, MessageSquare, CalendarCheck, History, Info, XCircle, AlertTriangle, ExternalLink, Link2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
@@ -122,6 +122,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   const [isSavingLocally, setIsSavingLocally] = useState(false);
   const [rejectingAction, setRejectingAction] = useState<PlannedAction | null>(null);
   const [isProcessingEmail, setIsProcessingEmail] = useState(false);
+  const [evidenceToView, setEvidenceToView] = useState<Evidence | null>(null);
 
 
   const uniquePlannedActions = useMemo(() => {
@@ -270,8 +271,8 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
     onNext();
   };
   
-  const handleViewEvidence = (dataUrl: string | null, fileName: string) => {
-    if (!dataUrl) {
+  const handleViewEvidence = (evidence: Evidence) => {
+    if (!evidence.dataUrl) {
       toast({
         title: 'Error de Datos',
         description: 'La URL de datos para esta evidencia no está disponible o está corrupta.',
@@ -279,28 +280,8 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
       });
       return;
     }
-    try {
-      const newWindow = window.open(dataUrl, '_blank');
-      // This is the key check for a pop-up blocker.
-      // If window.open() is blocked, it returns null.
-      if (newWindow === null) {
-        toast({
-          title: 'Pop-up Bloqueado',
-          description: 'Su navegador ha bloqueado la apertura de una nueva pestaña. Por favor, permita las ventanas emergentes para este sitio en la barra de direcciones y vuelva a intentarlo.',
-          variant: 'destructive',
-          duration: 10000, // Make it last longer
-        });
-      }
-    } catch (error) {
-      console.error("Error al intentar abrir la evidencia:", error);
-      toast({
-        title: 'Error Inesperado',
-        description: 'Hubo un problema al intentar mostrar el archivo. Verifique la consola para más detalles.',
-        variant: 'destructive',
-      });
-    }
+    setEvidenceToView(evidence);
   };
-
 
   const isStepSaving = isSaving || isSavingLocally || isProcessingEmail;
 
@@ -447,7 +428,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                                     <Button
                                       variant="link"
                                       size="sm"
-                                      onClick={() => handleViewEvidence(ev.dataUrl, ev.nombre)}
+                                      onClick={() => handleViewEvidence(ev)}
                                       className="p-0 h-auto text-xs"
                                     >
                                       <ExternalLink className="mr-1 h-3 w-3" />Ver Evidencia
@@ -499,6 +480,37 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
         />
       )}
 
+      {evidenceToView && (
+        <Dialog open={!!evidenceToView} onOpenChange={() => setEvidenceToView(null)}>
+            <DialogContent className="max-w-4xl max-h-[90vh]">
+                <DialogHeader>
+                    <DialogTitle>Vista Previa de Evidencia</DialogTitle>
+                    <DialogDescription>{evidenceToView.nombre}</DialogDescription>
+                </DialogHeader>
+                <div className="flex justify-center items-center h-[70vh] bg-secondary/20 rounded-md">
+                    {(() => {
+                        const type = evidenceToView.tipo?.toLowerCase();
+                        const dataUrl = evidenceToView.dataUrl;
+
+                        if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(type || '')) {
+                            return <img src={dataUrl} alt={evidenceToView.nombre} className="max-w-full max-h-full object-contain" />;
+                        } else if (type === 'pdf') {
+                            return <iframe src={dataUrl} className="w-full h-full" title={evidenceToView.nombre}></iframe>;
+                        } else {
+                            return (
+                                <div className="text-center p-4">
+                                    <p>Vista previa no disponible para este tipo de archivo ({evidenceToView.tipo}).</p>
+                                    <Button asChild className="mt-4">
+                                        <a href={dataUrl} download={evidenceToView.nombre}>Descargar Archivo</a>
+                                    </Button>
+                                </div>
+                            );
+                        }
+                    })()}
+                </div>
+            </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 };
