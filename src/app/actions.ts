@@ -2,9 +2,6 @@
 'use server';
 
 import sgMail from '@sendgrid/mail';
-import { storage } from '@/lib/firebase';
-import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-
 
 interface EmailPayload {
   to: string;
@@ -45,21 +42,15 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
 
   sgMail.setApiKey(apiKey);
 
-  // Logs para depuración
-  console.log(`[sendEmailAction] Debug: payload.to = "${payload.to}", SPECIAL_TEST_ADDRESS = "${SPECIAL_TEST_ADDRESS}"`);
   const isTestAddress = payload.to === SPECIAL_TEST_ADDRESS;
-  console.log(`[sendEmailAction] Debug: payload.to === SPECIAL_TEST_ADDRESS is ${isTestAddress}`);
-
   const recipientEmail = isTestAddress ? senderEmail : payload.to;
-  console.log(`[sendEmailAction] Determined recipientEmail: '${recipientEmail}' (Sender for test if used: '${senderEmail}')`);
-
 
   const msg = {
     to: recipientEmail,
-    from: senderEmail, // Use the environment variable for the 'from' address
+    from: senderEmail,
     subject: payload.subject,
     text: payload.body,
-    html: payload.htmlBody || payload.body, // Fallback to text body if htmlBody is not provided
+    html: payload.htmlBody || payload.body,
   };
 
   console.log(`[sendEmailAction] Attempting to send email via SendGrid to: ${recipientEmail} with subject: "${payload.subject}" from: ${senderEmail}`);
@@ -75,7 +66,6 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
   } catch (error: any) {
     console.error("[sendEmailAction] Error sending email via SendGrid:", error);
     let errorMessage = "Ocurrió un error al enviar el correo.";
-    // Check if error.response.body.errors exists and is an array before mapping
     if (error.response && error.response.body && Array.isArray(error.response.body.errors)) {
       errorMessage = error.response.body.errors.map((e: { message: string }) => e.message).join(', ');
       console.error("[sendEmailAction] SendGrid API Error Details:", JSON.stringify(error.response.body.errors));
@@ -88,51 +78,5 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
       message: `Error al enviar correo: ${errorMessage}`,
       details: payload,
     };
-  }
-}
-
-
-/**
- * Uploads a file to Firebase Storage via a Server Action to bypass client-side CORS issues.
- * @param formData The FormData object containing the file and rcaId.
- * @returns A promise that resolves with the upload result.
- */
-export async function uploadFileAction(formData: FormData): Promise<{ success: boolean; url?: string; error?: string }> {
-  const file = formData.get('file') as File | null;
-  const rcaId = formData.get('rcaId') as string | null;
-
-  if (!file) {
-    return { success: false, error: 'No se encontró ningún archivo para subir.' };
-  }
-  if (!rcaId) {
-    return { success: false, error: 'Falta el ID del RCA para la ruta de almacenamiento.' };
-  }
-
-  try {
-    const fileBuffer = await file.arrayBuffer();
-    const fileRef = storageRef(storage, `evidence/${rcaId}/${Date.now()}-${file.name}`);
-    
-    const snapshot = await uploadBytes(fileRef, fileBuffer, {
-      contentType: file.type
-    });
-    
-    const downloadURL = await getDownloadURL(snapshot.ref);
-
-    return { success: true, url: downloadURL };
-  } catch (error: any) {
-    console.error('[uploadFileAction] Raw error from Firebase Storage:', error);
-    
-    // Provide a clearer, more direct error message, including the original error details from Firebase.
-    let detailedErrorMessage = `Ocurrió un error al subir el archivo. Por favor, verifique la consola del servidor para más detalles. (Código: ${error.code || 'N/A'})`;
-
-    if (error.code === 'storage/unknown') {
-        detailedErrorMessage = `Error de Permisos del Servidor (storage/unknown). Esto casi siempre significa que la cuenta de servicio de App Hosting no tiene el rol 'Administrador de objetos de Storage' en IAM. Por favor, verifique cuidadosamente los permisos en la consola de Google Cloud. Error original: ${error.message}`;
-    } else if (error.code === 'storage/unauthorized') {
-        detailedErrorMessage = `No autorizado (storage/unauthorized). Verifique las reglas de seguridad de Firebase Storage para permitir escrituras. Error original: ${error.message}`;
-    } else {
-        detailedErrorMessage = `Error al subir archivo: ${error.message} (Código: ${error.code || 'N/A'})`;
-    }
-    
-    return { success: false, error: detailedErrorMessage };
   }
 }

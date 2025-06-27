@@ -9,16 +9,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox'; // Import Checkbox
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from "@/hooks/use-toast";
 import { ListTodo, FileText, ImageIcon, Paperclip, UploadCloud, CheckCircle2, Save, Info, MessageSquare, UserCog, Loader2, CalendarCheck, History, Trash2, Mail, ArrowUp, ArrowDown, ChevronsUpDown, UserCircle, FolderKanban, CheckSquare, Link2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { collection, getDocs, doc, updateDoc, query, orderBy } from "firebase/firestore";
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { sendEmailAction, uploadFileAction } from '@/app/actions';
+import { sendEmailAction } from '@/app/actions';
 import { sanitizeForFirestore } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -87,6 +88,7 @@ export default function UserActionPlansPage() {
   const [selectedPlan, setSelectedPlan] = useState<ActionPlan | null>(null);
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
   const [evidenceComment, setEvidenceComment] = useState('');
+  const [uploadProgress, setUploadProgress] = useState(0);
   
   const [sortConfigAssigned, setSortConfigAssigned] = useState<SortConfigAssigned>({ key: 'plazoLimite', direction: 'ascending' });
   const [sortConfigValidation, setSortConfigValidation] = useState<SortConfigValidation>({ key: 'actionMarkedReadyAt', direction: 'descending' });
@@ -316,12 +318,14 @@ export default function UserActionPlansPage() {
     }
     setFileToUpload(null);
     setEvidenceComment('');
+    setUploadProgress(0);
   };
 
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       setFileToUpload(event.target.files[0]);
+      setUploadProgress(0);
     } else {
       setFileToUpload(null);
     }
@@ -424,98 +428,96 @@ export default function UserActionPlansPage() {
       toast({ title: "Evidencia Eliminada", description: `La evidencia ha sido eliminada del plan "${selectedPlan.tituloDetalle}". El estado de la tarea puede haber cambiado.` , variant: 'destructive' });
     }
   };
-
+  
   const handleSignalTaskReadyForValidation = async () => {
     if (!selectedPlan || !userProfile || !userProfile.name) return;
-    if (selectedPlan.estado === 'Completado') {
-      toast({ title: "Acción ya Completada", description: "Esta tarea ya ha sido validada y completada.", variant: "default" });
-      return;
-    }
-
+    
     setIsUpdatingAction(true);
-    const currentDateISO = new Date().toISOString();
-    const formattedCurrentDate = format(parseISO(currentDateISO), 'dd/MM/yyyy HH:mm', { locale: es });
-    let updatesForAction: Partial<FirestorePlannedAction> = { markedAsReadyAt: currentDateISO };
-    let newEvidencesArray = selectedPlan.evidencias || [];
-    let fileUrl = '';
+    setUploadProgress(0);
 
-    if (fileToUpload) {
-      const formData = new FormData();
-      formData.append('file', fileToUpload);
-      formData.append('rcaId', selectedPlan._originalRcaDocId);
+    const processUpdate = async (fileUrl: string | null) => {
+        const currentDateISO = new Date().toISOString();
+        const formattedCurrentDate = format(parseISO(currentDateISO), 'dd/MM/yyyy HH:mm', { locale: es });
+        let updatesForAction: Partial<FirestorePlannedAction> = { markedAsReadyAt: currentDateISO };
+        let newEvidencesArray = selectedPlan.evidencias || [];
 
-      const uploadResult = await uploadFileAction(formData);
+        if (fileUrl && fileToUpload) {
+            const newEvidencePayload: FirestoreEvidence = {
+                id: `ev-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                nombre: fileToUpload.name,
+                tipo: (fileToUpload.type.split('/')[1] as FirestoreEvidence['tipo']) || 'other',
+                url: fileUrl,
+                comment: evidenceComment.trim() || undefined,
+            };
+            newEvidencesArray = [...newEvidencesArray, newEvidencePayload];
+        }
+        updatesForAction.evidencias = newEvidencesArray;
 
-      if (uploadResult.success && uploadResult.url) {
-        fileUrl = uploadResult.url;
-        const newEvidencePayload: FirestoreEvidence = {
-            id: `ev-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-            nombre: fileToUpload.name,
-            tipo: (fileToUpload.type.split('/')[1] as FirestoreEvidence['tipo']) || 'other',
-            url: fileUrl,
-            comment: evidenceComment.trim() || undefined,
-        };
-        newEvidencesArray = [...newEvidencesArray, newEvidencePayload];
-      } else {
-        toast({
-          title: "Error de Carga",
-          description: `No se pudo subir el archivo. ${uploadResult.error || 'Error desconocido.'}`,
-          variant: "destructive",
-        });
-        setIsUpdatingAction(false);
-        return;
-      }
-    }
-    
-    updatesForAction.evidencias = newEvidencesArray;
-
-    let commentsToSave = selectedPlan.userComments || "";
-    if (selectedPlan.userComments && selectedPlan.userComments.trim()) {
-        updatesForAction.userComments = selectedPlan.userComments.trim();
-    }
-    
-    if (updatesForAction.userComments === (selectedPlan.userComments || "")) {
+        let commentsToSave = selectedPlan.userComments || "";
+        if (selectedPlan.userComments && selectedPlan.userComments.trim()) {
+            updatesForAction.userComments = selectedPlan.userComments.trim();
+        }
+        
         if (selectedPlan.estado === 'Pendiente' || selectedPlan.estado === 'En proceso') {
             commentsToSave = (commentsToSave ? commentsToSave + "\n\n" : "") + `[Sistema] Tarea marcada como lista para validación por ${userProfile.name} el ${formattedCurrentDate}.`;
             updatesForAction.userComments = commentsToSave;
         }
-    }
 
+        const updateSuccess = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, updatesForAction);
 
-    const updateSuccess = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, updatesForAction);
-    
-    if (updateSuccess) {
-      let notificationMessage = `La tarea "${selectedPlan.accionResumen || selectedPlan.descripcionDetallada.substring(0,30)+"..."}" se ha actualizado y está lista para validación.`;
-      
-      if (fileToUpload) {
-        setEvidenceComment('');
-        setFileToUpload(null);
-        const fileInput = document.getElementById('evidence-file-input') as HTMLInputElement;
-        if (fileInput) fileInput.value = '';
-      }
-      
-      const validatorProfile = availableUsers.find(u => u.name === selectedPlan.validatorName);
-      if (validatorProfile && validatorProfile.email) {
-        const emailSubject = `Acción Lista para Validación: ${selectedPlan.accionResumen || selectedPlan.descripcionDetallada.substring(0,30)+"..."} (RCA: ${selectedPlan.codigoRCA})`;
-        let evidencesList = "No se adjuntaron evidencias nuevas.";
-        if (newEvidencesArray.length > 0) {
-            evidencesList = newEvidencesArray.map(ev => `- ${ev.nombre} (${ev.tipo || 'desconocido'}): ${ev.url || "Sin URL"}`).join("\n");
+        if (updateSuccess) {
+            let notificationMessage = `La tarea "${selectedPlan.accionResumen || selectedPlan.descripcionDetallada.substring(0,30)+"..."}" se ha actualizado y está lista para validación.`;
+            
+            if (fileToUpload) {
+                setEvidenceComment('');
+                setFileToUpload(null);
+                setUploadProgress(0);
+                const fileInput = document.getElementById('evidence-file-input') as HTMLInputElement;
+                if (fileInput) fileInput.value = '';
+            }
+            
+            const validatorProfile = availableUsers.find(u => u.name === selectedPlan.validatorName);
+            if (validatorProfile && validatorProfile.email) {
+                const emailSubject = `Acción Lista para Validación: ${selectedPlan.accionResumen || selectedPlan.descripcionDetallada.substring(0,30)+"..."} (RCA: ${selectedPlan.codigoRCA})`;
+                const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+                const validationLink = `${baseUrl}/analisis?id=${selectedPlan._originalRcaDocId}&step=4`;
+                const emailBody = `Estimado/a ${validatorProfile.name},\n\nEl usuario ${userProfile.name} ha marcado la siguiente acción como lista para su validación:\n\nEvento RCA: ${selectedPlan.tituloDetalle} (ID: ${selectedPlan.codigoRCA})\nAcción Planificada: ${selectedPlan.descripcionDetallada}\nFecha de Cierre (Usuario): ${formattedCurrentDate}\n\nComentarios del Usuario:\n${updatesForAction.userComments || "Sin comentarios adicionales."}\n\nPor favor, proceda a validar esta acción en el sistema RCA Assistant. Puede acceder directamente mediante el siguiente enlace:\n${validationLink}\n\nSaludos,\nSistema RCA Assistant`;
+                const emailResult = await sendEmailAction({ to: validatorProfile.email, subject: emailSubject, body: emailBody });
+                if (emailResult.success) notificationMessage += ` Se envió una notificación por correo a ${validatorProfile.name}.`;
+                else notificationMessage += ` No se pudo enviar la notificación por correo a ${validatorProfile.name} (${emailResult.message}).`;
+            } else {
+                notificationMessage += ` No se encontró el correo del validador (${selectedPlan.validatorName || 'No asignado'}) para enviar la notificación.`;
+            }
+            toast({ title: "Tarea Lista para Validación", description: notificationMessage, duration: 7000 });
         }
-        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-        const validationLink = `${baseUrl}/analisis?id=${selectedPlan._originalRcaDocId}&step=4`;
-        const emailBody = `Estimado/a ${validatorProfile.name},\n\nEl usuario ${userProfile.name} ha marcado la siguiente acción como lista para su validación:\n\nEvento RCA: ${selectedPlan.tituloDetalle} (ID: ${selectedPlan.codigoRCA})\nAcción Planificada: ${selectedPlan.descripcionDetallada}\nFecha de Cierre (Usuario): ${formattedCurrentDate}\n\nComentarios del Usuario:\n${updatesForAction.userComments || "Sin comentarios adicionales."}\n\nEvidencias Adjuntas:\n${evidencesList}\n\nPor favor, proceda a validar esta acción en el sistema RCA Assistant. Puede acceder directamente mediante el siguiente enlace:\n${validationLink}\n\nSaludos,\nSistema RCA Assistant`;
-        const emailResult = await sendEmailAction({ to: validatorProfile.email, subject: emailSubject, body: emailBody });
-        if (emailResult.success) notificationMessage += ` Se envió una notificación por correo a ${validatorProfile.name}.`;
-        else notificationMessage += ` No se pudo enviar la notificación por correo a ${validatorProfile.name} (${emailResult.message}).`;
-      } else {
-        notificationMessage += ` No se encontró el correo del validador (${selectedPlan.validatorName || 'No asignado'}) para enviar la notificación.`;
-      }
-      toast({ title: "Tarea Lista para Validación", description: notificationMessage, duration: 7000 });
+        setIsUpdatingAction(false);
+    };
+
+    if (fileToUpload) {
+        const storageReference = storageRef(storage, `evidence/${selectedPlan._originalRcaDocId}/${Date.now()}-${fileToUpload.name}`);
+        const uploadTask = uploadBytesResumable(storageReference, fileToUpload);
+
+        uploadTask.on('state_changed',
+            (snapshot) => {
+                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                setUploadProgress(progress);
+            },
+            (error) => {
+                console.error("Upload failed:", error);
+                toast({ title: "Error de Carga", description: `La subida del archivo falló: ${error.message}. Verifique la configuración CORS de su bucket de Firebase Storage.`, variant: "destructive" });
+                setIsUpdatingAction(false);
+                setUploadProgress(0);
+            },
+            async () => {
+                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                await processUpdate(downloadURL);
+            }
+        );
     } else {
-      toast({ title: "Error", description: "No se pudo actualizar la tarea. Intente de nuevo.", variant: "destructive" });
+        await processUpdate(null);
     }
-    setIsUpdatingAction(false);
   };
+
 
   const getEvidenceIcon = (tipo?: FirestoreEvidence['tipo']) => {
     if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
@@ -711,7 +713,8 @@ export default function UserActionPlansPage() {
                     <Label htmlFor="evidence-comment">Comentario para esta evidencia (opcional)</Label>
                     <Input id="evidence-comment" type="text" placeholder="Ej: Foto de la reparación, documento de capacitación..." value={evidenceComment} onChange={(e) => setEvidenceComment(e.target.value)} className="text-xs h-9" disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} />
                   </div>
-                  {fileToUpload && <p className="text-xs text-muted-foreground mt-1">Archivo seleccionado: {fileToUpload.name}</p>}
+                  {uploadProgress > 0 && <div className="mt-2"><Progress value={uploadProgress} className="h-2" /><p className="text-xs text-muted-foreground text-center mt-1">Cargando... {Math.round(uploadProgress)}%</p></div>}
+                  {fileToUpload && uploadProgress === 0 && <p className="text-xs text-muted-foreground mt-1">Archivo seleccionado: {fileToUpload.name}</p>}
                 </div>
                 <div className="pt-2"><div className="flex justify-between items-center mb-1"><h4 className="font-semibold text-primary flex items-center"><MessageSquare className="mr-1.5 h-4 w-4" />[Mis Comentarios Generales para la Tarea]</h4></div>
                   <Textarea value={selectedPlan.userComments || ''} onChange={(e) => setSelectedPlan(prev => prev ? { ...prev, userComments: e.target.value } : null)} placeholder="Añada sus comentarios sobre el progreso o finalización de esta tarea..." rows={3} className="text-sm" disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} /></div>
@@ -719,7 +722,7 @@ export default function UserActionPlansPage() {
                   <div className="flex items-center gap-2">
                      <Button size="sm" variant="default" onClick={handleSignalTaskReadyForValidation} disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || (!fileToUpload && !selectedPlan.userComments)} title={selectedPlan.estado === 'Completado' ? "Esta tarea ya ha sido validada y no puede modificarse." : (!fileToUpload && !selectedPlan.userComments) ? "Debe adjuntar un archivo o agregar un comentario para marcar la tarea como lista." : "Guardar evidencias, comentarios y marcar la tarea como lista para ser validada por el Líder del Proyecto."}>
                       {isUpdatingAction ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />} 
-                      {isUpdatingAction ? `Subiendo...` : 'Marcar como listo para validación'}
+                      {isUpdatingAction ? (uploadProgress > 0 ? `Subiendo... ${Math.round(uploadProgress)}%` : 'Procesando...') : 'Marcar como listo para validación'}
                     </Button>
                     {selectedPlan.userMarkedReadyDate && (<span className="text-xs text-green-600 flex items-center ml-2 p-1.5 bg-green-50 border border-green-200 rounded-md"><CheckCircle2 className="mr-1 h-3.5 w-3.5" />Listo para Validar</span>)}</div></div>
                 <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Notas del sistema]</h4>
