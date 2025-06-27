@@ -35,7 +35,7 @@ export default function RegistroPage() {
     setIsLoading(true);
     try {
       await registerWithEmail(email, password, name);
-      toast({ title: 'Registro Exitoso', description: 'Su cuenta ha sido creada. Por favor, inicie sesión.' });
+      toast({ title: 'Registro Exitoso', description: 'Hemos notificado al Administrador de la aplicación para que active su cuenta.' });
       router.push('/login'); 
     } catch (error: any) {
       console.error("Error en registro:", error);
