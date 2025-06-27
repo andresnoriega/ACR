@@ -411,9 +411,9 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                                           {ev.comment && <span className="text-xs italic text-muted-foreground">"{ev.comment}"</span>}
                                       </div>
                                     </div>
-                                    {ev.url ? (
+                                    {ev.dataUrl ? (
                                       <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
-                                        <a href={ev.url} target="_blank" rel="noopener noreferrer">
+                                        <a href={ev.dataUrl} target="_blank" rel="noopener noreferrer">
                                           <ExternalLink className="mr-1 h-3 w-3"/>Ver Evidencia
                                         </a>
                                       </Button>

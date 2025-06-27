@@ -29,9 +29,9 @@ export interface IdentifiedRootCause {
 export interface Evidence {
   id: string;
   nombre: string;
-  tipo: 'pdf' | 'jpg' | 'jpeg' | 'png' | 'doc' | 'docx' | 'other' | 'link'; // Added 'link' type
+  tipo: 'pdf' | 'jpg' | 'jpeg' | 'png' | 'doc' | 'docx' | 'other' | 'link';
   comment?: string;
-  url?: string;
+  dataUrl: string; // Storing file content as a data URL (Base64)
 }
 
 export interface PlannedAction {
