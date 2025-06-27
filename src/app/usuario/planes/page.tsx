@@ -143,27 +143,26 @@ export default function UserActionPlansPage() {
       if (rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
         rcaDoc.plannedActions.forEach(pa => {
           if (pa.responsible === userProfile.name) {
-            const uniqueKey = pa.id; // Assuming pa.id is unique across all RCAs for assigned tasks
+            const uniqueKey = pa.id;
             if (!uniqueAssignedTracker.has(uniqueKey)) {
               uniqueAssignedTracker.add(uniqueKey);
-              let estado: ActionPlan['estado'] = 'Pendiente';
-              let userMarkedReadyTimestamp: string | undefined = undefined;
-              let validationTimestamp: string | undefined = undefined;
               const validation = rcaDoc.validations?.find(v => v.actionId === pa.id);
-
+              let estado: ActionPlan['estado'] = 'Pendiente';
               const isMarkedReady = pa.markedAsReadyAt && isValidDate(parseISO(pa.markedAsReadyAt));
 
               if (validation?.status === 'validated') {
                 estado = 'Completado';
               } else if (isMarkedReady) {
                 estado = 'En Validación';
-              } else if (pa.userComments && pa.userComments.trim() !== '') {
+              } else if ((pa.evidencias && pa.evidencias.length > 0) || (pa.userComments && pa.userComments.trim() !== '')) {
                 estado = 'En proceso';
               }
 
+              let userMarkedReadyTimestamp: string | undefined = undefined;
               if (pa.markedAsReadyAt && isValidDate(parseISO(pa.markedAsReadyAt))) {
                 userMarkedReadyTimestamp = format(parseISO(pa.markedAsReadyAt), 'dd/MM/yyyy HH:mm', { locale: es });
               }
+              let validationTimestamp: string | undefined = undefined;
               if (validation?.validatedAt && isValidDate(parseISO(validation.validatedAt))) {
                 validationTimestamp = format(parseISO(validation.validatedAt), 'dd/MM/yyyy HH:mm', { locale: es });
               }
@@ -311,7 +310,7 @@ export default function UserActionPlansPage() {
 
   const handleSelectPlan = (plan: ActionPlan) => {
     if (selectedPlan?.id === plan.id && selectedPlan?._originalRcaDocId === plan._originalRcaDocId) {
-      setSelectedPlan(null); // Deselect if already selected
+      setSelectedPlan(null);
     } else {
       setSelectedPlan(plan);
     }
@@ -371,48 +370,7 @@ export default function UserActionPlansPage() {
             : d
         )
       );
-
-      if (selectedPlan && selectedPlan._originalRcaDocId === rcaDocId && selectedPlan._originalActionId === actionId) {
-        const newSelectedPlanDataFirestore = updatedPlannedActions.find(pa => pa.id === actionId);
-        if (newSelectedPlanDataFirestore) {
-          // Re-calculate state for selected plan detail view
-          let newEstado: ActionPlan['estado'] = 'Pendiente';
-          const validation = rcaDocData.validations?.find(v => v.actionId === actionId);
-          
-          const isMarkedReady = newSelectedPlanDataFirestore.markedAsReadyAt && isValidDate(parseISO(newSelectedPlanDataFirestore.markedAsReadyAt));
-
-          if (validation?.status === 'validated') {
-            newEstado = 'Completado';
-          } else if (isMarkedReady) {
-            newEstado = 'En Validación';
-          } else if (newSelectedPlanDataFirestore.userComments && newSelectedPlanDataFirestore.userComments.trim() !== '') {
-            newEstado = 'En proceso';
-          }
-          
-          let userMarkedReadyTimestamp: string | undefined = undefined;
-          if (newSelectedPlanDataFirestore.markedAsReadyAt && isValidDate(parseISO(newSelectedPlanDataFirestore.markedAsReadyAt))) {
-            userMarkedReadyTimestamp = format(parseISO(newSelectedPlanDataFirestore.markedAsReadyAt), 'dd/MM/yyyy HH:mm', { locale: es });
-          }
-          let validationTimestamp: string | undefined = undefined;
-          if (validation?.validatedAt && isValidDate(parseISO(validation.validatedAt))) {
-            validationTimestamp = format(parseISO(validation.validatedAt), 'dd/MM/yyyy HH:mm', { locale: es });
-          }
-
-          setSelectedPlan(prev => prev ? ({
-            ...prev,
-            evidencias: newSelectedPlanDataFirestore.evidencias || [],
-            userComments: newSelectedPlanDataFirestore.userComments || '',
-            estado: newEstado,
-            userMarkedReadyDate: userMarkedReadyTimestamp,
-            validationDate: validationTimestamp,
-            ultimaActualizacion: {
-              usuario: userProfile?.name || "Sistema",
-              mensaje: "Datos actualizados en Firestore.",
-              fechaRelativa: format(new Date(), 'dd/MM/yyyy HH:mm', { locale: es })
-            }
-          }) : null);
-        }
-      }
+      
       return true;
     } catch (error) {
       console.error("Error updating action in Firestore: ", error);
@@ -431,14 +389,13 @@ export default function UserActionPlansPage() {
       evidencias: updatedEvidences,
     };
     
-    // If we've just removed the last piece of evidence, reset the 'marked as ready' timestamp.
     if (updatedEvidences.length === 0) {
-      updates.markedAsReadyAt = ''; // This will clear the timestamp.
+      updates.markedAsReadyAt = '';
     }
 
     const success = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, updates);
     if (success) {
-      toast({ title: "Evidencia Eliminada", description: `La evidencia ha sido eliminada del plan. El estado de la tarea puede haber cambiado.`, variant: 'destructive' });
+      toast({ title: "Evidencia Eliminada", description: `La evidencia ha sido eliminada. El estado de la tarea puede haber cambiado.`, variant: 'destructive' });
     }
   };
   
@@ -485,7 +442,6 @@ export default function UserActionPlansPage() {
 
     let commentsToSave = selectedPlan.userComments || "";
     
-    // Only add the system message if the task was not previously in 'En Validación' state.
     if (selectedPlan.estado !== 'En Validación') {
         const formattedCurrentDate = format(parseISO(currentDateISO), 'dd/MM/yyyy HH:mm', { locale: es });
         commentsToSave = (commentsToSave.trim() ? commentsToSave.trim() + "\n\n" : "") + `[Sistema] Tarea marcada como lista para validación por ${userProfile.name} el ${formattedCurrentDate}.`;
@@ -723,7 +679,7 @@ export default function UserActionPlansPage() {
                   <Textarea value={selectedPlan.userComments || ''} onChange={(e) => setSelectedPlan(prev => prev ? { ...prev, userComments: e.target.value } : null)} placeholder="Añada sus comentarios sobre el progreso o finalización de esta tarea..." rows={3} className="text-sm" disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} /></div>
                 <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Actualizar estado de esta tarea]</h4>
                   <div className="flex items-center gap-2">
-                     <Button size="sm" variant="default" onClick={handleSignalTaskReadyForValidation} disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || (!fileToUpload && !selectedPlan.userComments)} title={selectedPlan.estado === 'Completado' ? "Esta tarea ya ha sido validada y no puede modificarse." : (!fileToUpload && !selectedPlan.userComments) ? "Debe adjuntar un archivo o agregar un comentario para marcar la tarea como lista." : "Guardar evidencias, comentarios y marcar la tarea como lista para ser validada por el Líder del Proyecto."}>
+                     <Button size="sm" variant="default" onClick={handleSignalTaskReadyForValidation} disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || (!fileToUpload && !selectedPlan.userComments && selectedPlan.evidencias.length === 0)} title={selectedPlan.estado === 'Completado' ? "Esta tarea ya ha sido validada y no puede modificarse." : (!fileToUpload && !selectedPlan.userComments && selectedPlan.evidencias.length === 0) ? "Debe adjuntar un archivo o agregar un comentario para marcar la tarea como lista." : "Guardar evidencias, comentarios y marcar la tarea como lista para ser validada por el Líder del Proyecto."}>
                       {isUpdatingAction ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />} 
                       {isUpdatingAction ? 'Procesando...' : 'Marcar como listo para validación'}
                     </Button>
