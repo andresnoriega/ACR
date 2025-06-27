@@ -127,20 +127,9 @@ export default function DashboardRCAPage() {
     try {
       const rcaQueryConstraints: QueryConstraint[] = [];
       
-      if (userProfile && userProfile.role !== 'Super User' && userProfile.empresa) {
-        const companySites = availableSites.filter(site => site.empresa === userProfile.empresa).map(site => site.name);
-        if (companySites.length > 0) {
-          rcaQueryConstraints.push(where("eventData.site", "in", companySites));
-        } else {
-            setActionStatsData({ totalAcciones: 0, accionesPendientes: 0, accionesValidadas: 0 });
-            setRcaSummaryData({ totalRCAs: 0, rcaPendientes: 0, rcaFinalizados: 0, rcaRechazados: 0, rcaCompletionRate: 0 });
-            setAnalisisEnCurso([]);
-            setPlanesAccionPendientes([]);
-            setIsLoadingData(false);
-            return;
-        }
-      }
-
+      // Logic to filter by company was removed here to make the view open for all users.
+      // Super Users will see everything by default.
+      
       if (currentFilters.site && currentFilters.site !== ALL_FILTER_VALUE) {
         rcaQueryConstraints.push(where("eventData.site", "==", currentFilters.site));
       }
@@ -156,6 +145,7 @@ export default function DashboardRCAPage() {
       const rcaSnapshot = await getDocs(rcaQueryInstance);
       
       const reportedEventsRef = collection(db, "reportedEvents");
+      // Query for all events to correctly map status, filtering will happen client-side or on the main query
       const reportedEventsQuery = query(reportedEventsRef); 
       const reportedEventsSnapshot = await getDocs(reportedEventsQuery);
       const reportedEventsMap = new Map<string, ReportedEventStatus>();
@@ -228,14 +218,21 @@ export default function DashboardRCAPage() {
 
       let filteredReportedEventsSnapshot = reportedEventsSnapshot;
       if (rcaQueryConstraints.length > 0) {
-        // We need to re-query reportedEvents with same company filter for an accurate pending count
-        const eventQueryConstraintsForPending: QueryConstraint[] = [];
-        if (userProfile && userProfile.role !== 'Super User' && userProfile.empresa) {
-           const companySites = availableSites.filter(site => site.empresa === userProfile.empresa).map(site => site.name);
-           if (companySites.length > 0) {
-             eventQueryConstraintsForPending.push(where("site", "in", companySites));
+        // If there are filters like site, type, priority, re-query reportedEvents to get an accurate count
+        const eventQueryConstraintsForPending = rcaQueryConstraints.map(c => {
+           // a bit of a hack to translate field names from rcaAnalyses to reportedEvents
+           if (c._field.segments.join('.') === 'eventData.eventType') {
+               return where('type', c._op, c._value);
            }
-        }
+            if (c._field.segments.join('.') === 'eventData.site') {
+               return where('site', c._op, c._value);
+           }
+           if (c._field.segments.join('.') === 'eventData.priority') {
+               return where('priority', c._op, c._value);
+           }
+           return c;
+        });
+
         const pendingEventsQuery = query(reportedEventsRef, ...eventQueryConstraintsForPending);
         filteredReportedEventsSnapshot = await getDocs(pendingEventsQuery);
       }
@@ -268,7 +265,7 @@ export default function DashboardRCAPage() {
       toast({ title: "Error al Cargar Datos del Dashboard", description: (error as Error).message, variant: "destructive" });
     }
     setIsLoadingData(false);
-  }, [toast, userProfile, loadingAuth, availableSites]);
+  }, [toast, userProfile, loadingAuth]);
 
 
   useEffect(() => {
@@ -320,15 +317,9 @@ export default function DashboardRCAPage() {
   const isLoading = isLoadingData || isLoadingSites || loadingAuth;
 
   const sitesForFilter = useMemo(() => {
-    if (!userProfile) return [];
-    if (userProfile.role === 'Super User') {
-        return availableSites.filter(s => s.name && s.name.trim() !== "");
-    }
-    if (userProfile.empresa) {
-        return availableSites.filter(s => s.empresa === userProfile.empresa && s.name && s.name.trim() !== "");
-    }
-    return [];
-  }, [userProfile, availableSites]);
+    // Show all sites for all users as per new requirement
+    return availableSites.filter(s => s.name && s.name.trim() !== "");
+  }, [availableSites]);
 
 
   const actionStatusPieChartData = useMemo(() => {

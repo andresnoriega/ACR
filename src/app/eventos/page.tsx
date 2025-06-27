@@ -85,21 +85,10 @@ export default function EventosReportadosPage() {
     }
 
     try {
-      const eventsQueryConstraints: any[] = [];
-      if (userProfile && userProfile.role !== 'Super User' && userProfile.empresa) {
-        const companySites = availableSites.filter(site => site.empresa === userProfile.empresa).map(site => site.name);
-        if (companySites.length > 0) {
-          eventsQueryConstraints.push(where("site", "in", companySites));
-        } else {
-          setAllEvents([]);
-          setFilteredEvents([]);
-          setIsLoadingData(false);
-          return;
-        }
-      }
-
+      // Logic to filter by company was removed here to make the view open for all users
+      // Super Users will see everything by default.
       const eventsCollectionRef = collection(db, "reportedEvents");
-      const eventsQuery = query(eventsCollectionRef, ...eventsQueryConstraints, orderBy("date", "desc"));
+      const eventsQuery = query(eventsCollectionRef, orderBy("date", "desc"));
       
       const eventsSnapshot = await getDocs(eventsQuery);
       const rawEventsData = eventsSnapshot.docs.map(doc => {
@@ -121,7 +110,7 @@ export default function EventosReportadosPage() {
     } finally {
       setIsLoadingData(false);
     }
-  }, [toast, userProfile, loadingAuth, availableSites]);
+  }, [toast, loadingAuth]);
 
   useEffect(() => {
     const fetchSitesData = async () => {
@@ -339,13 +328,9 @@ export default function EventosReportadosPage() {
   const isLoading = isLoadingData || isLoadingSites || loadingAuth;
 
   const sitesForFilter = useMemo(() => {
-    if (!userProfile) return [];
-    if (userProfile.role === 'Super User') return availableSites;
-    if (userProfile.empresa) {
-      return availableSites.filter(site => site.empresa === userProfile.empresa);
-    }
-    return [];
-  }, [userProfile, availableSites]);
+    // Show all sites for all users as per new requirement
+    return availableSites;
+  }, [availableSites]);
 
 
   if (isLoading) {
