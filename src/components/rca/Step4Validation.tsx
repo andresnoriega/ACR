@@ -45,53 +45,6 @@ const getEvidenceIconLocal = (tipo?: Evidence['tipo']) => {
   }
 };
 
-const ViewEvidenceDialog: FC<{ evidence: Evidence | null; isOpen: boolean; onClose: () => void }> = ({ evidence, isOpen, onClose }) => {
-  if (!isOpen || !evidence) {
-    return null;
-  }
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose} key={evidence.id}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle className="flex items-center">
-            {getEvidenceIconLocal(evidence.tipo)}
-            Detalles de la Evidencia
-          </DialogTitle>
-          <DialogDescription>
-            Información registrada para la evidencia: {evidence.nombre || "Nombre no especificado"} ({evidence.tipo || "Tipo no especificado"}).
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-y-3 py-3 text-sm">
-          <div>
-            <Label htmlFor="ev-dialog-name" className="font-semibold text-xs text-muted-foreground">Nombre del Archivo:</Label>
-            <p id="ev-dialog-name" className="mt-0.5 text-foreground">{evidence.nombre || "No especificado"}</p>
-          </div>
-          <div>
-            <Label htmlFor="ev-dialog-type" className="font-semibold text-xs text-muted-foreground">Tipo de Archivo:</Label>
-            <p id="ev-dialog-type" className="mt-0.5 text-foreground">{evidence.tipo || "No especificado"}</p>
-          </div>
-          <div>
-            <Label htmlFor="ev-dialog-comment" className="font-semibold text-xs text-muted-foreground">Comentario del Usuario:</Label>
-            <div id="ev-dialog-comment" className="mt-1 p-2 border rounded-md bg-muted/50 text-xs whitespace-pre-wrap overflow-auto max-h-[150px] min-h-[50px] text-foreground">
-              {(evidence.comment && evidence.comment.trim()) ? (
-                evidence.comment
-              ) : (
-                <span className="italic text-muted-foreground">Sin comentarios adicionales.</span>
-              )}
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="outline">Cerrar</Button>
-          </DialogClose>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
 const RejectActionDialog: FC<{
   action: PlannedAction;
   isOpen: boolean;
@@ -508,11 +461,48 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
           </div>
         </CardFooter>
       </Card>
-      <ViewEvidenceDialog
-        evidence={viewingEvidence}
-        isOpen={!!viewingEvidence}
-        onClose={() => setViewingEvidence(null)}
-      />
+      
+      <Dialog open={!!viewingEvidence} onOpenChange={() => setViewingEvidence(null)}>
+        {viewingEvidence && (
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center">
+                {getEvidenceIconLocal(viewingEvidence.tipo)}
+                Detalles de la Evidencia
+              </DialogTitle>
+              <DialogDescription>
+                Información registrada para la evidencia: {viewingEvidence.nombre || "Nombre no especificado"} ({viewingEvidence.tipo || "Tipo no especificado"}).
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-y-3 py-3 text-sm">
+              <div>
+                <Label htmlFor="ev-dialog-name" className="font-semibold text-xs text-muted-foreground">Nombre del Archivo:</Label>
+                <p id="ev-dialog-name" className="mt-0.5 text-foreground">{viewingEvidence.nombre || "No especificado"}</p>
+              </div>
+              <div>
+                <Label htmlFor="ev-dialog-type" className="font-semibold text-xs text-muted-foreground">Tipo de Archivo:</Label>
+                <p id="ev-dialog-type" className="mt-0.5 text-foreground">{viewingEvidence.tipo || "No especificado"}</p>
+              </div>
+              <div>
+                <Label htmlFor="ev-dialog-comment" className="font-semibold text-xs text-muted-foreground">Comentario del Usuario:</Label>
+                <div id="ev-dialog-comment" className="mt-1 p-2 border rounded-md bg-muted/50 text-xs whitespace-pre-wrap overflow-auto max-h-[150px] min-h-[50px] text-foreground">
+                  {(viewingEvidence.comment && viewingEvidence.comment.trim()) ? (
+                    viewingEvidence.comment
+                  ) : (
+                    <span className="italic text-muted-foreground">Sin comentarios adicionales.</span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="outline">Cerrar</Button>
+              </DialogClose>
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
+      
       {rejectingAction && (
         <RejectActionDialog
           action={rejectingAction}
