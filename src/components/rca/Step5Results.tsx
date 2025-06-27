@@ -1,8 +1,7 @@
-
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useEffect } from 'react';
-import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile, PreservedFact } from '@/types/rca'; // Added PreservedFact
+import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile, PreservedFact, Site } from '@/types/rca'; // Added PreservedFact
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -17,10 +16,12 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
 import { sendEmailAction } from '@/app/actions';
 import { generateRcaInsights, type GenerateRcaInsightsInput } from '@/ai/flows/generate-rca-insights';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Step5ResultsProps {
   eventId: string;
   eventData: RCAEventData;
+  availableSites: Site[];
   detailedFacts: DetailedFacts;
   analysisDetails: string;
   analysisTechnique: AnalysisTechnique;
@@ -58,6 +59,7 @@ const SectionContent: FC<{ children: React.ReactNode; className?: string }> = ({
 export const Step5Results: FC<Step5ResultsProps> = ({
   eventId,
   eventData,
+  availableSites,
   detailedFacts,
   analysisDetails,
   analysisTechnique,
@@ -78,6 +80,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   isSaving,
 }) => {
   const { toast } = useToast();
+  const { userProfile } = useAuth();
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [selectedUserEmails, setSelectedUserEmails] = useState<string[]>([]);
   const [emailSearchTerm, setEmailSearchTerm] = useState('');
@@ -296,15 +299,29 @@ export const Step5Results: FC<Step5ResultsProps> = ({
 
   const filteredUsers = useMemo(() => {
     if (!availableUsers || !Array.isArray(availableUsers)) return [];
-    return availableUsers.filter(user =>
+
+    let usersToFilter = availableUsers;
+    if (userProfile?.role !== 'Super User') {
+        const siteDetails = availableSites.find(s => s.name === eventData.place);
+        const eventCompany = siteDetails?.empresa;
+        
+        if (eventCompany) {
+            usersToFilter = availableUsers.filter(u => u.empresa === eventCompany);
+        } else {
+            // If event has no company, show users with no company to avoid data leaks
+            usersToFilter = availableUsers.filter(u => !u.empresa);
+        }
+    }
+    
+    return usersToFilter.filter(user =>
       user.name.toLowerCase().includes(emailSearchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(emailSearchTerm.toLowerCase())
+      (user.email && user.email.toLowerCase().includes(emailSearchTerm.toLowerCase()))
     );
-  }, [availableUsers, emailSearchTerm]);
+  }, [availableUsers, availableSites, eventData.place, emailSearchTerm, userProfile]);
 
   const handleSelectAllUsers = (checked: boolean) => {
     if (checked) {
-      setSelectedUserEmails(filteredUsers.map(user => user.email));
+      setSelectedUserEmails(filteredUsers.map(user => user.email).filter(Boolean));
     } else {
       setSelectedUserEmails([]);
     }
@@ -320,7 +337,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
 
   const areAllFilteredUsersSelected = useMemo(() => {
     if (filteredUsers.length === 0) return false;
-    return filteredUsers.every(user => selectedUserEmails.includes(user.email));
+    return filteredUsers.every(user => user.email && selectedUserEmails.includes(user.email));
   }, [filteredUsers, selectedUserEmails]);
 
   const handleFinalize = async () => {
@@ -551,11 +568,14 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                   <div key={user.id} className="flex items-center space-x-2 p-1.5 hover:bg-accent rounded-md">
                     <Checkbox
                       id={`user-email-${user.id}`}
-                      checked={selectedUserEmails.includes(user.email)}
-                      onCheckedChange={(checked) => handleUserSelectionChange(user.email, checked as boolean)}
+                      checked={user.email ? selectedUserEmails.includes(user.email) : false}
+                      onCheckedChange={(checked) => {
+                        if (user.email) handleUserSelectionChange(user.email, checked as boolean);
+                      }}
+                      disabled={!user.email}
                     />
                     <Label htmlFor={`user-email-${user.id}`} className="text-sm cursor-pointer flex-grow">
-                      {user.name} <span className="text-xs text-muted-foreground">({user.email})</span>
+                      {user.name} <span className="text-xs text-muted-foreground">({user.email || 'Sin correo'})</span>
                     </Label>
                   </div>
                 ))

@@ -1,4 +1,3 @@
-
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent } from '@/types/rca';
@@ -1352,6 +1351,8 @@ function RCAAnalysisPageComponent() {
       <div className={step === 2 ? "" : "print:hidden"}>
       {step === 2 && (
         <Step2Facts
+          eventData={eventData}
+          availableSites={availableSitesFromDB}
           projectLeader={projectLeader}
           onProjectLeaderChange={handleProjectLeaderChange}
           availableUsers={availableUsersFromDB}
@@ -1373,6 +1374,7 @@ function RCAAnalysisPageComponent() {
       {step === 3 && (
         <Step3Analysis
           eventData={eventData}
+          availableSites={availableSitesFromDB}
           timelineEvents={timelineEvents}
           onSetTimelineEvents={setTimelineEvents}
           brainstormingIdeas={brainstormingIdeas}
@@ -1426,6 +1428,7 @@ function RCAAnalysisPageComponent() {
         <Step5Results
           eventId={analysisDocumentId || eventData.id}
           eventData={eventData}
+          availableSites={availableSitesFromDB}
           detailedFacts={detailedFacts}
           analysisDetails={analysisDetails}
           analysisTechnique={analysisTechnique}
@@ -1508,4 +1511,3 @@ export default function RCAAnalysisPage() {
     </Suspense>
   );
 }
-

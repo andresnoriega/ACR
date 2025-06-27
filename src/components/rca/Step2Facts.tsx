@@ -1,8 +1,7 @@
-
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect, useMemo } from 'react';
-import type { DetailedFacts, PreservedFact, PreservedFactCategory, FullUserProfile } from '@/types/rca'; 
+import type { DetailedFacts, PreservedFact, PreservedFactCategory, FullUserProfile, RCAEventData, Site } from '@/types/rca'; 
 import { PRESERVED_FACT_CATEGORIES } from '@/types/rca';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -16,8 +15,11 @@ import { Calendar as CalendarIcon, PlusCircle, Trash2, FileText, Paperclip, User
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Step2FactsProps {
+  eventData: RCAEventData;
+  availableSites: Site[];
   projectLeader: string;
   onProjectLeaderChange: (value: string) => void;
   availableUsers: FullUserProfile[]; 
@@ -137,6 +139,8 @@ const PreservedFactDialog: FC<{
 
 
 export const Step2Facts: FC<Step2FactsProps> = ({
+  eventData,
+  availableSites,
   projectLeader,
   onProjectLeaderChange,
   availableUsers,
@@ -155,6 +159,21 @@ export const Step2Facts: FC<Step2FactsProps> = ({
   const [isAddFactDialogOpen, setIsAddFactDialogOpen] = useState(false);
   const { toast } = useToast();
   const [clientSideMaxDateTime, setClientSideMaxDateTime] = useState<string | undefined>(undefined);
+  const { userProfile } = useAuth();
+
+  const usersForDropdown = useMemo(() => {
+    if (userProfile?.role === 'Super User') {
+      return availableUsers;
+    }
+    const siteDetails = availableSites.find(s => s.name === eventData.place);
+    const siteCompany = siteDetails?.empresa;
+
+    if (!siteCompany) {
+      return availableUsers.filter(u => !u.empresa);
+    }
+
+    return availableUsers.filter(u => u.empresa === siteCompany);
+  }, [availableUsers, availableSites, eventData.place, userProfile]);
 
   useEffect(() => {
     const now = new Date();
@@ -252,9 +271,9 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
               <SelectValue placeholder="-- Seleccione un líder --" />
             </SelectTrigger>
             <SelectContent>
-              {availableUsers.length > 0 ? availableUsers.map(user => (
+              {usersForDropdown.length > 0 ? usersForDropdown.map(user => (
                 <SelectItem key={user.id} value={user.name}>{user.name} ({user.role})</SelectItem>
-              )) : <SelectItem value="" disabled>No hay usuarios configurados</SelectItem>}
+              )) : <SelectItem value="" disabled>No hay líderes disponibles para esta empresa</SelectItem>}
             </SelectContent>
           </Select>
         </div>

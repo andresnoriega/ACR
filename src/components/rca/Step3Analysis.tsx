@@ -1,8 +1,7 @@
-
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useCallback, useEffect } from 'react'; 
-import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhysData, RCAEventData, CTMData, IdentifiedRootCause, FullUserProfile, BrainstormIdea, BrainstormIdeaType, TimelineEvent } from '@/types/rca';
+import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhysData, RCAEventData, CTMData, IdentifiedRootCause, FullUserProfile, BrainstormIdea, BrainstormIdeaType, TimelineEvent, Site } from '@/types/rca';
 import { BRAINSTORM_IDEA_TYPES } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -22,6 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { suggestRootCauses, type SuggestRootCausesInput } from '@/ai/flows/suggest-root-causes'; 
 import { Separator } from '@/components/ui/separator';
+import { useAuth } from '@/contexts/AuthContext';
 
 
 // --- NotifyTasksDialog Component ---
@@ -152,6 +152,7 @@ const NotifyTasksDialog: FC<NotifyTasksDialogProps> = ({
 // --- Step3Analysis Component ---
 interface Step3AnalysisProps {
   eventData: RCAEventData;
+  availableSites: Site[];
   timelineEvents: TimelineEvent[]; // Added for timeline
   onSetTimelineEvents: (events: TimelineEvent[]) => void; // Added for timeline
   brainstormingIdeas: BrainstormIdea[];
@@ -187,6 +188,7 @@ interface Step3AnalysisProps {
 
 export const Step3Analysis: FC<Step3AnalysisProps> = ({
   eventData,
+  availableSites,
   timelineEvents, // Destructure timeline props
   onSetTimelineEvents, // Destructure timeline props
   brainstormingIdeas,
@@ -220,6 +222,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   isSaving,
 }) => {
   const { toast } = useToast();
+  const { userProfile } = useAuth();
   const [isNotifyTasksDialogOpen, setIsNotifyTasksDialogOpen] = useState(false);
   const [actionsForNotificationDialog, setActionsForNotificationDialog] = useState<PlannedAction[]>([]);
   
@@ -229,6 +232,18 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const [showAiSuggestionsBox, setShowAiSuggestionsBox] = useState(false);
   const [responsibleSearchTerm, setResponsibleSearchTerm] = useState('');
 
+  const usersForDropdown = useMemo(() => {
+    if (userProfile?.role === 'Super User') {
+      return availableUsers;
+    }
+    const siteDetails = availableSites.find(s => s.name === eventData.place);
+    const siteCompany = siteDetails?.empresa;
+
+    if (!siteCompany) {
+      return availableUsers.filter(u => !u.empresa);
+    }
+    return availableUsers.filter(u => u.empresa === siteCompany);
+  }, [availableUsers, availableSites, eventData.place, userProfile]);
 
   useEffect(() => {
     if (identifiedRootCauses.length === 0) {
@@ -598,7 +613,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     }
   };
 
-  const filteredResponsibles = availableUsers.filter(user =>
+  const filteredResponsibles = usersForDropdown.filter(user =>
     user.name.toLowerCase().includes(responsibleSearchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(responsibleSearchTerm.toLowerCase())
   );

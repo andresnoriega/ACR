@@ -1,4 +1,3 @@
-
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect, useMemo } from 'react'; 
@@ -50,6 +49,7 @@ interface NotifyEventCreationDialogProps {
   eventDescription: string;
   eventSite: string;
   availableUsers: FullUserProfile[];
+  availableSites: Site[];
 }
 
 const NotifyEventCreationDialog: FC<NotifyEventCreationDialogProps> = ({
@@ -59,6 +59,7 @@ const NotifyEventCreationDialog: FC<NotifyEventCreationDialogProps> = ({
   eventDescription,
   eventSite,
   availableUsers,
+  availableSites,
 }) => {
   const { toast } = useToast();
   const [selectedUserEmails, setSelectedUserEmails] = useState<string[]>([]);
@@ -68,8 +69,21 @@ const NotifyEventCreationDialog: FC<NotifyEventCreationDialogProps> = ({
 
   const adminAndSuperUsers = useMemo(() => {
     if (!availableUsers || !Array.isArray(availableUsers)) return [];
-    return availableUsers.filter(user => user.role === 'Admin' || user.role === 'Super User');
-  }, [availableUsers]);
+
+    const siteDetails = availableSites.find(s => s.name === eventSite);
+    const siteCompany = siteDetails?.empresa;
+
+    return availableUsers.filter(user => {
+      if (user.role === 'Super User') return true; // Super Users always get notified
+      if (user.role === 'Admin') {
+        if (siteCompany) {
+          return user.empresa === siteCompany; // Admins of the same company
+        }
+        return !user.empresa; // Admins with no company if site has no company
+      }
+      return false;
+    });
+  }, [availableUsers, availableSites, eventSite]);
 
   const filteredUsersForDialog = useMemo(() => {
     if (!adminAndSuperUsers) return [];
@@ -259,6 +273,20 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     }
     return availableSites;
   }, [availableSites, userProfile]);
+
+  const usersForDropdown = useMemo(() => {
+    if (userProfile?.role === 'Super User') {
+      return availableUsers;
+    }
+    const siteDetails = availableSites.find(s => s.name === eventData.place);
+    const siteCompany = siteDetails?.empresa;
+
+    if (!siteCompany) {
+      return availableUsers.filter(u => !u.empresa);
+    }
+
+    return availableUsers.filter(u => u.empresa === siteCompany);
+  }, [availableUsers, availableSites, eventData.place, userProfile]);
 
   useEffect(() => {
     const getTodayDateString = () => {
@@ -477,12 +505,12 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
                         <SelectValue placeholder="-- Seleccione un responsable --" />
                       </SelectTrigger>
                       <SelectContent>
-                        {availableUsers.length > 0 ? (
-                          availableUsers.map(user => (
+                        {usersForDropdown.length > 0 ? (
+                          usersForDropdown.map(user => (
                             <SelectItem key={user.id} value={user.name}>{user.name} ({user.email})</SelectItem>
                           ))
                         ) : (
-                          <div className="p-2 text-sm text-muted-foreground text-center">No hay usuarios configurados</div>
+                          <div className="p-2 text-sm text-muted-foreground text-center">No hay usuarios para esta empresa</div>
                         )}
                       </SelectContent>
                     </Select>
@@ -570,6 +598,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
           eventDescription={eventDetailsForNotification.description}
           eventSite={eventDetailsForNotification.site}
           availableUsers={availableUsers}
+          availableSites={availableSites}
         />
       )}
     </>
