@@ -109,10 +109,9 @@ export async function uploadFileAction(formData: FormData): Promise<{ success: b
   }
 
   try {
-    const fileBuffer = await file.arrayBuffer(); // This is an ArrayBuffer
+    const fileBuffer = await file.arrayBuffer();
     const fileRef = storageRef(storage, `evidence/${rcaId}/${Date.now()}-${file.name}`);
     
-    // uploadBytes is the correct function for this, it accepts an ArrayBuffer directly.
     const snapshot = await uploadBytes(fileRef, fileBuffer, {
       contentType: file.type
     });
@@ -121,28 +120,19 @@ export async function uploadFileAction(formData: FormData): Promise<{ success: b
 
     return { success: true, url: downloadURL };
   } catch (error: any) {
-    console.error('[uploadFileAction] Error uploading file to Firebase Storage:', error);
+    console.error('[uploadFileAction] Raw error from Firebase Storage:', error);
     
-    let errorMessage = "Ocurrió un error desconocido durante la subida.";
-    if (error.code) {
-        // Provide a more user-friendly message for common errors.
-        switch(error.code) {
-            case 'storage/unknown':
-                errorMessage = "Error de Permisos del Servidor (storage/unknown). La cuenta de servicio de App Hosting probablemente no tiene el rol 'Storage Object Admin' en IAM. Por favor, verifique los permisos en la consola de Google Cloud.";
-                break;
-            case 'storage/unauthorized':
-                errorMessage = "No autorizado. Verifique las reglas de seguridad de Firebase Storage para permitir escrituras desde el servidor.";
-                break;
-            case 'storage/object-not-found':
-                errorMessage = "El objeto no fue encontrado. Esto no debería ocurrir durante una subida.";
-                break;
-            default:
-                errorMessage = `Error de servidor: ${error.code}.`;
-        }
-    } else if (error.message) {
-        errorMessage = error.message;
+    // Provide a clearer, more direct error message, including the original error details from Firebase.
+    let detailedErrorMessage = `Ocurrió un error al subir el archivo. Por favor, verifique la consola del servidor para más detalles. (Código: ${error.code || 'N/A'})`;
+
+    if (error.code === 'storage/unknown') {
+        detailedErrorMessage = `Error de Permisos del Servidor (storage/unknown). Esto casi siempre significa que la cuenta de servicio de App Hosting no tiene el rol 'Administrador de objetos de Storage' en IAM. Por favor, verifique cuidadosamente los permisos en la consola de Google Cloud. Error original: ${error.message}`;
+    } else if (error.code === 'storage/unauthorized') {
+        detailedErrorMessage = `No autorizado (storage/unauthorized). Verifique las reglas de seguridad de Firebase Storage para permitir escrituras. Error original: ${error.message}`;
+    } else {
+        detailedErrorMessage = `Error al subir archivo: ${error.message} (Código: ${error.code || 'N/A'})`;
     }
     
-    return { success: false, error: errorMessage };
+    return { success: false, error: detailedErrorMessage };
   }
 }
