@@ -151,11 +151,11 @@ export default function UserActionPlansPage() {
               let validationTimestamp: string | undefined = undefined;
               const validation = rcaDoc.validations?.find(v => v.actionId === pa.id);
 
-              const isReadyForValidation = (pa.evidencias && pa.evidencias.length > 0) || (pa.markedAsReadyAt && isValidDate(parseISO(pa.markedAsReadyAt)));
+              const isMarkedReady = pa.markedAsReadyAt && isValidDate(parseISO(pa.markedAsReadyAt));
 
               if (validation?.status === 'validated') {
                 estado = 'Completado';
-              } else if (isReadyForValidation) {
+              } else if (isMarkedReady) {
                 estado = 'En Validación';
               } else if (pa.userComments && pa.userComments.trim() !== '') {
                 estado = 'En proceso';
@@ -204,11 +204,9 @@ export default function UserActionPlansPage() {
       if (canCurrentUserValidate && rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
         rcaDoc.plannedActions.forEach(pa => {
           const validation = rcaDoc.validations?.find(v => v.actionId === pa.id);
-          const isReadyForValidation = (pa.evidencias && pa.evidencias.length > 0) || 
-                                       (pa.userComments && pa.userComments.trim() !== '') || 
-                                       pa.markedAsReadyAt;
+          const isMarkedReadyForValidation = pa.markedAsReadyAt && isValidDate(parseISO(pa.markedAsReadyAt));
 
-          if (isReadyForValidation && validation?.status === 'pending') {
+          if (isMarkedReadyForValidation && validation?.status === 'pending') {
             validationTasks.push({
               id: `${rcaDoc.eventData.id}-${pa.id}`,
               rcaId: rcaDoc.eventData.id,
@@ -377,14 +375,15 @@ export default function UserActionPlansPage() {
       if (selectedPlan && selectedPlan._originalRcaDocId === rcaDocId && selectedPlan._originalActionId === actionId) {
         const newSelectedPlanDataFirestore = updatedPlannedActions.find(pa => pa.id === actionId);
         if (newSelectedPlanDataFirestore) {
+          // Re-calculate state for selected plan detail view
           let newEstado: ActionPlan['estado'] = 'Pendiente';
           const validation = rcaDocData.validations?.find(v => v.actionId === actionId);
           
-          const isReadyForValidation = (newSelectedPlanDataFirestore.evidencias && newSelectedPlanDataFirestore.evidencias.length > 0) || (newSelectedPlanDataFirestore.markedAsReadyAt && isValidDate(parseISO(newSelectedPlanDataFirestore.markedAsReadyAt)));
+          const isMarkedReady = newSelectedPlanDataFirestore.markedAsReadyAt && isValidDate(parseISO(newSelectedPlanDataFirestore.markedAsReadyAt));
 
           if (validation?.status === 'validated') {
             newEstado = 'Completado';
-          } else if (isReadyForValidation) {
+          } else if (isMarkedReady) {
             newEstado = 'En Validación';
           } else if (newSelectedPlanDataFirestore.userComments && newSelectedPlanDataFirestore.userComments.trim() !== '') {
             newEstado = 'En proceso';
