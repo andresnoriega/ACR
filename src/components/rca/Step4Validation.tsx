@@ -1,4 +1,3 @@
-
 'use client';
 import * as React from "react";
 import type { FC } from 'react';
@@ -273,11 +272,24 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   
   const handleViewEvidence = (evidence: Evidence) => {
     if (!evidence.dataUrl) {
-      toast({
-        title: 'Error de Datos',
-        description: 'La URL de datos para esta evidencia no está disponible o está corrupta.',
-        variant: 'destructive',
-      });
+      const newWindow = window.open();
+      if (newWindow) {
+        newWindow.document.write(
+          '<html><head><title>Error</title></head><body>' +
+          '<h1>Error de Datos</h1>' +
+          '<p>La URL de datos para esta evidencia no está disponible o está corrupta. ' +
+          'Esto puede suceder si su navegador bloqueó la apertura de la ventana emergente. ' +
+          'Por favor, revise la barra de direcciones por si hay un icono de bloqueo de pop-ups y permita las ventanas emergentes para este sitio.</p>' +
+          '</body></html>'
+        );
+      } else {
+        toast({
+          title: 'Error de Navegador',
+          description: 'Su navegador bloqueó la apertura de la nueva ventana. Por favor, permita las ventanas emergentes para este sitio.',
+          variant: 'destructive',
+          duration: 7000,
+        });
+      }
       return;
     }
     setEvidenceToView(evidence);
@@ -491,12 +503,12 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                     {(() => {
                         const type = evidenceToView.tipo?.toLowerCase();
                         const dataUrl = evidenceToView.dataUrl;
+                        const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(type || '');
 
-                        if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(type || '')) {
+                        if (isImage) {
                             return <img src={dataUrl} alt={evidenceToView.nombre} className="max-w-full max-h-full object-contain" />;
-                        } else if (type === 'pdf') {
-                            return <iframe src={dataUrl} className="w-full h-full" title={evidenceToView.nombre}></iframe>;
                         } else {
+                            // For PDF and any other file type, provide a download button instead of an iframe.
                             return (
                                 <div className="text-center p-4">
                                     <p>Vista previa no disponible para este tipo de archivo ({evidenceToView.tipo}).</p>
