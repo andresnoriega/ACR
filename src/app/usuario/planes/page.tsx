@@ -383,19 +383,53 @@ export default function UserActionPlansPage() {
 
   const handleRemoveEvidence = async (evidenceIdToRemove: string) => {
     if (!selectedPlan) return;
+    setIsUpdatingAction(true);
+
     const updatedEvidences = selectedPlan.evidencias.filter(ev => ev.id !== evidenceIdToRemove);
     
-    const updates: Partial<FirestorePlannedAction> = {
+    const updatesForFirestore: Partial<FirestorePlannedAction> = {
       evidencias: updatedEvidences,
     };
     
+    // If we're removing the last evidence, clear the timestamp.
     if (updatedEvidences.length === 0) {
-      updates.markedAsReadyAt = '';
+      updatesForFirestore.markedAsReadyAt = '';
     }
 
-    const success = await updateActionInFirestore(selectedPlan._originalRcaDocId, selectedPlan._originalActionId, updates);
+    const success = await updateActionInFirestore(
+      selectedPlan._originalRcaDocId, 
+      selectedPlan._originalActionId, 
+      updatesForFirestore
+    );
+    setIsUpdatingAction(false);
+
     if (success) {
       toast({ title: "Evidencia Eliminada", description: `La evidencia ha sido eliminada. El estado de la tarea puede haber cambiado.`, variant: 'destructive' });
+      
+      // Update the local state for the UI to re-render immediately.
+      setSelectedPlan(prevPlan => {
+        if (!prevPlan) return null;
+
+        const newPlanState = { ...prevPlan, evidencias: updatedEvidences };
+
+        // If the timestamp was cleared, update the local state for it.
+        if (updatesForFirestore.markedAsReadyAt === '') {
+          newPlanState.userMarkedReadyDate = undefined;
+        }
+
+        // Recalculate the display status based on the new state.
+        const hasComments = newPlanState.userComments && newPlanState.userComments.trim() !== '';
+        if (!!newPlanState.userMarkedReadyDate) {
+          // This case should not be met if markedAsReadyAt was just cleared, but for safety.
+          newPlanState.estado = 'En Validación';
+        } else if (newPlanState.evidencias.length > 0 || hasComments) {
+          newPlanState.estado = 'En proceso';
+        } else {
+          newPlanState.estado = 'Pendiente';
+        }
+        
+        return newPlanState;
+      });
     }
   };
   
@@ -755,3 +789,5 @@ export default function UserActionPlansPage() {
     </div>
   );
 }
+
+    
