@@ -253,6 +253,13 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   const [eventDetailsForNotification, setEventDetailsForNotification] = useState<{id: string, description: string, site: string} | null>(null);
   const [navigationTaskUrl, setNavigationTaskUrl] = useState<string | null>(null);
   
+  const sitesForDropdown = useMemo(() => {
+    if (userProfile && userProfile.role !== 'Super User' && userProfile.empresa) {
+      return availableSites.filter(site => site.empresa === userProfile.empresa);
+    }
+    return availableSites;
+  }, [availableSites, userProfile]);
+
   useEffect(() => {
     const getTodayDateString = () => {
       const today = new Date();
@@ -385,12 +392,12 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
                 <SelectValue placeholder="-- Seleccione un lugar --" />
               </SelectTrigger>
               <SelectContent>
-                {availableSites.length > 0 ? (
-                  availableSites.map(site => (
+                {sitesForDropdown.length > 0 ? (
+                  sitesForDropdown.map(site => (
                     <SelectItem key={site.id} value={site.name}>{site.name}</SelectItem>
                   ))
                 ) : (
-                  <div className="p-2 text-sm text-muted-foreground text-center">No hay sitios configurados</div>
+                  <div className="p-2 text-sm text-muted-foreground text-center">No hay sitios configurados para su empresa</div>
                 )}
               </SelectContent>
             </Select>

@@ -19,7 +19,7 @@ import type { ReportedEvent, ReportedEventType, ReportedEventStatus, PriorityTyp
 import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, PlayCircle, Info, Loader2, Eye, Fingerprint, FileDown, ArrowUp, ArrowDown, ChevronsUpDown, XCircle, ShieldAlert, HardHat } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, doc, where } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, where, QueryConstraint } from "firebase/firestore";
 import { Input } from '@/components/ui/input';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -79,16 +79,33 @@ export default function EventosReportadosPage() {
   const fetchAllData = useCallback(async () => {
     setIsLoadingData(true);
     
-    if (loadingAuth) {
+    if (loadingAuth || !userProfile) {
         setIsLoadingData(false);
         return;
     }
 
     try {
-      // Logic to filter by company was removed here to make the view open for all users
-      // Super Users will see everything by default.
       const eventsCollectionRef = collection(db, "reportedEvents");
-      const eventsQuery = query(eventsCollectionRef, orderBy("date", "desc"));
+      const queryConstraints: QueryConstraint[] = [orderBy("date", "desc")];
+      
+      // Apply company-based filtering for non-Super Users
+      if (userProfile.role !== 'Super User' && userProfile.empresa) {
+        const companySites = availableSites
+          .filter(site => site.empresa === userProfile.empresa)
+          .map(site => site.name);
+
+        if (companySites.length > 0) {
+          queryConstraints.push(where('site', 'in', companySites));
+        } else {
+          // If the user's company has no sites configured, they will see no events.
+          setAllEvents([]);
+          setFilteredEvents([]);
+          setIsLoadingData(false);
+          return;
+        }
+      }
+      
+      const eventsQuery = query(eventsCollectionRef, ...queryConstraints);
       
       const eventsSnapshot = await getDocs(eventsQuery);
       const rawEventsData = eventsSnapshot.docs.map(doc => {
@@ -110,7 +127,7 @@ export default function EventosReportadosPage() {
     } finally {
       setIsLoadingData(false);
     }
-  }, [toast, loadingAuth]);
+  }, [toast, loadingAuth, userProfile, availableSites]);
 
   useEffect(() => {
     const fetchSitesData = async () => {
@@ -328,9 +345,11 @@ export default function EventosReportadosPage() {
   const isLoading = isLoadingData || isLoadingSites || loadingAuth;
 
   const sitesForFilter = useMemo(() => {
-    // Show all sites for all users as per new requirement
+    if (userProfile && userProfile.role !== 'Super User' && userProfile.empresa) {
+      return availableSites.filter(site => site.empresa === userProfile.empresa);
+    }
     return availableSites;
-  }, [availableSites]);
+  }, [availableSites, userProfile]);
 
 
   if (isLoading) {
