@@ -1,9 +1,8 @@
-
 'use client';
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, BarChart3, FileText, SettingsIcon, UserCheck, ListOrdered, DollarSign, LogOut, LogIn as LogInIcon } from 'lucide-react';
+import { Home, BarChart3, FileText, SettingsIcon, UserCheck, ListOrdered, DollarSign, LogOut, LogIn as LogInIcon, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -17,6 +16,7 @@ const mainMenuItemsBase = [
   { href: '/informes', label: 'Informes', icon: FileText, section: 'informes', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] },
   { href: '/usuario/planes', label: 'Mis Tareas', icon: UserCheck, section: 'usuario', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] },
   { href: '/config', label: 'Config.', icon: SettingsIcon, section: 'config', requiresAuth: true, allowedRoles: ['Super User'] },
+  { href: '/instructivo', label: 'Instructivo', icon: BookOpen, section: 'instructivo', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] },
 ];
 
 export function TopNavigation() {
@@ -101,6 +101,8 @@ export function TopNavigation() {
                   isActive = pathname.startsWith('/config');
               } else if (item.href === '/usuario/planes') {
                   isActive = pathname.startsWith('/usuario');
+              } else if (item.href === '/instructivo') {
+                  isActive = pathname.startsWith('/instructivo');
               } else {
                 isActive = pathname === item.href || pathname.startsWith(item.href + '/');
               }
