@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { db, storage } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, query, orderBy } from "firebase/firestore";
-import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { sendEmailAction } from '@/app/actions';
@@ -24,6 +24,7 @@ import { sanitizeForFirestore } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRouter } from 'next/navigation';
+import { Progress } from '@/components/ui/progress';
 
 interface ActionPlan {
   id: string;
@@ -83,6 +84,7 @@ export default function UserActionPlansPage() {
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [isLoadingActions, setIsLoadingActions] = useState(true);
   const [isUpdatingAction, setIsUpdatingAction] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   const [selectedPlan, setSelectedPlan] = useState<ActionPlan | null>(null);
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
@@ -433,35 +435,60 @@ export default function UserActionPlansPage() {
     }
 
     setIsUpdatingAction(true);
+    setUploadProgress(null);
     const currentDateISO = new Date().toISOString();
     const formattedCurrentDate = format(parseISO(currentDateISO), 'dd/MM/yyyy HH:mm', { locale: es });
     let updatesForAction: Partial<FirestorePlannedAction> = { markedAsReadyAt: currentDateISO };
     let newEvidencesArray = selectedPlan.evidencias || [];
 
     if (fileToUpload) {
-      toast({ title: 'Subiendo evidencia...', description: 'Por favor espere.' });
+      const fileRef = storageRef(storage, `evidence/${selectedPlan._originalRcaDocId}/${Date.now()}-${fileToUpload.name}`);
+      const uploadTask = uploadBytesResumable(fileRef, fileToUpload);
+      
+      let downloadURL: string;
       try {
-          const fileRef = storageRef(storage, `evidence/${selectedPlan._originalRcaDocId}/${Date.now()}-${fileToUpload.name}`);
-          const uploadResult = await uploadBytes(fileRef, fileToUpload);
-          const downloadURL = await getDownloadURL(uploadResult.ref);
+        downloadURL = await new Promise<string>((resolve, reject) => {
+          uploadTask.on('state_changed',
+            (snapshot) => {
+              const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+              setUploadProgress(progress);
+            },
+            (error) => {
+              console.error("Upload error:", error);
+              setUploadProgress(null);
+              reject(error);
+            },
+            async () => {
+              try {
+                const url = await getDownloadURL(uploadTask.snapshot.ref);
+                resolve(url);
+              } catch (getUrlError) {
+                reject(getUrlError);
+              }
+            }
+          );
+        });
 
-          const newEvidencePayload: FirestoreEvidence = {
-              id: `ev-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-              nombre: fileToUpload.name,
-              tipo: (fileToUpload.type.split('/')[1] as FirestoreEvidence['tipo']) || 'other',
-              url: downloadURL,
-              comment: evidenceComment.trim() || undefined,
-              fileSize: fileToUpload.size,
-          };
-          newEvidencesArray = [...newEvidencesArray, newEvidencePayload];
+        const newEvidencePayload: FirestoreEvidence = {
+            id: `ev-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+            nombre: fileToUpload.name,
+            tipo: (fileToUpload.type.split('/')[1] as FirestoreEvidence['tipo']) || 'other',
+            url: downloadURL,
+            comment: evidenceComment.trim() || undefined,
+            fileSize: fileToUpload.size,
+        };
+        newEvidencesArray = [...newEvidencesArray, newEvidencePayload];
+      
       } catch (uploadError) {
           console.error("Error uploading evidence file:", uploadError);
           toast({ title: "Error de Carga", description: "No se pudo subir el archivo de evidencia.", variant: "destructive" });
           setIsUpdatingAction(false);
+          setUploadProgress(null);
           return;
       }
     }
     
+    setUploadProgress(null);
     updatesForAction.evidencias = newEvidencesArray;
 
     let commentsToSave = selectedPlan.userComments || "";
@@ -706,14 +733,23 @@ export default function UserActionPlansPage() {
                     <Label htmlFor="evidence-comment">Comentario para esta evidencia (opcional)</Label>
                     <Input id="evidence-comment" type="text" placeholder="Ej: Foto de la reparación, documento de capacitación..." value={evidenceComment} onChange={(e) => setEvidenceComment(e.target.value)} className="text-xs h-9" disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} />
                   </div>
-                  {fileToUpload && <p className="text-xs text-muted-foreground mt-1">Archivo seleccionado para subir: {fileToUpload.name}</p>}
+                  {uploadProgress !== null && (
+                    <div className="mt-2 space-y-1">
+                      <Label>Progreso de Carga</Label>
+                      <Progress value={uploadProgress} />
+                      <p className="text-xs text-muted-foreground">{Math.round(uploadProgress)}% completado</p>
+                    </div>
+                  )}
+                  {fileToUpload && uploadProgress === null && <p className="text-xs text-muted-foreground mt-1">Archivo seleccionado: {fileToUpload.name}</p>}
                 </div>
                 <div className="pt-2"><div className="flex justify-between items-center mb-1"><h4 className="font-semibold text-primary flex items-center"><MessageSquare className="mr-1.5 h-4 w-4" />[Mis Comentarios Generales para la Tarea]</h4></div>
                   <Textarea value={selectedPlan.userComments || ''} onChange={(e) => setSelectedPlan(prev => prev ? { ...prev, userComments: e.target.value } : null)} placeholder="Añada sus comentarios sobre el progreso o finalización de esta tarea..." rows={3} className="text-sm" disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} /></div>
                 <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Actualizar estado de esta tarea]</h4>
                   <div className="flex items-center gap-2">
                      <Button size="sm" variant="default" onClick={handleSignalTaskReadyForValidation} disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || !fileToUpload} title={selectedPlan.estado === 'Completado' ? "Esta tarea ya ha sido validada y no puede modificarse." : !fileToUpload ? "Debe seleccionar un archivo para adjuntar como evidencia." : "Guardar evidencias, comentarios y marcar la tarea como lista para ser validada por el Líder del Proyecto."}>
-                      {isUpdatingAction ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />} Marcar como listo para validación</Button>
+                      {isUpdatingAction ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />} 
+                      {isUpdatingAction ? `Subiendo...${uploadProgress !== null ? ` (${Math.round(uploadProgress)}%)` : ''}` : 'Marcar como listo para validación'}
+                    </Button>
                     {selectedPlan.userMarkedReadyDate && (<span className="text-xs text-green-600 flex items-center ml-2 p-1.5 bg-green-50 border border-green-200 rounded-md"><CheckCircle2 className="mr-1 h-3.5 w-3.5" />Listo para Validar</span>)}</div></div>
                 <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Notas del sistema]</h4>
                   <div className="text-xs bg-secondary/30 p-2 rounded-md"><p>Última actualización del RCA: {selectedPlan.ultimaActualizacion.fechaRelativa}</p>
