@@ -12,26 +12,25 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Users, PlusCircle, Edit2, Trash2, FileUp, FileDown, Loader2, Building } from 'lucide-react'; // Added Building icon
+import { Users, PlusCircle, Edit2, Trash2, FileUp, FileDown, Loader2, Building } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch } from "firebase/firestore";
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { sanitizeForFirestore } from '@/lib/utils';
+import { sendEmailAction } from '@/app/actions';
 
 interface UserConfigProfile extends FullUserProfile {
   assignedSites?: string;
   emailNotifications: boolean;
-  empresa?: string; // Add empresa here as well if extending FullUserProfile
+  empresa?: string;
 }
 
 const userRoles: FullUserProfile['role'][] = ['Admin', 'Analista', 'Revisor', 'Super User', 'Usuario Pendiente', ''];
 const defaultPermissionLevel: FullUserProfile['permissionLevel'] = 'Lectura';
 
-// Define expected headers for Excel import
 const expectedUserHeaders = ["Nombre Completo", "Correo Electrónico", "Rol", "Empresa", "Sitios Asignados", "Notificaciones Email"];
-
 
 export default function ConfiguracionUsuariosPage() {
   const [users, setUsers] = useState<UserConfigProfile[]>([]);
@@ -48,7 +47,7 @@ export default function ConfiguracionUsuariosPage() {
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userRole, setUserRole] = useState<FullUserProfile['role']>('');
-  const [userEmpresa, setUserEmpresa] = useState(''); // New state for company
+  const [userEmpresa, setUserEmpresa] = useState('');
   const [userAssignedSites, setUserAssignedSites] = useState('');
   const [userEmailNotifications, setUserEmailNotifications] = useState(false);
   
@@ -80,7 +79,7 @@ export default function ConfiguracionUsuariosPage() {
     setUserName('');
     setUserEmail('');
     setUserRole('');
-    setUserEmpresa(''); // Reset company
+    setUserEmpresa('');
     setUserAssignedSites('');
     setUserEmailNotifications(false);
     setCurrentUser(null);
@@ -100,7 +99,7 @@ export default function ConfiguracionUsuariosPage() {
     setUserName(user.name);
     setUserEmail(user.email);
     setUserRole(user.role);
-    setUserEmpresa(user.empresa || ''); // Set company
+    setUserEmpresa(user.empresa || '');
     setUserAssignedSites(user.assignedSites || '');
     setUserEmailNotifications(user.emailNotifications || false); 
     setIsUserDialogOpen(true);
@@ -123,18 +122,42 @@ export default function ConfiguracionUsuariosPage() {
     setIsSubmitting(true);
 
     if (isEditing && currentUser) {
+      const wasPending = currentUser.role === 'Usuario Pendiente';
+      const isNowActive = userRole && userRole !== 'Usuario Pendiente' && userRole !== '';
       const updatedUserData: Partial<UserConfigProfile> = {
         name: userName.trim(),
         email: userEmail.trim(),
         role: userRole,
-        empresa: userEmpresa.trim() || undefined, // Add company
+        empresa: userEmpresa.trim() || undefined,
         assignedSites: userAssignedSites.trim(),
         emailNotifications: userEmailNotifications,
       };
       try {
         const userRef = doc(db, "users", currentUser.id);
         await updateDoc(userRef, sanitizeForFirestore(updatedUserData));
-        toast({ title: "Usuario Actualizado", description: `El usuario "${userName}" ha sido actualizado.` });
+        
+        if (wasPending && isNowActive) {
+            const emailResult = await sendEmailAction({
+                to: userEmail.trim(),
+                subject: "¡Tu cuenta en RCA Assistant ha sido activada!",
+                body: `Hola ${userName.trim()},\n\nTu cuenta en RCA Assistant ha sido aprobada por un administrador. Ya puedes iniciar sesión con tu correo y contraseña.\n\nSaludos,\nEl equipo de RCA Assistant`,
+                htmlBody: `<p>Hola ${userName.trim()},</p><p>Tu cuenta en RCA Assistant ha sido aprobada por un administrador. Ya puedes <strong>iniciar sesión</strong> con tu correo y contraseña.</p><p>Saludos,<br/>El equipo de RCA Assistant</p>`
+            });
+            if (emailResult.success) {
+                toast({
+                    title: "Usuario Actualizado y Notificado",
+                    description: `El usuario "${userName}" fue activado y se le envió un correo de notificación.`,
+                });
+            } else {
+                toast({
+                    title: "Usuario Actualizado con Error de Notificación",
+                    description: `El rol de "${userName}" fue actualizado, pero falló el envío del correo de notificación.`,
+                    variant: "destructive",
+                });
+            }
+        } else {
+            toast({ title: "Usuario Actualizado", description: `El usuario "${userName}" ha sido actualizado.` });
+        }
         fetchUsers(); 
       } catch (error) {
         console.error("Error updating user in Firestore: ", error);
@@ -146,7 +169,7 @@ export default function ConfiguracionUsuariosPage() {
         email: userEmail.trim(),
         role: userRole,
         permissionLevel: userRole === 'Usuario Pendiente' ? '' : defaultPermissionLevel, 
-        empresa: userEmpresa.trim() || undefined, // Add company
+        empresa: userEmpresa.trim() || undefined,
         assignedSites: userAssignedSites.trim(),
         emailNotifications: userEmailNotifications,
       };
@@ -197,7 +220,7 @@ export default function ConfiguracionUsuariosPage() {
       "Nombre Completo": user.name,
       "Correo Electrónico": user.email,
       "Rol": user.role,
-      "Empresa": user.empresa || '', // Export company
+      "Empresa": user.empresa || '',
       "Sitios Asignados": user.assignedSites || '',
       "Notificaciones Email": user.emailNotifications ? "Sí" : "No",
       "Nivel Permiso (Info)": user.permissionLevel,
@@ -206,7 +229,7 @@ export default function ConfiguracionUsuariosPage() {
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Usuarios");
-    worksheet['!cols'] = [ { wch: 25 }, { wch: 30 }, { wch: 15 }, { wch: 25 }, { wch: 30 }, { wch: 20 }, {wch: 20} ]; // Adjust widths
+    worksheet['!cols'] = [ { wch: 25 }, { wch: 30 }, { wch: 15 }, { wch: 25 }, { wch: 30 }, { wch: 20 }, {wch: 20} ];
     
     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
     const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
@@ -240,7 +263,7 @@ export default function ConfiguracionUsuariosPage() {
         }
         
         const headers = XLSX.utils.sheet_to_json(worksheet, { header: 1 })[0] as string[];
-        const requiredHeaders = ["Nombre Completo", "Correo Electrónico", "Rol"]; // Empresa is optional for import
+        const requiredHeaders = ["Nombre Completo", "Correo Electrónico", "Rol"];
         const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
         if (missingHeaders.length > 0) {
             toast({ title: "Cabeceras Faltantes", description: `Faltan cabeceras obligatorias: ${missingHeaders.join(', ')}. Por favor, use la plantilla correcta.`, variant: "destructive", duration: 7000 });
@@ -277,7 +300,7 @@ export default function ConfiguracionUsuariosPage() {
             email,
             role,
             permissionLevel: role === 'Usuario Pendiente' ? '' : defaultPermissionLevel,
-            empresa: row["Empresa"]?.trim() || undefined, // Import company
+            empresa: row["Empresa"]?.trim() || undefined,
             assignedSites: row["Sitios Asignados"]?.trim() || '',
             emailNotifications: (row["Notificaciones Email"]?.toLowerCase() === 'sí' || row["Notificaciones Email"]?.toLowerCase() === 'si'),
           };
@@ -312,7 +335,6 @@ export default function ConfiguracionUsuariosPage() {
     reader.readAsArrayBuffer(file);
   };
 
-
   return (
     <div className="space-y-8 py-8">
       <input 
@@ -334,7 +356,7 @@ export default function ConfiguracionUsuariosPage() {
         </p>
       </header>
 
-      <Card className="max-w-6xl mx-auto shadow-lg"> {/* Increased max-width for new column */}
+      <Card className="max-w-6xl mx-auto shadow-lg">
         <CardHeader>
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
@@ -430,42 +452,15 @@ export default function ConfiguracionUsuariosPage() {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>{/*
-                  */}<TableHead className="w-[25%]">Nombre</TableHead>{/*
-                  */}<TableHead className="w-[25%]">Correo Electrónico</TableHead>{/*
-                  */}<TableHead className="w-[15%]">Rol</TableHead>{/*
-                  */}<TableHead className="w-[15%]">Empresa</TableHead>{/*
-                  */}<TableHead className="w-[10%]">Notif. Email</TableHead>{/*
-                  */}<TableHead className="w-[10%] text-right">Acciones</TableHead>{/*
-                */}</TableRow>
+                  <TableRow><TableHead className="w-[25%]">Nombre</TableHead><TableHead className="w-[25%]">Correo Electrónico</TableHead><TableHead className="w-[15%]">Rol</TableHead><TableHead className="w-[15%]">Empresa</TableHead><TableHead className="w-[10%]">Notif. Email</TableHead><TableHead className="w-[10%] text-right">Acciones</TableHead></TableRow>
                 </TableHeader>
                 <TableBody>
                   {users.length > 0 ? (
                     users.map((user) => (
-                      <TableRow key={user.id}>{/*
-                      */}<TableCell className="font-medium">{user.name}</TableCell>{/*
-                      */}<TableCell>{user.email}</TableCell>{/*
-                      */}<TableCell>{user.role || 'N/A'}</TableCell>{/*
-                      */}<TableCell>{user.empresa || '-'}</TableCell>{/*
-                      */}<TableCell>{user.emailNotifications ? 'Sí' : 'No'}</TableCell>{/*
-                      */}<TableCell className="text-right">{/*
-                        */}<Button variant="ghost" size="icon" className="mr-2 hover:text-primary" onClick={() => openEditUserDialog(user)} disabled={isSubmitting}>{/*
-                          */}<Edit2 className="h-4 w-4" />{/*
-                          */}<span className="sr-only">Editar</span>{/*
-                        */}</Button>{/*
-                        */}<Button variant="ghost" size="icon" className="hover:text-destructive" onClick={() => openDeleteDialog(user)} disabled={isSubmitting}>{/*
-                          */}<Trash2 className="h-4 w-4" />{/*
-                          */}<span className="sr-only">Eliminar</span>{/*
-                        */}</Button>{/*
-                      */}</TableCell>{/*
-                    */}</TableRow>
+                      <TableRow key={user.id}><TableCell className="font-medium">{user.name}</TableCell><TableCell>{user.email}</TableCell><TableCell>{user.role || 'N/A'}</TableCell><TableCell>{user.empresa || '-'}</TableCell><TableCell>{user.emailNotifications ? 'Sí' : 'No'}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" className="mr-2 hover:text-primary" onClick={() => openEditUserDialog(user)} disabled={isSubmitting}><Edit2 className="h-4 w-4" /><span className="sr-only">Editar</span></Button><Button variant="ghost" size="icon" className="hover:text-destructive" onClick={() => openDeleteDialog(user)} disabled={isSubmitting}><Trash2 className="h-4 w-4" /><span className="sr-only">Eliminar</span></Button></TableCell></TableRow>
                     ))
                   ) : (
-                    <TableRow>{/*
-                      */}<TableCell colSpan={6} className="text-center text-muted-foreground h-24">{/*
-                        */}No hay perfiles de usuario registrados. Puede añadir uno usando el botón de arriba o importando desde Excel.{/*
-                      */}</TableCell>{/*
-                    */}</TableRow>
+                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground h-24">No hay perfiles de usuario registrados. Puede añadir uno usando el botón de arriba o importando desde Excel.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -494,4 +489,3 @@ export default function ConfiguracionUsuariosPage() {
     </div>
   );
 }
-
