@@ -151,18 +151,21 @@ export default function UserActionPlansPage() {
               let validationTimestamp: string | undefined = undefined;
               const validation = rcaDoc.validations?.find(v => v.actionId === pa.id);
 
+              const isReadyForValidation = (pa.evidencias && pa.evidencias.length > 0) || (pa.markedAsReadyAt && isValidDate(parseISO(pa.markedAsReadyAt)));
+
               if (validation?.status === 'validated') {
                 estado = 'Completado';
-                if (validation.validatedAt && isValidDate(parseISO(validation.validatedAt))) {
-                  validationTimestamp = format(parseISO(validation.validatedAt), 'dd/MM/yyyy HH:mm', { locale: es });
-                }
-              } else if (pa.evidencias && pa.evidencias.length > 0) {
+              } else if (isReadyForValidation) {
                 estado = 'En Validación';
-              } else if ((pa.userComments && pa.userComments.trim() !== '') || pa.markedAsReadyAt) {
+              } else if (pa.userComments && pa.userComments.trim() !== '') {
                 estado = 'En proceso';
               }
+
               if (pa.markedAsReadyAt && isValidDate(parseISO(pa.markedAsReadyAt))) {
                 userMarkedReadyTimestamp = format(parseISO(pa.markedAsReadyAt), 'dd/MM/yyyy HH:mm', { locale: es });
+              }
+              if (validation?.validatedAt && isValidDate(parseISO(validation.validatedAt))) {
+                validationTimestamp = format(parseISO(validation.validatedAt), 'dd/MM/yyyy HH:mm', { locale: es });
               }
 
               assignedPlans.push({
@@ -376,9 +379,16 @@ export default function UserActionPlansPage() {
         if (newSelectedPlanDataFirestore) {
           let newEstado: ActionPlan['estado'] = 'Pendiente';
           const validation = rcaDocData.validations?.find(v => v.actionId === actionId);
-          if (validation?.status === 'validated') newEstado = 'Completado';
-          else if (newSelectedPlanDataFirestore.evidencias && newSelectedPlanDataFirestore.evidencias.length > 0) newEstado = 'En Validación';
-          else if ((newSelectedPlanDataFirestore.userComments && newSelectedPlanDataFirestore.userComments.trim() !== '') || newSelectedPlanDataFirestore.markedAsReadyAt) newEstado = 'En proceso';
+          
+          const isReadyForValidation = (newSelectedPlanDataFirestore.evidencias && newSelectedPlanDataFirestore.evidencias.length > 0) || (newSelectedPlanDataFirestore.markedAsReadyAt && isValidDate(parseISO(newSelectedPlanDataFirestore.markedAsReadyAt)));
+
+          if (validation?.status === 'validated') {
+            newEstado = 'Completado';
+          } else if (isReadyForValidation) {
+            newEstado = 'En Validación';
+          } else if (newSelectedPlanDataFirestore.userComments && newSelectedPlanDataFirestore.userComments.trim() !== '') {
+            newEstado = 'En proceso';
+          }
           
           let userMarkedReadyTimestamp: string | undefined = undefined;
           if (newSelectedPlanDataFirestore.markedAsReadyAt && isValidDate(parseISO(newSelectedPlanDataFirestore.markedAsReadyAt))) {
@@ -476,8 +486,8 @@ export default function UserActionPlansPage() {
 
     let commentsToSave = selectedPlan.userComments || "";
     
-    // Only add the system message if the task was not previously marked as ready.
-    if (!selectedPlan.userMarkedReadyDate) {
+    // Only add the system message if the task was not previously in 'En Validación' state.
+    if (selectedPlan.estado !== 'En Validación') {
         const formattedCurrentDate = format(parseISO(currentDateISO), 'dd/MM/yyyy HH:mm', { locale: es });
         commentsToSave = (commentsToSave.trim() ? commentsToSave.trim() + "\n\n" : "") + `[Sistema] Tarea marcada como lista para validación por ${userProfile.name} el ${formattedCurrentDate}.`;
     }
@@ -692,7 +702,7 @@ export default function UserActionPlansPage() {
                 <div><Label className="font-semibold">Validador Asignado:</Label> <p>{selectedPlan.validatorName || 'No asignado'}</p></div>
                 <div><Label className="font-semibold">Estado Actual:</Label> <p>{selectedPlan.estado}</p></div>
                 <div><Label className="font-semibold">Plazo límite:</Label> <p>{selectedPlan.plazoLimite}</p></div>
-                {selectedPlan.userMarkedReadyDate && (<div><Label className="font-semibold flex items-center"><History className="mr-1.5 h-4 w-4 text-blue-600" />Marcado como Listo el:</Label><p className="text-blue-700">{selectedPlan.userMarkedReadyDate}</p></div>)}
+                {selectedPlan.userMarkedReadyDate && (selectedPlan.estado === 'En Validación' || selectedPlan.estado === 'Completado') && (<div><Label className="font-semibold flex items-center"><History className="mr-1.5 h-4 w-4 text-blue-600" />Marcado como Listo el:</Label><p className="text-blue-700">{selectedPlan.userMarkedReadyDate}</p></div>)}
                 {selectedPlan.estado === 'Completado' && selectedPlan.validationDate && (<div><Label className="font-semibold flex items-center"><CalendarCheck className="mr-1.5 h-4 w-4 text-green-600" />Fecha de Validación Final:</Label><p className="text-green-700">{selectedPlan.validationDate}</p></div>)}
                 <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Evidencias Adjuntas]</h4>
                   {selectedPlan.evidencias.length > 0 ? (<ul className="space-y-1.5">
@@ -718,7 +728,7 @@ export default function UserActionPlansPage() {
                       {isUpdatingAction ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />} 
                       {isUpdatingAction ? 'Procesando...' : 'Marcar como listo para validación'}
                     </Button>
-                    {selectedPlan.userMarkedReadyDate && (<span className="text-xs text-green-600 flex items-center ml-2 p-1.5 bg-green-50 border border-green-200 rounded-md"><CheckCircle2 className="mr-1 h-3.5 w-3.5" />Listo para Validar</span>)}</div></div>
+                    {selectedPlan.estado === 'En Validación' && (<span className="text-xs text-green-600 flex items-center ml-2 p-1.5 bg-green-50 border border-green-200 rounded-md"><CheckCircle2 className="mr-1 h-3.5 w-3.5" />Listo para Validar</span>)}</div></div>
                 <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Notas del sistema]</h4>
                   <div className="text-xs bg-secondary/30 p-2 rounded-md"><p>Última actualización del RCA: {selectedPlan.ultimaActualizacion.fechaRelativa}</p>
                     {selectedPlan.estado === 'Completado' && <p className="text-green-600 font-medium">Esta acción ha sido validada y marcada como completada en el análisis RCA.</p>}</div></div>
