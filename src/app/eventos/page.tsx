@@ -19,10 +19,11 @@ import type { ReportedEvent, ReportedEventType, ReportedEventStatus, PriorityTyp
 import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, PlayCircle, Info, Loader2, Eye, Fingerprint, FileDown, ArrowUp, ArrowDown, ChevronsUpDown, XCircle, ShieldAlert, HardHat } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, where } from "firebase/firestore";
 import { Input } from '@/components/ui/input';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import { useAuth } from '@/contexts/AuthContext';
 
 const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Falla de Equipo', 'Accidente', 'No Conformidad', 'Evento Operacional'];
 const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
@@ -51,9 +52,9 @@ interface SortConfigReportedEvent {
 export default function EventosReportadosPage() {
   const { toast } = useToast();
   const router = useRouter();
+  const { userProfile, loadingAuth } = useAuth();
   
   const [allEvents, setAllEvents] = useState<ReportedEvent[]>([]);
-  const [allRcaAnalyses, setAllRcaAnalyses] = useState<RCAAnalysisDocument[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<ReportedEvent[]>([]);
   const [availableSites, setAvailableSites] = useState<Site[]>([]);
   
@@ -77,10 +78,29 @@ export default function EventosReportadosPage() {
 
   const fetchAllData = useCallback(async () => {
     setIsLoadingData(true);
+    
+    if (loadingAuth) {
+        setIsLoadingData(false);
+        return;
+    }
+
     try {
+      const eventsQueryConstraints: any[] = [];
+      if (userProfile && userProfile.role !== 'Super User' && userProfile.empresa) {
+        const companySites = availableSites.filter(site => site.empresa === userProfile.empresa).map(site => site.name);
+        if (companySites.length > 0) {
+          eventsQueryConstraints.push(where("site", "in", companySites));
+        } else {
+          setAllEvents([]);
+          setFilteredEvents([]);
+          setIsLoadingData(false);
+          return;
+        }
+      }
+
       const eventsCollectionRef = collection(db, "reportedEvents");
-      // Initial sort from Firestore by date descending
-      const eventsQuery = query(eventsCollectionRef, orderBy("date", "desc")); 
+      const eventsQuery = query(eventsCollectionRef, ...eventsQueryConstraints, orderBy("date", "desc"));
+      
       const eventsSnapshot = await getDocs(eventsQuery);
       const rawEventsData = eventsSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -91,43 +111,17 @@ export default function EventosReportadosPage() {
         return { id: doc.id, ...data, date: eventDate } as ReportedEvent;
       });
 
-      const rcaAnalysesCollectionRef = collection(db, "rcaAnalyses");
-      const rcaQuery = query(rcaAnalysesCollectionRef); 
-      const rcaSnapshot = await getDocs(rcaQuery);
-      const rcaAnalysesData = rcaSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as RCAAnalysisDocument));
-      setAllRcaAnalyses(rcaAnalysesData); 
-
-      const processedEvents = rawEventsData.map(event => {
-        let derivedStatus = event.status; 
-        if (event.status !== 'Finalizado' && event.status !== 'Rechazado') { // Added 'Rechazado'
-          const rcaDoc = rcaAnalysesData.find(rca => rca.eventData.id === event.id);
-          if (rcaDoc && Array.isArray(rcaDoc.plannedActions) && rcaDoc.plannedActions.length > 0) {
-            const rcaValidations = rcaDoc.validations || []; 
-            const allActionsAreTrulyValidated = rcaDoc.plannedActions.every(pa => {
-                if (!pa || !pa.id) return false;
-                const validation = rcaValidations.find(v => v && v.actionId === pa.id); 
-                return validation && validation.status === 'validated';
-            });
-            if (allActionsAreTrulyValidated) {
-              derivedStatus = 'En validación'; 
-            }
-          }
-        } 
-        return { ...event, status: derivedStatus };
-      });
-
-      setAllEvents(processedEvents);
-      setFilteredEvents(processedEvents); 
+      setAllEvents(rawEventsData);
+      setFilteredEvents(rawEventsData); 
     } catch (error) {
       console.error("Error fetching data: ", error);
-      toast({ title: "Error al Cargar Datos", description: "No se pudieron cargar los eventos o análisis desde Firestore.", variant: "destructive" });
+      toast({ title: "Error al Cargar Datos", description: "No se pudieron cargar los eventos desde Firestore.", variant: "destructive" });
       setAllEvents([]);
       setFilteredEvents([]);
-      setAllRcaAnalyses([]);
     } finally {
       setIsLoadingData(false);
     }
-  }, [toast]);
+  }, [toast, userProfile, loadingAuth, availableSites]);
 
   useEffect(() => {
     const fetchSitesData = async () => {
@@ -147,9 +141,14 @@ export default function EventosReportadosPage() {
       }
     };
 
-    fetchAllData();
     fetchSitesData();
-  }, [fetchAllData, toast]);
+  }, [toast]);
+
+  useEffect(() => {
+    if (!loadingAuth && !isLoadingSites) {
+      fetchAllData();
+    }
+  }, [loadingAuth, isLoadingSites, fetchAllData]);
 
 
   const summaryData = useMemo(() => ({
@@ -337,7 +336,17 @@ export default function EventosReportadosPage() {
     return <ChevronsUpDown className="h-3 w-3 opacity-30" />;
   };
 
-  const isLoading = isLoadingData || isLoadingSites;
+  const isLoading = isLoadingData || isLoadingSites || loadingAuth;
+
+  const sitesForFilter = useMemo(() => {
+    if (!userProfile) return [];
+    if (userProfile.role === 'Super User') return availableSites;
+    if (userProfile.empresa) {
+      return availableSites.filter(site => site.empresa === userProfile.empresa);
+    }
+    return [];
+  }, [userProfile, availableSites]);
+
 
   if (isLoading) {
     return (
@@ -429,8 +438,8 @@ export default function EventosReportadosPage() {
               <SelectTrigger id="filter-site"><SelectValue placeholder="Todos los sitios" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL_FILTER_VALUE}>Todos los sitios</SelectItem>
-                {availableSites.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
-                 {availableSites.length === 0 && <SelectItem value="" disabled>No hay sitios configurados</SelectItem>}
+                {sitesForFilter.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                 {sitesForFilter.length === 0 && <SelectItem value="" disabled>No hay sitios para mostrar</SelectItem>}
               </SelectContent>
             </Select>
           </div>

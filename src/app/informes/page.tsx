@@ -26,6 +26,7 @@ import {
 } from 'recharts';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import { useAuth } from '@/contexts/AuthContext';
 
 
 const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Falla de Equipo', 'Accidente', 'No Conformidad', 'Evento Operacional'];
@@ -86,6 +87,7 @@ interface SortConfigPlanesAccion {
 export default function DashboardRCAPage() {
   const { toast } = useToast();
   const router = useRouter(); 
+  const { userProfile, loadingAuth } = useAuth();
 
   const [actionStatsData, setActionStatsData] = useState<ActionStatsData | null>(null);
   const [rcaSummaryData, setRcaSummaryData] = useState<RCASummaryData | null>(null);
@@ -108,6 +110,10 @@ export default function DashboardRCAPage() {
 
   const fetchAllDashboardData = useCallback(async (currentFilters: DashboardFilters) => {
     setIsLoadingData(true);
+    if (loadingAuth) {
+      setIsLoadingData(false);
+      return;
+    }
 
     let totalAccionesGlobal = 0;
     let accionesPendientesGlobal = 0;
@@ -120,6 +126,21 @@ export default function DashboardRCAPage() {
 
     try {
       const rcaQueryConstraints: QueryConstraint[] = [];
+      
+      if (userProfile && userProfile.role !== 'Super User' && userProfile.empresa) {
+        const companySites = availableSites.filter(site => site.empresa === userProfile.empresa).map(site => site.name);
+        if (companySites.length > 0) {
+          rcaQueryConstraints.push(where("eventData.site", "in", companySites));
+        } else {
+            setActionStatsData({ totalAcciones: 0, accionesPendientes: 0, accionesValidadas: 0 });
+            setRcaSummaryData({ totalRCAs: 0, rcaPendientes: 0, rcaFinalizados: 0, rcaRechazados: 0, rcaCompletionRate: 0 });
+            setAnalisisEnCurso([]);
+            setPlanesAccionPendientes([]);
+            setIsLoadingData(false);
+            return;
+        }
+      }
+
       if (currentFilters.site && currentFilters.site !== ALL_FILTER_VALUE) {
         rcaQueryConstraints.push(where("eventData.site", "==", currentFilters.site));
       }
@@ -134,15 +155,13 @@ export default function DashboardRCAPage() {
       const rcaQueryInstance = query(rcaAnalysesRef, ...rcaQueryConstraints);
       const rcaSnapshot = await getDocs(rcaQueryInstance);
       
-      // Fetch all reportedEvents to accurately determine status
       const reportedEventsRef = collection(db, "reportedEvents");
-      const reportedEventsQuery = query(reportedEventsRef); // Consider adding filters here too if necessary for consistency
+      const reportedEventsQuery = query(reportedEventsRef); 
       const reportedEventsSnapshot = await getDocs(reportedEventsQuery);
       const reportedEventsMap = new Map<string, ReportedEventStatus>();
       reportedEventsSnapshot.forEach(doc => {
         reportedEventsMap.set(doc.id, doc.data().status as ReportedEventStatus);
       });
-
 
       rcaSnapshot.forEach(docSnap => {
         const rcaDoc = docSnap.data() as RCAAnalysisDocument;
@@ -151,13 +170,12 @@ export default function DashboardRCAPage() {
 
         if (eventStatus === 'Rechazado') {
           currentRcaRechazadosCount++;
-          return; // Skip further processing for rejected events in dashboard stats
+          return;
         }
         
-        if (rcaDoc.isFinalized && eventStatus !== 'Rechazado') { // Explicitly check not rejected for finalized
+        if (rcaDoc.isFinalized && eventStatus !== 'Rechazado') {
           currentRcaFinalizadosCount++;
         }
-
 
         if (rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
           rcaDoc.plannedActions.forEach(action => {
@@ -208,24 +226,29 @@ export default function DashboardRCAPage() {
       setAnalisisEnCurso(currentAnalysesInProgress); 
       setPlanesAccionPendientes(currentPendingActionPlans); 
 
-      // Recalculate pending RCAs based on non-finalized, non-rejected events
+      let filteredReportedEventsSnapshot = reportedEventsSnapshot;
+      if (rcaQueryConstraints.length > 0) {
+        // We need to re-query reportedEvents with same company filter for an accurate pending count
+        const eventQueryConstraintsForPending: QueryConstraint[] = [];
+        if (userProfile && userProfile.role !== 'Super User' && userProfile.empresa) {
+           const companySites = availableSites.filter(site => site.empresa === userProfile.empresa).map(site => site.name);
+           if (companySites.length > 0) {
+             eventQueryConstraintsForPending.push(where("site", "in", companySites));
+           }
+        }
+        const pendingEventsQuery = query(reportedEventsRef, ...eventQueryConstraintsForPending);
+        filteredReportedEventsSnapshot = await getDocs(pendingEventsQuery);
+      }
+      
       currentRcaPendientesCount = 0;
-      reportedEventsSnapshot.forEach(doc => {
+      filteredReportedEventsSnapshot.forEach(doc => {
           const status = doc.data().status as ReportedEventStatus;
-          const id = doc.id;
-          // Check if filters match this reported event for accurate pending count
-          const eventData = doc.data() as ReportedEvent;
-          let matchesFilters = true;
-          if (currentFilters.site && currentFilters.site !== ALL_FILTER_VALUE && eventData.site !== currentFilters.site) matchesFilters = false;
-          if (currentFilters.type && currentFilters.type !== ALL_FILTER_VALUE && eventData.type !== currentFilters.type) matchesFilters = false;
-          if (currentFilters.priority && currentFilters.priority !== ALL_FILTER_VALUE && eventData.priority !== currentFilters.priority) matchesFilters = false;
-
-          if (matchesFilters && (status === 'Pendiente' || status === 'En análisis' || status === 'En validación') ) {
+          if ((status === 'Pendiente' || status === 'En análisis' || status === 'En validación')) {
             currentRcaPendientesCount++;
           }
       });
 
-      const currentTotalRCAs = currentRcaPendientesCount + currentRcaFinalizadosCount; // Excludes rejected from "total" for completion rate
+      const currentTotalRCAs = currentRcaPendientesCount + currentRcaFinalizadosCount;
       const rcaCompletionRateValue = currentTotalRCAs > 0 ? (currentRcaFinalizadosCount / currentTotalRCAs) * 100 : 0;
 
       setRcaSummaryData({
@@ -245,10 +268,10 @@ export default function DashboardRCAPage() {
       toast({ title: "Error al Cargar Datos del Dashboard", description: (error as Error).message, variant: "destructive" });
     }
     setIsLoadingData(false);
-  }, [toast]);
+  }, [toast, userProfile, loadingAuth, availableSites]);
+
 
   useEffect(() => {
-    fetchAllDashboardData(filters);
     const fetchSitesData = async () => {
       setIsLoadingSites(true);
       try {
@@ -265,8 +288,13 @@ export default function DashboardRCAPage() {
       }
     };
     fetchSitesData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [toast]);
+
+  useEffect(() => {
+    if (!loadingAuth && !isLoadingSites) {
+      fetchAllDashboardData(filters);
+    }
+  }, [loadingAuth, isLoadingSites, fetchAllDashboardData, filters]);
 
 
   const handleFilterChange = (field: keyof DashboardFilters, value: any) => {
@@ -289,8 +317,19 @@ export default function DashboardRCAPage() {
     fetchAllDashboardData(emptyFilters);
   };
 
-  const isLoading = isLoadingData || isLoadingSites;
-  const validSites = useMemo(() => availableSites.filter(s => s.name && s.name.trim() !== ""), [availableSites]);
+  const isLoading = isLoadingData || isLoadingSites || loadingAuth;
+
+  const sitesForFilter = useMemo(() => {
+    if (!userProfile) return [];
+    if (userProfile.role === 'Super User') {
+        return availableSites.filter(s => s.name && s.name.trim() !== "");
+    }
+    if (userProfile.empresa) {
+        return availableSites.filter(s => s.empresa === userProfile.empresa && s.name && s.name.trim() !== "");
+    }
+    return [];
+  }, [userProfile, availableSites]);
+
 
   const actionStatusPieChartData = useMemo(() => {
     if (!actionStatsData || actionStatsData.totalAcciones === 0) {
@@ -485,10 +524,10 @@ export default function DashboardRCAPage() {
               <SelectTrigger id="filter-site"><SelectValue placeholder="Todos los sitios" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL_FILTER_VALUE}>Todos los sitios</SelectItem>
-                {validSites.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
-                {validSites.length === 0 && (
+                {sitesForFilter.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                {sitesForFilter.length === 0 && (
                   <SelectItem value={NO_SITES_PLACEHOLDER_VALUE} disabled>
-                    {availableSites.length === 0 ? "No hay sitios configurados" : "No hay sitios válidos para mostrar"}
+                    {availableSites.length === 0 ? "No hay sitios configurados" : "No hay sitios para su empresa"}
                   </SelectItem>
                 )}
               </SelectContent>
@@ -881,4 +920,3 @@ export default function DashboardRCAPage() {
     </div>
   );
 }
-

@@ -131,12 +131,13 @@ function RCAAnalysisPageComponent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
-  const { userProfile } = useAuth(); 
+  const { userProfile, loadingAuth } = useAuth(); 
 
   const [step, setStep] = useState(1);
   const [maxCompletedStep, setMaxCompletedStep] = useState(0);
   const [isLoadingPage, setIsLoadingPage] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [configDataLoaded, setConfigDataLoaded] = useState(false);
 
   const lastLoadedAnalysisIdRef = useRef<string | null>(null);
 
@@ -195,6 +196,22 @@ function RCAAnalysisPageComponent() {
 
       if (docSnap.exists()) {
         const data = docSnap.data() as RCAAnalysisDocument;
+        
+        // Security check for company access
+        if (userProfile && userProfile.role !== 'Super User' && userProfile.empresa) {
+          const siteName = data.eventData?.place;
+          const siteInfo = availableSitesFromDB.find(s => s.name === siteName);
+          if (siteInfo && siteInfo.empresa !== userProfile.empresa) {
+            toast({
+              title: "Acceso Denegado",
+              description: "No tiene permisos para ver análisis de esta empresa.",
+              variant: "destructive",
+            });
+            router.replace('/inicio');
+            return false;
+          }
+        }
+
         setEventData(data.eventData); // Includes equipo: data.eventData.equipo || ''
 
         const loadedImmediateActions = data.immediateActions || [];
@@ -335,8 +352,7 @@ function RCAAnalysisPageComponent() {
     } finally {
         setIsLoadingPage(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast, router]);
+  }, [toast, router, userProfile, availableSitesFromDB]);
 
   const analysisIdFromParams = useMemo(() => searchParams.get('id'), [searchParams]);
 
@@ -345,7 +361,7 @@ function RCAAnalysisPageComponent() {
     const stepParam = searchParams.get('step');
     const previousLoadedId = lastLoadedAnalysisIdRef.current;
 
-    if (currentId) {
+    if (currentId && configDataLoaded) { // Only load if ID exists AND config is loaded
         if (currentId === previousLoadedId && !stepParam) {
              setIsLoadingPage(false);
              return;
@@ -372,9 +388,8 @@ function RCAAnalysisPageComponent() {
         }).finally(() => {
             setIsLoadingPage(false);
         });
-    } else { 
+    } else if (!currentId) { // No ID, just reset
         if (lastLoadedAnalysisIdRef.current !== null) { 
-            setIsLoadingPage(true); 
             setEventData(initialRCAAnalysisState.eventData);
             setImmediateActions(initialRCAAnalysisState.immediateActions);
             setImmediateActionCounter(1);
@@ -402,19 +417,20 @@ function RCAAnalysisPageComponent() {
             setMaxCompletedStep(0); 
             setStep(1); 
             lastLoadedAnalysisIdRef.current = null; 
-            setIsLoadingPage(false);
-        } else {
-             setIsLoadingPage(false);
-             setStep(1);
-             setMaxCompletedStep(0);
         }
+        setIsLoadingPage(false);
+    } else {
+        // ID exists but config isn't loaded, so we are still loading.
+        setIsLoadingPage(true);
     }
 // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [analysisIdFromParams, searchParams, loadAnalysisData]);
+}, [analysisIdFromParams, searchParams, loadAnalysisData, configDataLoaded]);
 
 
   useEffect(() => {
     const fetchConfigData = async () => {
+      setIsLoadingPage(true);
+      setConfigDataLoaded(false);
       try {
         const sitesCollectionRef = collection(db, "sites");
         const sitesQuery = query(sitesCollectionRef, orderBy("name", "asc"));
@@ -431,6 +447,8 @@ function RCAAnalysisPageComponent() {
       } catch (error) {
         console.error("Error fetching config data for RCA Analysis: ", error);
         toast({ title: "Error al Cargar Configuración", description: "No se pudieron cargar los sitios o usuarios.", variant: "destructive" });
+      } finally {
+        setConfigDataLoaded(true);
       }
     };
     fetchConfigData();
@@ -1269,7 +1287,7 @@ function RCAAnalysisPageComponent() {
   }, []);
 
 
-  if (isLoadingPage) {
+  if (isLoadingPage || loadingAuth) {
     return (
       <div className="flex flex-col justify-center items-center min-h-[calc(100vh-10rem)] text-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
