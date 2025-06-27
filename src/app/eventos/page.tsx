@@ -31,6 +31,7 @@ const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'En v
 
 
 const ALL_FILTER_VALUE = "__ALL__"; 
+const NO_SITES_PLACEHOLDER_VALUE = "__NO_SITES_PLACEHOLDER__";
 
 interface Filters {
   site: string;
@@ -443,7 +444,7 @@ export default function EventosReportadosPage() {
               <SelectContent>
                 <SelectItem value={ALL_FILTER_VALUE}>Todos los sitios</SelectItem>
                 {sitesForFilter.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
-                 {sitesForFilter.length === 0 && <SelectItem value="" disabled>No hay sitios para mostrar</SelectItem>}
+                 {sitesForFilter.length === 0 && <SelectItem value={NO_SITES_PLACEHOLDER_VALUE} disabled>No hay sitios para mostrar</SelectItem>}
               </SelectContent>
             </Select>
           </div>
