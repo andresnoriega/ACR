@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { sendEmailAction } from '@/app/actions';
 
@@ -118,7 +118,6 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
 }) => {
   const { toast } = useToast();
   const [isSavingLocally, setIsSavingLocally] = useState(false);
-  const [viewingEvidence, setViewingEvidence] = useState<Evidence | null>(null);
   const [rejectingAction, setRejectingAction] = useState<PlannedAction | null>(null);
   const [isProcessingEmail, setIsProcessingEmail] = useState(false);
 
@@ -419,9 +418,49 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                                         {getEvidenceIconLocal(ev.tipo)}
                                         <span className="text-xs">{ev.nombre}</span>
                                       </div>
-                                      <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={() => setViewingEvidence(ev)}>
-                                        <Eye className="mr-1 h-3 w-3"/>Ver
-                                      </Button>
+                                      <Dialog>
+                                        <DialogTrigger asChild>
+                                          <Button variant="link" size="sm" className="p-0 h-auto text-xs">
+                                            <Eye className="mr-1 h-3 w-3"/>Ver
+                                          </Button>
+                                        </DialogTrigger>
+                                        <DialogContent>
+                                          <DialogHeader>
+                                            <DialogTitle className="flex items-center">
+                                              {getEvidenceIconLocal(ev.tipo)}
+                                              Detalles de la Evidencia
+                                            </DialogTitle>
+                                            <DialogDescription>
+                                              Información registrada para la evidencia: {ev.nombre || "Nombre no especificado"} ({ev.tipo || "Tipo no especificado"}).
+                                            </DialogDescription>
+                                          </DialogHeader>
+                                          <div className="grid gap-y-3 py-3 text-sm">
+                                            <div>
+                                              <Label htmlFor="ev-dialog-name" className="font-semibold text-xs text-muted-foreground">Nombre del Archivo:</Label>
+                                              <p id="ev-dialog-name" className="mt-0.5 text-foreground">{ev.nombre || "No especificado"}</p>
+                                            </div>
+                                            <div>
+                                              <Label htmlFor="ev-dialog-type" className="font-semibold text-xs text-muted-foreground">Tipo de Archivo:</Label>
+                                              <p id="ev-dialog-type" className="mt-0.5 text-foreground">{ev.tipo || "No especificado"}</p>
+                                            </div>
+                                            <div>
+                                              <Label htmlFor="ev-dialog-comment" className="font-semibold text-xs text-muted-foreground">Comentario del Usuario:</Label>
+                                              <div id="ev-dialog-comment" className="mt-1 p-2 border rounded-md bg-muted/50 text-xs whitespace-pre-wrap overflow-auto max-h-[150px] min-h-[50px] text-foreground">
+                                                {(ev.comment && ev.comment.trim()) ? (
+                                                  ev.comment
+                                                ) : (
+                                                  <span className="italic text-muted-foreground">Sin comentarios adicionales.</span>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <DialogFooter>
+                                            <DialogClose asChild>
+                                              <Button type="button" variant="outline">Cerrar</Button>
+                                            </DialogClose>
+                                          </DialogFooter>
+                                        </DialogContent>
+                                      </Dialog>
                                     </li>
                                   ))}
                                 </ul>
@@ -461,47 +500,6 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
           </div>
         </CardFooter>
       </Card>
-      
-      <Dialog open={!!viewingEvidence} onOpenChange={() => setViewingEvidence(null)}>
-        {viewingEvidence && (
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="flex items-center">
-                {getEvidenceIconLocal(viewingEvidence.tipo)}
-                Detalles de la Evidencia
-              </DialogTitle>
-              <DialogDescription>
-                Información registrada para la evidencia: {viewingEvidence.nombre || "Nombre no especificado"} ({viewingEvidence.tipo || "Tipo no especificado"}).
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-y-3 py-3 text-sm">
-              <div>
-                <Label htmlFor="ev-dialog-name" className="font-semibold text-xs text-muted-foreground">Nombre del Archivo:</Label>
-                <p id="ev-dialog-name" className="mt-0.5 text-foreground">{viewingEvidence.nombre || "No especificado"}</p>
-              </div>
-              <div>
-                <Label htmlFor="ev-dialog-type" className="font-semibold text-xs text-muted-foreground">Tipo de Archivo:</Label>
-                <p id="ev-dialog-type" className="mt-0.5 text-foreground">{viewingEvidence.tipo || "No especificado"}</p>
-              </div>
-              <div>
-                <Label htmlFor="ev-dialog-comment" className="font-semibold text-xs text-muted-foreground">Comentario del Usuario:</Label>
-                <div id="ev-dialog-comment" className="mt-1 p-2 border rounded-md bg-muted/50 text-xs whitespace-pre-wrap overflow-auto max-h-[150px] min-h-[50px] text-foreground">
-                  {(viewingEvidence.comment && viewingEvidence.comment.trim()) ? (
-                    viewingEvidence.comment
-                  ) : (
-                    <span className="italic text-muted-foreground">Sin comentarios adicionales.</span>
-                  )}
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="outline">Cerrar</Button>
-              </DialogClose>
-            </DialogFooter>
-          </DialogContent>
-        )}
-      </Dialog>
       
       {rejectingAction && (
         <RejectActionDialog
