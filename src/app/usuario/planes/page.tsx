@@ -444,30 +444,35 @@ export default function UserActionPlansPage() {
     if (fileToUpload) {
       const fileRef = storageRef(storage, `evidence/${selectedPlan._originalRcaDocId}/${Date.now()}-${fileToUpload.name}`);
       const uploadTask = uploadBytesResumable(fileRef, fileToUpload);
-      
-      let downloadURL: string;
+
       try {
-        downloadURL = await new Promise<string>((resolve, reject) => {
+        await new Promise<void>((resolve, reject) => {
           uploadTask.on('state_changed',
             (snapshot) => {
               const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+              console.log('Upload is ' + progress + '% done');
               setUploadProgress(progress);
             },
             (error) => {
-              console.error("Upload error:", error);
+              console.error("Firebase Storage upload error:", error);
               setUploadProgress(null);
+              toast({
+                title: "Error de Carga",
+                description: `No se pudo subir el archivo. Código: ${error.code}. Verifique las reglas de CORS en su bucket de Firebase Storage.`,
+                variant: "destructive",
+                duration: 10000,
+              });
               reject(error);
             },
-            async () => {
-              try {
-                const url = await getDownloadURL(uploadTask.snapshot.ref);
-                resolve(url);
-              } catch (getUrlError) {
-                reject(getUrlError);
-              }
+            () => {
+              console.log('Upload successful, getting download URL...');
+              resolve();
             }
           );
         });
+
+        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+        console.log('File available at', downloadURL);
 
         const newEvidencePayload: FirestoreEvidence = {
             id: `ev-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -480,8 +485,7 @@ export default function UserActionPlansPage() {
         newEvidencesArray = [...newEvidencesArray, newEvidencePayload];
       
       } catch (uploadError) {
-          console.error("Error uploading evidence file:", uploadError);
-          toast({ title: "Error de Carga", description: "No se pudo subir el archivo de evidencia.", variant: "destructive" });
+          console.error("Error during the upload process:", uploadError);
           setIsUpdatingAction(false);
           setUploadProgress(null);
           return;
@@ -746,7 +750,7 @@ export default function UserActionPlansPage() {
                   <Textarea value={selectedPlan.userComments || ''} onChange={(e) => setSelectedPlan(prev => prev ? { ...prev, userComments: e.target.value } : null)} placeholder="Añada sus comentarios sobre el progreso o finalización de esta tarea..." rows={3} className="text-sm" disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} /></div>
                 <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Actualizar estado de esta tarea]</h4>
                   <div className="flex items-center gap-2">
-                     <Button size="sm" variant="default" onClick={handleSignalTaskReadyForValidation} disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || !fileToUpload} title={selectedPlan.estado === 'Completado' ? "Esta tarea ya ha sido validada y no puede modificarse." : !fileToUpload ? "Debe seleccionar un archivo para adjuntar como evidencia." : "Guardar evidencias, comentarios y marcar la tarea como lista para ser validada por el Líder del Proyecto."}>
+                     <Button size="sm" variant="default" onClick={handleSignalTaskReadyForValidation} disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || (!fileToUpload && !selectedPlan.userComments)} title={selectedPlan.estado === 'Completado' ? "Esta tarea ya ha sido validada y no puede modificarse." : (!fileToUpload && !selectedPlan.userComments) ? "Debe adjuntar un archivo o agregar un comentario para marcar la tarea como lista." : "Guardar evidencias, comentarios y marcar la tarea como lista para ser validada por el Líder del Proyecto."}>
                       {isUpdatingAction ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />} 
                       {isUpdatingAction ? `Subiendo...${uploadProgress !== null ? ` (${Math.round(uploadProgress)}%)` : ''}` : 'Marcar como listo para validación'}
                     </Button>
