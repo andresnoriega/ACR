@@ -109,21 +109,40 @@ export async function uploadFileAction(formData: FormData): Promise<{ success: b
   }
 
   try {
-    const fileBuffer = await file.arrayBuffer();
+    const fileBuffer = await file.arrayBuffer(); // This is an ArrayBuffer
     const fileRef = storageRef(storage, `evidence/${rcaId}/${Date.now()}-${file.name}`);
     
-    console.log(`[uploadFileAction] Attempting to upload '${file.name}' to '${fileRef.fullPath}'`);
+    // uploadBytes is the correct function for this, it accepts an ArrayBuffer directly.
     const snapshot = await uploadBytes(fileRef, fileBuffer, {
       contentType: file.type
     });
     
     const downloadURL = await getDownloadURL(snapshot.ref);
-    console.log(`[uploadFileAction] File uploaded successfully. URL: ${downloadURL}`);
 
     return { success: true, url: downloadURL };
   } catch (error: any) {
     console.error('[uploadFileAction] Error uploading file to Firebase Storage:', error);
-    const errorMessage = error.code ? `Error de servidor: ${error.code} - ${error.message}` : 'Error desconocido en el servidor de subida.';
+    
+    let errorMessage = "Ocurrió un error desconocido durante la subida.";
+    if (error.code) {
+        // Provide a more user-friendly message for common errors.
+        switch(error.code) {
+            case 'storage/unknown':
+                errorMessage = "Error desconocido del servidor de almacenamiento. Esto puede deberse a un problema de permisos en el bucket de Storage (IAM) o a una configuración incorrecta del proyecto. Por favor, verifique la consola de Google Cloud.";
+                break;
+            case 'storage/unauthorized':
+                errorMessage = "No autorizado. Verifique las reglas de seguridad de Firebase Storage para permitir escrituras desde el servidor.";
+                break;
+            case 'storage/object-not-found':
+                errorMessage = "El objeto no fue encontrado. Esto no debería ocurrir durante una subida.";
+                break;
+            default:
+                errorMessage = `Error de servidor: ${error.code}.`;
+        }
+    } else if (error.message) {
+        errorMessage = error.message;
+    }
+    
     return { success: false, error: errorMessage };
   }
 }
