@@ -219,7 +219,7 @@ const countryOptions = [
 ].sort((a, b) => a.label.localeCompare(b.label));
 
 
-export default function ConfiguracionSitiosPage() {
+export default function ConfiguracionSitiosPage({ params, searchParams }: { params: any, searchParams: any }) {
   const [sites, setSites] = useState<Site[]>([]);
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
@@ -624,16 +624,7 @@ export default function ConfiguracionSitiosPage() {
                           ) : (
                             '-'
                           )}
-                        </TableCell><TableCell>{site.country || '-'}</TableCell><TableCell className="text-right">
-                          <Button variant="ghost" size="icon" className="mr-2 hover:text-primary" onClick={() => openEditSiteDialog(site)} disabled={isSubmitting}>
-                            <Edit2 className="h-4 w-4" />
-                            <span className="sr-only">Editar</span>
-                          </Button>
-                          <Button variant="ghost" size="icon" className="hover:text-destructive" onClick={() => openDeleteSiteDialog(site)} disabled={isSubmitting}>
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Eliminar</span>
-                          </Button>
-                        </TableCell></TableRow>
+                        </TableCell><TableCell>{site.country || '-'}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" className="mr-2 hover:text-primary" onClick={() => openEditSiteDialog(site)} disabled={isSubmitting}><Edit2 className="h-4 w-4" /><span className="sr-only">Editar</span></Button><Button variant="ghost" size="icon" className="hover:text-destructive" onClick={() => openDeleteSiteDialog(site)} disabled={isSubmitting}><Trash2 className="h-4 w-4" /><span className="sr-only">Eliminar</span></Button></TableCell></TableRow>
                     ))
                   ) : (
                     <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground h-24">

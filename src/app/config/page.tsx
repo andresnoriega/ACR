@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -6,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { SettingsIcon, Users, Globe, KeyRound, ShieldCheck, Loader2 } from 'lucide-react';
 
-export default function ConfiguracionHubPage() {
+export default function ConfiguracionHubPage({ params, searchParams }: { params: any, searchParams: any }) {
   const router = useRouter();
 
   // The password prompt is now handled by the config layout

@@ -17,7 +17,7 @@ import { collection, getDocs, doc, updateDoc, query, orderBy } from "firebase/fi
 const availableRoles: FullUserProfile['role'][] = ['Admin', 'Analista', 'Revisor', ''];
 const availablePermissionLevels: FullUserProfile['permissionLevel'][] = ['Total', 'Lectura', 'Limitado', ''];
 
-export default function ConfiguracionPermisosPage() {
+export default function ConfiguracionPermisosPage({ params, searchParams }: { params: any, searchParams: any }) {
   const [userProfiles, setUserProfiles] = useState<FullUserProfile[]>([]);
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);

@@ -1,13 +1,16 @@
+
 'use client';
 
 import { useEffect } from 'react';
-import { redirect } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 // This page has been disabled and now redirects to the home page.
 export default function PreciosPage() {
+  const router = useRouter();
+
   useEffect(() => {
-    redirect('/inicio');
-  }, []);
+    router.replace('/inicio');
+  }, [router]);
 
   return null;
 }

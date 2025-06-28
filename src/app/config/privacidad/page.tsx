@@ -89,7 +89,7 @@ interface SortConfigReportedEvent {
   direction: 'ascending' | 'descending';
 }
 
-export default function ConfiguracionPrivacidadPage() {
+export default function ConfiguracionPrivacidadPage({ params, searchParams: pageSearchParams }: { params: any, searchParams: any }) {
   const { toast } = useToast();
   const router = useRouter();
   const [isResetting, setIsResetting] = useState(false);
@@ -592,6 +592,7 @@ export default function ConfiguracionPrivacidadPage() {
     
 
     
+
 
 
 

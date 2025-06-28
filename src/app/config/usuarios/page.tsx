@@ -32,7 +32,7 @@ const defaultPermissionLevel: FullUserProfile['permissionLevel'] = 'Lectura';
 
 const expectedUserHeaders = ["Nombre Completo", "Correo Electrónico", "Rol", "Empresa", "Sitios Asignados", "Notificaciones Email"];
 
-export default function ConfiguracionUsuariosPage() {
+export default function ConfiguracionUsuariosPage({ params, searchParams }: { params: any, searchParams: any }) {
   const [users, setUsers] = useState<UserConfigProfile[]>([]);
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
