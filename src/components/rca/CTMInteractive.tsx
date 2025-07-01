@@ -1,4 +1,3 @@
-
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import type { CTMData, FailureMode, Hypothesis, PhysicalCause, HumanCause, LatentCause } from '@/types/rca';
@@ -279,29 +278,27 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({
     <div className="ml-8 pl-4 border-l border-dashed border-muted-foreground/50 space-y-3">
       {humanCauses.map((hc, index) => (
         <Accordion key={hc.id} type="single" collapsible className="w-full">
-          <AccordionItem value={hc.id} className="border-b-0">
-             <Card className="p-0 bg-secondary/40 shadow">
-                <AccordionTrigger className="p-3 hover:no-underline">
-                    <div className="flex justify-between items-center w-full">
-                        <span className="text-sm font-medium text-red-700 dark:text-red-400 flex-grow text-left pr-2">Causa Humana #{index + 1}: {hc.description.substring(0,30) || "(Sin describir)"}...</span>
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`Eliminar Causa Humana ${index + 1}`}
-                          onClick={(e) => { e.stopPropagation(); handleRemoveHumanCause(fmId, hypId, pcId, hc.id); }}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); handleRemoveHumanCause(fmId, hypId, pcId, hc.id); } }}
-                          className="p-1 rounded-md hover:bg-destructive/10 focus:outline-none focus:ring-1 focus:ring-destructive cursor-pointer h-7 w-7 flex items-center justify-center shrink-0"
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </div>
-                    </div>
-                </AccordionTrigger>
-                <AccordionContent className="p-3 border-t">
-                    <Label htmlFor={`hc-${hc.id}`} className="text-xs font-semibold">Descripción Causa Humana</Label>
-                    <Textarea id={`hc-${hc.id}`} value={hc.description} onChange={(e) => handleUpdateHumanCause(fmId, hypId, pcId, hc.id, e.target.value)} placeholder="Descripción de la causa humana..." rows={2} className="mb-2 text-sm" />
-                    {renderLatentCauses(fmId, hypId, pcId, hc.id, hc.latentCauses)}
-                </AccordionContent>
-            </Card>
+          <AccordionItem value={hc.id} className="border rounded-md shadow bg-secondary/40">
+            <AccordionTrigger className="p-3 hover:no-underline rounded-t-md">
+              <div className="flex justify-between items-center w-full">
+                  <span className="text-sm font-medium text-red-700 dark:text-red-400 flex-grow text-left pr-2">Causa Humana #{index + 1}: {hc.description.substring(0,30) || "(Sin describir)"}...</span>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Eliminar Causa Humana ${index + 1}`}
+                    onClick={(e) => { e.stopPropagation(); handleRemoveHumanCause(fmId, hypId, pcId, hc.id); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); handleRemoveHumanCause(fmId, hypId, pcId, hc.id); } }}
+                    className="p-1 rounded-md hover:bg-destructive/10 focus:outline-none focus:ring-1 focus:ring-destructive cursor-pointer h-7 w-7 flex items-center justify-center shrink-0"
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </div>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="p-3 border-t">
+              <Label htmlFor={`hc-${hc.id}`} className="text-xs font-semibold">Descripción Causa Humana</Label>
+              <Textarea id={`hc-${hc.id}`} value={hc.description} onChange={(e) => handleUpdateHumanCause(fmId, hypId, pcId, hc.id, e.target.value)} placeholder="Descripción de la causa humana..." rows={2} className="mb-2 text-sm" />
+              {renderLatentCauses(fmId, hypId, pcId, hc.id, hc.latentCauses)}
+            </AccordionContent>
           </AccordionItem>
         </Accordion>
       ))}
@@ -312,30 +309,28 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({
   const renderPhysicalCauses = (fmId: string, hypId: string, physicalCauses: PhysicalCause[]) => (
     <div className="ml-8 pl-4 border-l border-dashed border-muted-foreground/50 space-y-3">
       {physicalCauses.map((pc, index) => (
-         <Accordion key={pc.id} type="single" collapsible className="w-full">
-          <AccordionItem value={pc.id} className="border-b-0">
-            <Card className="p-0 bg-background/80 shadow">
-                <AccordionTrigger className="p-3 hover:no-underline">
-                     <div className="flex justify-between items-center w-full">
-                        <span className="text-sm font-medium text-orange-700 dark:text-orange-400 flex-grow text-left pr-2">Causa Física #{index + 1}: {pc.description.substring(0,35) || "(Sin describir)"}...</span>
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`Eliminar Causa Física ${index + 1}`}
-                          onClick={(e) => { e.stopPropagation(); handleRemovePhysicalCause(fmId, hypId, pc.id); }}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); handleRemovePhysicalCause(fmId, hypId, pc.id); } }}
-                          className="p-1 rounded-md hover:bg-destructive/10 focus:outline-none focus:ring-1 focus:ring-destructive cursor-pointer h-7 w-7 flex items-center justify-center shrink-0"
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </div>
-                    </div>
-                </AccordionTrigger>
-                <AccordionContent className="p-3 border-t">
-                    <Label htmlFor={`pc-${pc.id}`} className="text-xs font-semibold">Descripción Causa Física</Label>
-                    <Textarea id={`pc-${pc.id}`} value={pc.description} onChange={(e) => handleUpdatePhysicalCause(fmId, hypId, pc.id, e.target.value)} placeholder="Descripción de la causa física..." rows={2} className="mb-2 text-sm" />
-                    {renderHumanCauses(fmId, hypId, pc.id, pc.humanCauses)}
-                </AccordionContent>
-            </Card>
+        <Accordion key={pc.id} type="single" collapsible className="w-full">
+          <AccordionItem value={pc.id} className="border rounded-md shadow bg-background/80">
+            <AccordionTrigger className="p-3 hover:no-underline rounded-t-md">
+              <div className="flex justify-between items-center w-full">
+                  <span className="text-sm font-medium text-orange-700 dark:text-orange-400 flex-grow text-left pr-2">Causa Física #{index + 1}: {pc.description.substring(0,35) || "(Sin describir)"}...</span>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Eliminar Causa Física ${index + 1}`}
+                    onClick={(e) => { e.stopPropagation(); handleRemovePhysicalCause(fmId, hypId, pc.id); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); handleRemovePhysicalCause(fmId, hypId, pc.id); } }}
+                    className="p-1 rounded-md hover:bg-destructive/10 focus:outline-none focus:ring-1 focus:ring-destructive cursor-pointer h-7 w-7 flex items-center justify-center shrink-0"
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </div>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="p-3 border-t">
+              <Label htmlFor={`pc-${pc.id}`} className="text-xs font-semibold">Descripción Causa Física</Label>
+              <Textarea id={`pc-${pc.id}`} value={pc.description} onChange={(e) => handleUpdatePhysicalCause(fmId, hypId, pc.id, e.target.value)} placeholder="Descripción de la causa física..." rows={2} className="mb-2 text-sm" />
+              {renderHumanCauses(fmId, hypId, pc.id, pc.humanCauses)}
+            </AccordionContent>
           </AccordionItem>
         </Accordion>
       ))}
@@ -347,29 +342,27 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({
     <div className="ml-6 pl-4 border-l border-dashed border-muted-foreground/70 space-y-3">
       {hypotheses.map((hyp, index) => (
         <Accordion key={hyp.id} type="single" collapsible className="w-full">
-          <AccordionItem value={hyp.id} className="border-b-0">
-            <Card className="p-0 bg-secondary/50 shadow-md">
-                <AccordionTrigger className="p-3 hover:no-underline">
-                     <div className="flex justify-between items-center w-full">
-                        <span className="text-base font-medium text-teal-700 dark:text-teal-400 flex-grow text-left pr-2">Hipótesis #{index + 1}: {hyp.description.substring(0,40) || "(Sin describir)"}...</span>
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`Eliminar Hipótesis ${index + 1}`}
-                          onClick={(e) => { e.stopPropagation(); handleRemoveHypothesis(fmId, hyp.id); }}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); handleRemoveHypothesis(fmId, hyp.id); } }}
-                          className="p-1 rounded-md hover:bg-destructive/10 focus:outline-none focus:ring-1 focus:ring-destructive cursor-pointer h-8 w-8 flex items-center justify-center shrink-0"
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </div>
-                    </div>
-                </AccordionTrigger>
-                <AccordionContent className="p-3 border-t">
-                    <Label htmlFor={`hyp-${hyp.id}`} className="text-sm font-semibold">Descripción Hipótesis</Label>
-                    <Textarea id={`hyp-${hyp.id}`} value={hyp.description} onChange={(e) => handleUpdateHypothesis(fmId, hyp.id, e.target.value)} placeholder="Descripción de la hipótesis..." rows={2} className="mb-3" />
-                    {renderPhysicalCauses(fmId, hyp.id, hyp.physicalCauses)}
-                </AccordionContent>
-            </Card>
+          <AccordionItem value={hyp.id} className="border rounded-md shadow-md bg-secondary/50">
+            <AccordionTrigger className="p-3 hover:no-underline rounded-t-md">
+              <div className="flex justify-between items-center w-full">
+                  <span className="text-base font-medium text-teal-700 dark:text-teal-400 flex-grow text-left pr-2">Hipótesis #{index + 1}: {hyp.description.substring(0,40) || "(Sin describir)"}...</span>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Eliminar Hipótesis ${index + 1}`}
+                    onClick={(e) => { e.stopPropagation(); handleRemoveHypothesis(fmId, hyp.id); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); handleRemoveHypothesis(fmId, hyp.id); } }}
+                    className="p-1 rounded-md hover:bg-destructive/10 focus:outline-none focus:ring-1 focus:ring-destructive cursor-pointer h-8 w-8 flex items-center justify-center shrink-0"
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </div>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="p-3 border-t">
+              <Label htmlFor={`hyp-${hyp.id}`} className="text-sm font-semibold">Descripción Hipótesis</Label>
+              <Textarea id={`hyp-${hyp.id}`} value={hyp.description} onChange={(e) => handleUpdateHypothesis(fmId, hyp.id, e.target.value)} placeholder="Descripción de la hipótesis..." rows={2} className="mb-3" />
+              {renderPhysicalCauses(fmId, hyp.id, hyp.physicalCauses)}
+            </AccordionContent>
           </AccordionItem>
         </Accordion>
       ))}
@@ -392,41 +385,49 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({
         </CardContent>
       </Card>
 
-      {ctmData.map((fm, index) => (
-        <Accordion key={fm.id} type="single" collapsible className="w-full">
-          <AccordionItem value={fm.id} className="border rounded-md shadow-lg">
-            <Card className="p-0">
-                <AccordionTrigger className="p-4 hover:no-underline bg-primary/5 hover:bg-primary/10 rounded-t-md">
-                    <div className="flex justify-between items-center w-full">
-                        <span className="text-lg font-semibold text-primary flex-grow text-left pr-2">Modo de Falla #{index + 1}: {fm.description.substring(0,50) || "(Sin describir)"}...</span>
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`Eliminar Modo de Falla ${index + 1}`}
-                          onClick={(e) => { e.stopPropagation(); handleRemoveFailureMode(fm.id); }}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); handleRemoveFailureMode(fm.id); } }}
-                          className="p-1 rounded-md hover:bg-destructive/10 focus:outline-none focus:ring-1 focus:ring-destructive cursor-pointer h-9 w-9 flex items-center justify-center shrink-0"
-                        >
-                          <Trash2 className="h-5 w-5 text-destructive" />
-                        </div>
-                    </div>
-                </AccordionTrigger>
-                <AccordionContent className="p-4 border-t">
-                    <Label htmlFor={`fm-${fm.id}`} className="text-base font-semibold">Descripción Modo de Falla</Label>
-                    <Textarea id={`fm-${fm.id}`} value={fm.description} onChange={(e) => handleUpdateFailureMode(fm.id, e.target.value)} placeholder="Describa el modo de falla..." rows={3} className="mb-4" />
-                    {renderHypotheses(fm.id, fm.hypotheses)}
-                </AccordionContent>
-            </Card>
-          </AccordionItem>
-        </Accordion>
-      ))}
+      <div className="relative w-full overflow-x-auto pb-4 -mx-4 px-4">
+        <div className="inline-flex items-start space-x-6 p-2 min-h-[10rem]">
+          {ctmData.map((fm, index) => (
+            <div key={fm.id} className="w-96 flex-shrink-0">
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value={fm.id} className="border rounded-lg shadow-lg bg-card">
+                  <AccordionTrigger className="p-4 hover:no-underline bg-primary/5 hover:bg-primary/10 rounded-t-lg text-left w-full">
+                      <div className="flex justify-between items-center w-full">
+                          <span className="text-base font-semibold text-primary flex-grow pr-2">Modo de Falla #{index + 1}: {fm.description.substring(0,30) || "(Sin describir)"}...</span>
+                          <div
+                              role="button"
+                              tabIndex={0}
+                              aria-label={`Eliminar Modo de Falla ${index + 1}`}
+                              onClick={(e) => { e.stopPropagation(); handleRemoveFailureMode(fm.id); }}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); handleRemoveFailureMode(fm.id); } }}
+                              className="p-1 rounded-md hover:bg-destructive/10 focus:outline-none focus:ring-1 focus:ring-destructive cursor-pointer h-9 w-9 flex items-center justify-center shrink-0"
+                          >
+                              <Trash2 className="h-5 w-5 text-destructive" />
+                          </div>
+                      </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="p-4 border-t">
+                      <Label htmlFor={`fm-${fm.id}`} className="text-base font-semibold">Descripción Modo de Falla</Label>
+                      <Textarea id={`fm-${fm.id}`} value={fm.description} onChange={(e) => handleUpdateFailureMode(fm.id, e.target.value)} placeholder="Describa el modo de falla..." rows={3} className="mb-4" />
+                      {renderHypotheses(fm.id, fm.hypotheses)}
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
+          ))}
 
-      <Button onClick={handleAddFailureMode} variant="default" className="w-full mt-4">
-        <PlusCircle className="mr-2 h-5 w-5" /> Añadir Modo de Falla
-      </Button>
+          <div className="flex-shrink-0">
+            <Button
+              onClick={handleAddFailureMode}
+              variant="outline"
+              className="h-full w-40 flex flex-col justify-center items-center p-4 border-dashed hover:border-primary hover:bg-secondary/50"
+            >
+              <PlusCircle className="h-8 w-8 mb-2 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground text-center">Añadir Modo de Falla</span>
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
-
-
-    
