@@ -294,14 +294,15 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({
       {humanCauses.map((hc, index) => (
         <Accordion key={hc.id} type="single" collapsible className="w-full">
           <AccordionItem value={hc.id} className="border rounded-md shadow bg-secondary/40">
-            <AccordionTrigger className="p-3 hover:no-underline rounded-t-md">
-              <div className="flex justify-between items-center w-full">
-                  <span className="text-sm font-medium text-red-700 dark:text-red-400 flex-grow text-left pr-2">Causa Humana #{index + 1}: {hc.description.substring(0,30) || "(Sin describir)"}...</span>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10 shrink-0" onClick={(e) => { e.stopPropagation(); handleRemoveHumanCause(fmId, hypId, pcId, hc.id); }} aria-label={`Eliminar Causa Humana ${index + 1}`}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-              </div>
-            </AccordionTrigger>
+            <AccordionPrimitive.Header className="flex items-center p-3 rounded-t-md">
+              <AccordionPrimitive.Trigger className="flex flex-1 items-center justify-between text-left hover:no-underline w-full group">
+                  <span className="text-sm font-medium text-red-700 dark:text-red-400 flex-grow pr-2 group-hover:underline">Causa Humana #{index + 1}: {hc.description.substring(0,30) || "(Sin describir)"}...</span>
+                  <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+              </AccordionPrimitive.Trigger>
+              <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10 shrink-0 ml-2" onClick={(e) => { e.stopPropagation(); handleRemoveHumanCause(fmId, hypId, pcId, hc.id); }} aria-label={`Eliminar Causa Humana ${index + 1}`}>
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </AccordionPrimitive.Header>
             <AccordionContent className="p-3 border-t">
               <Label htmlFor={`hc-${hc.id}`} className="text-xs font-semibold">Descripción Causa Humana</Label>
               <Textarea id={`hc-${hc.id}`} value={hc.description} onChange={(e) => handleUpdateHumanCause(fmId, hypId, pcId, hc.id, e.target.value)} placeholder="Descripción de la causa humana..." rows={2} className="mb-2 text-sm" />
@@ -319,14 +320,15 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({
       {physicalCauses.map((pc, index) => (
         <Accordion key={pc.id} type="single" collapsible className="w-full">
           <AccordionItem value={pc.id} className="border rounded-md shadow bg-background/80">
-            <AccordionTrigger className="p-3 hover:no-underline rounded-t-md">
-              <div className="flex justify-between items-center w-full">
-                  <span className="text-sm font-medium text-orange-700 dark:text-orange-400 flex-grow text-left pr-2">Causa Física #{index + 1}: {pc.description.substring(0,35) || "(Sin describir)"}...</span>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10 shrink-0" onClick={(e) => { e.stopPropagation(); handleRemovePhysicalCause(fmId, hypId, pc.id); }} aria-label={`Eliminar Causa Física ${index + 1}`}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-              </div>
-            </AccordionTrigger>
+            <AccordionPrimitive.Header className="flex items-center p-3 rounded-t-md">
+              <AccordionPrimitive.Trigger className="flex flex-1 items-center justify-between text-left hover:no-underline w-full group">
+                  <span className="text-sm font-medium text-orange-700 dark:text-orange-400 flex-grow pr-2 group-hover:underline">Causa Física #{index + 1}: {pc.description.substring(0,35) || "(Sin describir)"}...</span>
+                   <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+              </AccordionPrimitive.Trigger>
+              <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10 shrink-0 ml-2" onClick={(e) => { e.stopPropagation(); handleRemovePhysicalCause(fmId, hypId, pc.id); }} aria-label={`Eliminar Causa Física ${index + 1}`}>
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </AccordionPrimitive.Header>
             <AccordionContent className="p-3 border-t">
               <Label htmlFor={`pc-${pc.id}`} className="text-xs font-semibold">Descripción Causa Física</Label>
               <Textarea id={`pc-${pc.id}`} value={pc.description} onChange={(e) => handleUpdatePhysicalCause(fmId, hypId, pc.id, e.target.value)} placeholder="Descripción de la causa física..." rows={2} className="mb-2 text-sm" />
@@ -397,14 +399,15 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({
             <div key={fm.id} className="w-96 flex-shrink-0">
               <Accordion type="single" collapsible className="w-full">
                 <AccordionItem value={fm.id} className="border rounded-lg shadow-lg bg-card">
-                  <AccordionTrigger className="p-4 hover:no-underline bg-primary/5 hover:bg-primary/10 rounded-t-lg text-left w-full">
-                      <div className="flex justify-between items-center w-full">
-                          <span className="text-base font-semibold text-primary flex-grow pr-2">Modo de Falla #{index + 1}: {fm.description.substring(0,30) || "(Sin describir)"}...</span>
-                          <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-destructive/10 shrink-0" onClick={(e) => { e.stopPropagation(); handleRemoveFailureMode(fm.id); }} aria-label={`Eliminar Modo de Falla ${index + 1}`}>
-                            <Trash2 className="h-5 w-5 text-destructive" />
-                          </Button>
-                      </div>
-                  </AccordionTrigger>
+                  <AccordionPrimitive.Header className="flex items-center p-4 bg-primary/5 rounded-t-lg">
+                    <AccordionPrimitive.Trigger className="flex flex-1 items-center justify-between text-left hover:no-underline w-full group">
+                        <span className="text-base font-semibold text-primary flex-grow pr-2 group-hover:underline">Modo de Falla #{index + 1}: {fm.description.substring(0,30) || "(Sin describir)"}...</span>
+                        <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                    </AccordionPrimitive.Trigger>
+                    <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-destructive/10 shrink-0 ml-2" onClick={(e) => { e.stopPropagation(); handleRemoveFailureMode(fm.id); }} aria-label={`Eliminar Modo de Falla ${index + 1}`}>
+                      <Trash2 className="h-5 w-5 text-destructive" />
+                    </Button>
+                  </AccordionPrimitive.Header>
                   <AccordionContent className="p-4 border-t">
                       <Label htmlFor={`fm-${fm.id}`} className="text-base font-semibold">Descripción Modo de Falla</Label>
                       <Textarea id={`fm-${fm.id}`} value={fm.description} onChange={(e) => handleUpdateFailureMode(fm.id, e.target.value)} placeholder="Describa el modo de falla..." rows={3} className="mb-4" />
