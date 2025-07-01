@@ -378,10 +378,10 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({
 
       <Card className="bg-primary/10">
         <CardHeader>
-          <CardTitle className="text-md font-semibold text-primary">Evento Foco Inicial</CardTitle>
+          <CardTitle className="text-md font-semibold text-primary text-center">Evento Foco Inicial</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-foreground">{focusEventDescription || "Defina el evento foco en el Paso 1."}</p>
+          <p className="text-sm text-foreground text-center">{focusEventDescription || "Defina el evento foco en el Paso 1."}</p>
         </CardContent>
       </Card>
 
