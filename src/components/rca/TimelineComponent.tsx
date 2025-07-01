@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useEffect, useMemo, type FC } from "react";
 import type { TimelineEvent } from "@/types/rca";
@@ -9,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { PlusCircle, Edit2, Trash2, CalendarClock, Loader2 } from "lucide-react"; // Removed Copy icon
+import { PlusCircle, Edit2, Trash2, CalendarClock, Loader2 } from "lucide-react";
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 
 interface TimelineComponentProps {
@@ -23,6 +22,16 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
   const [dateTimeValue, setDateTimeValue] = useState(""); // Combined date and time "YYYY-MM-DDTHH:MM"
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [maxDateTime, setMaxDateTime] = useState('');
+
+  useEffect(() => {
+    const now = new Date();
+    // To format for the `max` attribute of a datetime-local input, we need "YYYY-MM-DDTHH:MM".
+    // We adjust for the user's timezone offset to get the correct local time string.
+    const timezoneOffset = now.getTimezoneOffset() * 60000; //offset in milliseconds
+    const localISOTime = new Date(now.getTime() - timezoneOffset).toISOString().slice(0, 16);
+    setMaxDateTime(localISOTime);
+  }, []);
 
   const parseDateTimeString = (dateTimeStr: string): Date | null => {
     if (!dateTimeStr) return null;
@@ -57,6 +66,15 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
     if (!newEventDateTime) {
       toast({ title: "Fecha/Hora Inválida", description: "El formato de fecha y hora no es válido. Asegúrese de que esté completo.", variant: "destructive" });
       return false;
+    }
+
+    if (newEventDateTime > new Date()) {
+        toast({
+            title: "Fecha Futura no permitida",
+            description: "No puede registrar un evento en una fecha u hora futura.",
+            variant: "destructive"
+        });
+        return false;
     }
 
     // If there are no events, or if we are editing the only event, any date is fine.
@@ -221,7 +239,7 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
               type="datetime-local"
               value={dateTimeValue}
               onChange={(e) => setDateTimeValue(e.target.value)}
-              className="border border-gray-300 rounded px-4 py-2"
+              max={maxDateTime}
             />
           </div>
           <div className="flex flex-wrap gap-2 pt-2">
@@ -294,4 +312,3 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
 };
 
 export default TimelineComponent;
-
