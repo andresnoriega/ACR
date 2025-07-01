@@ -100,6 +100,7 @@ export interface Hypothesis {
   id: string;
   description: string;
   physicalCauses: PhysicalCause[];
+  status?: 'pending' | 'accepted' | 'rejected';
 }
 
 export interface FailureMode {

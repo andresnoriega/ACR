@@ -1,3 +1,4 @@
+
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import type { CTMData, FailureMode, Hypothesis, PhysicalCause, HumanCause, LatentCause } from '@/types/rca';
@@ -6,8 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { PlusCircle, Trash2, CornerDownRight, Share2 } from 'lucide-react';
+import { PlusCircle, Trash2, CornerDownRight, Share2, Check, X } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 
 interface CTMInteractiveProps {
   focusEventDescription: string;
@@ -47,6 +49,7 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({
       id: generateId('hyp'),
       description: '',
       physicalCauses: [],
+      status: 'pending',
     };
     onSetCtmData(ctmData.map(fm => 
       fm.id === fmId ? { ...fm, hypotheses: [...fm.hypotheses, newHypothesis] } : fm
@@ -69,6 +72,17 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({
       fm.id === fmId ? { 
         ...fm, 
         hypotheses: fm.hypotheses.filter(hyp => hyp.id !== hypId) 
+      } : fm
+    ));
+  };
+  
+  const handleUpdateHypothesisStatus = (fmId: string, hypId: string, newStatus: 'pending' | 'accepted' | 'rejected') => {
+    onSetCtmData(ctmData.map(fm =>
+      fm.id === fmId ? {
+        ...fm,
+        hypotheses: fm.hypotheses.map(hyp =>
+          hyp.id === hypId ? { ...hyp, status: newStatus } : hyp
+        )
       } : fm
     ));
   };
@@ -340,32 +354,36 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({
 
   const renderHypotheses = (fmId: string, hypotheses: Hypothesis[]) => (
     <div className="ml-6 pl-4 border-l border-dashed border-muted-foreground/70 space-y-3">
-      {hypotheses.map((hyp, index) => (
+      {hypotheses.map((hyp, index) => {
+        const isAccepted = hyp.status === 'accepted';
+        const isRejected = hyp.status === 'rejected';
+        return(
         <Accordion key={hyp.id} type="single" collapsible className="w-full">
-          <AccordionItem value={hyp.id} className="border rounded-md shadow-md bg-secondary/50">
+          <AccordionItem value={hyp.id} className={cn("border rounded-md shadow-md bg-secondary/50", isAccepted && "border-green-400 bg-green-50/50 dark:bg-green-900/20", isRejected && "border-destructive/40 bg-red-50/50 dark:bg-red-900/20 opacity-75")}>
             <AccordionTrigger className="p-3 hover:no-underline rounded-t-md">
               <div className="flex justify-between items-center w-full">
-                  <span className="text-base font-medium text-teal-700 dark:text-teal-400 flex-grow text-left pr-2">Hipótesis #{index + 1}: {hyp.description.substring(0,40) || "(Sin describir)"}...</span>
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`Eliminar Hipótesis ${index + 1}`}
-                    onClick={(e) => { e.stopPropagation(); handleRemoveHypothesis(fmId, hyp.id); }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); handleRemoveHypothesis(fmId, hyp.id); } }}
-                    className="p-1 rounded-md hover:bg-destructive/10 focus:outline-none focus:ring-1 focus:ring-destructive cursor-pointer h-8 w-8 flex items-center justify-center shrink-0"
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </div>
+                <span className="text-base font-medium text-teal-700 dark:text-teal-400 flex-grow text-left pr-2">Hipótesis #{index + 1}: {hyp.description.substring(0,40) || "(Sin describir)"}...</span>
+                <div className="flex items-center gap-1 shrink-0 ml-2">
+                  <Button size="icon" variant={isAccepted ? 'default' : 'ghost'} className={cn("h-7 w-7", isAccepted && "bg-green-600 hover:bg-green-700")} onClick={(e) => {e.stopPropagation(); handleUpdateHypothesisStatus(fmId, hyp.id, isAccepted ? 'pending' : 'accepted');}} disabled={isRejected} title={isAccepted ? "Anular aceptación" : "Aceptar hipótesis"}><Check className="h-4 w-4" /></Button>
+                  <Button size="icon" variant={isRejected ? 'destructive' : 'ghost'} className="h-7 w-7" onClick={(e) => {e.stopPropagation(); handleUpdateHypothesisStatus(fmId, hyp.id, isRejected ? 'pending' : 'rejected');}} disabled={isAccepted} title={isRejected ? "Anular rechazo" : "Rechazar hipótesis"}><X className="h-4 w-4" /></Button>
+                  <div role="button" tabIndex={0} aria-label={`Eliminar Hipótesis ${index + 1}`} onClick={(e) => {e.stopPropagation(); handleRemoveHypothesis(fmId, hyp.id);}} onKeyDown={(e) => {if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); handleRemoveHypothesis(fmId, hyp.id);}}} className="p-1 rounded-md hover:bg-destructive/10 focus:outline-none focus:ring-1 focus:ring-destructive cursor-pointer h-7 w-7 flex items-center justify-center shrink-0"><Trash2 className="h-4 w-4 text-destructive" /></div>
+                </div>
               </div>
             </AccordionTrigger>
             <AccordionContent className="p-3 border-t">
-              <Label htmlFor={`hyp-${hyp.id}`} className="text-sm font-semibold">Descripción Hipótesis</Label>
-              <Textarea id={`hyp-${hyp.id}`} value={hyp.description} onChange={(e) => handleUpdateHypothesis(fmId, hyp.id, e.target.value)} placeholder="Descripción de la hipótesis..." rows={2} className="mb-3" />
-              {renderPhysicalCauses(fmId, hyp.id, hyp.physicalCauses)}
+              {isRejected ? (
+                <div className="text-center p-4 text-sm text-destructive font-medium">Hipótesis Rechazada. La investigación por esta rama ha sido detenida.</div>
+              ) : (
+                <>
+                  <Label htmlFor={`hyp-${hyp.id}`} className="text-sm font-semibold">Descripción Hipótesis</Label>
+                  <Textarea id={`hyp-${hyp.id}`} value={hyp.description} onChange={(e) => handleUpdateHypothesis(fmId, hyp.id, e.target.value)} placeholder="Descripción de la hipótesis..." rows={2} className="mb-3" />
+                  {renderPhysicalCauses(fmId, hyp.id, hyp.physicalCauses)}
+                </>
+              )}
             </AccordionContent>
           </AccordionItem>
         </Accordion>
-      ))}
+      )})}
       <Button variant="outline" onClick={() => handleAddHypothesis(fmId)}><PlusCircle className="mr-2 h-4 w-4" /> Añadir Hipótesis</Button>
     </div>
   );
