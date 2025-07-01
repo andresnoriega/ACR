@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { PlusCircle, Trash2, CornerDownRight, Share2, Check, X } from 'lucide-react';
+import * as AccordionPrimitive from "@radix-ui/react-accordion";
+import { PlusCircle, Trash2, CornerDownRight, Share2, Check, X, ChevronDown } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 
@@ -296,16 +297,9 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({
             <AccordionTrigger className="p-3 hover:no-underline rounded-t-md">
               <div className="flex justify-between items-center w-full">
                   <span className="text-sm font-medium text-red-700 dark:text-red-400 flex-grow text-left pr-2">Causa Humana #{index + 1}: {hc.description.substring(0,30) || "(Sin describir)"}...</span>
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`Eliminar Causa Humana ${index + 1}`}
-                    onClick={(e) => { e.stopPropagation(); handleRemoveHumanCause(fmId, hypId, pcId, hc.id); }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); handleRemoveHumanCause(fmId, hypId, pcId, hc.id); } }}
-                    className="p-1 rounded-md hover:bg-destructive/10 focus:outline-none focus:ring-1 focus:ring-destructive cursor-pointer h-7 w-7 flex items-center justify-center shrink-0"
-                  >
+                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10 shrink-0" onClick={(e) => { e.stopPropagation(); handleRemoveHumanCause(fmId, hypId, pcId, hc.id); }} aria-label={`Eliminar Causa Humana ${index + 1}`}>
                     <Trash2 className="h-4 w-4 text-destructive" />
-                  </div>
+                  </Button>
               </div>
             </AccordionTrigger>
             <AccordionContent className="p-3 border-t">
@@ -328,16 +322,9 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({
             <AccordionTrigger className="p-3 hover:no-underline rounded-t-md">
               <div className="flex justify-between items-center w-full">
                   <span className="text-sm font-medium text-orange-700 dark:text-orange-400 flex-grow text-left pr-2">Causa Física #{index + 1}: {pc.description.substring(0,35) || "(Sin describir)"}...</span>
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`Eliminar Causa Física ${index + 1}`}
-                    onClick={(e) => { e.stopPropagation(); handleRemovePhysicalCause(fmId, hypId, pc.id); }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); handleRemovePhysicalCause(fmId, hypId, pc.id); } }}
-                    className="p-1 rounded-md hover:bg-destructive/10 focus:outline-none focus:ring-1 focus:ring-destructive cursor-pointer h-7 w-7 flex items-center justify-center shrink-0"
-                  >
+                  <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10 shrink-0" onClick={(e) => { e.stopPropagation(); handleRemovePhysicalCause(fmId, hypId, pc.id); }} aria-label={`Eliminar Causa Física ${index + 1}`}>
                     <Trash2 className="h-4 w-4 text-destructive" />
-                  </div>
+                  </Button>
               </div>
             </AccordionTrigger>
             <AccordionContent className="p-3 border-t">
@@ -359,17 +346,18 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({
         const isRejected = hyp.status === 'rejected';
         return(
         <Accordion key={hyp.id} type="single" collapsible className="w-full">
-          <AccordionItem value={hyp.id} className={cn("border rounded-md shadow-md bg-secondary/50", isAccepted && "border-green-400 bg-green-50/50 dark:bg-green-900/20", isRejected && "border-destructive/40 bg-red-50/50 dark:bg-red-900/20 opacity-75")}>
-            <AccordionTrigger className="p-3 hover:no-underline rounded-t-md">
-              <div className="flex justify-between items-center w-full">
-                <span className="text-base font-medium text-teal-700 dark:text-teal-400 flex-grow text-left pr-2">Hipótesis #{index + 1}: {hyp.description.substring(0,40) || "(Sin describir)"}...</span>
-                <div className="flex items-center gap-1 shrink-0 ml-2">
-                  <Button size="icon" variant={isAccepted ? 'default' : 'ghost'} className={cn("h-7 w-7", isAccepted && "bg-green-600 hover:bg-green-700")} onClick={(e) => {e.stopPropagation(); handleUpdateHypothesisStatus(fmId, hyp.id, isAccepted ? 'pending' : 'accepted');}} disabled={isRejected} title={isAccepted ? "Anular aceptación" : "Aceptar hipótesis"}><Check className="h-4 w-4" /></Button>
-                  <Button size="icon" variant={isRejected ? 'destructive' : 'ghost'} className="h-7 w-7" onClick={(e) => {e.stopPropagation(); handleUpdateHypothesisStatus(fmId, hyp.id, isRejected ? 'pending' : 'rejected');}} disabled={isAccepted} title={isRejected ? "Anular rechazo" : "Rechazar hipótesis"}><X className="h-4 w-4" /></Button>
-                  <div role="button" tabIndex={0} aria-label={`Eliminar Hipótesis ${index + 1}`} onClick={(e) => {e.stopPropagation(); handleRemoveHypothesis(fmId, hyp.id);}} onKeyDown={(e) => {if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); handleRemoveHypothesis(fmId, hyp.id);}}} className="p-1 rounded-md hover:bg-destructive/10 focus:outline-none focus:ring-1 focus:ring-destructive cursor-pointer h-7 w-7 flex items-center justify-center shrink-0"><Trash2 className="h-4 w-4 text-destructive" /></div>
-                </div>
-              </div>
-            </AccordionTrigger>
+          <AccordionItem value={hyp.id} className={cn("border rounded-md shadow-md bg-secondary/50 group", isAccepted && "border-green-400 bg-green-50/50 dark:bg-green-900/20", isRejected && "border-destructive/40 bg-red-50/50 dark:bg-red-900/20 opacity-75")}>
+            <AccordionPrimitive.Header className="flex items-center p-3 rounded-t-md">
+                <AccordionPrimitive.Trigger className="flex-1 text-left hover:no-underline group-data-[state=open]:underline flex items-center justify-between">
+                    <span className="text-base font-medium text-teal-700 dark:text-teal-400 flex-grow text-left pr-2">Hipótesis #{index + 1}: {hyp.description.substring(0,40) || "(Sin describir)"}...</span>
+                    <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                </AccordionPrimitive.Trigger>
+                 <div className="flex items-center gap-1 shrink-0 ml-2">
+                    <Button size="icon" variant={isAccepted ? 'default' : 'ghost'} className={cn("h-7 w-7", isAccepted && "bg-green-600 hover:bg-green-700")} onClick={(e) => {e.stopPropagation(); handleUpdateHypothesisStatus(fmId, hyp.id, isAccepted ? 'pending' : 'accepted');}} disabled={isRejected} title={isAccepted ? "Anular aceptación" : "Aceptar hipótesis"}><Check className="h-4 w-4" /></Button>
+                    <Button size="icon" variant={isRejected ? 'destructive' : 'ghost'} className="h-7 w-7" onClick={(e) => {e.stopPropagation(); handleUpdateHypothesisStatus(fmId, hyp.id, isRejected ? 'pending' : 'rejected');}} disabled={isAccepted} title={isRejected ? "Anular rechazo" : "Rechazar hipótesis"}><X className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10" onClick={(e) => {e.stopPropagation(); handleRemoveHypothesis(fmId, hyp.id);}} aria-label={`Eliminar Hipótesis ${index + 1}`}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                 </div>
+            </AccordionPrimitive.Header>
             <AccordionContent className="p-3 border-t">
               {isRejected ? (
                 <div className="text-center p-4 text-sm text-destructive font-medium">Hipótesis Rechazada. La investigación por esta rama ha sido detenida.</div>
@@ -412,16 +400,9 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({
                   <AccordionTrigger className="p-4 hover:no-underline bg-primary/5 hover:bg-primary/10 rounded-t-lg text-left w-full">
                       <div className="flex justify-between items-center w-full">
                           <span className="text-base font-semibold text-primary flex-grow pr-2">Modo de Falla #{index + 1}: {fm.description.substring(0,30) || "(Sin describir)"}...</span>
-                          <div
-                              role="button"
-                              tabIndex={0}
-                              aria-label={`Eliminar Modo de Falla ${index + 1}`}
-                              onClick={(e) => { e.stopPropagation(); handleRemoveFailureMode(fm.id); }}
-                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); handleRemoveFailureMode(fm.id); } }}
-                              className="p-1 rounded-md hover:bg-destructive/10 focus:outline-none focus:ring-1 focus:ring-destructive cursor-pointer h-9 w-9 flex items-center justify-center shrink-0"
-                          >
-                              <Trash2 className="h-5 w-5 text-destructive" />
-                          </div>
+                          <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-destructive/10 shrink-0" onClick={(e) => { e.stopPropagation(); handleRemoveFailureMode(fm.id); }} aria-label={`Eliminar Modo de Falla ${index + 1}`}>
+                            <Trash2 className="h-5 w-5 text-destructive" />
+                          </Button>
                       </div>
                   </AccordionTrigger>
                   <AccordionContent className="p-4 border-t">
