@@ -54,8 +54,8 @@ export default function PublicHomePage() {
           <div className="grid md:grid-cols-2 gap-8 items-center">
             <div>
               <Image
-                src="https://placehold.co/600x400.png"
-                alt="Diagrama de análisis"
+                src="https://placehold.co/600x400/37718e/f0f2f5.png"
+                alt="Visualización de un diagrama de análisis"
                 width={600}
                 height={400}
                 className="rounded-lg shadow-xl"
