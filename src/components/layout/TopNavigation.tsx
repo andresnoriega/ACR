@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -54,7 +55,7 @@ export function TopNavigation() {
     try {
       await logoutUser();
       toast({ title: 'Sesión Cerrada', description: 'Has cerrado sesión exitosamente.' });
-      router.push('/');
+      window.location.href = '/'; // Redirect to the public home page
     } catch (error) {
       console.error("Error al cerrar sesión:", error);
       toast({ title: 'Error', description: 'No se pudo cerrar la sesión.', variant: 'destructive' });

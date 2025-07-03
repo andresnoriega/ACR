@@ -22,7 +22,6 @@ import { TopNavigation } from '@/components/layout/TopNavigation';
 
 function IdleManager() {
   const { currentUser, logoutUser } = useAuth();
-  // const router = useRouter(); // No se usa router aquí.
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
@@ -39,7 +38,7 @@ function IdleManager() {
     setIsLoggingOut(true);
     try {
       await logoutUser();
-      // La redirección se maneja en AuthProvider o por el estado de currentUser
+      window.location.href = '/'; // Redirect to public home page on idle logout
     } catch (error) {
       console.error("Error during automatic logout for inactivity:", error);
     } finally {
