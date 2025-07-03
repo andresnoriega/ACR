@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -99,11 +100,6 @@ export default function PublicHomePage() {
             <p className="text-muted-foreground mt-4 max-w-2xl mx-auto text-lg">
               Asistente ACR le proporciona las herramientas y la estructura para ir más allá de lo obvio y descubrir las fallas sistémicas que originan los incidentes.
             </p>
-            <div className="mt-8">
-              <Button asChild size="lg" className="transition-transform hover:scale-105 shadow-lg">
-                <Link href="/registro">Regístrese Gratis</Link>
-              </Button>
-            </div>
           </div>
         </section>
       </div>
