@@ -62,7 +62,7 @@ export default function PublicHomePage() {
               </div>
               <h4 className="text-xl font-semibold mb-2">Análisis Guiado y Completo</h4>
               <p className="text-base text-muted-foreground">
-                Siga un proceso metódico de 5 pasos que le asegura no omitir información crítica. Utilice herramientas como la <strong>Línea de Tiempo</strong> y la <strong>Lluvia de Ideas</strong> para recopilar datos, y profundice con técnicas avanzadas como los <strong>5 Porqués, Ishikawa o el Árbol de Causas (CTM)</strong> para encontrar el origen real del problema.
+                Siga un proceso metódico de 5 pasos que le asegura no omitir información crítica. Utilice herramientas como la <strong>Línea de Tiempo</strong> y la <strong>Lluvia de Ideas</strong> para recopilar datos, y profundice con técnicas avanzadas como los <strong>5 Porqués, Ishikawa o el Árbol de Causas</strong> para encontrar el origen real del problema.
               </p>
             </div>
             <div className="flex flex-col items-center text-center p-4">
