@@ -51,33 +51,31 @@ export default function PublicHomePage() {
         </header>
 
         <section className="container mx-auto px-4">
-          <div className="max-w-3xl mx-auto">
-            <div className="space-y-4">
-              <h2 className="text-3xl font-bold text-center">¿Por qué Asistente ACR?</h2>
-              <p className="text-muted-foreground text-center">Simplifique la complejidad, encuentre la verdadera causa raíz y prevenga la recurrencia.</p>
-              <ul className="space-y-3 pt-4">
-                <li className="flex items-start gap-3">
-                  <div className="flex-shrink-0 mt-1"><Target className="h-6 w-6 text-accent" /></div>
-                  <div>
-                    <h4 className="font-semibold">Análisis Guiado</h4>
-                    <p className="text-sm text-muted-foreground">Siga un proceso estructurado en 5 pasos que asegura que no se omita ninguna información crítica.</p>
-                  </div>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="flex-shrink-0 mt-1"><Lightbulb className="h-6 w-6 text-accent" /></div>
-                  <div>
-                    <h4 className="font-semibold">Potenciado con IA</h4>
-                    <p className="text-sm text-muted-foreground">Obtenga sugerencias inteligentes de causas raíz y genere borradores de resúmenes ejecutivos.</p>
-                  </div>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="flex-shrink-0 mt-1"><CheckSquare className="h-6 w-6 text-accent" /></div>
-                  <div>
-                    <h4 className="font-semibold">Gestión Centralizada</h4>
-                    <p className="text-sm text-muted-foreground">Cree planes de acción, asigne responsables y dé seguimiento al estado de validación de cada tarea.</p>
-                  </div>
-                </li>
-              </ul>
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold">¿Por qué Asistente ACR?</h2>
+            <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">Simplifique la complejidad, encuentre la verdadera causa raíz y prevenga la recurrencia con nuestras poderosas herramientas.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="flex flex-col items-center text-center">
+              <div className="flex items-center justify-center h-16 w-16 bg-primary/10 rounded-full mb-4">
+                  <Target className="h-8 w-8 text-primary" />
+              </div>
+              <h4 className="text-xl font-semibold mb-2">Análisis Guiado y Estructurado</h4>
+              <p className="text-sm text-muted-foreground">Siga un proceso metódico de 5 pasos que le asegura no omitir información crítica. Desde la descripción del evento hasta la validación de acciones, cada etapa está diseñada para maximizar la efectividad del análisis.</p>
+            </div>
+            <div className="flex flex-col items-center text-center">
+              <div className="flex items-center justify-center h-16 w-16 bg-primary/10 rounded-full mb-4">
+                <Lightbulb className="h-8 w-8 text-primary" />
+              </div>
+              <h4 className="text-xl font-semibold mb-2">Potenciado con Inteligencia Artificial</h4>
+              <p className="text-sm text-muted-foreground">Obtenga sugerencias inteligentes de causas raíz latentes y genere borradores de resúmenes ejecutivos con un solo clic. Deje que la IA acelere su proceso de análisis y le ayude a descubrir insights ocultos.</p>
+            </div>
+            <div className="flex flex-col items-center text-center">
+              <div className="flex items-center justify-center h-16 w-16 bg-primary/10 rounded-full mb-4">
+                  <CheckSquare className="h-8 w-8 text-primary" />
+              </div>
+              <h4 className="text-xl font-semibold mb-2">Gestión Centralizada de Tareas</h4>
+              <p className="text-sm text-muted-foreground">Cree planes de acción, asigne responsables y dé seguimiento al estado de validación de cada tarea desde un único lugar. Asegure la rendición de cuentas y el cumplimiento de las soluciones propuestas.</p>
             </div>
           </div>
         </section>
