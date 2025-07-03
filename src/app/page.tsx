@@ -51,21 +51,11 @@ export default function PublicHomePage() {
         </header>
 
         <section className="container mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-8 items-center">
-            <div>
-              <Image
-                src="https://placehold.co/600x400/37718e/f0f2f5.png"
-                alt="Visualización de un diagrama de análisis"
-                width={600}
-                height={400}
-                className="rounded-lg shadow-xl"
-                data-ai-hint="analysis diagram"
-              />
-            </div>
+          <div className="max-w-3xl mx-auto">
             <div className="space-y-4">
-              <h2 className="text-3xl font-bold">¿Por qué Asistente ACR?</h2>
-              <p className="text-muted-foreground">Simplifique la complejidad, encuentre la verdadera causa raíz y prevenga la recurrencia.</p>
-              <ul className="space-y-3">
+              <h2 className="text-3xl font-bold text-center">¿Por qué Asistente ACR?</h2>
+              <p className="text-muted-foreground text-center">Simplifique la complejidad, encuentre la verdadera causa raíz y prevenga la recurrencia.</p>
+              <ul className="space-y-3 pt-4">
                 <li className="flex items-start gap-3">
                   <div className="flex-shrink-0 mt-1"><Target className="h-6 w-6 text-accent" /></div>
                   <div>
