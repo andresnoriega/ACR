@@ -34,14 +34,8 @@ export default function PublicHomePage() {
     return (
       <div className="space-y-12 md:space-y-16 py-12 md:py-20">
         <header className="text-center space-y-4 px-4">
-          <div className="inline-flex items-center justify-center mb-4">
-            <Image
-              src="/logo.png"
-              alt="Asistente ACR Logo"
-              width={128}
-              height={128}
-              priority
-            />
+          <div className="inline-flex items-center justify-center bg-primary/10 text-primary p-3 rounded-full mb-4">
+            <Zap className="h-16 w-16" />
           </div>
           <h1 className="text-4xl md:text-5xl font-bold font-headline text-primary">
             Bienvenido a Asistente ACR

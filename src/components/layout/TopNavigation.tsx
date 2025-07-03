@@ -71,8 +71,9 @@ export function TopNavigation() {
           {/* Logo or Menu Items Section */}
           <div className="flex items-center gap-2 sm:gap-4">
             {isPublicFacingPage || !currentUser ? (
-              <Link href="/" className="flex items-center text-lg font-bold text-primary">
-                <Image src="/logo.png" alt="Asistente ACR Logo" width={50} height={50} priority={true} className="h-12 w-auto" />
+              <Link href="/" className="flex items-center gap-2 text-lg font-bold text-primary">
+                <Zap className="h-7 w-7" />
+                <span className="font-headline text-xl hidden sm:inline">Asistente ACR</span>
               </Link>
             ) : (
               <div className="flex space-x-1 sm:space-x-2 md:space-x-4 overflow-x-auto py-2">
