@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect } from 'react';
@@ -6,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Zap, Target, Lightbulb, CheckSquare, BarChart3, Loader2, ClipboardList, Sparkles, FolderKanban, LineChart } from 'lucide-react';
+import { Zap, Target, Lightbulb, CheckSquare, BarChart3, Loader2, ClipboardList, Sparkles, FolderKanban, LineChart, ShieldCheck } from 'lucide-react';
 import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -54,8 +53,8 @@ export default function PublicHomePage() {
               <h2 className="text-3xl font-bold text-primary">Potencia tu Mejora Continua</h2>
               <p className="text-muted-foreground mt-2 max-w-2xl mx-auto text-lg">Descubra cómo nuestra plataforma estructurada y potenciada con IA puede simplificar la complejidad del análisis de causa raíz.</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <Card className="shadow-md hover:shadow-lg transition-shadow duration-300">
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-8">
+              <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 md:col-span-3">
                 <CardHeader className="items-center text-center">
                     <div className="flex items-center justify-center h-16 w-16 bg-primary/10 rounded-full mb-4">
                         <ClipboardList className="h-8 w-8 text-primary" />
@@ -69,7 +68,7 @@ export default function PublicHomePage() {
                 </CardContent>
               </Card>
 
-              <Card className="shadow-md hover:shadow-lg transition-shadow duration-300">
+              <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 md:col-span-3">
                 <CardHeader className="items-center text-center">
                   <div className="flex items-center justify-center h-16 w-16 bg-primary/10 rounded-full mb-4">
                     <Sparkles className="h-8 w-8 text-primary" />
@@ -83,7 +82,7 @@ export default function PublicHomePage() {
                 </CardContent>
               </Card>
 
-              <Card className="shadow-md hover:shadow-lg transition-shadow duration-300">
+              <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 md:col-span-2">
                 <CardHeader className="items-center text-center">
                   <div className="flex items-center justify-center h-16 w-16 bg-primary/10 rounded-full mb-4">
                       <FolderKanban className="h-8 w-8 text-primary" />
@@ -97,7 +96,7 @@ export default function PublicHomePage() {
                 </CardContent>
               </Card>
 
-              <Card className="shadow-md hover:shadow-lg transition-shadow duration-300">
+              <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 md:col-span-2">
                 <CardHeader className="items-center text-center">
                   <div className="flex items-center justify-center h-16 w-16 bg-primary/10 rounded-full mb-4">
                       <LineChart className="h-8 w-8 text-primary" />
@@ -110,6 +109,21 @@ export default function PublicHomePage() {
                   </p>
                 </CardContent>
               </Card>
+              
+              <Card className="shadow-md hover:shadow-lg transition-shadow duration-300 md:col-span-2">
+                <CardHeader className="items-center text-center">
+                    <div className="flex items-center justify-center h-16 w-16 bg-primary/10 rounded-full mb-4">
+                        <ShieldCheck className="h-8 w-8 text-primary" />
+                    </div>
+                    <CardTitle className="text-xl">Cumplimiento Normativo</CardTitle>
+                </CardHeader>
+                <CardContent className="text-center">
+                    <p className="text-base text-muted-foreground">
+                      Puedes usar este asistente para dar cumplimento al requisito "No conformidad y acción correctiva" de cualquier sistema de gestión.
+                    </p>
+                </CardContent>
+              </Card>
+
             </div>
           </div>
         </section>
