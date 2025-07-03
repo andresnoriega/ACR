@@ -63,7 +63,7 @@ export default function LoginPage() {
             <LogIn className="h-6 w-6 text-primary" />
             Iniciar Sesión
           </CardTitle>
-          <CardDescription>Acceda a su cuenta de RCA Assistant.</CardDescription>
+          <CardDescription>Acceda a su cuenta de Asistente ACR.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

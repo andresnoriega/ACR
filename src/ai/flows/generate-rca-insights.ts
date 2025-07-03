@@ -40,9 +40,9 @@ const prompt = ai.definePrompt({
   input: {schema: GenerateRcaInsightsInputSchema},
   output: {schema: GenerateRcaInsightsOutputSchema},
   prompt: `
-    Usted es un analista experto en RCA (Análisis de Causa Raíz). Basándose en la siguiente información de un proceso RCA,
+    Usted es un analista experto en ACR (Análisis de Causa Raíz). Basándose en la siguiente información de un proceso ACR,
     genere un resumen ejecutivo conciso y perspicaz. Este resumen debe ser adecuado para su inclusión en la sección "Comentarios Finales"
-    del informe RCA.
+    del informe ACR.
 
     **Importante: El resumen ejecutivo DEBE estar escrito en ESPAÑOL.**
 
@@ -58,7 +58,7 @@ const prompt = ai.definePrompt({
     NO invente información. Cíñase a los datos proporcionados.
     Si falta una pieza de información (como notas de la técnica de análisis o hechos preservados) o no se proporciona, reconozca su ausencia implícitamente al no referirse a ella.
 
-    Datos del RCA:
+    Datos del ACR:
     - Evento Foco: {{{focusEventDescription}}}
     {{#if equipo}}- Equipo Involucrado: {{{equipo}}}{{/if}}
     - Resumen de Hechos: {{{detailedFactsSummary}}}

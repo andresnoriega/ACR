@@ -209,7 +209,7 @@ export interface TimelineEvent {
   datetime: string; // "YYYY-MM-DDTHH:MM" format for datetime-local input
 }
 
-// Document structure for an RCA Analysis in Firestore
+// Document structure for an ACR Analysis in Firestore
 export interface RCAAnalysisDocument {
   // From Step 1
   eventData: RCAEventData;

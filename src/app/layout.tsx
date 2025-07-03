@@ -7,7 +7,7 @@ import ClientProviders from '@/components/layout/ClientProviders';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
-  title: 'RCA Assistant',
+  title: 'Asistente ACR',
   description: 'Herramienta de Análisis de Causa Raíz con gráficos',
 };
 

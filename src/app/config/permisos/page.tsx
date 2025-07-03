@@ -17,7 +17,7 @@ import { collection, getDocs, doc, updateDoc, query, orderBy } from "firebase/fi
 const availableRoles: FullUserProfile['role'][] = ['Admin', 'Analista', 'Revisor', ''];
 const availablePermissionLevels: FullUserProfile['permissionLevel'][] = ['Total', 'Lectura', 'Limitado', ''];
 
-export default function ConfiguracionPermisosPage({ params, searchParams }: { params: any, searchParams: any }) {
+export default function ConfiguracionPermisosPage() {
   const [userProfiles, setUserProfiles] = useState<FullUserProfile[]>([]);
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
@@ -115,7 +115,7 @@ export default function ConfiguracionPermisosPage({ params, searchParams }: { pa
           Configuración de Permisos
         </h1>
         <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-          Gestione los roles y niveles de acceso dentro de RCA Assistant.
+          Gestione los roles y niveles de acceso dentro de Asistente ACR.
         </p>
       </header>
 

@@ -219,7 +219,7 @@ const countryOptions = [
 ].sort((a, b) => a.label.localeCompare(b.label));
 
 
-export default function ConfiguracionSitiosPage({ params, searchParams }: { params: any, searchParams: any }) {
+export default function ConfiguracionSitiosPage() {
   const [sites, setSites] = useState<Site[]>([]);
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
@@ -400,7 +400,7 @@ export default function ConfiguracionSitiosPage({ params, searchParams }: { para
     
     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
     const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
-    const fileName = `Sitios_RCA_Assistant_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const fileName = `Sitios_Asistente_ACR_${new Date().toISOString().split('T')[0]}.xlsx`;
     saveAs(dataBlob, fileName);
     toast({ title: "Exportación Iniciada", description: `El archivo ${fileName} ha comenzado a descargarse.` });
   };

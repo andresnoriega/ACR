@@ -32,7 +32,7 @@ const defaultPermissionLevel: FullUserProfile['permissionLevel'] = 'Lectura';
 
 const expectedUserHeaders = ["Nombre Completo", "Correo Electrónico", "Rol", "Empresa", "Sitios Asignados", "Notificaciones Email"];
 
-export default function ConfiguracionUsuariosPage({ params, searchParams }: { params: any, searchParams: any }) {
+export default function ConfiguracionUsuariosPage() {
   const [users, setUsers] = useState<UserConfigProfile[]>([]);
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
@@ -139,9 +139,9 @@ export default function ConfiguracionUsuariosPage({ params, searchParams }: { pa
         if (wasPending && isNowActive) {
             const emailResult = await sendEmailAction({
                 to: userEmail.trim(),
-                subject: "¡Tu cuenta en RCA Assistant ha sido activada!",
-                body: `Hola ${userName.trim()},\n\nTu cuenta en RCA Assistant ha sido aprobada por un administrador. Ya puedes iniciar sesión con tu correo y contraseña.\n\nSaludos,\nEl equipo de RCA Assistant`,
-                htmlBody: `<p>Hola ${userName.trim()},</p><p>Tu cuenta en RCA Assistant ha sido aprobada por un administrador. Ya puedes <strong>iniciar sesión</strong> con tu correo y contraseña.</p><p>Saludos,<br/>El equipo de RCA Assistant</p>`
+                subject: "¡Tu cuenta en Asistente ACR ha sido activada!",
+                body: `Hola ${userName.trim()},\n\nTu cuenta en Asistente ACR ha sido aprobada por un administrador. Ya puedes iniciar sesión con tu correo y contraseña.\n\nSaludos,\nEl equipo de Asistente ACR`,
+                htmlBody: `<p>Hola ${userName.trim()},</p><p>Tu cuenta en Asistente ACR ha sido aprobada por un administrador. Ya puedes <strong>iniciar sesión</strong> con tu correo y contraseña.</p><p>Saludos,<br/>El equipo de Asistente ACR</p>`
             });
             if (emailResult.success) {
                 toast({
@@ -233,7 +233,7 @@ export default function ConfiguracionUsuariosPage({ params, searchParams }: { pa
     
     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
     const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
-    const fileName = `Usuarios_RCA_Assistant_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const fileName = `Usuarios_Asistente_ACR_${new Date().toISOString().split('T')[0]}.xlsx`;
     saveAs(dataBlob, fileName);
     toast({ title: "Exportación Iniciada", description: `El archivo ${fileName} ha comenzado a descargarse.` });
   };

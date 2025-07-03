@@ -12,7 +12,7 @@ export default function InstructivoPage() {
           <BookOpen className="h-10 w-10" />
         </div>
         <h1 className="text-4xl font-bold font-headline text-primary">
-          Instructivo de Uso - RCA Assistant
+          Instructivo de Uso - Asistente ACR
         </h1>
         <p className="text-lg text-muted-foreground">
           Una guía rápida para aprovechar al máximo la plataforma de Análisis de Causa Raíz.
@@ -24,7 +24,7 @@ export default function InstructivoPage() {
           <CardTitle className="flex items-center"><Zap className="mr-2 h-5 w-5" />Introducción</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
-          <p>Bienvenido a RCA Assistant, su aliado estratégico para la gestión y análisis de incidentes. Esta plataforma está diseñada para guiarlo a través de un proceso estructurado de Análisis de Causa Raíz (RCA), desde el reporte inicial de un evento hasta la validación de las acciones correctivas, asegurando una mejora continua y previniendo la recurrencia de problemas.</p>
+          <p>Bienvenido a Asistente ACR, su aliado estratégico para la gestión y análisis de incidentes. Esta plataforma está diseñada para guiarlo a través de un proceso estructurado de Análisis de Causa Raíz (ACR), desde el reporte inicial de un evento hasta la validación de las acciones correctivas, asegurando una mejora continua y previniendo la recurrencia de problemas.</p>
           <p>Este instructivo le proporcionará una visión general de las funcionalidades clave y el flujo de trabajo recomendado.</p>
         </CardContent>
       </Card>
@@ -37,7 +37,7 @@ export default function InstructivoPage() {
           <ul className="list-disc pl-5 space-y-2 text-sm">
             <li><strong>Super User:</strong> Tiene acceso total a todas las funcionalidades, incluyendo la configuración crítica del sistema, la gestión de todos los usuarios y la visualización de datos de todas las empresas.</li>
             <li><strong>Admin:</strong> Gestiona usuarios y sitios dentro de su propia empresa. Puede aprobar o rechazar eventos y validar acciones correctivas.</li>
-            <li><strong>Analista:</strong> Es el rol principal para realizar los análisis RCA. Puede crear, editar y avanzar en los análisis de los eventos.</li>
+            <li><strong>Analista:</strong> Es el rol principal para realizar los análisis ACR. Puede crear, editar y avanzar en los análisis de los eventos.</li>
             <li><strong>Revisor:</strong> Tiene permisos de solo lectura sobre los eventos, análisis e informes. Ideal para roles de supervisión o consulta.</li>
             <li><strong>Usuario Pendiente:</strong> Rol asignado a nuevos usuarios. Tiene acceso muy limitado hasta que un Super User o Admin aprueba su cuenta.</li>
           </ul>
@@ -59,13 +59,13 @@ export default function InstructivoPage() {
             <AccordionItem value="item-2">
               <AccordionTrigger><div className="flex items-center"><BarChart3 className="mr-2 h-4 w-4" />Análisis</div></AccordionTrigger>
               <AccordionContent>
-                El corazón de la plataforma. Esta sección le guía a través de un proceso de 5 pasos para realizar un RCA completo. Puede iniciar un nuevo análisis desde cero o cargar uno existente usando su ID.
+                El corazón de la plataforma. Esta sección le guía a través de un proceso de 5 pasos para realizar un ACR completo. Puede iniciar un nuevo análisis desde cero o cargar uno existente usando su ID.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-3">
               <AccordionTrigger><div className="flex items-center"><FileText className="mr-2 h-4 w-4" />Informes</div></AccordionTrigger>
               <AccordionContent>
-                Un dashboard con indicadores clave (KPIs) sobre sus procesos de RCA. Visualice gráficos sobre el estado de los análisis y las acciones, y acceda a listas de análisis en curso y planes de acción pendientes.
+                Un dashboard con indicadores clave (KPIs) sobre sus procesos de ACR. Visualice gráficos sobre el estado de los análisis y las acciones, y acceda a listas de análisis en curso y planes de acción pendientes.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-4">
@@ -92,7 +92,7 @@ export default function InstructivoPage() {
       
       <Card>
         <CardHeader>
-            <CardTitle>Flujo de Trabajo: Realizando un RCA en 5 Pasos</CardTitle>
+            <CardTitle>Flujo de Trabajo: Realizando un ACR en 5 Pasos</CardTitle>
         </CardHeader>
         <CardContent>
             <Accordion type="single" collapsible className="w-full">

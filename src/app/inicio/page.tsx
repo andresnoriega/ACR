@@ -73,10 +73,10 @@ export default function InicioPage() {
           <Zap className="h-10 w-10" />
         </div>
         <h1 className="text-4xl font-bold font-headline text-primary">
-          Bienvenido a RCA Assistant, {userProfile?.name || currentUser.email}!
+          Bienvenido a Asistente ACR, {userProfile?.name || currentUser.email}!
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Su herramienta intuitiva y eficiente para realizar Análisis de Causa Raíz (RCA) y mejorar continuamente sus procesos.
+          Su herramienta intuitiva y eficiente para realizar Análisis de Causa Raíz (ACR) y mejorar continuamente sus procesos.
         </p>
       </header>
 
@@ -171,8 +171,8 @@ export default function InicioPage() {
         <CardContent className="pt-6">
           <h3 className="text-lg font-semibold text-primary mb-2">¿Qué es un Análisis de Causa Raíz?</h3>
           <p className="text-sm text-foreground">
-            El Análisis de Causa Raíz (RCA) es un método sistemático para identificar las causas subyacentes de un problema o incidente. 
-            En lugar de simplemente tratar los síntomas, el RCA busca encontrar el origen fundamental para implementar soluciones efectivas 
+            El Análisis de Causa Raíz (ACR) es un método sistemático para identificar las causas subyacentes de un problema o incidente. 
+            En lugar de simplemente tratar los síntomas, el ACR busca encontrar el origen fundamental para implementar soluciones efectivas 
             y prevenir la recurrencia del problema. Esta herramienta le guiará a través de este proceso.
           </p>
         </CardContent>

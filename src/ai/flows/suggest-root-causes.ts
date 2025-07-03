@@ -101,7 +101,7 @@ const suggestRootCausesPrompt = ai.definePrompt({
   input: { schema: SuggestRootCausesInputSchema },
   output: { schema: SuggestRootCausesOutputSchema },
   prompt: `
-    Eres un experto analista de RCA (Análisis de Causa Raíz) especializado en identificar **causas latentes**.
+    Eres un experto analista de ACR (Análisis de Causa Raíz) especializado en identificar **causas latentes**.
     Las causas latentes son condiciones subyacentes, problemas sistémicos, factores organizacionales o culturales que permitieron que las causas más directas (físicas, humanas) ocurrieran o tuvieran impacto.
     
     Basado en la siguiente información, tu tarea es **inferir y sugerir una lista de posibles CAUSAS LATENTES**.

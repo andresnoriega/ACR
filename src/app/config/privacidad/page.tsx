@@ -89,7 +89,7 @@ interface SortConfigReportedEvent {
   direction: 'ascending' | 'descending';
 }
 
-export default function ConfiguracionPrivacidadPage({ params, searchParams: pageSearchParams }: { params: any, searchParams: any }) {
+export default function ConfiguracionPrivacidadPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [isResetting, setIsResetting] = useState(false);
@@ -237,7 +237,7 @@ export default function ConfiguracionPrivacidadPage({ params, searchParams: page
     XLSX.utils.book_append_sheet(workbook, worksheet, "Eventos Reportados");
     
     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-    saveAs(new Blob([excelBuffer], {type:"application/octet-stream"}), `Eventos_Reportados_RCA_Privacidad_${new Date().toISOString().split('T')[0]}.xlsx`);
+    saveAs(new Blob([excelBuffer], {type:"application/octet-stream"}), `Eventos_Reportados_ACR_Privacidad_${new Date().toISOString().split('T')[0]}.xlsx`);
     toast({ title: "Exportación Iniciada", description: "El archivo de eventos ha comenzado a descargarse." });
   };
 
@@ -288,9 +288,9 @@ export default function ConfiguracionPrivacidadPage({ params, searchParams: page
   
   const handleResetData = async (dataType: string) => {
     setIsResetting(true);
-    if (dataType === "TODOS los Datos RCA") {
+    if (dataType === "TODOS los Datos ACR") {
       let rcaAnalysesDeleted = 0; let reportedEventsDeleted = 0; let success = true;
-      toast({ title: "Reseteo en Progreso...", description: "Eliminando análisis RCA y eventos reportados...", duration: 7000 });
+      toast({ title: "Reseteo en Progreso...", description: "Eliminando análisis ACR y eventos reportados...", duration: 7000 });
       const analysesResult = await deleteAllDocsInCollection('rcaAnalyses');
       if (analysesResult.success) rcaAnalysesDeleted = analysesResult.docsDeleted;
       else { success = false; toast({ title: "Error al Resetear Análisis", description: `Error: ${analysesResult.error?.message || 'Desconocido'}`, variant: "destructive" }); }
@@ -341,9 +341,9 @@ export default function ConfiguracionPrivacidadPage({ params, searchParams: page
     
     const result = await sendEmailAction({
       to: "TEST_MY_SENDER_ADDRESS", // Special keyword for server to use SENDER_EMAIL_ADDRESS
-      subject: "Correo de Prueba - Integración RCA Assistant con SendGrid",
-      body: "Este es un correo de prueba enviado desde RCA Assistant para verificar la integración con SendGrid.",
-      htmlBody: "<p>Este es un <strong>correo de prueba</strong> enviado desde <strong>RCA Assistant</strong> para verificar la integración con <strong>SendGrid</strong>.</p>",
+      subject: "Correo de Prueba - Integración Asistente ACR con SendGrid",
+      body: "Este es un correo de prueba enviado desde Asistente ACR para verificar la integración con SendGrid.",
+      htmlBody: "<p>Este es un <strong>correo de prueba</strong> enviado desde <strong>Asistente ACR</strong> para verificar la integración con <strong>SendGrid</strong>.</p>",
     });
 
     if (result.success) {
@@ -372,7 +372,7 @@ export default function ConfiguracionPrivacidadPage({ params, searchParams: page
           Privacidad y Gestión de Datos
         </h1>
         <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-          Administre cómo se almacenan y gestionan los datos de su aplicación RCA Assistant.
+          Administre cómo se almacenan y gestionan los datos de su aplicación Asistente ACR.
         </p>
       </header>
 
@@ -394,8 +394,8 @@ export default function ConfiguracionPrivacidadPage({ params, searchParams: page
           </Alert>
           <div className="flex flex-col sm:flex-row justify-between items-center p-4 border rounded-md">
             <div>
-              <h4 className="font-semibold">Resetear Todos los Datos de RCA</h4>
-              <p className="text-sm text-muted-foreground">Elimina todos los eventos y análisis RCA (Pendientes, En Análisis y Finalizados).</p>
+              <h4 className="font-semibold">Resetear Todos los Datos de ACR</h4>
+              <p className="text-sm text-muted-foreground">Elimina todos los eventos y análisis ACR (Pendientes, En Análisis y Finalizados).</p>
             </div>
              <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -407,11 +407,11 @@ export default function ConfiguracionPrivacidadPage({ params, searchParams: page
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>¿CONFIRMAR RESETEO TOTAL?</AlertDialogTitle>
-                  <AlertDialogDescription>¡ADVERTENCIA! Esta acción eliminará TODOS los eventos y análisis RCA del sistema. Esta acción es IRREVERSIBLE.</AlertDialogDescription>
+                  <AlertDialogDescription>¡ADVERTENCIA! Esta acción eliminará TODOS los eventos y análisis ACR del sistema. Esta acción es IRREVERSIBLE.</AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel disabled={isResetting}>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => handleResetData("TODOS los Datos RCA")} disabled={isResetting} className="bg-destructive hover:bg-destructive/90">
+                  <AlertDialogAction onClick={() => handleResetData("TODOS los Datos ACR")} disabled={isResetting} className="bg-destructive hover:bg-destructive/90">
                      {isResetting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} SÍ, ESTOY SEGURO
                   </AlertDialogAction>
                 </AlertDialogFooter>
@@ -575,7 +575,7 @@ export default function ConfiguracionPrivacidadPage({ params, searchParams: page
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Eliminación de Evento</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Está seguro de que desea eliminar el evento "{eventToDelete?.title}" (ID: {eventToDelete?.id}) y todo su análisis RCA asociado? Esta acción es IRREVERSIBLE.
+              ¿Está seguro de que desea eliminar el evento "{eventToDelete?.title}" (ID: {eventToDelete?.id}) y todo su análisis ACR asociado? Esta acción es IRREVERSIBLE.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -592,6 +592,7 @@ export default function ConfiguracionPrivacidadPage({ params, searchParams: page
     
 
     
+
 
 
 

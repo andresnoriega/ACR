@@ -118,7 +118,7 @@ export default function UserActionPlansPage() {
       setAllRcaDocuments(rcaData);
     } catch (error) {
       console.error("Error fetching RCA documents: ", error);
-      toast({ title: "Error al Cargar Análisis RCA", description: "No se pudieron cargar los documentos de análisis.", variant: "destructive" });
+      toast({ title: "Error al Cargar Análisis ACR", description: "No se pudieron cargar los documentos de análisis.", variant: "destructive" });
     } finally {
       setIsLoadingActions(false);
     }
@@ -209,7 +209,7 @@ export default function UserActionPlansPage() {
             validationTasks.push({
               id: `${rcaDoc.eventData.id}-${pa.id}`,
               rcaId: rcaDoc.eventData.id,
-              rcaTitle: rcaDoc.eventData.focusEventDescription || 'Sin título de RCA',
+              rcaTitle: rcaDoc.eventData.focusEventDescription || 'Sin título de ACR',
               actionDescription: pa.description,
               actionResponsible: pa.responsible,
               actionDueDate: pa.dueDate && isValidDate(parseISO(pa.dueDate)) ? format(parseISO(pa.dueDate), 'dd/MM/yyyy', { locale: es }) : 'N/A',
@@ -337,7 +337,7 @@ export default function UserActionPlansPage() {
       const rcaDocRef = doc(db, "rcaAnalyses", rcaDocId);
       const rcaDocData = allRcaDocuments.find(d => d.eventData.id === rcaDocId);
       if (!rcaDocData) {
-        toast({ title: "Error", description: "No se encontró el documento RCA para actualizar.", variant: "destructive" });
+        toast({ title: "Error", description: "No se encontró el documento ACR para actualizar.", variant: "destructive" });
         setIsUpdatingAction(false);
         return false;
       }
@@ -496,10 +496,10 @@ export default function UserActionPlansPage() {
         
         const validatorProfile = availableUsers.find(u => u.name === selectedPlan.validatorName);
         if (validatorProfile && validatorProfile.email) {
-            const emailSubject = `Acción Lista para Validación: ${selectedPlan.accionResumen || selectedPlan.descripcionDetallada.substring(0,30)+"..."} (RCA: ${selectedPlan.codigoRCA})`;
+            const emailSubject = `Acción Lista para Validación: ${selectedPlan.accionResumen || selectedPlan.descripcionDetallada.substring(0,30)+"..."} (ACR: ${selectedPlan.codigoRCA})`;
             const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
             const validationLink = `${baseUrl}/analisis?id=${selectedPlan._originalRcaDocId}&step=4`;
-            const emailBody = `Estimado/a ${validatorProfile.name},\n\nEl usuario ${userProfile.name} ha marcado la siguiente acción como lista para su validación:\n\nEvento RCA: ${selectedPlan.tituloDetalle} (ID: ${selectedPlan.codigoRCA})\nAcción Planificada: ${selectedPlan.descripcionDetallada}\nFecha de Cierre (Usuario): ${format(parseISO(currentDateISO), 'dd/MM/yyyy HH:mm', { locale: es })}\n\nComentarios del Usuario:\n${updatesForAction.userComments || "Sin comentarios adicionales."}\n\nPor favor, proceda a validar esta acción en el sistema RCA Assistant. Puede acceder directamente mediante el siguiente enlace:\n${validationLink}\n\nSaludos,\nSistema RCA Assistant`;
+            const emailBody = `Estimado/a ${validatorProfile.name},\n\nEl usuario ${userProfile.name} ha marcado la siguiente acción como lista para su validación:\n\nEvento ACR: ${selectedPlan.tituloDetalle} (ID: ${selectedPlan.codigoRCA})\nAcción Planificada: ${selectedPlan.descripcionDetallada}\nFecha de Cierre (Usuario): ${format(parseISO(currentDateISO), 'dd/MM/yyyy HH:mm', { locale: es })}\n\nComentarios del Usuario:\n${updatesForAction.userComments || "Sin comentarios adicionales."}\n\nPor favor, proceda a validar esta acción en el sistema Asistente ACR. Puede acceder directamente mediante el siguiente enlace:\n${validationLink}\n\nSaludos,\nSistema Asistente ACR`;
             const emailResult = await sendEmailAction({ to: validatorProfile.email, subject: emailSubject, body: emailBody });
             if (emailResult.success) notificationMessage += ` Se envió una notificación por correo a ${validatorProfile.name}.`;
             else notificationMessage += ` No se pudo enviar la notificación por correo a ${validatorProfile.name} (${emailResult.message}).`;
@@ -616,7 +616,7 @@ export default function UserActionPlansPage() {
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow><TableHead className="w-[5%] p-2"></TableHead><TableHead className="w-[20%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('accionResumen')}><div className="flex items-center gap-1">Acción (Resumen) {renderSortIconAssigned('accionResumen')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('id')}><div className="flex items-center gap-1">ID Acción {renderSortIconAssigned('id')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('estado')}><div className="flex items-center gap-1">Estado {renderSortIconAssigned('estado')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('plazoLimite')}><div className="flex items-center gap-1">Plazo Límite {renderSortIconAssigned('plazoLimite')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('validatorName')}><div className="flex items-center gap-1">Validador {renderSortIconAssigned('validatorName')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('codigoRCA')}><div className="flex items-center gap-1">ID RCA {renderSortIconAssigned('codigoRCA')}</div></TableHead></TableRow>
+                      <TableRow><TableHead className="w-[5%] p-2"></TableHead><TableHead className="w-[20%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('accionResumen')}><div className="flex items-center gap-1">Acción (Resumen) {renderSortIconAssigned('accionResumen')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('id')}><div className="flex items-center gap-1">ID Acción {renderSortIconAssigned('id')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('estado')}><div className="flex items-center gap-1">Estado {renderSortIconAssigned('estado')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('plazoLimite')}><div className="flex items-center gap-1">Plazo Límite {renderSortIconAssigned('plazoLimite')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('validatorName')}><div className="flex items-center gap-1">Validador {renderSortIconAssigned('validatorName')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortAssigned('codigoRCA')}><div className="flex items-center gap-1">ID ACR {renderSortIconAssigned('codigoRCA')}</div></TableHead></TableRow>
                     </TableHeader>
                     <TableBody>
                       {sortedAssignedActionPlans.map((plan) => (
@@ -656,7 +656,7 @@ export default function UserActionPlansPage() {
                 <CardDescription>ID Acción: {selectedPlan.id}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 text-sm">
-                <div><Label className="font-semibold">Título del RCA:</Label><p>{selectedPlan.tituloDetalle} (ID RCA: {selectedPlan.codigoRCA})</p></div>
+                <div><Label className="font-semibold">Título del ACR:</Label><p>{selectedPlan.tituloDetalle} (ID ACR: {selectedPlan.codigoRCA})</p></div>
                 <div><Label className="font-semibold">Descripción Completa de la Acción:</Label><p className="whitespace-pre-line bg-muted/20 p-2 rounded-md">{selectedPlan.descripcionDetallada}</p></div>
                 <div><Label className="font-semibold">Responsable:</Label> <p>{selectedPlan.responsableDetalle}</p></div>
                 <div><Label className="font-semibold">Validador Asignado:</Label> <p>{selectedPlan.validatorName || 'No asignado'}</p></div>
@@ -690,8 +690,8 @@ export default function UserActionPlansPage() {
                     </Button>
                     {selectedPlan.estado === 'En Validación' && (<span className="text-xs text-green-600 flex items-center ml-2 p-1.5 bg-green-50 border border-green-200 rounded-md"><CheckCircle2 className="mr-1 h-3.5 w-3.5" />Listo para Validar</span>)}</div></div>
                 <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Notas del sistema]</h4>
-                  <div className="text-xs bg-secondary/30 p-2 rounded-md"><p>Última actualización del RCA: {selectedPlan.ultimaActualizacion.fechaRelativa}</p>
-                    {selectedPlan.estado === 'Completado' && <p className="text-green-600 font-medium">Esta acción ha sido validada y marcada como completada en el análisis RCA.</p>}</div></div>
+                  <div className="text-xs bg-secondary/30 p-2 rounded-md"><p>Última actualización del ACR: {selectedPlan.ultimaActualizacion.fechaRelativa}</p>
+                    {selectedPlan.estado === 'Completado' && <p className="text-green-600 font-medium">Esta acción ha sido validada y marcada como completada en el análisis ACR.</p>}</div></div>
               </CardContent>
             </Card>
           )}
@@ -712,7 +712,7 @@ export default function UserActionPlansPage() {
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow><TableHead className="w-[25%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortValidation('rcaTitle')}><div className="flex items-center gap-1">Evento RCA {renderSortIconValidation('rcaTitle')}</div></TableHead><TableHead className="w-[30%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortValidation('actionDescription')}><div className="flex items-center gap-1">Acción {renderSortIconValidation('actionDescription')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortValidation('actionResponsible')}><div className="flex items-center gap-1">Responsable Acción {renderSortIconValidation('actionResponsible')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortValidation('actionMarkedReadyAt')}><div className="flex items-center gap-1">Fecha Lista {renderSortIconValidation('actionMarkedReadyAt')}</div></TableHead><TableHead className="w-[15%] text-right">Acción</TableHead></TableRow>
+                      <TableRow><TableHead className="w-[25%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortValidation('rcaTitle')}><div className="flex items-center gap-1">Evento ACR {renderSortIconValidation('rcaTitle')}</div></TableHead><TableHead className="w-[30%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortValidation('actionDescription')}><div className="flex items-center gap-1">Acción {renderSortIconValidation('actionDescription')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortValidation('actionResponsible')}><div className="flex items-center gap-1">Responsable Acción {renderSortIconValidation('actionResponsible')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortValidation('actionMarkedReadyAt')}><div className="flex items-center gap-1">Fecha Lista {renderSortIconValidation('actionMarkedReadyAt')}</div></TableHead><TableHead className="w-[15%] text-right">Acción</TableHead></TableRow>
                     </TableHeader>
                     <TableBody>
                       {sortedValidationActionPlans.map((task) => (
@@ -736,7 +736,7 @@ export default function UserActionPlansPage() {
             <div>
               <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-0.5">Nota sobre la funcionalidad</h3>
               <p className="text-xs text-blue-600 dark:text-blue-400/90">
-                Desde "Mis Tareas Asignadas", al marcar "listo para validación", se guardarán las evidencias, comentarios y se enviará un correo al validador (Líder de Proyecto del RCA) con un enlace al Paso 4 del análisis.
+                Desde "Mis Tareas Asignadas", al marcar "listo para validación", se guardarán las evidencias, comentarios y se enviará un correo al validador (Líder de Proyecto del ACR) con un enlace al Paso 4 del análisis.
                 Desde "Tareas por Validar", el botón "Ir a Validar" le llevará directamente al Paso 4 del análisis correspondiente para que pueda realizar la validación.
               </p>
             </div>

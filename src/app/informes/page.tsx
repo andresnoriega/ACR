@@ -339,9 +339,9 @@ export default function DashboardRCAPage() {
       return [];
     }
     return [
-      { name: 'RCA Pendientes', value: rcaSummaryData.rcaPendientes, color: 'hsl(var(--chart-5))' }, 
-      { name: 'RCA Finalizados', value: rcaSummaryData.rcaFinalizados, color: 'hsl(var(--chart-2))' }, 
-      { name: 'RCA Rechazados', value: rcaSummaryData.rcaRechazados, color: 'hsl(var(--chart-3))' }, 
+      { name: 'ACR Pendientes', value: rcaSummaryData.rcaPendientes, color: 'hsl(var(--chart-5))' }, 
+      { name: 'ACR Finalizados', value: rcaSummaryData.rcaFinalizados, color: 'hsl(var(--chart-2))' }, 
+      { name: 'ACR Rechazados', value: rcaSummaryData.rcaRechazados, color: 'hsl(var(--chart-3))' }, 
     ].filter(item => item.value > 0);
   }, [rcaSummaryData]);
 
@@ -452,7 +452,7 @@ export default function DashboardRCAPage() {
     const dataToExport = sortedPlanesAccionPendientes.map(item => ({
       'ID Evento': item.rcaId,
       'ID Acción': item.actionId,
-      'Título RCA': item.rcaTitle,
+      'Título ACR': item.rcaTitle,
       'Descripción Acción': item.accion,
       'Responsable': item.responsable,
       'Fecha Límite': item.fechaLimite,
@@ -492,7 +492,7 @@ export default function DashboardRCAPage() {
           <LineChart className="h-10 w-10" />
         </div>
         <h1 className="text-4xl font-bold font-headline text-primary">
-          Dashboard RCA
+          Dashboard ACR
         </h1>
         <p className="text-lg text-muted-foreground max-w-xl mx-auto">
           Resumen general de la actividad de Análisis de Causa Raíz desde Firestore.
@@ -581,34 +581,34 @@ export default function DashboardRCAPage() {
               <div className="p-4 bg-secondary/40 rounded-lg">
                 <div className="flex items-center justify-center mb-1"><FileText className="h-5 w-5 text-primary mr-1.5"/></div>
                 <p className="text-3xl font-bold text-primary">{rcaSummaryData.totalRCAs}</p>
-                <p className="text-sm text-muted-foreground">Total RCA (Activos)</p>
+                <p className="text-sm text-muted-foreground">Total ACR (Activos)</p>
               </div>
               <div className="p-4 bg-yellow-400/20 rounded-lg">
                 <div className="flex items-center justify-center mb-1"><ListTodo className="h-5 w-5 text-yellow-600 mr-1.5"/></div>
                 <p className="text-3xl font-bold text-yellow-600">{rcaSummaryData.rcaPendientes}</p>
-                <p className="text-sm text-muted-foreground">RCA Pendientes</p>
+                <p className="text-sm text-muted-foreground">ACR Pendientes</p>
               </div>
               <div className="p-4 bg-green-400/20 rounded-lg">
                 <div className="flex items-center justify-center mb-1"><CheckSquare className="h-5 w-5 text-green-600 mr-1.5"/></div>
                 <p className="text-3xl font-bold text-green-600">{rcaSummaryData.rcaFinalizados}</p>
-                <p className="text-sm text-muted-foreground">RCA Finalizados</p>
+                <p className="text-sm text-muted-foreground">ACR Finalizados</p>
               </div>
               <div className="p-4 bg-blue-400/20 rounded-lg">
                 <div className="flex items-center justify-center mb-1"><Percent className="h-5 w-5 text-blue-600 mr-1.5"/></div>
                 <p className="text-3xl font-bold text-blue-600">
                   {rcaSummaryData.rcaCompletionRate !== undefined ? rcaSummaryData.rcaCompletionRate.toFixed(1) : '0.0'}%
                 </p>
-                <p className="text-sm text-muted-foreground">Cumplimiento RCA</p>
+                <p className="text-sm text-muted-foreground">Cumplimiento ACR</p>
               </div>
               <div className="p-4 bg-slate-400/20 rounded-lg">
                 <div className="flex items-center justify-center mb-1"><XCircle className="h-5 w-5 text-slate-600 mr-1.5"/></div>
                 <p className="text-3xl font-bold text-slate-600">{rcaSummaryData.rcaRechazados}</p>
-                <p className="text-sm text-muted-foreground">RCA Rechazados</p>
+                <p className="text-sm text-muted-foreground">ACR Rechazados</p>
               </div>
             </>
           ) : (
              <div className="col-span-full p-4 bg-secondary/30 rounded-lg text-center">
-                <p className="text-muted-foreground">No se pudieron cargar las estadísticas de RCA.</p>
+                <p className="text-muted-foreground">No se pudieron cargar las estadísticas de ACR.</p>
             </div>
           )}
         </CardContent>
@@ -711,7 +711,7 @@ export default function DashboardRCAPage() {
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-full">
-                <p className="text-muted-foreground">No hay datos de estado RCA para mostrar.</p>
+                <p className="text-muted-foreground">No hay datos de estado ACR para mostrar.</p>
               </div>
             )}
           </CardContent>
@@ -784,7 +784,7 @@ export default function DashboardRCAPage() {
             <Activity className="h-6 w-6 text-primary" />
             <CardTitle className="text-2xl">Análisis en Curso</CardTitle>
           </div>
-           <CardDescription>Lista de análisis RCA que están actualmente en progreso, obtenidos de Firestore.</CardDescription>
+           <CardDescription>Lista de análisis ACR que están actualmente en progreso, obtenidos de Firestore.</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoadingData ? (
@@ -828,7 +828,7 @@ export default function DashboardRCAPage() {
           ) : (
             <Table>
               <TableHeader>
-                <TableRow><TableHead className="w-[15%] text-xs cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('rcaId')}><div className="flex items-center gap-1">ID Evento {renderSortIconPlanes('rcaId')}</div></TableHead><TableHead className="w-[15%] text-xs cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('actionId')}><div className="flex items-center gap-1">ID Acción {renderSortIconPlanes('actionId')}</div></TableHead><TableHead className="w-[25%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('accion')}><div className="flex items-center gap-1">Acción (Análisis: <span className="italic text-xs">Título RCA</span>) {renderSortIconPlanes('accion')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('responsable')}><div className="flex items-center gap-1">Responsable {renderSortIconPlanes('responsable')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('fechaLimite')}><div className="flex items-center gap-1">Fecha Límite {renderSortIconPlanes('fechaLimite')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('estado')}><div className="flex items-center gap-1">Estado Acción {renderSortIconPlanes('estado')}</div></TableHead></TableRow>
+                <TableRow><TableHead className="w-[15%] text-xs cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('rcaId')}><div className="flex items-center gap-1">ID Evento {renderSortIconPlanes('rcaId')}</div></TableHead><TableHead className="w-[15%] text-xs cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('actionId')}><div className="flex items-center gap-1">ID Acción {renderSortIconPlanes('actionId')}</div></TableHead><TableHead className="w-[25%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('accion')}><div className="flex items-center gap-1">Acción (Análisis: <span className="italic text-xs">Título ACR</span>) {renderSortIconPlanes('accion')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('responsable')}><div className="flex items-center gap-1">Responsable {renderSortIconPlanes('responsable')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('fechaLimite')}><div className="flex items-center gap-1">Fecha Límite {renderSortIconPlanes('fechaLimite')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('estado')}><div className="flex items-center gap-1">Estado Acción {renderSortIconPlanes('estado')}</div></TableHead></TableRow>
               </TableHeader>
               <TableBody>
                 {sortedPlanesAccionPendientes.length > 0 ? sortedPlanesAccionPendientes.slice(0,5).map((item) => ( // Only show top 5

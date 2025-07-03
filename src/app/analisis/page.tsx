@@ -720,8 +720,8 @@ function RCAAnalysisPageComponent() {
         for (const user of usersInCompany) {
           if (user.email && (user.emailNotifications === undefined || user.emailNotifications)) {
             attemptedEmails++;
-            const emailSubject = `Evento RCA Aprobado: ${currentConsistentEventData.focusEventDescription.substring(0, 40)}... (ID: ${finalEventId})`;
-            const emailBody = `Estimado/a ${user.name},\n\nEl evento "${currentConsistentEventData.focusEventDescription}" (ID: ${finalEventId}) reportado en el sitio "${siteInfo.name}" (Empresa: "${siteInfo.empresa}") ha sido aprobado y ha pasado al estado 'En análisis'.\n\nPuede revisarlo en el sistema.\n\nSaludos,\nSistema RCA Assistant`;
+            const emailSubject = `Evento ACR Aprobado: ${currentConsistentEventData.focusEventDescription.substring(0, 40)}... (ID: ${finalEventId})`;
+            const emailBody = `Estimado/a ${user.name},\n\nEl evento "${currentConsistentEventData.focusEventDescription}" (ID: ${finalEventId}) reportado en el sitio "${siteInfo.name}" (Empresa: "${siteInfo.empresa}") ha sido aprobado y ha pasado al estado 'En análisis'.\n\nPuede revisarlo en el sistema.\n\nSaludos,\nSistema Asistente ACR`;
             const emailResult = await sendEmailAction({ to: user.email, subject: emailSubject, body: emailBody });
             if(emailResult.success) emailsSentCount++;
           }
@@ -807,10 +807,10 @@ function RCAAnalysisPageComponent() {
 
       let emailNotificationStatus = `Evento ${finalEventId} rechazado. `;
       if (creatorProfileForEmail && rcaDocCreatorEmail && (creatorProfileForEmail.emailNotifications === undefined || creatorProfileForEmail.emailNotifications)) {
-        const emailSubject = `Evento RCA Rechazado: ${eventData.focusEventDescription.substring(0, 40)}... (ID: ${finalEventId})`;
+        const emailSubject = `Evento ACR Rechazado: ${eventData.focusEventDescription.substring(0, 40)}... (ID: ${finalEventId})`;
         const rejectedByName = userProfile?.name || "Sistema";
         const formattedRejectionDate = new Date().toLocaleDateString('es-CL', { year: 'numeric', month: 'long', day: 'numeric' });
-        const emailBody = `Estimado/a ${rcaDocCreatorName},\n\nEl evento "${eventData.focusEventDescription}" (ID: ${finalEventId}) que usted creó/reportó ha sido rechazado.\n\nMotivo del Rechazo: ${rejectionReason}\nRechazado por: ${rejectedByName}\nFecha de Rechazo: ${formattedRejectionDate}\n\nPor favor, revise los detalles en el sistema si es necesario.\n\nSaludos,\nSistema RCA Assistant`;
+        const emailBody = `Estimado/a ${rcaDocCreatorName},\n\nEl evento "${eventData.focusEventDescription}" (ID: ${finalEventId}) que usted creó/reportó ha sido rechazado.\n\nMotivo del Rechazo: ${rejectionReason}\nRechazado por: ${rejectedByName}\nFecha de Rechazo: ${formattedRejectionDate}\n\nPor favor, revise los detalles en el sistema si es necesario.\n\nSaludos,\nSistema Asistente ACR`;
         const emailResult = await sendEmailAction({ to: rcaDocCreatorEmail, subject: emailSubject, body: emailBody });
         if (emailResult.success) {
           emailNotificationStatus += `Notificación de rechazo enviada al creador del evento: ${rcaDocCreatorName}.`;
@@ -1298,7 +1298,7 @@ function RCAAnalysisPageComponent() {
   return (
     <>
       <header className="text-center mb-8 no-print">
-        <h1 className="text-3xl sm:text-4xl font-bold font-headline text-primary">Analizador RCA Avanzado</h1>
+        <h1 className="text-3xl sm:text-4xl font-bold font-headline text-primary">Analizador ACR Avanzado</h1>
         <p className="text-muted-foreground mt-1">
           Herramienta de Análisis de Causa Raíz con gráficos. ID Análisis: <span className="font-semibold text-primary">{analysisDocumentId || eventData.id || "Nuevo Análisis"}</span>
           {analysisDocumentId && currentEventStatus && (

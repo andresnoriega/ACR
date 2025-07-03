@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { SettingsIcon, Users, Globe, KeyRound, ShieldCheck, Loader2 } from 'lucide-react';
 
-export default function ConfiguracionHubPage({ params, searchParams }: { params: any, searchParams: any }) {
+export default function ConfiguracionHubPage() {
   const router = useRouter();
 
   // The password prompt is now handled by the config layout
@@ -26,7 +26,7 @@ export default function ConfiguracionHubPage({ params, searchParams }: { params:
             Configuración General
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Administre los diferentes aspectos de RCA Assistant.
+            Administre los diferentes aspectos de Asistente ACR.
           </p>
         </header>
 

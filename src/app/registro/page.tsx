@@ -72,7 +72,7 @@ export default function RegistroPage() {
             <UserPlus className="h-6 w-6 text-primary" />
             Crear Cuenta
           </CardTitle>
-          <CardDescription>Regístrese para comenzar a usar RCA Assistant.</CardDescription>
+          <CardDescription>Regístrese para comenzar a usar Asistente ACR.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
