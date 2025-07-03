@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Zap, Target, Lightbulb, CheckSquare, BarChart3, Loader2 } from 'lucide-react';
+import Image from 'next/image';
 
 export default function PublicHomePage() {
   const router = useRouter();
@@ -33,8 +34,14 @@ export default function PublicHomePage() {
     return (
       <div className="space-y-12 md:space-y-16 py-12 md:py-20">
         <header className="text-center space-y-4 px-4">
-          <div className="inline-flex items-center justify-center bg-primary/10 text-primary p-4 rounded-full mb-4">
-            <Zap className="h-12 w-12" />
+          <div className="inline-flex items-center justify-center mb-4">
+            <Image
+              src="/logo.png"
+              alt="Asistente ACR Logo"
+              width={128}
+              height={128}
+              priority
+            />
           </div>
           <h1 className="text-4xl md:text-5xl font-bold font-headline text-primary">
             Bienvenido a Asistente ACR
@@ -50,31 +57,43 @@ export default function PublicHomePage() {
         </header>
 
         <section className="container mx-auto px-4">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold">¿Por qué Asistente ACR?</h2>
-            <p className="text-muted-foreground mt-2">Simplifique la complejidad, encuentre la verdadera causa raíz y prevenga la recurrencia.</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="text-center p-6 space-y-3">
-              <div className="inline-flex items-center justify-center bg-accent/10 text-accent-foreground p-3 rounded-full mb-3">
-                <Target className="h-8 w-8" />
-              </div>
-              <h3 className="text-xl font-semibold">Análisis Guiado</h3>
-              <p className="text-muted-foreground">Siga un proceso estructurado en 5 pasos que asegura que no se omita ninguna información crítica, desde la recolección de hechos hasta la validación de soluciones.</p>
+          <div className="grid md:grid-cols-2 gap-8 items-center">
+            <div>
+              <Image
+                src="https://placehold.co/600x400.png"
+                alt="Diagrama de análisis"
+                width={600}
+                height={400}
+                className="rounded-lg shadow-xl"
+                data-ai-hint="analysis diagram"
+              />
             </div>
-            <div className="text-center p-6 space-y-3">
-              <div className="inline-flex items-center justify-center bg-accent/10 text-accent-foreground p-3 rounded-full mb-3">
-                <Lightbulb className="h-8 w-8" />
-              </div>
-              <h3 className="text-xl font-semibold">Potenciado con IA</h3>
-              <p className="text-muted-foreground">Obtenga sugerencias inteligentes de causas raíz latentes y genere borradores de resúmenes ejecutivos para comunicar sus hallazgos de manera efectiva.</p>
-            </div>
-            <div className="text-center p-6 space-y-3">
-              <div className="inline-flex items-center justify-center bg-accent/10 text-accent-foreground p-3 rounded-full mb-3">
-                <CheckSquare className="h-8 w-8" />
-              </div>
-              <h3 className="text-xl font-semibold">Gestión Centralizada</h3>
-              <p className="text-muted-foreground">Cree planes de acción, asigne responsables y dé seguimiento al estado de validación de cada tarea, todo en un solo lugar.</p>
+            <div className="space-y-4">
+              <h2 className="text-3xl font-bold">¿Por qué Asistente ACR?</h2>
+              <p className="text-muted-foreground">Simplifique la complejidad, encuentre la verdadera causa raíz y prevenga la recurrencia.</p>
+              <ul className="space-y-3">
+                <li className="flex items-start gap-3">
+                  <div className="flex-shrink-0 mt-1"><Target className="h-6 w-6 text-accent" /></div>
+                  <div>
+                    <h4 className="font-semibold">Análisis Guiado</h4>
+                    <p className="text-sm text-muted-foreground">Siga un proceso estructurado en 5 pasos que asegura que no se omita ninguna información crítica.</p>
+                  </div>
+                </li>
+                <li className="flex items-start gap-3">
+                  <div className="flex-shrink-0 mt-1"><Lightbulb className="h-6 w-6 text-accent" /></div>
+                  <div>
+                    <h4 className="font-semibold">Potenciado con IA</h4>
+                    <p className="text-sm text-muted-foreground">Obtenga sugerencias inteligentes de causas raíz y genere borradores de resúmenes ejecutivos.</p>
+                  </div>
+                </li>
+                <li className="flex items-start gap-3">
+                  <div className="flex-shrink-0 mt-1"><CheckSquare className="h-6 w-6 text-accent" /></div>
+                  <div>
+                    <h4 className="font-semibold">Gestión Centralizada</h4>
+                    <p className="text-sm text-muted-foreground">Cree planes de acción, asigne responsables y dé seguimiento al estado de validación de cada tarea.</p>
+                  </div>
+                </li>
+              </ul>
             </div>
           </div>
         </section>

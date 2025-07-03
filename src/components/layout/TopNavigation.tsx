@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -9,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import React, { useState, useEffect, useMemo } from 'react';
+import Image from 'next/image';
 
 const mainMenuItemsBase = [
   { href: '/inicio', label: 'Inicio', icon: Home, section: 'inicio', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User', 'Usuario Pendiente'] },
@@ -71,9 +71,8 @@ export function TopNavigation() {
           {/* Logo or Menu Items Section */}
           <div className="flex items-center gap-2 sm:gap-4">
             {isPublicFacingPage || !currentUser ? (
-              <Link href="/" className="flex items-center gap-2 text-lg font-bold text-primary">
-                <Zap className="h-6 w-6" />
-                <span className="hidden sm:inline">Asistente ACR</span>
+              <Link href="/" className="flex items-center text-lg font-bold text-primary">
+                <Image src="/logo.png" alt="Asistente ACR Logo" width={50} height={50} priority={true} className="h-12 w-auto" />
               </Link>
             ) : (
               <div className="flex space-x-1 sm:space-x-2 md:space-x-4 overflow-x-auto py-2">
