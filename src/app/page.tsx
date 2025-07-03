@@ -43,11 +43,6 @@ export default function PublicHomePage() {
           <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto">
             La herramienta inteligente y guiada para transformar incidentes en oportunidades de mejora continua a través del Análisis de Causa Raíz (ACR).
           </p>
-          <div className="pt-4">
-            <Button asChild size="lg" className="transition-transform hover:scale-105">
-              <Link href="/login">Comenzar Ahora</Link>
-            </Button>
-          </div>
         </header>
 
         <section className="container mx-auto px-4">
