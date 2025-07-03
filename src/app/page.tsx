@@ -71,7 +71,7 @@ export default function PublicHomePage() {
               </div>
               <h4 className="text-xl font-semibold mb-2">Inteligencia Artificial Integrada</h4>
               <p className="text-base text-muted-foreground">
-                Acelere su análisis con el poder de la IA. Obtenga <strong>sugerencias inteligentes de causas raíz latentes</strong> que podría haber pasado por alto y genere borradores de <strong>resúmenes ejecutivos profesionales</strong> con un solo clic, permitiéndole comunicar sus hallazgos de manera eficiente.
+                Acelere su análisis con el poder de la IA. Obtenga <strong>sugerencias inteligentes de causas raíz</strong> que podría haber pasado por alto y genere borradores de <strong>resúmenes ejecutivos profesionales</strong> con un solo clic, permitiéndole comunicar sus hallazgos de manera eficiente.
               </p>
             </div>
             <div className="flex flex-col items-center text-center p-4">
