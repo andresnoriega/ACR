@@ -2,10 +2,18 @@
 export type EventType = 'Incidente' | 'Accidente' | 'Falla de Equipo' | 'No Conformidad' | 'Evento Operacional' | '';
 export type PriorityType = 'Alta' | 'Media' | 'Baja' | '';
 
+export interface Company {
+  id: string;
+  name: string;
+  rut: string; // Chilean RUT format e.g., 76.123.456-7
+  adminName: string;
+  adminEmail: string;
+}
+
 export interface RCAEventData {
   id: string;
   place: string;
-  equipo: string; // Nuevo campo
+  equipo: string;
   date: string;
   eventType: EventType;
   priority: PriorityType;
@@ -32,8 +40,8 @@ export interface Evidence {
   nombre: string;
   tipo: 'pdf' | 'jpg' | 'jpeg' | 'png' | 'doc' | 'docx' | 'other' | 'link';
   comment?: string;
-  downloadURL: string; // URL pública para descargar el archivo desde Cloud Storage
-  storagePath: string; // Ruta completa del archivo en Cloud Storage
+  downloadURL: string;
+  storagePath: string;
 }
 
 export interface PlannedAction {
@@ -52,10 +60,10 @@ export interface PlannedAction {
 export interface Validation {
   actionId: string;
   eventId: string;
-  status: 'pending' | 'validated' | 'rejected'; // Added 'rejected'
-  validatedAt?: string; // ISO string
-  rejectionReason?: string; // New field for rejection reason
-  rejectedAt?: string; // ISO string, when it was rejected
+  status: 'pending' | 'validated' | 'rejected';
+  validatedAt?: string;
+  rejectionReason?: string;
+  rejectedAt?: string;
 }
 
 export type AnalysisTechnique = '' | 'WhyWhy' | 'Ishikawa' | 'CTM';
@@ -151,14 +159,14 @@ export interface PreservedFact {
 }
 
 export interface FullUserProfile {
-  id: string; // This will be the Firebase Auth UID
+  id: string;
   name: string;
-  email: string; // Should match Firebase Auth email
+  email: string;
   role: 'Admin' | 'Analista' | 'Revisor' | 'Super User' | 'Usuario Pendiente' | '';
   permissionLevel: 'Total' | 'Lectura' | 'Limitado' | '';
   assignedSites?: string;
   emailNotifications?: boolean;
-  empresa?: string; // New field for company
+  empresa?: string;
 }
 
 // Types for Eventos Reportados page
@@ -170,14 +178,14 @@ export interface ReportedEvent {
   id: string;
   title: string;
   site: string;
-  equipo?: string; // Nuevo campo
+  equipo?: string;
   date: string;
   type: ReportedEventType;
   priority: PriorityType;
   status: ReportedEventStatus;
   description?: string;
-  createdAt?: string; // ISO string
-  updatedAt?: string; // ISO string
+  createdAt?: string;
+  updatedAt?: string;
   empresa?: string;
 }
 
@@ -188,13 +196,13 @@ export interface Site {
   country: string;
   coordinator?: string;
   description?: string;
-  empresa?: string; // New field for company
+  empresa?: string;
 }
 
 export interface RejectionDetails {
   reason: string;
   rejectedBy: string;
-  rejectedAt: string; // ISO string
+  rejectedAt: string;
 }
 
 // --- Brainstorming Idea Types ---
@@ -209,9 +217,9 @@ export interface BrainstormIdea {
 
 // --- Timeline Event Type ---
 export interface TimelineEvent {
-  id: number; // Using Date.now() which is a number
+  id: number;
   description: string;
-  datetime: string; // "YYYY-MM-DDTHH:MM" format for datetime-local input
+  datetime: string;
 }
 
 // Document structure for an ACR Analysis in Firestore
@@ -225,7 +233,7 @@ export interface RCAAnalysisDocument {
   analysisDetails: string;
   preservedFacts: PreservedFact[];
   // From Step 3
-  timelineEvents?: TimelineEvent[]; // New field for timeline
+  timelineEvents?: TimelineEvent[];
   brainstormingIdeas?: BrainstormIdea[]; 
   analysisTechnique: AnalysisTechnique;
   analysisTechniqueNotes: string;
@@ -241,8 +249,8 @@ export interface RCAAnalysisDocument {
   isFinalized: boolean;
   rejectionDetails?: RejectionDetails;
   // Metadata
-  createdAt: string; // ISO string
-  updatedAt: string; // ISO string
-  createdBy?: string; // User NAME who created the analysis document
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
   empresa?: string;
 }

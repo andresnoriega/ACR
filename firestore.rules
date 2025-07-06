@@ -3,79 +3,68 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to get user's profile data
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    
+    // Helper function to check if a user belongs to a specific company
+    function belongsToCompany(companyName) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.empresa == companyName;
     }
-
-    // Checks if the user is a Super User
+    
+    // Helper function to check if a user is a Super User
     function isSuperUser() {
-      return isSignedIn() && getUserData().role == 'Super User';
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Super User';
     }
 
-    // Checks if the user is an Admin of a given company
-    function isAdminOfCompany(company) {
-       return isSignedIn() && getUserData().role == 'Admin' && getUserData().empresa == company;
-    }
-
-    // Checks if the user belongs to a given company
-    function belongsToCompany(company) {
-      return isSignedIn() && getUserData().empresa == company;
-    }
-
-    // Checks if user is authenticated
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    // USERS collection rules
+    // Users can read their own profile, and Super Users can read any profile.
     match /users/{userId} {
-      // Any signed-in user can read user profiles (for names, dropdowns, etc.)
-      allow read: if isSignedIn();
-
-      // A user can create their own profile document only upon registration.
-      // The role MUST be 'Usuario Pendiente'.
-      allow create: if request.auth.uid == userId
-                    && request.resource.data.role == 'Usuario Pendiente'
-                    && request.resource.data.name != null
-                    && request.resource.data.email == request.auth.token.email;
-
-      // A user can update their own non-privileged data.
-      // Role/permission changes require an Admin or Super User.
-      allow update: if request.auth.uid == userId ||
-                       isSuperUser() ||
-                       (isAdminOfCompany(resource.data.empresa) && request.resource.data.role != 'Super User');
-      
-      // Only Super Users can delete user profiles from Firestore.
-      allow delete: if isSuperUser();
-    }
-
-    // SITES collection rules
-    match /sites/{siteId} {
-      // Any authenticated user can read the list of sites.
-      allow read: if isSignedIn();
-
-      // Only Super Users can create, update, or delete sites.
+      allow read: if request.auth != null && (request.auth.uid == userId || isSuperUser());
+      // Only Super Users can create/update/delete user profiles directly here.
+      // Other roles are managed via specific app logic if needed.
       allow write: if isSuperUser();
     }
-
-    // Rules for core data collections
-    match /{collectionName}/{docId}
-    where collectionName in ['rcaAnalyses', 'reportedEvents'] {
-       // Allow READ access if the user is a Super User OR belongs to the same company as the document.
-       allow read: if isSuperUser() || belongsToCompany(resource.data.empresa);
-
-       // Allow CREATE if the user is signed in and is setting the company field to their own company.
-       allow create: if isSignedIn() && belongsToCompany(request.resource.data.empresa);
-
-       // Allow UPDATE if the user is a Super User OR belongs to the same company as the document.
-       // The `empresa` field should not be changed after creation.
-       allow update: if (isSuperUser() || belongsToCompany(resource.data.empresa))
-                      && request.resource.data.empresa == resource.data.empresa;
-
-       // Allow DELETE only if the user is a Super User OR an Admin of that company.
-       allow delete: if isSuperUser() || isAdminOfCompany(resource.data.empresa);
+    
+    // Public collections that any authenticated user can read
+    match /sites/{siteId} {
+      // Allow authenticated users to read sites for dropdowns.
+      allow read: if request.auth != null; 
+      // Only super users can create, update, or delete sites.
+      allow write: if isSuperUser();
+    }
+    
+    match /companies/{companyId} {
+      // Allow authenticated users to read companies for dropdowns.
+      allow read: if request.auth != null;
+      // Only super users can create, update, or delete companies.
+      allow write: if isSuperUser();
+    }
+    
+    // Rules for RCA Analyses
+    match /rcaAnalyses/{analysisId} {
+      // Read access:
+      // - The user is a Super User OR
+      // - The user belongs to the same company as the analysis document.
+      allow read: if request.auth != null && (isSuperUser() || belongsToCompany(resource.data.empresa));
+      
+      // Write access (create, update, delete):
+      // - The user is a Super User OR
+      // - The user belongs to the same company as the document they are trying to write.
+      //   - For create: check incoming document's company.
+      //   - For update/delete: check existing document's company.
+      allow create: if request.auth != null && (isSuperUser() || belongsToCompany(request.resource.data.empresa));
+      allow update, delete: if request.auth != null && (isSuperUser() || belongsToCompany(resource.data.empresa));
+    }
+    
+    // Rules for Reported Events (often a summary collection)
+    match /reportedEvents/{eventId} {
+      // Read access:
+      // - The user is a Super User OR
+      // - The user belongs to the same company as the event document.
+      allow read: if request.auth != null && (isSuperUser() || belongsToCompany(resource.data.empresa));
+      
+      // Write access:
+      // - The user is a Super User OR
+      // - The user belongs to the same company as the document.
+      allow create: if request.auth != null && (isSuperUser() || belongsToCompany(request.resource.data.empresa));
+      allow update, delete: if request.auth != null && (isSuperUser() || belongsToCompany(resource.data.empresa));
     }
   }
 }

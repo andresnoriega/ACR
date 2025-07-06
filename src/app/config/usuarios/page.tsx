@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import type { FullUserProfile } from '@/types/rca'; 
+import type { FullUserProfile, Company } from '@/types/rca'; 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -39,6 +39,8 @@ export default function ConfiguracionUsuariosPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const [companies, setCompanies] = useState<Company[]>([]);
 
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -54,24 +56,31 @@ export default function ConfiguracionUsuariosPage() {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserConfigProfile | null>(null);
 
-  const fetchUsers = async () => {
+  const fetchInitialData = async () => {
     setIsLoading(true);
     try {
       const usersCollectionRef = collection(db, "users");
-      const q = query(usersCollectionRef, orderBy("name", "asc"));
-      const querySnapshot = await getDocs(q);
-      const usersData = querySnapshot.docs.map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() } as UserConfigProfile));
+      const qUsers = query(usersCollectionRef, orderBy("name", "asc"));
+      const usersSnapshot = await getDocs(qUsers);
+      const usersData = usersSnapshot.docs.map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() } as UserConfigProfile));
       setUsers(usersData);
+
+      const companiesCollectionRef = collection(db, "companies");
+      const qCompanies = query(companiesCollectionRef, orderBy("name", "asc"));
+      const companiesSnapshot = await getDocs(qCompanies);
+      const companiesData = companiesSnapshot.docs.map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() } as Company));
+      setCompanies(companiesData);
+
     } catch (error) {
-      console.error("Error fetching users: ", error);
-      toast({ title: "Error al Cargar Usuarios", description: "No se pudieron cargar los usuarios desde Firestore.", variant: "destructive" });
+      console.error("Error fetching data: ", error);
+      toast({ title: "Error al Cargar Datos", description: "No se pudieron cargar los usuarios o empresas desde Firestore.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchUsers();
+    fetchInitialData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -158,7 +167,7 @@ export default function ConfiguracionUsuariosPage() {
         } else {
             toast({ title: "Usuario Actualizado", description: `El usuario "${userName}" ha sido actualizado.` });
         }
-        fetchUsers(); 
+        fetchInitialData(); 
       } catch (error) {
         console.error("Error updating user in Firestore: ", error);
         toast({ title: "Error al Actualizar", description: "No se pudo actualizar el usuario.", variant: "destructive" });
@@ -176,7 +185,7 @@ export default function ConfiguracionUsuariosPage() {
       try {
         await addDoc(collection(db, "users"), sanitizeForFirestore(newUserPayload));
         toast({ title: "Perfil de Usuario Añadido", description: `El perfil para "${newUserPayload.name}" ha sido añadido a Firestore. Asegúrese de que el usuario exista o se registre en Firebase Authentication con el mismo correo.` });
-        fetchUsers(); 
+        fetchInitialData(); 
       } catch (error) {
         console.error("Error adding user profile to Firestore: ", error);
         toast({ title: "Error al Añadir Perfil", description: "No se pudo añadir el perfil de usuario a Firestore.", variant: "destructive" });
@@ -200,7 +209,7 @@ export default function ConfiguracionUsuariosPage() {
         await deleteDoc(doc(db, "users", userToDelete.id));
         toast({ title: "Perfil de Usuario Eliminado", description: `El perfil de "${userToDelete.name}" ha sido eliminado de Firestore. El usuario de autenticación (si existe) debe eliminarse por separado.`, variant: 'destructive', duration: 7000 });
         setUserToDelete(null);
-        fetchUsers(); 
+        fetchInitialData(); 
       } catch (error) {
         console.error("Error deleting user from Firestore: ", error);
         toast({ title: "Error al Eliminar Perfil", description: "No se pudo eliminar el perfil de usuario de Firestore.", variant: "destructive" });
@@ -321,7 +330,7 @@ export default function ConfiguracionUsuariosPage() {
         }
 
         toast({ title: "Importación Completada", description: `${importedCount} perfiles de usuario importados. ${skippedCount} filas omitidas por datos inválidos o faltantes.` });
-        fetchUsers(); 
+        fetchInitialData(); 
       } catch (error) {
         console.error("Error importing users: ", error);
         toast({ title: "Error de Importación", description: "No se pudo procesar el archivo. Verifique el formato y los datos.", variant: "destructive" });
@@ -387,41 +396,50 @@ export default function ConfiguracionUsuariosPage() {
                         </CardDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="user-name" className="text-right">Nombre <span className="text-destructive">*</span></Label>
-                        <Input id="user-name" value={userName} onChange={(e) => setUserName(e.target.value)} className="col-span-3" placeholder="Ej: Juan Pérez" />
+                        <div className="space-y-2">
+                          <Label htmlFor="user-name">Nombre <span className="text-destructive">*</span></Label>
+                          <Input id="user-name" value={userName} onChange={(e) => setUserName(e.target.value)} placeholder="Ej: Juan Pérez" />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="user-email" className="text-right">Correo <span className="text-destructive">*</span></Label>
-                        <Input id="user-email" type="email" value={userEmail} onChange={(e) => setUserEmail(e.target.value)} className="col-span-3" placeholder="Ej: juan.perez@example.com" disabled={isEditing} />
+                        <div className="space-y-2">
+                          <Label htmlFor="user-email">Correo <span className="text-destructive">*</span></Label>
+                          <Input id="user-email" type="email" value={userEmail} onChange={(e) => setUserEmail(e.target.value)} placeholder="Ej: juan.perez@example.com" disabled={isEditing} />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="user-role" className="text-right">Rol <span className="text-destructive">*</span></Label>
-                        <Select value={userRole} onValueChange={(value) => setUserRole(value as FullUserProfile['role'])}>
-                            <SelectTrigger className="col-span-3">
-                            <SelectValue placeholder="-- Seleccione un rol --" />
+                        <div className="space-y-2">
+                          <Label htmlFor="user-role">Rol <span className="text-destructive">*</span></Label>
+                          <Select value={userRole} onValueChange={(value) => setUserRole(value as FullUserProfile['role'])}>
+                              <SelectTrigger>
+                              <SelectValue placeholder="-- Seleccione un rol --" />
+                              </SelectTrigger>
+                              <SelectContent>
+                              {userRoles.filter(r => r !== '').map(role => (
+                                  <SelectItem key={role} value={role}>{role}</SelectItem>
+                              ))}
+                              </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="user-empresa">Empresa</Label>
+                           <Select value={userEmpresa} onValueChange={setUserEmpresa}>
+                            <SelectTrigger id="user-empresa">
+                              <SelectValue placeholder="-- Seleccione una empresa --" />
                             </SelectTrigger>
                             <SelectContent>
-                            {userRoles.filter(r => r !== '').map(role => (
-                                <SelectItem key={role} value={role}>{role}</SelectItem>
-                            ))}
+                              {companies.map(company => (
+                                <SelectItem key={company.id} value={company.name}>{company.name}</SelectItem>
+                              ))}
+                              {companies.length === 0 && (
+                                <div className="p-2 text-center text-sm text-muted-foreground">No hay empresas creadas.</div>
+                              )}
                             </SelectContent>
-                        </Select>
+                          </Select>
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="user-empresa" className="text-right">Empresa</Label>
-                          <Input id="user-empresa" value={userEmpresa} onChange={(e) => setUserEmpresa(e.target.value)} className="col-span-3" placeholder="Nombre de la empresa" />
+                        <div className="space-y-2">
+                          <Label htmlFor="user-sites">Sitio(s) Asignados</Label>
+                          <Input id="user-sites" value={userAssignedSites} onChange={(e) => setUserAssignedSites(e.target.value)} placeholder="Ej: Planta A, Bodega Central (separado por comas)" />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="user-sites" className="text-right">Sitio(s)</Label>
-                        <Input id="user-sites" value={userAssignedSites} onChange={(e) => setUserAssignedSites(e.target.value)} className="col-span-3" placeholder="Ej: Planta A, Bodega Central" />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="user-notifications" className="text-right">Notificación</Label>
-                        <div className="col-span-3 flex items-center space-x-2">
+                        <div className="flex items-center space-x-2 pt-2">
                             <Switch id="user-notifications" checked={userEmailNotifications} onCheckedChange={setUserEmailNotifications} />
-                            <Label htmlFor="user-notifications">{userEmailNotifications ? 'Sí' : 'No'}</Label>
-                        </div>
+                            <Label htmlFor="user-notifications">Recibir Notificaciones por Correo</Label>
                         </div>
                     </div>
                     <DialogFooter>

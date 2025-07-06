@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { SettingsIcon, Users, Globe, KeyRound, ShieldCheck, Loader2 } from 'lucide-react';
+import { SettingsIcon, Users, Globe, KeyRound, ShieldCheck, Loader2, Building } from 'lucide-react';
 
 export default function ConfiguracionHubPage() {
   const router = useRouter();
@@ -43,6 +43,23 @@ export default function ConfiguracionHubPage() {
               <Link href="/config/usuarios" passHref>
                 <Button className="w-full" size="lg">
                   Configurar Usuarios
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+            <CardHeader>
+              <div className="flex items-center gap-3 mb-2">
+                <Building className="h-7 w-7 text-primary" />
+                <CardTitle className="text-2xl">Empresas</CardTitle>
+              </div>
+              <CardDescription>Gestione las empresas clientes que utilizan el sistema.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/config/empresas" passHref>
+                <Button className="w-full" size="lg">
+                  Configurar Empresas
                 </Button>
               </Link>
             </CardContent>

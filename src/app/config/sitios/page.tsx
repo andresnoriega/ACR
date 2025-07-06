@@ -11,11 +11,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Globe, PlusCircle, Edit2, Trash2, FileUp, FileDown, MapPin, Loader2, Building } from 'lucide-react'; // Added Building icon
+import { Globe, PlusCircle, Edit2, Trash2, FileUp, FileDown, MapPin, Loader2, Building } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase'; 
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch } from "firebase/firestore";
-import type { Site } from '@/types/rca';
+import type { Site, Company } from '@/types/rca';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 
@@ -226,6 +226,8 @@ export default function ConfiguracionSitiosPage() {
   const [isSubmitting, setIsSubmitting] = useState(false); 
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const [companies, setCompanies] = useState<Company[]>([]);
 
   const [isAddSiteDialogOpen, setIsAddSiteDialogOpen] = useState(false);
   const [newSiteName, setNewSiteName] = useState('');
@@ -233,7 +235,7 @@ export default function ConfiguracionSitiosPage() {
   const [newSiteCountry, setNewSiteCountry] = useState('');
   const [newSiteCoordinator, setNewSiteCoordinator] = useState('');
   const [newSiteDescription, setNewSiteDescription] = useState('');
-  const [newSiteEmpresa, setNewSiteEmpresa] = useState(''); // New state for company
+  const [newSiteEmpresa, setNewSiteEmpresa] = useState('');
 
   const [isEditSiteDialogOpen, setIsEditSiteDialogOpen] = useState(false);
   const [currentSiteToEdit, setCurrentSiteToEdit] = useState<Site | null>(null);
@@ -242,29 +244,36 @@ export default function ConfiguracionSitiosPage() {
   const [editSiteCountry, setEditSiteCountry] = useState('');
   const [editSiteCoordinator, setEditSiteCoordinator] = useState('');
   const [editSiteDescription, setEditSiteDescription] = useState('');
-  const [editSiteEmpresa, setEditSiteEmpresa] = useState(''); // New state for company
+  const [editSiteEmpresa, setEditSiteEmpresa] = useState('');
 
   const [isDeleteSiteConfirmOpen, setIsDeleteSiteConfirmOpen] = useState(false);
   const [siteToDelete, setSiteToDelete] = useState<Site | null>(null);
 
-  const fetchSites = async () => {
+  const fetchInitialData = async () => {
     setIsLoading(true);
     try {
       const sitesCollectionRef = collection(db, "sites");
-      const q = query(sitesCollectionRef, orderBy("name", "asc"));
-      const querySnapshot = await getDocs(q);
-      const sitesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
+      const qSites = query(sitesCollectionRef, orderBy("name", "asc"));
+      const sitesSnapshot = await getDocs(qSites);
+      const sitesData = sitesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
       setSites(sitesData);
+      
+      const companiesCollectionRef = collection(db, "companies");
+      const qCompanies = query(companiesCollectionRef, orderBy("name", "asc"));
+      const companiesSnapshot = await getDocs(qCompanies);
+      const companiesData = companiesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Company));
+      setCompanies(companiesData);
+
     } catch (error) {
-      console.error("Error fetching sites: ", error);
-      toast({ title: "Error al Cargar Sitios", description: "No se pudieron cargar los sitios desde Firestore.", variant: "destructive" });
+      console.error("Error fetching initial data: ", error);
+      toast({ title: "Error al Cargar Datos", description: "No se pudieron cargar los sitios o empresas desde Firestore.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchSites();
+    fetchInitialData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -274,7 +283,7 @@ export default function ConfiguracionSitiosPage() {
     setNewSiteCountry('');
     setNewSiteCoordinator('');
     setNewSiteDescription('');
-    setNewSiteEmpresa(''); // Reset company
+    setNewSiteEmpresa('');
   };
 
   const resetEditSiteForm = () => {
@@ -284,7 +293,7 @@ export default function ConfiguracionSitiosPage() {
     setEditSiteCountry('');
     setEditSiteCoordinator('');
     setEditSiteDescription('');
-    setEditSiteEmpresa(''); // Reset company
+    setEditSiteEmpresa('');
   };
 
   const handleAddSite = async () => {
@@ -299,14 +308,14 @@ export default function ConfiguracionSitiosPage() {
       country: newSiteCountry.trim(),
       coordinator: newSiteCoordinator.trim(),
       description: newSiteDescription.trim(),
-      empresa: newSiteEmpresa.trim() || undefined, // Add company, make undefined if empty
+      empresa: newSiteEmpresa.trim() || undefined,
     };
     try {
       await addDoc(collection(db, "sites"), newSiteData);
       toast({ title: "Sitio Añadido", description: `El sitio "${newSiteData.name}" ha sido añadido con éxito.` });
       resetNewSiteForm();
       setIsAddSiteDialogOpen(false);
-      fetchSites(); // Re-fetch
+      fetchInitialData(); 
     } catch (error) {
       console.error("Error adding site to Firestore: ", error);
       toast({ title: "Error al Añadir Sitio", description: "No se pudo añadir el sitio.", variant: "destructive" });
@@ -322,7 +331,7 @@ export default function ConfiguracionSitiosPage() {
     setEditSiteCountry(site.country);
     setEditSiteCoordinator(site.coordinator || '');
     setEditSiteDescription(site.description || '');
-    setEditSiteEmpresa(site.empresa || ''); // Set company
+    setEditSiteEmpresa(site.empresa || '');
     setIsEditSiteDialogOpen(true);
   };
 
@@ -339,15 +348,15 @@ export default function ConfiguracionSitiosPage() {
       country: editSiteCountry.trim(),
       coordinator: editSiteCoordinator.trim(),
       description: editSiteDescription.trim(),
-      empresa: editSiteEmpresa.trim() || undefined, // Add company, make undefined if empty
+      empresa: editSiteEmpresa.trim() || undefined,
     };
     try {
       const siteRef = doc(db, "sites", currentSiteToEdit.id);
-      await updateDoc(siteRef, updatedSiteData);
+      await updateDoc(siteRef, updatedSiteData as any);
       toast({ title: "Sitio Actualizado", description: `El sitio "${updatedSiteData.name}" ha sido actualizado.` });
       resetEditSiteForm();
       setIsEditSiteDialogOpen(false);
-      fetchSites(); // Re-fetch
+      fetchInitialData();
     } catch (error) {
       console.error("Error updating site in Firestore: ", error);
       toast({ title: "Error al Actualizar", description: "No se pudo actualizar el sitio.", variant: "destructive" });
@@ -368,7 +377,7 @@ export default function ConfiguracionSitiosPage() {
         await deleteDoc(doc(db, "sites", siteToDelete.id));
         toast({ title: "Sitio Eliminado", description: `El sitio "${siteToDelete.name}" ha sido eliminado.`, variant: 'destructive' });
         setSiteToDelete(null);
-        fetchSites(); // Re-fetch
+        fetchInitialData();
       } catch (error) {
         console.error("Error deleting site from Firestore: ", error);
         toast({ title: "Error al Eliminar", description: "No se pudo eliminar el sitio.", variant: "destructive" });
@@ -390,13 +399,13 @@ export default function ConfiguracionSitiosPage() {
       "País": site.country,
       "Coordinador del Sitio": site.coordinator || '',
       "Descripción Adicional": site.description || '',
-      "Empresa": site.empresa || '', // Export company
+      "Empresa": site.empresa || '',
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Sitios");
-    worksheet['!cols'] = [ { wch: 30 }, { wch: 40 }, { wch: 20 }, { wch: 25 }, { wch: 40 }, { wch: 25 } ]; // Adjust widths
+    worksheet['!cols'] = [ { wch: 30 }, { wch: 40 }, { wch: 20 }, { wch: 25 }, { wch: 40 }, { wch: 25 } ];
     
     const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
     const dataBlob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
@@ -457,7 +466,7 @@ export default function ConfiguracionSitiosPage() {
             country: country,
             coordinator: row["Coordinador del Sitio"]?.trim() || '',
             description: row["Descripción Adicional"]?.trim() || '',
-            empresa: row["Empresa"]?.trim() || undefined, // Import company
+            empresa: row["Empresa"]?.trim() || undefined,
           };
           
           const siteRef = doc(collection(db, "sites"));
@@ -476,7 +485,7 @@ export default function ConfiguracionSitiosPage() {
         }
         
         toast({ title: "Importación Completada", description: `${importedCount} sitios importados. ${skippedCount} filas omitidas.` });
-        fetchSites(); // Refresh
+        fetchInitialData();
       } catch (error) {
         console.error("Error importing sites: ", error);
         toast({ title: "Error de Importación", description: "No se pudo procesar el archivo. Verifique el formato y los datos.", variant: "destructive" });
@@ -515,7 +524,7 @@ export default function ConfiguracionSitiosPage() {
         </p>
       </header>
 
-      <Card className="max-w-5xl mx-auto shadow-lg"> {/* Increased max-width for new column */}
+      <Card className="max-w-5xl mx-auto shadow-lg">
         <CardHeader>
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
@@ -543,22 +552,35 @@ export default function ConfiguracionSitiosPage() {
                       <DialogTitle>Añadir Nuevo Sitio</DialogTitle>
                     </DialogHeader>
                     <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="add-site-name" className="text-right">Nombre <span className="text-destructive">*</span></Label>
-                        <Input id="add-site-name" value={newSiteName} onChange={(e) => setNewSiteName(e.target.value)} className="col-span-3" placeholder="Ej: Planta Principal" />
+                      <div className="space-y-2">
+                        <Label htmlFor="add-site-name">Nombre <span className="text-destructive">*</span></Label>
+                        <Input id="add-site-name" value={newSiteName} onChange={(e) => setNewSiteName(e.target.value)} placeholder="Ej: Planta Principal" />
                       </div>
-                       <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="add-site-empresa" className="text-right">Empresa</Label>
-                        <Input id="add-site-empresa" value={newSiteEmpresa} onChange={(e) => setNewSiteEmpresa(e.target.value)} className="col-span-3" placeholder="Nombre de la empresa" />
+                       <div className="space-y-2">
+                        <Label htmlFor="add-site-empresa">Empresa</Label>
+                        <Select value={newSiteEmpresa} onValueChange={setNewSiteEmpresa}>
+                          <SelectTrigger id="add-site-empresa">
+                            <SelectValue placeholder="-- Seleccione una empresa --" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {companies.length > 0 ? (
+                              companies.map(company => (
+                                <SelectItem key={company.id} value={company.name}>{company.name}</SelectItem>
+                              ))
+                            ) : (
+                              <div className="p-2 text-center text-sm text-muted-foreground">No hay empresas</div>
+                            )}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="add-site-address" className="text-right">Dirección</Label>
-                        <Input id="add-site-address" value={newSiteAddress} onChange={(e) => setNewSiteAddress(e.target.value)} className="col-span-3" placeholder="Ej: Calle Falsa 123, Ciudad" />
+                      <div className="space-y-2">
+                        <Label htmlFor="add-site-address">Dirección</Label>
+                        <Input id="add-site-address" value={newSiteAddress} onChange={(e) => setNewSiteAddress(e.target.value)} placeholder="Ej: Calle Falsa 123, Ciudad" />
                       </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="add-site-country" className="text-right">País</Label>
-                        <Select value={newSiteCountry} onValueChange={(value) => setNewSiteCountry(value)}>
-                            <SelectTrigger id="add-site-country" className="col-span-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="add-site-country">País</Label>
+                        <Select value={newSiteCountry} onValueChange={setNewSiteCountry}>
+                            <SelectTrigger id="add-site-country">
                                 <SelectValue placeholder="-- Seleccione un país --" />
                             </SelectTrigger>
                             <SelectContent>
@@ -568,13 +590,13 @@ export default function ConfiguracionSitiosPage() {
                             </SelectContent>
                         </Select>
                       </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="add-site-coordinator" className="text-right">Coordinador</Label>
-                        <Input id="add-site-coordinator" value={newSiteCoordinator} onChange={(e) => setNewSiteCoordinator(e.target.value)} className="col-span-3" placeholder="Nombre del coordinador" />
+                      <div className="space-y-2">
+                        <Label htmlFor="add-site-coordinator">Coordinador</Label>
+                        <Input id="add-site-coordinator" value={newSiteCoordinator} onChange={(e) => setNewSiteCoordinator(e.target.value)} placeholder="Nombre del coordinador" />
                       </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="add-site-description" className="text-right">Descripción</Label>
-                        <Textarea id="add-site-description" value={newSiteDescription} onChange={(e) => setNewSiteDescription(e.target.value)} className="col-span-3" placeholder="Notas adicionales (opcional)" />
+                      <div className="space-y-2">
+                        <Label htmlFor="add-site-description">Descripción</Label>
+                        <Textarea id="add-site-description" value={newSiteDescription} onChange={(e) => setNewSiteDescription(e.target.value)} placeholder="Notas adicionales (opcional)" />
                       </div>
                     </div>
                     <DialogFooter>
@@ -651,22 +673,35 @@ export default function ConfiguracionSitiosPage() {
             <DialogTitle>Editar Sitio</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-site-name" className="text-right">Nombre <span className="text-destructive">*</span></Label>
-              <Input id="edit-site-name" value={editSiteName} onChange={(e) => setEditSiteName(e.target.value)} className="col-span-3" />
+            <div className="space-y-2">
+              <Label htmlFor="edit-site-name">Nombre <span className="text-destructive">*</span></Label>
+              <Input id="edit-site-name" value={editSiteName} onChange={(e) => setEditSiteName(e.target.value)} />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-site-empresa" className="text-right">Empresa</Label>
-              <Input id="edit-site-empresa" value={editSiteEmpresa} onChange={(e) => setEditSiteEmpresa(e.target.value)} className="col-span-3" />
+            <div className="space-y-2">
+              <Label htmlFor="edit-site-empresa">Empresa</Label>
+               <Select value={editSiteEmpresa} onValueChange={setEditSiteEmpresa}>
+                <SelectTrigger id="edit-site-empresa">
+                  <SelectValue placeholder="-- Seleccione una empresa --" />
+                </SelectTrigger>
+                <SelectContent>
+                  {companies.length > 0 ? (
+                    companies.map(company => (
+                      <SelectItem key={company.id} value={company.name}>{company.name}</SelectItem>
+                    ))
+                  ) : (
+                    <div className="p-2 text-center text-sm text-muted-foreground">No hay empresas</div>
+                  )}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-site-address" className="text-right">Dirección</Label>
-              <Input id="edit-site-address" value={editSiteAddress} onChange={(e) => setEditSiteAddress(e.target.value)} className="col-span-3" />
+            <div className="space-y-2">
+              <Label htmlFor="edit-site-address">Dirección</Label>
+              <Input id="edit-site-address" value={editSiteAddress} onChange={(e) => setEditSiteAddress(e.target.value)} />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-site-country" className="text-right">País</Label>
-                <Select value={editSiteCountry || ''} onValueChange={(value) => setEditSiteCountry(value)}>
-                    <SelectTrigger id="edit-site-country" className="col-span-3">
+            <div className="space-y-2">
+              <Label htmlFor="edit-site-country">País</Label>
+                <Select value={editSiteCountry || ''} onValueChange={setEditSiteCountry}>
+                    <SelectTrigger id="edit-site-country">
                         <SelectValue placeholder="-- Seleccione un país --" />
                     </SelectTrigger>
                     <SelectContent>
@@ -676,13 +711,13 @@ export default function ConfiguracionSitiosPage() {
                     </SelectContent>
                 </Select>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-site-coordinator" className="text-right">Coordinador</Label>
-              <Input id="edit-site-coordinator" value={editSiteCoordinator || ''} onChange={(e) => setEditSiteCoordinator(e.target.value)} className="col-span-3" />
+            <div className="space-y-2">
+              <Label htmlFor="edit-site-coordinator">Coordinador</Label>
+              <Input id="edit-site-coordinator" value={editSiteCoordinator || ''} onChange={(e) => setEditSiteCoordinator(e.target.value)} />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-site-description" className="text-right">Descripción</Label>
-              <Textarea id="edit-site-description" value={editSiteDescription || ''} onChange={(e) => setEditSiteDescription(e.target.value)} className="col-span-3" />
+            <div className="space-y-2">
+              <Label htmlFor="edit-site-description">Descripción</Label>
+              <Textarea id="edit-site-description" value={editSiteDescription || ''} onChange={(e) => setEditSiteDescription(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
