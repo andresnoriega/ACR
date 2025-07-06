@@ -341,15 +341,15 @@ export default function ConfiguracionPrivacidadPage() {
     
     const result = await sendEmailAction({
       to: "TEST_MY_SENDER_ADDRESS", // Special keyword for server to use SENDER_EMAIL_ADDRESS
-      subject: "Correo de Prueba - Integración Asistente ACR con SendGrid",
-      body: "Este es un correo de prueba enviado desde Asistente ACR para verificar la integración con SendGrid.",
-      htmlBody: "<p>Este es un <strong>correo de prueba</strong> enviado desde <strong>Asistente ACR</strong> para verificar la integración con <strong>SendGrid</strong>.</p>",
+      subject: "Correo de Prueba - Integración Asistente ACR con MailerSend",
+      body: "Este es un correo de prueba enviado desde Asistente ACR para verificar la integración con MailerSend.",
+      htmlBody: "<p>Este es un <strong>correo de prueba</strong> enviado desde <strong>Asistente ACR</strong> para verificar la integración con <strong>MailerSend</strong>.</p>",
     });
 
     if (result.success) {
       toast({
         title: "Correo de Prueba Enviado",
-        description: "El correo de prueba ha sido enviado a tu dirección de remitente configurada (`SENDER_EMAIL_ADDRESS`). Por favor, revisa tu bandeja de entrada. Si lo recibes, ahora puedes proceder a verificar la integración en el panel de SendGrid.",
+        description: "El correo de prueba ha sido enviado a tu dirección de remitente configurada (`SENDER_EMAIL_ADDRESS`). Por favor, revisa tu bandeja de entrada. Si lo recibes, ahora puedes proceder a verificar la integración en el panel de MailerSend.",
       });
     } else {
       toast({
