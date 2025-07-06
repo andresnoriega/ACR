@@ -340,22 +340,23 @@ export default function ConfiguracionPrivacidadPage() {
     setIsSendingTestEmail(true);
     
     const result = await sendEmailAction({
-      to: "TEST_MY_SENDER_ADDRESS", // Special keyword for server to use SENDER_EMAIL_ADDRESS
-      subject: "Correo de Prueba - Integración Asistente ACR con MailerSend",
-      body: "Este es un correo de prueba enviado desde Asistente ACR para verificar la integración con MailerSend.",
-      htmlBody: "<p>Este es un <strong>correo de prueba</strong> enviado desde <strong>Asistente ACR</strong> para verificar la integración con <strong>MailerSend</strong>.</p>",
+      to: "TEST_MY_SENDER_ADDRESS", // Special keyword for server to use sender address
+      subject: "Correo de Prueba - Integración Asistente ACR con SendGrid",
+      body: "Este es un correo de prueba enviado desde Asistente ACR para verificar la integración con SendGrid.",
+      htmlBody: "<p>Este es un <strong>correo de prueba</strong> enviado desde <strong>Asistente ACR</strong> para verificar la integración con <strong>SendGrid</strong>.</p>",
     });
 
     if (result.success) {
       toast({
         title: "Correo de Prueba Enviado",
-        description: "El correo de prueba ha sido enviado a tu dirección de remitente configurada (`SENDER_EMAIL_ADDRESS`). Por favor, revisa tu bandeja de entrada. Si lo recibes, ahora puedes proceder a verificar la integración en el panel de MailerSend.",
+        description: "El correo de prueba ha sido enviado a tu dirección de remitente configurada (`SENDGRID_SENDER_EMAIL`). Por favor, revisa tu bandeja de entrada.",
       });
     } else {
       toast({
         title: "Error al Enviar Correo de Prueba",
         description: result.message,
         variant: "destructive",
+        duration: 9000,
       });
     }
     setIsSendingTestEmail(false);
@@ -428,13 +429,13 @@ export default function ConfiguracionPrivacidadPage() {
             <Mail className="h-6 w-6 text-primary" />
             <CardTitle className="text-2xl">Configuración de Correo</CardTitle>
           </div>
-          <CardDescription>Verifique la configuración de envío de correos electrónicos a través de MailerSend.</CardDescription>
+          <CardDescription>Verifique la configuración de envío de correos electrónicos a través de SendGrid.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row justify-between items-center p-4 border rounded-md">
             <div>
               <h4 className="font-semibold">Verificar Integración</h4>
-              <p className="text-sm text-muted-foreground">Envíe un correo de prueba a su dirección de remitente para confirmar que la API Key y el dominio están configurados correctamente en las variables de entorno.</p>
+              <p className="text-sm text-muted-foreground">Envíe un correo de prueba a su dirección de remitente para confirmar que la API Key y el correo verificado están configurados correctamente en las variables de entorno.</p>
             </div>
             <Button onClick={handleSendTestEmail} className="mt-2 sm:mt-0" disabled={isSendingTestEmail || isResetting || isDeletingEvent}>
               {isSendingTestEmail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
@@ -442,7 +443,7 @@ export default function ConfiguracionPrivacidadPage() {
             </Button>
           </div>
         </CardContent>
-        <CardFooter><p className="text-xs text-muted-foreground">Requiere las variables `MAILERSEND_API_KEY` y `SENDER_EMAIL_ADDRESS` en el archivo `.env`.</p></CardFooter>
+        <CardFooter><p className="text-xs text-muted-foreground">Requiere las variables `SENDGRID_API_KEY` y `SENDGRID_SENDER_EMAIL` en el archivo `.env`.</p></CardFooter>
       </Card>
 
       <div className="mt-8 text-center">

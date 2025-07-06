@@ -1,6 +1,7 @@
+
 'use server';
 
-import { MailerSend, EmailParams, Sender, Recipient } from 'mailersend';
+import sgMail from '@sendgrid/mail';
 
 interface EmailPayload {
   to: string;
@@ -12,27 +13,26 @@ interface EmailPayload {
 const SPECIAL_TEST_ADDRESS = "TEST_MY_SENDER_ADDRESS";
 
 /**
- * Sends an email using MailerSend.
- * Requires MAILERSEND_API_KEY and SENDER_EMAIL_ADDRESS environment variables to be set.
+ * Sends an email using SendGrid.
+ * Requires SENDGRID_API_KEY and SENDGRID_SENDER_EMAIL environment variables to be set.
  * @param payload - The email details.
  * @returns Promise<object> - A promise that resolves with a success or error message.
  */
 export async function sendEmailAction(payload: EmailPayload): Promise<{ success: boolean; message: string; details?: EmailPayload }> {
-  const apiKey = process.env.MAILERSEND_API_KEY;
-  const senderEmail = process.env.SENDER_EMAIL_ADDRESS;
-  const senderName = "Asistente ACR"; // You can make this an env variable if needed
+  const apiKey = process.env.SENDGRID_API_KEY;
+  const senderEmail = process.env.SENDGRID_SENDER_EMAIL;
 
-  if (!apiKey || apiKey === 'TU_API_KEY_DE_MAILERSEND_AQUI') {
-    console.error("[sendEmailAction] MailerSend API Key (MAILERSEND_API_KEY) is not set in environment variables or is a placeholder.");
+  if (!apiKey || apiKey === 'TU_API_KEY_DE_SENDGRID_AQUI') {
+    console.error("[sendEmailAction] SendGrid API Key (SENDGRID_API_KEY) is not set in environment variables or is a placeholder.");
     return {
       success: false,
-      message: "Error de configuración: La API Key de MailerSend no está configurada. Por favor, añádala a su archivo .env.",
+      message: "Error de configuración: La API Key de SendGrid no está configurada. Por favor, añádala a su archivo .env.",
       details: payload,
     };
   }
 
-  if (!senderEmail || senderEmail === 'tu@email_verificado.com') {
-    console.error("[sendEmailAction] Sender email address (SENDER_EMAIL_ADDRESS) is not set in environment variables or is a placeholder.");
+  if (!senderEmail || senderEmail === 'tu@email_verificado_en_sendgrid.com') {
+    console.error("[sendEmailAction] Sender email address (SENDGRID_SENDER_EMAIL) is not set in environment variables or is a placeholder.");
     return {
       success: false,
       message: "Error de configuración: La dirección de correo del remitente no está configurada. Por favor, añádala a su archivo .env.",
@@ -40,52 +40,44 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
     };
   }
 
-  const mailerSend = new MailerSend({ apiKey });
+  sgMail.setApiKey(apiKey);
 
-  const isTestAddress = payload.to === SPECIAL_TEST_ADDRESS;
-  const recipientEmail = isTestAddress ? senderEmail : payload.to;
+  const recipientEmail = payload.to === SPECIAL_TEST_ADDRESS ? senderEmail : payload.to;
 
-  const sentFrom = new Sender(senderEmail, senderName);
-  const recipients = [new Recipient(recipientEmail, "Usuario")];
+  const msg = {
+    to: recipientEmail,
+    from: senderEmail,
+    subject: payload.subject,
+    text: payload.body,
+    html: payload.htmlBody || `<p>${payload.body}</p>`,
+  };
 
-  const emailParams = new EmailParams()
-    .setFrom(sentFrom)
-    .setTo(recipients)
-    .setSubject(payload.subject)
-    .setHtml(payload.htmlBody || `<p>${payload.body}</p>`)
-    .setText(payload.body);
-
-  console.log(`[sendEmailAction] Attempting to send email via MailerSend to: ${recipientEmail} with subject: "${payload.subject}" from: ${senderEmail}. Key length: ${apiKey.length}, Key snippet: ${apiKey.substring(0,4)}...${apiKey.substring(apiKey.length - 4)}`);
+  console.log(`[sendEmailAction] Attempting to send email via SendGrid to: ${recipientEmail} with subject: "${payload.subject}" from: ${senderEmail}.`);
 
   try {
-    await mailerSend.email.send(emailParams);
-    console.log(`[sendEmailAction] Email successfully sent to ${recipientEmail} via MailerSend.`);
+    await sgMail.send(msg);
+    console.log(`[sendEmailAction] Email successfully sent to ${recipientEmail} via SendGrid.`);
     return {
       success: true,
       message: `Correo enviado exitosamente a ${recipientEmail}.`,
       details: payload,
     };
   } catch (error: any) {
-    console.error("[sendEmailAction] Error sending email via MailerSend:", error.body || error);
-    let errorMessage = "Ocurrió un error desconocido al enviar el correo.";
+    console.error("[sendEmailAction] Error sending email via SendGrid:", JSON.stringify(error, null, 2));
     
-    if (error.body && error.body.message) {
-      const apiMessage = error.body.message.toLowerCase();
-      const apiErrorsString = JSON.stringify(error.body.errors || {});
+    let errorMessage = "Ocurrió un error desconocido al enviar el correo.";
+    if (error.response && error.response.body && error.response.body.errors) {
+      const firstError = error.response.body.errors[0];
+      const apiMessage = firstError.message.toLowerCase();
       
-      if (apiMessage.includes('unauthenticated')) {
-        errorMessage = "Error de autenticación. Verifique que la MAILERSEND_API_KEY en su archivo .env sea correcta, esté activa y tenga permisos para enviar correos. Asegúrese de que no haya espacios adicionales antes o después de la clave.";
-      } else if (apiMessage.includes('trial account') || apiErrorsString.includes('MS42225')) {
-          errorMessage = "Su cuenta de MailerSend está en modo de prueba (Trial). En este modo, solo puede enviar correos A LA DIRECCIÓN DE EMAIL DEL ADMINISTRADOR DE SU CUENTA DE MAILERSEND. Para enviar correos a cualquier destinatario, debe completar el proceso de aprobación de su cuenta en el panel de MailerSend.";
-      } else if (apiMessage.includes('domain must be verified') || apiErrorsString.includes('MS42207')) {
-          errorMessage = "El dominio del correo remitente (`SENDER_EMAIL_ADDRESS`) no está verificado en MailerSend. Por favor, complete el proceso de verificación de dominio en su panel de MailerSend.";
-      }
-      else {
-        errorMessage = error.body.message;
-        if (error.body.errors) {
-          const errorDetails = Object.values(error.body.errors).flat().join(', ');
-          errorMessage += ` Detalles: ${errorDetails}`;
-        }
+      if (apiMessage.includes('permission denied') || apiMessage.includes('api key does not have permissions')) {
+        errorMessage = "Error de permisos. La API Key de SendGrid no tiene permisos para enviar correos. Verifique los permisos en el panel de SendGrid.";
+      } else if (apiMessage.includes('authorization') || error.code === 401) {
+        errorMessage = "Error de autenticación. Verifique que la SENDGRID_API_KEY en su archivo .env sea correcta y esté activa.";
+      } else if (apiMessage.includes('the from address does not match a verified sender')) {
+        errorMessage = `La dirección de remitente (${senderEmail}) no está verificada en SendGrid. Por favor, verifíquela como 'Single Sender' o configure la Autenticación de Dominio en su panel de SendGrid.`;
+      } else {
+        errorMessage = firstError.message;
       }
     } else if (error.message) {
       errorMessage = error.message;
