@@ -128,23 +128,10 @@ export default function DashboardRCAPage() {
       const rcaQueryConstraints: QueryConstraint[] = [];
       const eventQueryConstraintsForCounts: QueryConstraint[] = [];
 
-      const companySiteNames = (userProfile.role !== 'Super User' && userProfile.empresa)
-        ? availableSites.filter(s => s.empresa === userProfile.empresa).map(s => s.name)
-        : null;
-
-      if (companySiteNames && companySiteNames.length === 0) {
-        // User is in a company with no configured sites, show empty state for all data.
-        setActionStatsData({ totalAcciones: 0, accionesPendientes: 0, accionesValidadas: 0 });
-        setRcaSummaryData({ totalRCAs: 0, rcaPendientes: 0, rcaFinalizados: 0, rcaRechazados: 0, rcaCompletionRate: 0 });
-        setAnalisisEnCurso([]);
-        setPlanesAccionPendientes([]);
-        setIsLoadingData(false);
-        return;
-      }
-      
-      if (companySiteNames) {
-        rcaQueryConstraints.push(where("eventData.site", "in", companySiteNames));
-        eventQueryConstraintsForCounts.push(where("site", "in", companySiteNames));
+      // Company Scoping at the query level
+      if (userProfile.role !== 'Super User' && userProfile.empresa) {
+        rcaQueryConstraints.push(where("empresa", "==", userProfile.empresa));
+        eventQueryConstraintsForCounts.push(where("empresa", "==", userProfile.empresa));
       }
 
       if (currentFilters.site && currentFilters.site !== ALL_FILTER_VALUE) {
@@ -265,15 +252,20 @@ export default function DashboardRCAPage() {
       toast({ title: "Error al Cargar Datos del Dashboard", description: (error as Error).message, variant: "destructive" });
     }
     setIsLoadingData(false);
-  }, [toast, userProfile, loadingAuth, availableSites]);
+  }, [toast, userProfile, loadingAuth]);
 
 
   useEffect(() => {
     const fetchSitesData = async () => {
+      if (!userProfile) return;
       setIsLoadingSites(true);
       try {
         const sitesCollectionRef = collection(db, "sites");
-        const q = query(sitesCollectionRef, orderBy("name", "asc"));
+        const queryConstraints: QueryConstraint[] = [orderBy("name", "asc")];
+        if (userProfile.role !== 'Super User' && userProfile.empresa) {
+          queryConstraints.push(where("empresa", "==", userProfile.empresa));
+        }
+        const q = query(sitesCollectionRef, ...queryConstraints);
         const querySnapshot = await getDocs(q);
         const sitesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
         setAvailableSites(sitesData);
@@ -285,7 +277,7 @@ export default function DashboardRCAPage() {
       }
     };
     fetchSitesData();
-  }, [toast]);
+  }, [toast, userProfile]);
 
   useEffect(() => {
     if (!loadingAuth && !isLoadingSites) {

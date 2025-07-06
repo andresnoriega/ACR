@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -12,10 +12,11 @@ import { ListChecks, Users, Edit2, KeyRound, ShieldOff, History, Loader2 } from 
 import type { FullUserProfile } from '@/types/rca'; 
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, doc, updateDoc, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, query, orderBy, where, QueryConstraint } from "firebase/firestore";
+import { useAuth } from '@/contexts/AuthContext';
 
-const availableRoles: FullUserProfile['role'][] = ['Admin', 'Analista', 'Revisor', ''];
-const availablePermissionLevels: FullUserProfile['permissionLevel'][] = ['Total', 'Lectura', 'Limitado', ''];
+const ALL_ROLES: FullUserProfile['role'][] = ['Super User', 'Admin', 'Analista', 'Revisor', 'Usuario Pendiente', ''];
+const ALL_PERMISSION_LEVELS: FullUserProfile['permissionLevel'][] = ['Total', 'Lectura', 'Limitado', ''];
 
 export default function ConfiguracionPermisosPage() {
   const [userProfiles, setUserProfiles] = useState<FullUserProfile[]>([]);
@@ -28,13 +29,22 @@ export default function ConfiguracionPermisosPage() {
   
   const [editRole, setEditRole] = useState<FullUserProfile['role']>('');
   const [editPermissionLevel, setEditPermissionLevel] = useState<FullUserProfile['permissionLevel']>('');
+  
+  const { userProfile: loggedInUserProfile } = useAuth();
 
   useEffect(() => {
     const fetchUserProfiles = async () => {
+      if (!loggedInUserProfile) return;
       setIsLoading(true);
       try {
         const usersCollectionRef = collection(db, "users");
-        const q = query(usersCollectionRef, orderBy("name", "asc"));
+        const queryConstraints: QueryConstraint[] = [orderBy("name", "asc")];
+        
+        if (loggedInUserProfile.role === 'Admin' && loggedInUserProfile.empresa) {
+          queryConstraints.push(where("empresa", "==", loggedInUserProfile.empresa));
+        }
+        
+        const q = query(usersCollectionRef, ...queryConstraints);
         const querySnapshot = await getDocs(q);
         const profilesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FullUserProfile));
         setUserProfiles(profilesData);
@@ -46,7 +56,14 @@ export default function ConfiguracionPermisosPage() {
       }
     };
     fetchUserProfiles();
-  }, [toast]);
+  }, [toast, loggedInUserProfile]);
+  
+  const availableRolesForDropdown = useMemo(() => {
+    if (loggedInUserProfile?.role === 'Super User') {
+      return ALL_ROLES;
+    }
+    return ALL_ROLES.filter(r => r !== 'Super User');
+  }, [loggedInUserProfile]);
 
   const openEditDialog = (user: FullUserProfile) => {
     setCurrentUserToEdit(user);
@@ -56,7 +73,14 @@ export default function ConfiguracionPermisosPage() {
   };
 
   const handleSaveChanges = async () => {
-    if (!currentUserToEdit) return;
+    if (!currentUserToEdit || !loggedInUserProfile) return;
+    
+    // Security check: An Admin cannot edit a Super User's profile
+    if (loggedInUserProfile.role === 'Admin' && currentUserToEdit.role === 'Super User') {
+      toast({ title: "Acción no permitida", description: "Los Administradores no pueden modificar los perfiles de Super Usuarios.", variant: "destructive"});
+      return;
+    }
+    
     setIsSubmitting(true);
 
     try {
@@ -89,9 +113,11 @@ export default function ConfiguracionPermisosPage() {
 
   const getProjectAccessDisplay = (role: FullUserProfile['role']): string => {
     switch (role) {
-      case 'Admin': return 'Total (Administrador)';
+      case 'Super User': return 'Total (Super Usuario)';
+      case 'Admin': return 'Total de Empresa (Admin)';
       case 'Analista': return 'Específico de Equipo/Proyecto (Analista)';
       case 'Revisor': return 'Solo Revisión (Revisor)';
+      case 'Usuario Pendiente': return 'Pendiente de Aprobación';
       default: return 'No Definido';
     }
   };
@@ -126,7 +152,7 @@ export default function ConfiguracionPermisosPage() {
             <CardTitle className="text-2xl">Permisos de Usuario</CardTitle>
           </div>
           <CardDescription>
-            Visualice y edite los permisos asignados a cada usuario del sistema. Los datos se obtienen desde Firestore.
+            Visualice y edite los permisos asignados a cada usuario del sistema. {loggedInUserProfile?.role === 'Admin' ? 'Solo se muestran usuarios de su empresa.' : 'Los datos se obtienen desde Firestore.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -142,9 +168,22 @@ export default function ConfiguracionPermisosPage() {
                   <TableRow><TableHead className="w-[30%]">Usuario</TableHead><TableHead className="w-[30%]">Rol (Acceso)</TableHead><TableHead className="w-[30%]">Nivel de Permiso (Edición)</TableHead><TableHead className="w-[10%] text-right">Acción</TableHead></TableRow>
                 </TableHeader>
                 <TableBody>
-                  {userProfiles.map((user) => (
-                    <TableRow key={user.id}><TableCell className="font-medium">{user.name}</TableCell><TableCell>{getProjectAccessDisplay(user.role)}</TableCell><TableCell>{getEditionDisplay(user.permissionLevel)}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => openEditDialog(user)} className="hover:text-primary" disabled={isSubmitting}><Edit2 className="h-4 w-4" /><span className="sr-only">Editar Permisos</span></Button></TableCell></TableRow>
-                  ))}
+                  {userProfiles.map((user) => {
+                    const canEditUser = loggedInUserProfile?.role === 'Super User' || (loggedInUserProfile?.role === 'Admin' && user.role !== 'Super User');
+                    return (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium">{user.name}</TableCell>
+                          <TableCell>{getProjectAccessDisplay(user.role)}</TableCell>
+                          <TableCell>{getEditionDisplay(user.permissionLevel)}</TableCell>
+                          <TableCell className="text-right">
+                              <Button variant="ghost" size="icon" onClick={() => openEditDialog(user)} className="hover:text-primary" disabled={isSubmitting || !canEditUser} title={!canEditUser ? "No puede editar este usuario" : "Editar Permisos"}>
+                                  <Edit2 className="h-4 w-4" />
+                                  <span className="sr-only">Editar Permisos</span>
+                              </Button>
+                          </TableCell>
+                        </TableRow>
+                    );
+                  })}
                   {userProfiles.length === 0 && !isLoading && (
                       <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground h-24">
                           No hay usuarios para mostrar. Verifique la sección de 'Configuración de Usuarios'.
@@ -172,7 +211,7 @@ export default function ConfiguracionPermisosPage() {
                   <SelectValue placeholder="Seleccionar rol" />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableRoles.filter(r => r !== '').map(r => (
+                  {availableRolesForDropdown.filter(r => r !== '').map(r => (
                     <SelectItem key={r} value={r}>{getProjectAccessDisplay(r)}</SelectItem>
                   ))}
                 </SelectContent>
@@ -187,7 +226,7 @@ export default function ConfiguracionPermisosPage() {
                   <SelectValue placeholder="Seleccionar nivel" />
                 </SelectTrigger>
                 <SelectContent>
-                  {availablePermissionLevels.filter(pl => pl !== '').map(pl => (
+                  {ALL_PERMISSION_LEVELS.filter(pl => pl !== '').map(pl => (
                     <SelectItem key={pl} value={pl}>{getEditionDisplay(pl)}</SelectItem>
                   ))}
                 </SelectContent>

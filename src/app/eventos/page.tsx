@@ -60,7 +60,6 @@ export default function EventosReportadosPage() {
   const [availableSites, setAvailableSites] = useState<Site[]>([]);
   
   const [isLoadingData, setIsLoadingData] = useState(true);
-  const [isLoadingSites, setIsLoadingSites] = useState(true);
   
   const [selectedEvent, setSelectedEvent] = useState<ReportedEvent | null>(null);
   const [isDetailsCardVisible, setIsDetailsCardVisible] = useState(false);
@@ -78,35 +77,33 @@ export default function EventosReportadosPage() {
 
 
   const fetchAllData = useCallback(async () => {
-    setIsLoadingData(true);
-    
     if (loadingAuth || !userProfile) {
         setIsLoadingData(false);
         return;
     }
+    setIsLoadingData(true);
 
     try {
-      const eventsCollectionRef = collection(db, "reportedEvents");
-      const queryConstraints: QueryConstraint[] = [orderBy("date", "desc")];
-      
-      // Apply company-based filtering for non-Super Users
+      // First, fetch sites to know which ones belong to the company
+      const sitesCollectionRef = collection(db, "sites");
+      const sitesQueryConstraints: QueryConstraint[] = [orderBy("name", "asc")];
       if (userProfile.role !== 'Super User' && userProfile.empresa) {
-        const companySites = availableSites
-          .filter(site => site.empresa === userProfile.empresa)
-          .map(site => site.name);
-
-        if (companySites.length > 0) {
-          queryConstraints.push(where('site', 'in', companySites));
-        } else {
-          // If the user's company has no sites configured, they will see no events.
-          setAllEvents([]);
-          setFilteredEvents([]);
-          setIsLoadingData(false);
-          return;
-        }
+        sitesQueryConstraints.push(where("empresa", "==", userProfile.empresa));
+      }
+      const sitesQuery = query(sitesCollectionRef, ...sitesQueryConstraints);
+      const sitesSnapshot = await getDocs(sitesQuery);
+      const userAllowedSites = sitesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
+      setAvailableSites(userAllowedSites);
+      
+      // Then, fetch events based on company
+      const eventsCollectionRef = collection(db, "reportedEvents");
+      const eventsQueryConstraints: QueryConstraint[] = [orderBy("date", "desc")];
+      
+      if (userProfile.role !== 'Super User' && userProfile.empresa) {
+        eventsQueryConstraints.push(where('empresa', '==', userProfile.empresa));
       }
       
-      const eventsQuery = query(eventsCollectionRef, ...queryConstraints);
+      const eventsQuery = query(eventsCollectionRef, ...eventsQueryConstraints);
       
       const eventsSnapshot = await getDocs(eventsQuery);
       const rawEventsData = eventsSnapshot.docs.map(doc => {
@@ -128,34 +125,11 @@ export default function EventosReportadosPage() {
     } finally {
       setIsLoadingData(false);
     }
-  }, [toast, loadingAuth, userProfile, availableSites]);
-
+  }, [toast, loadingAuth, userProfile]);
+  
   useEffect(() => {
-    const fetchSitesData = async () => {
-      setIsLoadingSites(true);
-      try {
-        const sitesCollectionRef = collection(db, "sites");
-        const q = query(sitesCollectionRef, orderBy("name", "asc"));
-        const querySnapshot = await getDocs(q);
-        const sitesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
-        setAvailableSites(sitesData);
-      } catch (error) {
-        console.error("Error fetching sites: ", error);
-        toast({ title: "Error al Cargar Sitios", description: "No se pudieron cargar los sitios para el filtro.", variant: "destructive" });
-        setAvailableSites([]);
-      } finally {
-        setIsLoadingSites(false);
-      }
-    };
-
-    fetchSitesData();
-  }, [toast]);
-
-  useEffect(() => {
-    if (!loadingAuth && !isLoadingSites) {
-      fetchAllData();
-    }
-  }, [loadingAuth, isLoadingSites, fetchAllData]);
+    fetchAllData();
+  }, [fetchAllData]);
 
 
   const summaryData = useMemo(() => ({
@@ -343,15 +317,7 @@ export default function EventosReportadosPage() {
     return <ChevronsUpDown className="h-3 w-3 opacity-30" />;
   };
 
-  const isLoading = isLoadingData || isLoadingSites || loadingAuth;
-
-  const sitesForFilter = useMemo(() => {
-    if (userProfile && userProfile.role !== 'Super User' && userProfile.empresa) {
-      return availableSites.filter(site => site.empresa === userProfile.empresa);
-    }
-    return availableSites;
-  }, [availableSites, userProfile]);
-
+  const isLoading = isLoadingData || loadingAuth;
 
   if (isLoading) {
     return (
@@ -443,8 +409,8 @@ export default function EventosReportadosPage() {
               <SelectTrigger id="filter-site"><SelectValue placeholder="Todos los sitios" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL_FILTER_VALUE}>Todos los sitios</SelectItem>
-                {sitesForFilter.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
-                 {sitesForFilter.length === 0 && <SelectItem value={NO_SITES_PLACEHOLDER_VALUE} disabled>No hay sitios para mostrar</SelectItem>}
+                {availableSites.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                 {availableSites.length === 0 && <SelectItem value={NO_SITES_PLACEHOLDER_VALUE} disabled>No hay sitios para mostrar</SelectItem>}
               </SelectContent>
             </Select>
           </div>

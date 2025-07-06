@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Loader2, ShieldAlert, KeyRound } from 'lucide-react';
 import { EmailAuthProvider, reauthenticateWithCredential, type AuthError } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
+import type { FullUserProfile } from '@/types/rca';
 
 export default function ConfigLayout({ children }: { children: ReactNode }) {
   const { currentUser, userProfile, loadingAuth } = useAuth();
@@ -27,7 +28,7 @@ export default function ConfigLayout({ children }: { children: ReactNode }) {
       if (!currentUser) {
         toast({ title: "Acceso Denegado", description: "Debe iniciar sesión para acceder a la configuración.", variant: "destructive" });
         router.replace('/login');
-      } else if (userProfile && userProfile.role !== 'Super User') {
+      } else if (userProfile && userProfile.role !== 'Super User' && userProfile.role !== 'Admin') {
         toast({ title: "Acceso Denegado", description: "No tiene permisos para acceder a esta sección.", variant: "destructive" });
         router.replace('/inicio');
       }
@@ -77,7 +78,7 @@ export default function ConfigLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!currentUser || (userProfile && userProfile.role !== 'Super User')) {
+  if (!currentUser || (userProfile && userProfile.role !== 'Super User' && userProfile.role !== 'Admin')) {
     // This will be briefly shown before redirect effect kicks in, or if redirect fails.
     return (
       <div className="flex flex-col justify-center items-center min-h-[calc(100vh-10rem)] text-center p-4">
@@ -91,7 +92,7 @@ export default function ConfigLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!isConfigSectionAuthenticated) {
+  if (userProfile?.role === 'Super User' && !isConfigSectionAuthenticated) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-12rem)] py-12">
         <Card className="w-full max-w-md shadow-xl">
@@ -101,7 +102,7 @@ export default function ConfigLayout({ children }: { children: ReactNode }) {
             </div>
             <CardTitle className="text-2xl font-bold">Verificación Requerida</CardTitle>
             <CardDescription>
-              Para acceder a la sección de configuración, por favor ingrese su contraseña actual.
+              Para acceder a las funciones críticas de Super Usuario, por favor ingrese su contraseña actual.
             </CardDescription>
           </CardHeader>
           <CardContent>

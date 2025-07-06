@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { FullUserProfile, Company } from '@/types/rca'; 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,11 +15,12 @@ import { Switch } from '@/components/ui/switch';
 import { Users, PlusCircle, Edit2, Trash2, FileUp, FileDown, Loader2, Building } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, where, QueryConstraint } from "firebase/firestore";
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { sanitizeForFirestore } from '@/lib/utils';
 import { sendEmailAction } from '@/app/actions';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface UserConfigProfile extends FullUserProfile {
   assignedSites?: string;
@@ -27,7 +28,7 @@ interface UserConfigProfile extends FullUserProfile {
   empresa?: string;
 }
 
-const userRoles: FullUserProfile['role'][] = ['Admin', 'Analista', 'Revisor', 'Super User', 'Usuario Pendiente', ''];
+const ALL_USER_ROLES: FullUserProfile['role'][] = ['Super User', 'Admin', 'Analista', 'Revisor', 'Usuario Pendiente', ''];
 const defaultPermissionLevel: FullUserProfile['permissionLevel'] = 'Lectura';
 
 const expectedUserHeaders = ["Nombre Completo", "Correo Electrónico", "Rol", "Empresa", "Sitios Asignados", "Notificaciones Email"];
@@ -41,6 +42,7 @@ export default function ConfiguracionUsuariosPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [companies, setCompanies] = useState<Company[]>([]);
+  const { userProfile: loggedInUserProfile } = useAuth();
 
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -56,17 +58,27 @@ export default function ConfiguracionUsuariosPage() {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserConfigProfile | null>(null);
 
-  const fetchInitialData = async () => {
+  const fetchInitialData = useCallback(async () => {
+    if (!loggedInUserProfile) return;
     setIsLoading(true);
     try {
       const usersCollectionRef = collection(db, "users");
-      const qUsers = query(usersCollectionRef, orderBy("name", "asc"));
+      const companiesCollectionRef = collection(db, "companies");
+
+      const usersQueryConstraints: QueryConstraint[] = [orderBy("name", "asc")];
+      const companiesQueryConstraints: QueryConstraint[] = [orderBy("name", "asc")];
+
+      if (loggedInUserProfile.role !== 'Super User' && loggedInUserProfile.empresa) {
+        usersQueryConstraints.push(where("empresa", "==", loggedInUserProfile.empresa));
+        companiesQueryConstraints.push(where("name", "==", loggedInUserProfile.empresa));
+      }
+
+      const qUsers = query(usersCollectionRef, ...usersQueryConstraints);
       const usersSnapshot = await getDocs(qUsers);
       const usersData = usersSnapshot.docs.map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() } as UserConfigProfile));
       setUsers(usersData);
 
-      const companiesCollectionRef = collection(db, "companies");
-      const qCompanies = query(companiesCollectionRef, orderBy("name", "asc"));
+      const qCompanies = query(companiesCollectionRef, ...companiesQueryConstraints);
       const companiesSnapshot = await getDocs(qCompanies);
       const companiesData = companiesSnapshot.docs.map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() } as Company));
       setCompanies(companiesData);
@@ -77,18 +89,25 @@ export default function ConfiguracionUsuariosPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [loggedInUserProfile, toast]);
+
 
   useEffect(() => {
     fetchInitialData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchInitialData]);
+
+  const availableRolesForDropdown = useMemo(() => {
+    if (loggedInUserProfile?.role === 'Super User') {
+      return ALL_USER_ROLES;
+    }
+    return ALL_USER_ROLES.filter(r => r !== 'Super User');
+  }, [loggedInUserProfile]);
 
   const resetUserForm = () => {
     setUserName('');
     setUserEmail('');
     setUserRole('');
-    setUserEmpresa('');
+    setUserEmpresa(loggedInUserProfile?.role === 'Admin' && loggedInUserProfile.empresa ? loggedInUserProfile.empresa : '');
     setUserAssignedSites('');
     setUserEmailNotifications(false);
     setCurrentUser(null);
@@ -129,6 +148,10 @@ export default function ConfiguracionUsuariosPage() {
     }
 
     setIsSubmitting(true);
+    let finalEmpresa = userEmpresa.trim() || undefined;
+    if (loggedInUserProfile?.role === 'Admin' && loggedInUserProfile.empresa) {
+        finalEmpresa = loggedInUserProfile.empresa;
+    }
 
     if (isEditing && currentUser) {
       const wasPending = currentUser.role === 'Usuario Pendiente';
@@ -137,7 +160,7 @@ export default function ConfiguracionUsuariosPage() {
         name: userName.trim(),
         email: userEmail.trim(),
         role: userRole,
-        empresa: userEmpresa.trim() || undefined,
+        empresa: finalEmpresa,
         assignedSites: userAssignedSites.trim(),
         emailNotifications: userEmailNotifications,
       };
@@ -178,7 +201,7 @@ export default function ConfiguracionUsuariosPage() {
         email: userEmail.trim(),
         role: userRole,
         permissionLevel: userRole === 'Usuario Pendiente' ? '' : defaultPermissionLevel, 
-        empresa: userEmpresa.trim() || undefined,
+        empresa: finalEmpresa,
         assignedSites: userAssignedSites.trim(),
         emailNotifications: userEmailNotifications,
       };
@@ -299,9 +322,18 @@ export default function ConfiguracionUsuariosPage() {
             skippedCount++;
             continue;
           }
-          if (!userRoles.includes(role) || role === '') {
+          if (!ALL_USER_ROLES.includes(role) || role === '') {
              skippedCount++;
              continue;
+          }
+
+          let empresa = row["Empresa"]?.trim() || undefined;
+          if (loggedInUserProfile?.role !== 'Super User' && loggedInUserProfile?.empresa) {
+              if (empresa && empresa !== loggedInUserProfile.empresa) {
+                  skippedCount++;
+                  continue; // Skip users not belonging to the admin's company
+              }
+              empresa = loggedInUserProfile.empresa;
           }
 
           const newUser: Omit<UserConfigProfile, 'id'> = {
@@ -309,7 +341,7 @@ export default function ConfiguracionUsuariosPage() {
             email,
             role,
             permissionLevel: role === 'Usuario Pendiente' ? '' : defaultPermissionLevel,
-            empresa: row["Empresa"]?.trim() || undefined,
+            empresa: empresa,
             assignedSites: row["Sitios Asignados"]?.trim() || '',
             emailNotifications: (row["Notificaciones Email"]?.toLowerCase() === 'sí' || row["Notificaciones Email"]?.toLowerCase() === 'si'),
           };
@@ -411,7 +443,7 @@ export default function ConfiguracionUsuariosPage() {
                               <SelectValue placeholder="-- Seleccione un rol --" />
                               </SelectTrigger>
                               <SelectContent>
-                              {userRoles.filter(r => r !== '').map(role => (
+                              {availableRolesForDropdown.filter(r => r !== '').map(role => (
                                   <SelectItem key={role} value={role}>{role}</SelectItem>
                               ))}
                               </SelectContent>
@@ -419,7 +451,11 @@ export default function ConfiguracionUsuariosPage() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="user-empresa">Empresa</Label>
-                           <Select value={userEmpresa} onValueChange={setUserEmpresa}>
+                           <Select 
+                            value={userEmpresa} 
+                            onValueChange={setUserEmpresa}
+                            disabled={loggedInUserProfile?.role !== 'Super User'}
+                           >
                             <SelectTrigger id="user-empresa">
                               <SelectValue placeholder="-- Seleccione una empresa --" />
                             </SelectTrigger>

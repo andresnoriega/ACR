@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -14,10 +14,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Globe, PlusCircle, Edit2, Trash2, FileUp, FileDown, MapPin, Loader2, Building } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase'; 
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, where, QueryConstraint } from "firebase/firestore";
 import type { Site, Company } from '@/types/rca';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import { useAuth } from '@/contexts/AuthContext';
 
 const expectedSiteHeaders = ["Nombre del Sitio", "Dirección", "País", "Coordinador del Sitio", "Descripción Adicional", "Empresa"];
 
@@ -228,6 +229,7 @@ export default function ConfiguracionSitiosPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [companies, setCompanies] = useState<Company[]>([]);
+  const { userProfile } = useAuth();
 
   const [isAddSiteDialogOpen, setIsAddSiteDialogOpen] = useState(false);
   const [newSiteName, setNewSiteName] = useState('');
@@ -249,17 +251,27 @@ export default function ConfiguracionSitiosPage() {
   const [isDeleteSiteConfirmOpen, setIsDeleteSiteConfirmOpen] = useState(false);
   const [siteToDelete, setSiteToDelete] = useState<Site | null>(null);
 
-  const fetchInitialData = async () => {
+  const fetchInitialData = useCallback(async () => {
+    if (!userProfile) return;
     setIsLoading(true);
     try {
       const sitesCollectionRef = collection(db, "sites");
-      const qSites = query(sitesCollectionRef, orderBy("name", "asc"));
+      const companiesCollectionRef = collection(db, "companies");
+
+      const sitesQueryConstraints: QueryConstraint[] = [orderBy("name", "asc")];
+      const companiesQueryConstraints: QueryConstraint[] = [orderBy("name", "asc")];
+      
+      if (userProfile.role !== 'Super User' && userProfile.empresa) {
+        sitesQueryConstraints.push(where("empresa", "==", userProfile.empresa));
+        companiesQueryConstraints.push(where("name", "==", userProfile.empresa));
+      }
+
+      const qSites = query(sitesCollectionRef, ...sitesQueryConstraints);
       const sitesSnapshot = await getDocs(qSites);
       const sitesData = sitesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
       setSites(sitesData);
       
-      const companiesCollectionRef = collection(db, "companies");
-      const qCompanies = query(companiesCollectionRef, orderBy("name", "asc"));
+      const qCompanies = query(companiesCollectionRef, ...companiesQueryConstraints);
       const companiesSnapshot = await getDocs(qCompanies);
       const companiesData = companiesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Company));
       setCompanies(companiesData);
@@ -270,12 +282,11 @@ export default function ConfiguracionSitiosPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [userProfile, toast]);
 
   useEffect(() => {
     fetchInitialData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchInitialData]);
 
   const resetNewSiteForm = () => {
     setNewSiteName('');
@@ -283,7 +294,7 @@ export default function ConfiguracionSitiosPage() {
     setNewSiteCountry('');
     setNewSiteCoordinator('');
     setNewSiteDescription('');
-    setNewSiteEmpresa('');
+    setNewSiteEmpresa(userProfile?.role === 'Admin' && userProfile.empresa ? userProfile.empresa : '');
   };
 
   const resetEditSiteForm = () => {
@@ -301,6 +312,17 @@ export default function ConfiguracionSitiosPage() {
       toast({ title: "Error de Validación", description: "El nombre del sitio es obligatorio.", variant: "destructive" });
       return;
     }
+    
+    let finalEmpresa = newSiteEmpresa.trim() || undefined;
+    if (userProfile?.role === 'Admin' && userProfile.empresa) {
+        finalEmpresa = userProfile.empresa;
+    }
+
+    if (!finalEmpresa) {
+       toast({ title: "Error de Validación", description: "La empresa es obligatoria.", variant: "destructive" });
+       return;
+    }
+
     setIsSubmitting(true);
     const newSiteData: Omit<Site, 'id'> = {
       name: newSiteName.trim(),
@@ -308,7 +330,7 @@ export default function ConfiguracionSitiosPage() {
       country: newSiteCountry.trim(),
       coordinator: newSiteCoordinator.trim(),
       description: newSiteDescription.trim(),
-      empresa: newSiteEmpresa.trim() || undefined,
+      empresa: finalEmpresa,
     };
     try {
       await addDoc(collection(db, "sites"), newSiteData);
@@ -322,6 +344,11 @@ export default function ConfiguracionSitiosPage() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const openAddSiteDialog = () => {
+    resetNewSiteForm();
+    setIsAddSiteDialogOpen(true);
   };
 
   const openEditSiteDialog = (site: Site) => {
@@ -341,6 +368,17 @@ export default function ConfiguracionSitiosPage() {
       toast({ title: "Error de Validación", description: "El nombre del sitio es obligatorio.", variant: "destructive" });
       return;
     }
+
+    let finalEmpresa = editSiteEmpresa.trim() || undefined;
+    if (userProfile?.role === 'Admin' && userProfile.empresa) {
+        finalEmpresa = userProfile.empresa;
+    }
+
+    if (!finalEmpresa) {
+       toast({ title: "Error de Validación", description: "La empresa es obligatoria.", variant: "destructive" });
+       return;
+    }
+
     setIsSubmitting(true);
     const updatedSiteData: Omit<Site, 'id'> = {
       name: editSiteName.trim(),
@@ -348,7 +386,7 @@ export default function ConfiguracionSitiosPage() {
       country: editSiteCountry.trim(),
       coordinator: editSiteCoordinator.trim(),
       description: editSiteDescription.trim(),
-      empresa: editSiteEmpresa.trim() || undefined,
+      empresa: finalEmpresa,
     };
     try {
       const siteRef = doc(db, "sites", currentSiteToEdit.id);
@@ -458,15 +496,27 @@ export default function ConfiguracionSitiosPage() {
             continue;
           }
           
-          const country = row["País"]?.trim() || '';
+          let empresa = row["Empresa"]?.trim() || undefined;
+          if (userProfile?.role !== 'Super User' && userProfile?.empresa) {
+              if (empresa && empresa !== userProfile.empresa) {
+                  skippedCount++;
+                  continue; // Skip sites not belonging to the admin's company
+              }
+              empresa = userProfile.empresa;
+          }
 
+          if (!empresa) {
+              skippedCount++;
+              continue;
+          }
+          
           const newSite: Omit<Site, 'id'> = {
             name,
             address: row["Dirección"]?.trim() || '',
-            country: country,
+            country: row["País"]?.trim() || '',
             coordinator: row["Coordinador del Sitio"]?.trim() || '',
             description: row["Descripción Adicional"]?.trim() || '',
-            empresa: row["Empresa"]?.trim() || undefined,
+            empresa: empresa,
           };
           
           const siteRef = doc(collection(db, "sites"));
@@ -542,7 +592,7 @@ export default function ConfiguracionSitiosPage() {
                 </Button>
                 <Dialog open={isAddSiteDialogOpen} onOpenChange={setIsAddSiteDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button variant="default" onClick={() => { resetNewSiteForm(); setIsAddSiteDialogOpen(true); }} disabled={isLoading}>
+                    <Button variant="default" onClick={openAddSiteDialog} disabled={isLoading}>
                       <PlusCircle className="mr-2 h-4 w-4" />
                       Añadir Nuevo Sitio
                     </Button>
@@ -557,8 +607,12 @@ export default function ConfiguracionSitiosPage() {
                         <Input id="add-site-name" value={newSiteName} onChange={(e) => setNewSiteName(e.target.value)} placeholder="Ej: Planta Principal" />
                       </div>
                        <div className="space-y-2">
-                        <Label htmlFor="add-site-empresa">Empresa</Label>
-                        <Select value={newSiteEmpresa} onValueChange={setNewSiteEmpresa}>
+                        <Label htmlFor="add-site-empresa">Empresa <span className="text-destructive">*</span></Label>
+                        <Select 
+                          value={newSiteEmpresa} 
+                          onValueChange={setNewSiteEmpresa}
+                          disabled={userProfile?.role !== 'Super User'}
+                        >
                           <SelectTrigger id="add-site-empresa">
                             <SelectValue placeholder="-- Seleccione una empresa --" />
                           </SelectTrigger>
@@ -678,8 +732,12 @@ export default function ConfiguracionSitiosPage() {
               <Input id="edit-site-name" value={editSiteName} onChange={(e) => setEditSiteName(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-site-empresa">Empresa</Label>
-               <Select value={editSiteEmpresa} onValueChange={setEditSiteEmpresa}>
+              <Label htmlFor="edit-site-empresa">Empresa <span className="text-destructive">*</span></Label>
+               <Select 
+                  value={editSiteEmpresa} 
+                  onValueChange={setEditSiteEmpresa}
+                  disabled={userProfile?.role !== 'Super User'}
+               >
                 <SelectTrigger id="edit-site-empresa">
                   <SelectValue placeholder="-- Seleccione una empresa --" />
                 </SelectTrigger>

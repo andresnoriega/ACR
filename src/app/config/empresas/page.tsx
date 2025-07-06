@@ -9,11 +9,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Building, PlusCircle, Edit2, Trash2, Loader2 } from 'lucide-react';
+import { Building, PlusCircle, Edit2, Trash2, Loader2, ShieldAlert } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy } from "firebase/firestore";
 import type { Company } from '@/types/rca';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
 export default function ConfiguracionEmpresasPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -37,6 +39,16 @@ export default function ConfiguracionEmpresasPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [companyToDelete, setCompanyToDelete] = useState<Company | null>(null);
 
+  const { userProfile, loadingAuth } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loadingAuth && userProfile && userProfile.role !== 'Super User') {
+      toast({ title: "Acceso Denegado", description: "Esta sección es solo para Super Usuarios.", variant: "destructive" });
+      router.replace('/config');
+    }
+  }, [userProfile, loadingAuth, router, toast]);
+
   const fetchCompanies = async () => {
     setIsLoading(true);
     try {
@@ -54,9 +66,12 @@ export default function ConfiguracionEmpresasPage() {
   };
 
   useEffect(() => {
-    fetchCompanies();
+    if (userProfile?.role === 'Super User') {
+      fetchCompanies();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [userProfile]);
+
 
   const resetAddForm = () => {
     setNewCompanyName('');
@@ -174,6 +189,27 @@ export default function ConfiguracionEmpresasPage() {
     }
     setIsDeleteDialogOpen(false);
   };
+
+  if (loadingAuth) {
+    return (
+      <div className="flex flex-col justify-center items-center min-h-screen">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">Verificando permisos...</p>
+      </div>
+    );
+  }
+
+  if (userProfile && userProfile.role !== 'Super User') {
+    return (
+      <div className="flex flex-col justify-center items-center min-h-screen p-4 text-center">
+        <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
+        <h1 className="text-2xl font-bold text-destructive">Acceso Restringido</h1>
+        <p className="mt-2 text-muted-foreground">Esta sección solo está disponible para usuarios con el rol de Super Usuario.</p>
+        <Button onClick={() => router.push('/config')} className="mt-6">Volver a Configuración</Button>
+      </div>
+    );
+  }
+
 
   return (
     <div className="space-y-8 py-8">

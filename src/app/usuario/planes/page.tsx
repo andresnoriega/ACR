@@ -15,7 +15,7 @@ import { ListTodo, FileText, ImageIcon, Paperclip, CheckCircle2, Save, Info, Mes
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { db, storage } from '@/lib/firebase';
-import { collection, getDocs, doc, updateDoc, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, query, orderBy, where, QueryConstraint } from "firebase/firestore";
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -110,10 +110,17 @@ export default function UserActionPlansPage() {
   }, [toast]);
 
   const fetchRcaDocuments = useCallback(async () => {
+    if (!userProfile) return;
     setIsLoadingActions(true);
     try {
       const rcaCollectionRef = collection(db, "rcaAnalyses");
-      const q = query(rcaCollectionRef, orderBy("updatedAt", "desc"));
+      const queryConstraints: QueryConstraint[] = [orderBy("updatedAt", "desc")];
+      
+      if (userProfile.role !== 'Super User' && userProfile.empresa) {
+        queryConstraints.push(where("empresa", "==", userProfile.empresa));
+      }
+
+      const q = query(rcaCollectionRef, ...queryConstraints);
       const querySnapshot = await getDocs(q);
       const rcaData = querySnapshot.docs.map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() } as RCAAnalysisDocument));
       setAllRcaDocuments(rcaData);
@@ -123,12 +130,18 @@ export default function UserActionPlansPage() {
     } finally {
       setIsLoadingActions(false);
     }
-  }, [toast]);
+  }, [toast, userProfile]);
 
   useEffect(() => {
     fetchUsers();
-    fetchRcaDocuments();
-  }, [fetchUsers, fetchRcaDocuments]);
+  }, [fetchUsers]);
+  
+  useEffect(() => {
+    if(userProfile) {
+      fetchRcaDocuments();
+    }
+  }, [userProfile, fetchRcaDocuments]);
+
 
   const { assignedActionPlans, validationActionPlans } = useMemo(() => {
     if (loadingAuth || !userProfile || !userProfile.name || allRcaDocuments.length === 0) {
