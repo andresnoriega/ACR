@@ -1,7 +1,7 @@
 
 'use server';
 
-import sgMail from '@sendgrid/mail';
+import { MailerSend, EmailParams, Sender, Recipient } from 'mailersend';
 
 interface EmailPayload {
   to: string;
@@ -13,20 +13,21 @@ interface EmailPayload {
 const SPECIAL_TEST_ADDRESS = "TEST_MY_SENDER_ADDRESS";
 
 /**
- * Sends an email using SendGrid.
- * Requires SENDGRID_API_KEY and SENDER_EMAIL_ADDRESS environment variables to be set.
+ * Sends an email using MailerSend.
+ * Requires MAILERSEND_API_KEY and SENDER_EMAIL_ADDRESS environment variables to be set.
  * @param payload - The email details.
  * @returns Promise<object> - A promise that resolves with a success or error message.
  */
 export async function sendEmailAction(payload: EmailPayload): Promise<{ success: boolean; message: string; details?: EmailPayload }> {
-  const apiKey = process.env.SENDGRID_API_KEY;
+  const apiKey = process.env.MAILERSEND_API_KEY;
   const senderEmail = process.env.SENDER_EMAIL_ADDRESS;
+  const senderName = "Asistente ACR"; // You can make this an env variable if needed
 
   if (!apiKey) {
-    console.error("[sendEmailAction] SendGrid API Key (SENDGRID_API_KEY) is not set in environment variables.");
+    console.error("[sendEmailAction] MailerSend API Key (MAILERSEND_API_KEY) is not set in environment variables.");
     return {
       success: false,
-      message: "Error de configuración: La API Key de SendGrid no está configurada. El correo no fue enviado.",
+      message: "Error de configuración: La API Key de MailerSend no está configurada. El correo no fue enviado.",
       details: payload,
     };
   }
@@ -40,35 +41,42 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
     };
   }
 
-  sgMail.setApiKey(apiKey);
+  const mailerSend = new MailerSend({ apiKey });
 
   const isTestAddress = payload.to === SPECIAL_TEST_ADDRESS;
   const recipientEmail = isTestAddress ? senderEmail : payload.to;
 
-  const msg = {
-    to: recipientEmail,
-    from: senderEmail,
-    subject: payload.subject,
-    text: payload.body,
-    html: payload.htmlBody || payload.body,
-  };
+  const sentFrom = new Sender(senderEmail, senderName);
+  const recipients = [new Recipient(recipientEmail, "Usuario")];
 
-  console.log(`[sendEmailAction] Attempting to send email via SendGrid to: ${recipientEmail} with subject: "${payload.subject}" from: ${senderEmail}`);
+  const emailParams = new EmailParams()
+    .setFrom(sentFrom)
+    .setTo(recipients)
+    .setSubject(payload.subject)
+    .setHtml(payload.htmlBody || `<p>${payload.body}</p>`)
+    .setText(payload.body);
+
+  console.log(`[sendEmailAction] Attempting to send email via MailerSend to: ${recipientEmail} with subject: "${payload.subject}" from: ${senderEmail}`);
 
   try {
-    await sgMail.send(msg);
-    console.log(`[sendEmailAction] Email successfully sent to ${recipientEmail} via SendGrid.`);
+    await mailerSend.email.send(emailParams);
+    console.log(`[sendEmailAction] Email successfully sent to ${recipientEmail} via MailerSend.`);
     return {
       success: true,
       message: `Correo enviado exitosamente a ${recipientEmail}.`,
       details: payload,
     };
   } catch (error: any) {
-    console.error("[sendEmailAction] Error sending email via SendGrid:", error);
+    console.error("[sendEmailAction] Error sending email via MailerSend:", error.body || error);
     let errorMessage = "Ocurrió un error al enviar el correo.";
-    if (error.response && error.response.body && Array.isArray(error.response.body.errors)) {
-      errorMessage = error.response.body.errors.map((e: { message: string }) => e.message).join(', ');
-      console.error("[sendEmailAction] SendGrid API Error Details:", JSON.stringify(error.response.body.errors));
+    
+    // MailerSend often includes a detailed error message in the response body
+    if (error.body && error.body.message) {
+      errorMessage = error.body.message;
+      if (error.body.errors) {
+        const errorDetails = Object.values(error.body.errors).flat().join(', ');
+        errorMessage += ` Detalles: ${errorDetails}`;
+      }
     } else if (error.message) {
       errorMessage = error.message;
     }
