@@ -1,3 +1,4 @@
+
 'use server';
 
 import { MailerSend, EmailParams, Sender, Recipient } from 'mailersend';
@@ -38,6 +39,17 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
       message: "Error de configuración: La dirección de correo del remitente no está configurada. Por favor, añádala a su archivo .env.",
       details: payload,
     };
+  }
+
+  // Enhanced debugging logs
+  console.log('[sendEmailAction] Debug Info:');
+  console.log(`- Sender Email from .env: "${senderEmail}"`);
+  if (apiKey) {
+      console.log(`- API Key detected. Length: ${apiKey.length}.`);
+      console.log(`- API Key prefix for verification: "${apiKey.substring(0, 4)}...".`);
+      console.log(`- API Key suffix for verification: "...${apiKey.substring(apiKey.length - 4)}".`);
+  } else {
+      console.log('- API Key not detected in environment variables.');
   }
 
   const mailerSend = new MailerSend({ apiKey });
