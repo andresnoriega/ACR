@@ -38,7 +38,7 @@ export default function ConfiguracionPermisosPage() {
       setIsLoading(true);
       try {
         const usersCollectionRef = collection(db, "users");
-        const queryConstraints: QueryConstraint[] = [orderBy("name", "asc")];
+        const queryConstraints: QueryConstraint[] = [];
         
         if (loggedInUserProfile.role === 'Admin' && loggedInUserProfile.empresa) {
           queryConstraints.push(where("empresa", "==", loggedInUserProfile.empresa));
@@ -47,6 +47,10 @@ export default function ConfiguracionPermisosPage() {
         const q = query(usersCollectionRef, ...queryConstraints);
         const querySnapshot = await getDocs(q);
         const profilesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FullUserProfile));
+
+        // Sort on the client to avoid composite index
+        profilesData.sort((a, b) => a.name.localeCompare(b.name));
+        
         setUserProfiles(profilesData);
       } catch (error) {
         console.error("Error fetching user profiles: ", error);

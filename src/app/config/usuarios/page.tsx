@@ -65,7 +65,7 @@ export default function ConfiguracionUsuariosPage() {
       const usersCollectionRef = collection(db, "users");
       const companiesCollectionRef = collection(db, "companies");
 
-      const usersQueryConstraints: QueryConstraint[] = [orderBy("name", "asc")];
+      const usersQueryConstraints: QueryConstraint[] = [];
       const companiesQueryConstraints: QueryConstraint[] = [orderBy("name", "asc")];
 
       if (loggedInUserProfile.role !== 'Super User' && loggedInUserProfile.empresa) {
@@ -76,6 +76,10 @@ export default function ConfiguracionUsuariosPage() {
       const qUsers = query(usersCollectionRef, ...usersQueryConstraints);
       const usersSnapshot = await getDocs(qUsers);
       const usersData = usersSnapshot.docs.map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() } as UserConfigProfile));
+      
+      // Sort on the client to avoid composite index
+      usersData.sort((a,b) => a.name.localeCompare(b.name));
+
       setUsers(usersData);
 
       const qCompanies = query(companiesCollectionRef, ...companiesQueryConstraints);
