@@ -1,70 +1,82 @@
 
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to check if a user belongs to a specific company
-    function belongsToCompany(companyName) {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.empresa == companyName;
-    }
-    
-    // Helper function to check if a user is a Super User
-    function isSuperUser() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Super User';
+
+    // Helper function to get a user's profile data
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
     }
 
-    // Users can read their own profile, and Super Users can read any profile.
+    // Helper function to check if the requesting user is a Super User
+    function isSuperUser() {
+      return isAuthenticated() && getUserData(request.auth.uid).role == 'Super User';
+    }
+    
+    // Helper function to check if the requesting user is an Admin
+    function isAdmin() {
+      return isAuthenticated() && getUserData(request.auth.uid).role == 'Admin';
+    }
+
+    // Helper function to check if a user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if the user belongs to the resource's company
+    function isMemberOfResourceCompany(resource) {
+        let userData = getUserData(request.auth.uid);
+        return isAuthenticated() && userData.empresa != null && userData.empresa == resource.data.empresa;
+    }
+
+    // --- Rules for 'users' collection ---
     match /users/{userId} {
-      allow read: if request.auth != null && (request.auth.uid == userId || isSuperUser());
-      // Only Super Users can create/update/delete user profiles directly here.
-      // Other roles are managed via specific app logic if needed.
-      allow write: if isSuperUser();
+      // Anyone authenticated can get their own profile.
+      allow get: if isAuthenticated();
+      
+      // Only Super Users and Admins can list all users.
+      allow list: if isSuperUser() || isAdmin();
+      
+      // A user can create their own profile on signup. Super Users/Admins can create profiles.
+      allow create: if (request.auth.uid == userId) || isSuperUser() || isAdmin();
+
+      // A user can update their own profile. Super Users/Admins can update profiles.
+      // An Admin cannot update a Super User.
+      allow update: if request.auth.uid == userId || isSuperUser() || (isAdmin() && resource.data.role != 'Super User');
+      
+      // Only Super Users/Admins can delete user profiles.
+      // An Admin cannot delete a Super User.
+      allow delete: if isSuperUser() || (isAdmin() && resource.data.role != 'Super User');
     }
-    
-    // Public collections that any authenticated user can read
-    match /sites/{siteId} {
-      // Allow authenticated users to read sites for dropdowns.
-      allow read: if request.auth != null; 
-      // Only super users can create, update, or delete sites.
-      allow write: if isSuperUser();
-    }
-    
+
+    // --- Rules for 'companies' collection ---
     match /companies/{companyId} {
-      // Allow authenticated users to read companies for dropdowns.
-      allow read: if request.auth != null;
-      // Only super users can create, update, or delete companies.
-      allow write: if isSuperUser();
+      // Only Super Users can manage companies.
+      allow read, write: if isSuperUser();
     }
-    
-    // Rules for RCA Analyses
-    match /rcaAnalyses/{analysisId} {
-      // Read access:
-      // - The user is a Super User OR
-      // - The user belongs to the same company as the analysis document.
-      allow read: if request.auth != null && (isSuperUser() || belongsToCompany(resource.data.empresa));
+
+    // --- Rules for 'sites' collection ---
+    match /sites/{siteId} {
+      // Any authenticated user can read the list of sites (to populate dropdowns).
+      allow read: if isAuthenticated();
       
-      // Write access (create, update, delete):
-      // - The user is a Super User OR
-      // - The user belongs to the same company as the document they are trying to write.
-      //   - For create: check incoming document's company.
-      //   - For update/delete: check existing document's company.
-      allow create: if request.auth != null && (isSuperUser() || belongsToCompany(request.resource.data.empresa));
-      allow update, delete: if request.auth != null && (isSuperUser() || belongsToCompany(resource.data.empresa));
+      // Only Super Users or Admins of the relevant company can create/update/delete sites.
+      allow write: if isSuperUser() || (isAdmin() && (request.resource.data.empresa == getUserData(request.auth.uid).empresa || isMemberOfResourceCompany(resource)));
     }
-    
-    // Rules for Reported Events (often a summary collection)
-    match /reportedEvents/{eventId} {
-      // Read access:
-      // - The user is a Super User OR
-      // - The user belongs to the same company as the event document.
-      allow read: if request.auth != null && (isSuperUser() || belongsToCompany(resource.data.empresa));
-      
-      // Write access:
-      // - The user is a Super User OR
-      // - The user belongs to the same company as the document.
-      allow create: if request.auth != null && (isSuperUser() || belongsToCompany(request.resource.data.empresa));
-      allow update, delete: if request.auth != null && (isSuperUser() || belongsToCompany(resource.data.empresa));
+
+    // --- Rules for 'rcaAnalyses' and 'reportedEvents' collections ---
+    match /{collection}/{docId} {
+        // This rule applies to both rcaAnalyses and reportedEvents
+        allow read: if isSuperUser() || isMemberOfResourceCompany(resource);
+
+        // Any authenticated user can create a document, as long as they set the company correctly to their own.
+        allow create: if isAuthenticated();
+        
+        // Only Super Users or members of the resource's company can update it.
+        allow update: if isSuperUser() || isMemberOfResourceCompany(resource);
+
+        // Only Super Users or Admins of the company can delete.
+        allow delete: if isSuperUser() || (isAdmin() && isMemberOfResourceCompany(resource));
     }
   }
 }
