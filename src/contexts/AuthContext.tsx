@@ -10,7 +10,7 @@ import {
   signOut,
   UserCredential
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
 import type { FullUserProfile } from '@/types/rca';
 import { sanitizeForFirestore } from '@/lib/utils';
 import { sendEmailAction } from '@/app/actions';
@@ -54,11 +54,57 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             const profileData = { id: docSnap.id, ...docSnap.data() } as FullUserProfile;
             setUserProfile(profileData);
           } else {
-            console.warn(`[AuthContext] No Firestore profile found for user ${user.uid}. User may need to complete profile or be assigned one.`);
-            setUserProfile(null);
+            // Profile doesn't exist, let's create a default one.
+            // This handles cases where a user was created in Firebase Auth but not in Firestore.
+            
+            // Is this the very first user in the system?
+            const usersCollectionRef = collection(db, "users");
+            const q = query(usersCollectionRef, limit(1));
+            const existingUsersSnap = await getDocs(q);
+            
+            const isFirstUser = existingUsersSnap.empty;
+
+            const roleToAssign = isFirstUser ? 'Super User' : 'Usuario Pendiente';
+            const permissionToAssign = isFirstUser ? 'Total' : '';
+
+            console.warn(`[AuthContext] No Firestore profile found for user ${user.uid}. Creating a new profile with role: ${roleToAssign}.`);
+            
+            const newUserProfileData: Omit<FullUserProfile, 'id'> = { 
+                name: user.displayName || user.email || 'Usuario Nuevo',
+                email: user.email || '',
+                role: roleToAssign,
+                permissionLevel: permissionToAssign,
+                assignedSites: '',
+                emailNotifications: true, // Default to true for new users
+            };
+
+            await setDoc(userDocRef, sanitizeForFirestore(newUserProfileData));
+            setUserProfile({ id: user.uid, ...newUserProfileData } as FullUserProfile);
+
+            // If it's not the first user, it's a pending user, so notify admins
+            if (!isFirstUser) {
+              try {
+                const superUsersQuery = query(usersCollectionRef, where("role", "==", "Super User"));
+                const querySnapshot = await getDocs(superUsersQuery);
+                const superUserEmails = querySnapshot.docs
+                  .map(doc => doc.data() as FullUserProfile)
+                  .filter(profile => profile.email && (profile.emailNotifications === undefined || profile.emailNotifications))
+                  .map(profile => profile.email);
+                
+                if (superUserEmails.length > 0) {
+                  const emailSubject = `Nuevo Usuario Pendiente de Aprobación: ${newUserProfileData.name}`;
+                  const emailBody = `Hola,\n\nUn nuevo usuario se ha registrado y está pendiente de aprobación:\n\nNombre: ${newUserProfileData.name}\nCorreo: ${newUserProfileData.email}\n\nPor favor, revise la lista de usuarios en la sección de Configuración para aprobar o rechazar esta cuenta.\n\nSaludos,\nSistema Asistente ACR`;
+                  for (const email of superUserEmails) {
+                    await sendEmailAction({ to: email, subject: emailSubject, body: emailBody });
+                  }
+                }
+              } catch (notifyError) {
+                  console.error("[AuthContext] Failed to notify admins about new pending user:", notifyError);
+              }
+            }
           }
         } catch (error) {
-            console.error(`[AuthContext] Error fetching Firestore profile for UID ${user.uid}:`, error);
+            console.error(`[AuthContext] Error fetching or creating Firestore profile for UID ${user.uid}:`, error);
             setUserProfile(null);
         }
       } else {
@@ -75,54 +121,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const registerWithEmail = async (email: string, pass: string, name: string) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-    const firebaseUser = userCredential.user;
-    if (firebaseUser) {
-      const userDocRef = doc(db, 'users', firebaseUser.uid);
-      const newUserProfileData: Omit<FullUserProfile, 'id'> = { 
-        name: name,
-        email: firebaseUser.email || email, 
-        role: 'Usuario Pendiente',
-        permissionLevel: '',
-        assignedSites: '',
-        emailNotifications: false, // Default to false, admin can enable
-        // No password field is stored here
-      };
-      await setDoc(userDocRef, sanitizeForFirestore(newUserProfileData));
-      setUserProfile({ id: firebaseUser.uid, ...newUserProfileData } as FullUserProfile);
-
-      try {
+    // The onAuthStateChanged listener will now handle creating the Firestore user document automatically.
+    // This simplifies the registration flow and makes it more consistent.
+    // We just need to make sure the display name is available for the listener.
+    // However, updating displayName is not immediate. The most reliable way is for the listener to handle it.
+    
+    // We can still send the notification from here if we want it to be immediate upon registration.
+     try {
         const usersRef = collection(db, "users");
-        // Query for "Super User" roles only
         const qSuperUsers = query(usersRef, where("role", "==", "Super User"));
         const querySnapshot = await getDocs(qSuperUsers);
         
-        const superUserEmailsToNotify: string[] = [];
-        querySnapshot.forEach((adminDoc) => {
-          const adminProfile = adminDoc.data() as FullUserProfile;
-          if (adminProfile.email && (adminProfile.emailNotifications === undefined || adminProfile.emailNotifications === true)) { 
-            superUserEmailsToNotify.push(adminProfile.email);
-          }
-        });
+        const superUserEmailsToNotify = querySnapshot.docs
+          .map(adminDoc => adminDoc.data() as FullUserProfile)
+          .filter(p => p.email && (p.emailNotifications === undefined || p.emailNotifications))
+          .map(p => p.email);
 
         if (superUserEmailsToNotify.length > 0) {
           const emailSubject = `Nuevo Usuario Pendiente de Aprobación: ${name}`;
-          const emailBody = `Hola,\n\nUn nuevo usuario se ha registrado y está pendiente de aprobación:\n\nNombre: ${name}\nCorreo: ${firebaseUser.email || email}\n\nPor favor, revise la lista de usuarios en la sección de Configuración para aprobar o rechazar esta cuenta.\n\nSaludos,\nSistema Asistente ACR`;
+          const emailBody = `Hola,\n\nUn nuevo usuario se ha registrado y está pendiente de aprobación:\n\nNombre: ${name}\nCorreo: ${email}\n\nPor favor, revise la lista de usuarios en la sección de Configuración para aprobar o rechazar esta cuenta.\n\nSaludos,\nSistema Asistente ACR`;
 
           for (const superUserEmail of superUserEmailsToNotify) {
-            await sendEmailAction({
-              to: superUserEmail,
-              subject: emailSubject,
-              body: emailBody,
-            });
+            await sendEmailAction({ to: superUserEmail, subject: emailSubject, body: emailBody });
           }
-          console.log(`[AuthContext] Notification emails (simulated) sent to ${superUserEmailsToNotify.length} Super User(s) about new pending user: ${name}`);
         } else {
           console.warn(`[AuthContext] New user ${name} registered, but no Super Users found with email and active notifications to inform for approval.`);
         }
       } catch (notifyError) {
         console.error("[AuthContext] Error trying to notify Super Users about new pending user:", notifyError);
       }
-    }
+    
     return userCredential;
   };
 
