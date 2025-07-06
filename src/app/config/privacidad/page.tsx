@@ -422,6 +422,29 @@ export default function ConfiguracionPrivacidadPage() {
         <CardFooter><p className="text-xs text-muted-foreground">Otras opciones de gestión de datos (exportación, retención) podrían añadirse aquí.</p></CardFooter>
       </Card>
 
+      <Card className="max-w-2xl mx-auto shadow-lg">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <Mail className="h-6 w-6 text-primary" />
+            <CardTitle className="text-2xl">Configuración de Correo</CardTitle>
+          </div>
+          <CardDescription>Verifique la configuración de envío de correos electrónicos a través de MailerSend.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row justify-between items-center p-4 border rounded-md">
+            <div>
+              <h4 className="font-semibold">Verificar Integración</h4>
+              <p className="text-sm text-muted-foreground">Envíe un correo de prueba a su dirección de remitente para confirmar que la API Key y el dominio están configurados correctamente en las variables de entorno.</p>
+            </div>
+            <Button onClick={handleSendTestEmail} className="mt-2 sm:mt-0" disabled={isSendingTestEmail || isResetting || isDeletingEvent}>
+              {isSendingTestEmail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+              Enviar Correo de Prueba
+            </Button>
+          </div>
+        </CardContent>
+        <CardFooter><p className="text-xs text-muted-foreground">Requiere las variables `MAILERSEND_API_KEY` y `SENDER_EMAIL_ADDRESS` en el archivo `.env`.</p></CardFooter>
+      </Card>
+
       <div className="mt-8 text-center">
         <Button 
           variant="outline" 
@@ -447,7 +470,7 @@ export default function ConfiguracionPrivacidadPage() {
             <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
               <div>
                 <Label htmlFor="filter-site-priv" className="flex items-center mb-1"><Globe className="mr-1.5 h-4 w-4 text-muted-foreground"/>Sitio/Planta</Label>
-                <Select value={filters.site || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('site', val)} disabled={isLoadingSites || isDeletingEvent}>
+                <Select value={filters.site || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('site', val)} disabled={isLoadingSites || isDeletingEvent || isSendingTestEmail}>
                   <SelectTrigger id="filter-site-priv"><SelectValue placeholder="Todos los sitios" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value={ALL_FILTER_VALUE}>Todos los sitios</SelectItem>
@@ -460,7 +483,7 @@ export default function ConfiguracionPrivacidadPage() {
                 <Label htmlFor="filter-date-priv" className="flex items-center mb-1"><CalendarDays className="mr-1.5 h-4 w-4 text-muted-foreground"/>Fecha</Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button id="filter-date-priv" variant="outline" className="w-full justify-start text-left font-normal" disabled={isLoadingData || isDeletingEvent}>
+                    <Button id="filter-date-priv" variant="outline" className="w-full justify-start text-left font-normal" disabled={isLoadingData || isDeletingEvent || isSendingTestEmail}>
                       {filters.date ? format(filters.date, "PPP", { locale: es }) : <span>Seleccione fecha</span>}
                     </Button>
                   </PopoverTrigger>
@@ -469,7 +492,7 @@ export default function ConfiguracionPrivacidadPage() {
               </div>
               <div>
                 <Label htmlFor="filter-type-priv" className="flex items-center mb-1"><AlertTriangle className="mr-1.5 h-4 w-4 text-muted-foreground"/>Tipo</Label>
-                <Select value={filters.type || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('type', val as ReportedEventType | typeof ALL_FILTER_VALUE)} disabled={isLoadingData || isDeletingEvent}>
+                <Select value={filters.type || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('type', val as ReportedEventType | typeof ALL_FILTER_VALUE)} disabled={isLoadingData || isDeletingEvent || isSendingTestEmail}>
                   <SelectTrigger id="filter-type-priv"><SelectValue placeholder="Todos los tipos" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value={ALL_FILTER_VALUE}>Todos los tipos</SelectItem>
@@ -479,7 +502,7 @@ export default function ConfiguracionPrivacidadPage() {
               </div>
               <div>
                 <Label htmlFor="filter-priority-priv" className="flex items-center mb-1"><Flame className="mr-1.5 h-4 w-4 text-muted-foreground"/>Prioridad</Label>
-                <Select value={filters.priority || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('priority', val as PriorityType | typeof ALL_FILTER_VALUE)} disabled={isLoadingData || isDeletingEvent}>
+                <Select value={filters.priority || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('priority', val as PriorityType | typeof ALL_FILTER_VALUE)} disabled={isLoadingData || isDeletingEvent || isSendingTestEmail}>
                   <SelectTrigger id="filter-priority-priv"><SelectValue placeholder="Todas" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value={ALL_FILTER_VALUE}>Todas</SelectItem>
@@ -489,7 +512,7 @@ export default function ConfiguracionPrivacidadPage() {
               </div>
               <div>
                 <Label htmlFor="filter-status-priv" className="flex items-center mb-1"><ActivityIcon className="mr-1.5 h-4 w-4 text-muted-foreground"/>Estado</Label>
-                <Select value={filters.status || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('status', val as ReportedEventStatus | typeof ALL_FILTER_VALUE)} disabled={isLoadingData || isDeletingEvent}>
+                <Select value={filters.status || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('status', val as ReportedEventStatus | typeof ALL_FILTER_VALUE)} disabled={isLoadingData || isDeletingEvent || isSendingTestEmail}>
                   <SelectTrigger id="filter-status-priv"><SelectValue placeholder="Todos" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value={ALL_FILTER_VALUE}>Todos</SelectItem>
@@ -499,12 +522,12 @@ export default function ConfiguracionPrivacidadPage() {
               </div>
               <div>
                 <Label htmlFor="filter-event-id-priv" className="flex items-center mb-1"><Fingerprint className="mr-1.5 h-4 w-4 text-muted-foreground"/>ID Evento</Label>
-                <Input id="filter-event-id-priv" placeholder="Ej: E-12345-001" value={filters.eventId} onChange={(e) => handleFilterChange('eventId', e.target.value)} disabled={isLoadingData || isDeletingEvent}/>
+                <Input id="filter-event-id-priv" placeholder="Ej: E-12345-001" value={filters.eventId} onChange={(e) => handleFilterChange('eventId', e.target.value)} disabled={isLoadingData || isDeletingEvent || isSendingTestEmail}/>
               </div>
             </CardContent>
             <CardFooter className="flex justify-start gap-3 pt-4 border-t">
-              <Button onClick={applyFilters} disabled={isLoadingData || isDeletingEvent}><Search className="mr-2"/>Aplicar Filtros</Button>
-              <Button onClick={clearFilters} variant="outline" disabled={isLoadingData || isDeletingEvent}><RefreshCcw className="mr-2"/>Limpiar Filtros</Button>
+              <Button onClick={applyFilters} disabled={isLoadingData || isDeletingEvent || isSendingTestEmail}><Search className="mr-2"/>Aplicar Filtros</Button>
+              <Button onClick={clearFilters} variant="outline" disabled={isLoadingData || isDeletingEvent || isSendingTestEmail}><RefreshCcw className="mr-2"/>Limpiar Filtros</Button>
             </CardFooter>
           </Card>
 
@@ -545,10 +568,10 @@ export default function ConfiguracionPrivacidadPage() {
                           <TableCell>{event.priority}</TableCell>
                           <TableCell>{renderStatusBadge(event.status)}</TableCell>
                           <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" className="mr-1 hover:text-primary" onClick={() => router.push(`/analisis?id=${event.id}`)} title="Ver/Editar Análisis">
+                            <Button variant="ghost" size="icon" className="mr-1 hover:text-primary" onClick={() => router.push(`/analisis?id=${event.id}`)} title="Ver/Editar Análisis" disabled={isSendingTestEmail || isDeletingEvent}>
                                 <Edit2 className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="hover:text-destructive" onClick={() => openDeleteEventDialog(event)} disabled={isDeletingEvent || isResetting} title="Eliminar Evento y Análisis">
+                            <Button variant="ghost" size="icon" className="hover:text-destructive" onClick={() => openDeleteEventDialog(event)} disabled={isDeletingEvent || isResetting || isSendingTestEmail} title="Eliminar Evento y Análisis">
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </TableCell>
@@ -562,7 +585,7 @@ export default function ConfiguracionPrivacidadPage() {
               </div>
             </CardContent>
             <CardFooter className="flex justify-end pt-4 border-t">
-              <Button variant="outline" size="sm" onClick={handleExportToExcel} disabled={isLoadingData || isDeletingEvent || sortedFilteredEvents.length === 0}>
+              <Button variant="outline" size="sm" onClick={handleExportToExcel} disabled={isLoadingData || isDeletingEvent || sortedFilteredEvents.length === 0 || isSendingTestEmail}>
                 <FileDown className="mr-1.5 h-3.5 w-3.5" /> Exportar a Excel
               </Button>
             </CardFooter>
@@ -579,8 +602,8 @@ export default function ConfiguracionPrivacidadPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setEventToDelete(null)} disabled={isDeletingEvent}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteEvent} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" disabled={isDeletingEvent}>
+            <AlertDialogCancel onClick={() => setEventToDelete(null)} disabled={isDeletingEvent || isSendingTestEmail}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteEvent} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" disabled={isDeletingEvent || isSendingTestEmail}>
               {isDeletingEvent ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Eliminar"}
             </AlertDialogAction>
           </AlertDialogFooter>
