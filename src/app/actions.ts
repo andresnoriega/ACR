@@ -35,7 +35,7 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
     console.error("[sendEmailAction] Sender email address (SENDGRID_SENDER_EMAIL) is not set in environment variables or is a placeholder.");
     return {
       success: false,
-      message: "Error de configuración: La dirección de correo del remitente no está configurada. Por favor, añádala a su archivo .env.",
+      message: "Error de configuración: La dirección de correo del remitente (SENDGRID_SENDER_EMAIL) no está configurada. Por favor, añada una dirección que haya verificado como 'Single Sender' en su cuenta de SendGrid a su archivo .env.",
       details: payload,
     };
   }
