@@ -446,14 +446,16 @@ function RCAAnalysisPageComponent() {
             .sort((a, b) => a.name.localeCompare(b.name));
         setAvailableSitesFromDB(sitesData);
 
-        const usersQueryConstraints: QueryConstraint[] = [orderBy("name", "asc")];
+        const usersQueryConstraints: QueryConstraint[] = [];
         if (userProfile.role !== 'Super User' && userProfile.empresa) {
           usersQueryConstraints.push(where("empresa", "==", userProfile.empresa));
         }
         const usersCollectionRef = collection(db, "users");
         const usersQuery = query(usersCollectionRef, ...usersQueryConstraints);
         const usersSnapshot = await getDocs(usersQuery);
-        const usersData = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FullUserProfile));
+        const usersData = usersSnapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() } as FullUserProfile))
+            .sort((a, b) => a.name.localeCompare(b.name));
         setAvailableUsersFromDB(usersData);
 
       } catch (error) {
