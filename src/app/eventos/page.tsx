@@ -86,13 +86,15 @@ export default function EventosReportadosPage() {
     try {
       // First, fetch sites to know which ones belong to the company
       const sitesCollectionRef = collection(db, "sites");
-      const sitesQueryConstraints: QueryConstraint[] = [orderBy("name", "asc")];
+      const sitesQueryConstraints: QueryConstraint[] = [];
       if (userProfile.role !== 'Super User' && userProfile.empresa) {
         sitesQueryConstraints.push(where("empresa", "==", userProfile.empresa));
       }
       const sitesQuery = query(sitesCollectionRef, ...sitesQueryConstraints);
       const sitesSnapshot = await getDocs(sitesQuery);
-      const userAllowedSites = sitesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
+      const userAllowedSites = sitesSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as Site))
+        .sort((a, b) => a.name.localeCompare(b.name));
       setAvailableSites(userAllowedSites);
       
       // Then, fetch events based on company

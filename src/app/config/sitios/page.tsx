@@ -258,7 +258,7 @@ export default function ConfiguracionSitiosPage() {
       const sitesCollectionRef = collection(db, "sites");
       const companiesCollectionRef = collection(db, "companies");
 
-      const sitesQueryConstraints: QueryConstraint[] = [orderBy("name", "asc")];
+      const sitesQueryConstraints: QueryConstraint[] = [];
       const companiesQueryConstraints: QueryConstraint[] = [orderBy("name", "asc")];
       
       if (userProfile.role !== 'Super User' && userProfile.empresa) {
@@ -268,7 +268,9 @@ export default function ConfiguracionSitiosPage() {
 
       const qSites = query(sitesCollectionRef, ...sitesQueryConstraints);
       const sitesSnapshot = await getDocs(qSites);
-      const sitesData = sitesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
+      const sitesData = sitesSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as Site))
+        .sort((a, b) => a.name.localeCompare(b.name));
       setSites(sitesData);
       
       const qCompanies = query(companiesCollectionRef, ...companiesQueryConstraints);

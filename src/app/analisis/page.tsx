@@ -434,14 +434,16 @@ function RCAAnalysisPageComponent() {
       setIsLoadingPage(true);
       setConfigDataLoaded(false);
       try {
-        const sitesQueryConstraints: QueryConstraint[] = [orderBy("name", "asc")];
+        const sitesQueryConstraints: QueryConstraint[] = [];
         if (userProfile.role !== 'Super User' && userProfile.empresa) {
           sitesQueryConstraints.push(where("empresa", "==", userProfile.empresa));
         }
         const sitesCollectionRef = collection(db, "sites");
         const sitesQuery = query(sitesCollectionRef, ...sitesQueryConstraints);
         const sitesSnapshot = await getDocs(sitesQuery);
-        const sitesData = sitesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
+        const sitesData = sitesSnapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() } as Site))
+            .sort((a, b) => a.name.localeCompare(b.name));
         setAvailableSitesFromDB(sitesData);
 
         const usersQueryConstraints: QueryConstraint[] = [orderBy("name", "asc")];

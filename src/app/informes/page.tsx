@@ -261,13 +261,15 @@ export default function DashboardRCAPage() {
       setIsLoadingSites(true);
       try {
         const sitesCollectionRef = collection(db, "sites");
-        const queryConstraints: QueryConstraint[] = [orderBy("name", "asc")];
+        const queryConstraints: QueryConstraint[] = [];
         if (userProfile.role !== 'Super User' && userProfile.empresa) {
           queryConstraints.push(where("empresa", "==", userProfile.empresa));
         }
         const q = query(sitesCollectionRef, ...queryConstraints);
         const querySnapshot = await getDocs(q);
-        const sitesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
+        const sitesData = querySnapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() } as Site))
+            .sort((a,b) => a.name.localeCompare(b.name));
         setAvailableSites(sitesData);
       } catch (error) {
         console.error("Error fetching sites: ", error);
