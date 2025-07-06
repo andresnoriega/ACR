@@ -11,8 +11,9 @@ import { Step5Results } from '@/components/rca/Step5Results';
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
+import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { Loader2 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { sanitizeForFirestore } from '@/lib/utils';
@@ -200,9 +201,7 @@ function RCAAnalysisPageComponent() {
         
         // Security check for company access
         if (userProfile && userProfile.role !== 'Super User' && userProfile.empresa) {
-          const siteName = data.eventData?.place;
-          const siteInfo = availableSitesFromDB.find(s => s.name === siteName);
-          if (siteInfo && siteInfo.empresa !== userProfile.empresa) {
+          if (data.empresa && data.empresa !== userProfile.empresa) {
             toast({
               title: "Acceso Denegado",
               description: "No tiene permisos para ver análisis de esta empresa.",
@@ -1084,30 +1083,100 @@ function RCAAnalysisPageComponent() {
     setDetailedFacts(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleAddPreservedFact = (fact: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId'>) => {
+  const handleAddPreservedFact = async (
+    factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>,
+    file: File | null
+  ) => {
     let currentEventId = analysisDocumentId;
     if (!currentEventId) {
       currentEventId = ensureEventId();
-      setAnalysisDocumentId(currentEventId); 
+      setAnalysisDocumentId(currentEventId);
     }
     if (!currentEventId) {
       toast({ title: "Error", description: "ID de evento no encontrado para asociar el hecho preservado.", variant: "destructive" });
       return;
     }
-    const newFact: PreservedFact = {
-      ...fact,
-      id: `${currentEventId}-pf-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-      uploadDate: new Date().toISOString(),
-      eventId: currentEventId,
-    };
-    setPreservedFacts(prev => [...prev, newFact]);
-    toast({ title: "Hecho Preservado Añadido", description: `Se añadió "${newFact.userGivenName}".` });
+    if (!file) {
+      toast({ title: "Error", description: "No se seleccionó ningún archivo.", variant: "destructive" });
+      return;
+    }
+    if (!userProfile) {
+      toast({ title: "Error de autenticación", description: "No se pudo obtener el perfil del usuario.", variant: "destructive" });
+      return;
+    }
+
+    const siteInfo = availableSitesFromDB.find(s => s.name === eventData.place);
+    const empresa = siteInfo?.empresa || userProfile.empresa;
+    if (!empresa) {
+      toast({ title: "Error de configuración", description: "No se pudo determinar la empresa para este evento.", variant: "destructive" });
+      return;
+    }
+
+    toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
+    setIsSaving(true);
+    try {
+      const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
+      const fileStorageRef = storageRef(storage, filePath);
+      
+      const uploadMetadata = {
+        customMetadata: {
+          eventId: currentEventId,
+          userId: userProfile.id,
+          empresa: empresa
+        }
+      };
+      
+      const uploadResult = await uploadBytes(fileStorageRef, file, uploadMetadata);
+      const downloadURL = await getDownloadURL(uploadResult.ref);
+
+      const newFact: PreservedFact = {
+        ...factMetadata,
+        id: `${currentEventId}-pf-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        uploadDate: new Date().toISOString(),
+        eventId: currentEventId,
+        fileName: file.name,
+        downloadURL: downloadURL,
+        storagePath: uploadResult.ref.fullPath,
+      };
+
+      setPreservedFacts(prev => [...prev, newFact]);
+      toast({ title: "Hecho Preservado Añadido", description: `Se añadió y subió "${newFact.userGivenName}".` });
+      await handleSaveAnalysisData(false); // Save the state after adding the fact
+    } catch (error) {
+      console.error("Error uploading preserved fact:", error);
+      toast({ title: "Error al Subir", description: "No se pudo subir el archivo. Verifique la consola.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleRemovePreservedFact = (id: string) => {
+  const handleRemovePreservedFact = async (id: string) => {
+    const factToRemove = preservedFacts.find(fact => fact.id === id);
+    if (!factToRemove) return;
+
+    setIsSaving(true);
+    // First, try to delete from storage if a path exists
+    if (factToRemove.storagePath) {
+      try {
+        const fileRef = storageRef(storage, factToRemove.storagePath);
+        await deleteObject(fileRef);
+        toast({ title: "Archivo Eliminado de Storage", variant: "default" });
+      } catch (error: any) {
+        // If file not found in storage, it's okay, just log it and proceed to remove from Firestore.
+        if (error.code !== 'storage/object-not-found') {
+          console.error("Error deleting file from Storage:", error);
+          toast({ title: "Error al Eliminar Archivo", description: "No se pudo eliminar el archivo de Storage, pero se eliminará la referencia.", variant: "destructive" });
+        }
+      }
+    }
+    
+    // Then, remove from local state and save
     setPreservedFacts(prev => prev.filter(fact => fact.id !== id));
-    toast({ title: "Hecho Preservado Eliminado", variant: 'destructive'});
+    toast({ title: "Hecho Preservado Eliminado", description: "Referencia eliminada. Guarde el progreso para confirmar.", variant: 'destructive' });
+    await handleSaveAnalysisData(false); // Save after removal
+    setIsSaving(false);
   };
+
 
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);

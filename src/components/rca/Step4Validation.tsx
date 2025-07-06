@@ -1,3 +1,4 @@
+
 'use client';
 import * as React from "react";
 import type { FC } from 'react';
@@ -121,8 +122,6 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   const [isSavingLocally, setIsSavingLocally] = useState(false);
   const [rejectingAction, setRejectingAction] = useState<PlannedAction | null>(null);
   const [isProcessingEmail, setIsProcessingEmail] = useState(false);
-  const [evidenceToView, setEvidenceToView] = useState<Evidence | null>(null);
-
 
   const uniquePlannedActions = useMemo(() => {
     if (!Array.isArray(plannedActions)) {
@@ -270,31 +269,6 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
     onNext();
   };
   
-  const handleViewEvidence = (evidence: Evidence) => {
-    if (!evidence.dataUrl) {
-      const newWindow = window.open();
-      if (newWindow) {
-        newWindow.document.write(
-          '<html><head><title>Error</title></head><body>' +
-          '<h1>Error de Datos</h1>' +
-          '<p>La URL de datos para esta evidencia no está disponible o está corrupta. ' +
-          'Esto puede suceder si su navegador bloqueó la apertura de la ventana emergente. ' +
-          'Por favor, revise la barra de direcciones por si hay un icono de bloqueo de pop-ups y permita las ventanas emergentes para este sitio.</p>' +
-          '</body></html>'
-        );
-      } else {
-        toast({
-          title: 'Error de Navegador',
-          description: 'Su navegador bloqueó la apertura de la nueva ventana. Por favor, permita las ventanas emergentes para este sitio.',
-          variant: 'destructive',
-          duration: 7000,
-        });
-      }
-      return;
-    }
-    setEvidenceToView(evidence);
-  };
-
   const isStepSaving = isSaving || isSavingLocally || isProcessingEmail;
 
   return (
@@ -437,13 +411,10 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                                           {ev.comment && <span className="text-xs italic text-muted-foreground">"{ev.comment}"</span>}
                                       </div>
                                     </div>
-                                    <Button
-                                      variant="link"
-                                      size="sm"
-                                      onClick={() => handleViewEvidence(ev)}
-                                      className="p-0 h-auto text-xs"
-                                    >
-                                      <ExternalLink className="mr-1 h-3 w-3" />Ver Evidencia
+                                    <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
+                                      <a href={ev.downloadURL} target="_blank" rel="noopener noreferrer">
+                                        <ExternalLink className="mr-1 h-3 w-3" />Ver Evidencia
+                                      </a>
                                     </Button>
                                   </li>
                                 ))}
@@ -490,38 +461,6 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
           onClose={() => setRejectingAction(null)}
           onConfirmReject={handleConfirmRejectAction}
         />
-      )}
-
-      {evidenceToView && (
-        <Dialog open={!!evidenceToView} onOpenChange={() => setEvidenceToView(null)}>
-            <DialogContent className="max-w-4xl max-h-[90vh]">
-                <DialogHeader>
-                    <DialogTitle>Vista Previa de Evidencia</DialogTitle>
-                    <DialogDescription>{evidenceToView.nombre}</DialogDescription>
-                </DialogHeader>
-                <div className="flex justify-center items-center h-[70vh] bg-secondary/20 rounded-md">
-                    {(() => {
-                        const type = evidenceToView.tipo?.toLowerCase();
-                        const dataUrl = evidenceToView.dataUrl;
-                        const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(type || '');
-
-                        if (isImage) {
-                            return <img src={dataUrl} alt={evidenceToView.nombre} className="max-w-full max-h-full object-contain" />;
-                        } else {
-                            // For PDF and any other file type, provide a download button instead of an iframe.
-                            return (
-                                <div className="text-center p-4">
-                                    <p>Vista previa no disponible para este tipo de archivo ({evidenceToView.tipo}).</p>
-                                    <Button asChild className="mt-4">
-                                        <a href={dataUrl} download={evidenceToView.nombre}>Descargar Archivo</a>
-                                    </Button>
-                                </div>
-                            );
-                        }
-                    })()}
-                </div>
-            </DialogContent>
-        </Dialog>
       )}
     </>
   );

@@ -32,7 +32,8 @@ export interface Evidence {
   nombre: string;
   tipo: 'pdf' | 'jpg' | 'jpeg' | 'png' | 'doc' | 'docx' | 'other' | 'link';
   comment?: string;
-  dataUrl: string; // Storing file content as a data URL (Base64)
+  downloadURL: string; // URL pública para descargar el archivo desde Cloud Storage
+  storagePath: string; // Ruta completa del archivo en Cloud Storage
 }
 
 export interface PlannedAction {
@@ -139,12 +140,14 @@ export interface PreservedFact {
   id: string;
   eventId: string;
   userGivenName: string;
-  fileName: string | null;
+  fileName: string;
   fileType: string | null;
   fileSize: number | null;
   category: PreservedFactCategory | '';
   description: string;
   uploadDate: string;
+  downloadURL: string;
+  storagePath: string;
 }
 
 export interface FullUserProfile {

@@ -1,3 +1,4 @@
+
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect, useMemo } from 'react';
@@ -11,7 +12,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription }
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
-import { Calendar as CalendarIcon, PlusCircle, Trash2, FileText, Paperclip, UserCircle, Save, Loader2 } from 'lucide-react';
+import { Calendar as CalendarIcon, PlusCircle, Trash2, FileText, Paperclip, UserCircle, Save, Loader2, ExternalLink } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
@@ -28,7 +29,7 @@ interface Step2FactsProps {
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
   preservedFacts: PreservedFact[];
-  onAddPreservedFact: (fact: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId'>) => void;
+  onAddPreservedFact: (factData: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>, file: File | null) => void;
   onRemovePreservedFact: (id: string) => void;
   onPrevious: () => void;
   onNext: () => void;
@@ -39,7 +40,7 @@ interface Step2FactsProps {
 const PreservedFactDialog: FC<{
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (factData: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId'>) => void;
+  onSave: (factData: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>, file: File | null) => void;
 }> = ({ open, onOpenChange, onSave }) => {
   const [userGivenName, setUserGivenName] = useState('');
   const [category, setCategory] = useState<PreservedFactCategory | ''>('');
@@ -65,15 +66,21 @@ const PreservedFactDialog: FC<{
       toast({ title: "Error", description: "La categoría es obligatoria.", variant: "destructive" });
       return;
     }
+    if (!selectedFile) {
+        toast({ title: "Error", description: "Debe seleccionar un archivo para adjuntar.", variant: "destructive" });
+        return;
+    }
+
     setIsSubmittingFact(true);
     onSave({
       userGivenName,
       category,
       description,
-      fileName: selectedFile?.name || null,
-      fileType: selectedFile?.type || null,
-      fileSize: selectedFile?.size || null,
-    });
+      fileName: selectedFile.name,
+      fileType: selectedFile.type,
+      fileSize: selectedFile.size,
+    }, selectedFile);
+
     setUserGivenName('');
     setCategory('');
     setDescription('');
@@ -110,7 +117,7 @@ const PreservedFactDialog: FC<{
             </Select>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="pf-file" className="text-right">Archivo</Label>
+            <Label htmlFor="pf-file" className="text-right">Archivo <span className="text-destructive">*</span></Label>
             <Input id="pf-file" type="file" onChange={handleFileChange} className="col-span-3" />
           </div>
           {selectedFile && (
@@ -127,7 +134,7 @@ const PreservedFactDialog: FC<{
           <DialogClose asChild>
             <Button type="button" variant="outline" disabled={isSubmittingFact}>Cancelar</Button>
           </DialogClose>
-          <Button type="button" onClick={handleSubmit} disabled={isSubmittingFact}>
+          <Button type="button" onClick={handleSubmit} disabled={isSubmittingFact || !selectedFile}>
             {isSubmittingFact && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Guardar Hecho
           </Button>
@@ -353,12 +360,17 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                 {preservedFacts.map(fact => (
                     <Card key={fact.id} className="p-4 bg-secondary/30">
                         <div className="flex justify-between items-start">
-                            <div>
+                            <div className="flex-grow">
                                 <p className="font-semibold text-primary">{fact.userGivenName}</p>
                                 <p className="text-xs text-muted-foreground">Categoría: {fact.category}</p>
-                                {fact.fileName && <p className="text-xs text-muted-foreground">Archivo: {fact.fileName} ({fact.fileType}, {(fact.fileSize || 0 / 1024).toFixed(2)} KB)</p>}
+                                {fact.fileName && <p className="text-xs text-muted-foreground">Archivo: {fact.fileName} ({fact.fileType}, {fact.fileSize ? (fact.fileSize / 1024).toFixed(2) : 0} KB)</p>}
                                 {fact.description && <p className="text-sm mt-1">{fact.description}</p>}
                                 <p className="text-xs text-muted-foreground mt-1">Cargado: {format(new Date(fact.uploadDate), "dd/MM/yyyy HH:mm", { locale: es })}</p>
+                                {fact.downloadURL && (
+                                    <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mt-1">
+                                        <a href={fact.downloadURL} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-1 h-3 w-3" />Ver Archivo</a>
+                                    </Button>
+                                )}
                             </div>
                             <Button variant="ghost" size="icon" onClick={() => onRemovePreservedFact(fact.id)} aria-label="Eliminar hecho preservado">
                                 <Trash2 className="h-4 w-4 text-destructive" />

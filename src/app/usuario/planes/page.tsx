@@ -11,11 +11,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from "@/hooks/use-toast";
-import { ListTodo, FileText, ImageIcon, Paperclip, CheckCircle2, Save, Info, MessageSquare, Loader2, CalendarCheck, History, Trash2, Mail, ArrowUp, ArrowDown, ChevronsUpDown, UserCircle, FolderKanban, CheckSquare, Link2 } from 'lucide-react';
+import { ListTodo, FileText, ImageIcon, Paperclip, CheckCircle2, Save, Info, MessageSquare, Loader2, CalendarCheck, History, Trash2, Mail, ArrowUp, ArrowDown, ChevronsUpDown, UserCircle, FolderKanban, CheckSquare, Link2, ExternalLink } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, query, orderBy } from "firebase/firestore";
+import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { sendEmailAction } from '@/app/actions';
@@ -381,77 +382,69 @@ export default function UserActionPlansPage() {
     }
   };
 
-  const handleRemoveEvidence = async (evidenceIdToRemove: string) => {
+  const handleRemoveEvidence = async (evidenceToRemove: FirestoreEvidence) => {
     if (!selectedPlan) return;
     setIsUpdatingAction(true);
 
-    const updatedEvidences = selectedPlan.evidencias.filter(ev => ev.id !== evidenceIdToRemove);
-    
-    const updatesForFirestore: Partial<FirestorePlannedAction> = {
-      evidencias: updatedEvidences,
-    };
-    
-    // If we're removing the last evidence, clear the timestamp.
-    if (updatedEvidences.length === 0) {
-      updatesForFirestore.markedAsReadyAt = '';
-    }
-
-    const success = await updateActionInFirestore(
-      selectedPlan._originalRcaDocId, 
-      selectedPlan._originalActionId, 
-      updatesForFirestore
-    );
-    setIsUpdatingAction(false);
-
-    if (success) {
-      toast({ title: "Evidencia Eliminada", description: `La evidencia ha sido eliminada. El estado de la tarea puede haber cambiado.`, variant: 'destructive' });
-      
-      // Update the local state for the UI to re-render immediately.
-      setSelectedPlan(prevPlan => {
-        if (!prevPlan) return null;
-
-        const newPlanState = { ...prevPlan, evidencias: updatedEvidences };
-
-        // If the timestamp was cleared, update the local state for it.
-        if (updatesForFirestore.markedAsReadyAt === '') {
-          newPlanState.userMarkedReadyDate = undefined;
+    try {
+        if (evidenceToRemove.storagePath) {
+            const fileRef = storageRef(storage, evidenceToRemove.storagePath);
+            await deleteObject(fileRef);
         }
 
-        // Recalculate the display status based on the new state.
-        const hasComments = newPlanState.userComments && newPlanState.userComments.trim() !== '';
-        if (newPlanState.userMarkedReadyDate && (newPlanState.evidencias.length > 0 || hasComments)) {
-          newPlanState.estado = 'En Validación';
-        } else if (newPlanState.evidencias.length > 0 || hasComments) {
-          newPlanState.estado = 'En proceso';
-        } else {
-          newPlanState.estado = 'Pendiente';
+        const updatedEvidences = selectedPlan.evidencias.filter(ev => ev.id !== evidenceToRemove.id);
+        const updatesForFirestore: Partial<FirestorePlannedAction> = {
+            evidencias: updatedEvidences,
+        };
+        // Si ya no quedan evidencias Y no hay comentarios, la tarea ya no puede estar "En Validación"
+        const hasComments = selectedPlan.userComments && selectedPlan.userComments.trim() !== '';
+        if (updatedEvidences.length === 0 && !hasComments) {
+            updatesForFirestore.markedAsReadyAt = ''; // Clear ready timestamp
         }
-        
-        return newPlanState;
-      });
+
+        const success = await updateActionInFirestore(
+            selectedPlan._originalRcaDocId, 
+            selectedPlan._originalActionId, 
+            updatesForFirestore
+        );
+
+        if (success) {
+            toast({ title: "Evidencia Eliminada", description: "La evidencia ha sido eliminada.", variant: 'destructive' });
+            setSelectedPlan(prevPlan => prevPlan ? { ...prevPlan, evidencias: updatedEvidences } : null);
+        }
+    } catch (error) {
+        console.error("Error removing evidence:", error);
+        toast({ title: "Error", description: "No se pudo eliminar la evidencia.", variant: "destructive" });
+    } finally {
+        setIsUpdatingAction(false);
     }
-  };
-  
-  const convertFileToDataUrl = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = error => reject(error);
-        reader.readAsDataURL(file);
-    });
   };
 
   const handleSignalTaskReadyForValidation = async () => {
     if (!selectedPlan || !userProfile || !userProfile.name) return;
     
     setIsUpdatingAction(true);
+    const rcaDoc = allRcaDocuments.find(d => d.eventData.id === selectedPlan._originalRcaDocId);
+    if (!rcaDoc || !rcaDoc.empresa) {
+        toast({ title: "Error", description: "No se pudo encontrar el documento de análisis o la empresa asociada.", variant: "destructive"});
+        setIsUpdatingAction(false);
+        return;
+    }
 
-    let dataUrl: string | null = null;
+    let downloadURL: string | null = null;
+    let storagePath: string | null = null;
+    
     if (fileToUpload) {
         try {
-            dataUrl = await convertFileToDataUrl(fileToUpload);
+            toast({ title: "Subiendo archivo...", description: `Subiendo ${fileToUpload.name}.`});
+            const filePath = `rca_evidences/${selectedPlan._originalRcaDocId}/${Date.now()}-${fileToUpload.name}`;
+            const fileStorageRef = storageRef(storage, filePath);
+            const uploadMetadata = { customMetadata: { eventId: selectedPlan._originalRcaDocId, userId: userProfile.id, empresa: rcaDoc.empresa }};
+            const uploadResult = await uploadBytes(fileStorageRef, fileToUpload, uploadMetadata);
+            downloadURL = await getDownloadURL(uploadResult.ref);
+            storagePath = uploadResult.ref.fullPath;
         } catch (error) {
-            toast({ title: "Error de Archivo", description: "No se pudo leer el archivo seleccionado.", variant: "destructive" });
+            toast({ title: "Error de Subida", description: "No se pudo subir el archivo seleccionado.", variant: "destructive" });
             setIsUpdatingAction(false);
             return;
         }
@@ -461,13 +454,14 @@ export default function UserActionPlansPage() {
     let updatesForAction: Partial<FirestorePlannedAction> = { markedAsReadyAt: currentDateISO };
     let newEvidencesArray = selectedPlan.evidencias || [];
 
-    if (dataUrl && fileToUpload) {
+    if (downloadURL && storagePath && fileToUpload) {
         const newEvidencePayload: FirestoreEvidence = {
             id: `ev-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
             nombre: fileToUpload.name,
             tipo: (fileToUpload.type.split('/')[1] as FirestoreEvidence['tipo']) || 'other',
-            dataUrl: dataUrl,
             comment: evidenceComment.trim() || undefined,
+            downloadURL,
+            storagePath,
         };
         newEvidencesArray = [...newEvidencesArray, newEvidencePayload];
     }
@@ -512,7 +506,7 @@ export default function UserActionPlansPage() {
   };
 
 
-  const getEvidenceIcon = (tipo?: FirestoreEvidence['tipo']) => {
+  const getEvidenceIconLocal = (tipo?: FirestoreEvidence['tipo']) => {
     if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
     switch (tipo) {
       case 'link': return <Link2 className="h-4 w-4 mr-2 flex-shrink-0 text-indigo-600" />;
@@ -667,9 +661,13 @@ export default function UserActionPlansPage() {
                 <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Evidencias Adjuntas]</h4>
                   {selectedPlan.evidencias.length > 0 ? (<ul className="space-y-1.5">
                       {selectedPlan.evidencias.map(ev => (<li key={ev.id} className="flex items-start justify-between text-xs border p-2 rounded-md bg-muted/10">
-                          <div className="flex-grow"><div className="flex items-center">{getEvidenceIcon(ev.tipo)}<span className="font-medium">{ev.nombre}</span></div>
+                          <div className="flex-grow"><div className="flex items-center">{getEvidenceIconLocal(ev.tipo)}<span className="font-medium">{ev.nombre}</span></div>
                             {ev.comment && <p className="text-xs text-muted-foreground ml-[calc(1rem+0.5rem)] mt-0.5">Comentario: {ev.comment}</p>}</div>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 ml-2 shrink-0 hover:bg-destructive/10" onClick={() => handleRemoveEvidence(ev.id)} disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} aria-label="Eliminar evidencia"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button></li>))}</ul>
+                          <div className="flex-shrink-0 ml-2">
+                             <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mr-2"><a href={ev.downloadURL} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-1 h-3 w-3" />Ver</a></Button>
+                             <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-destructive/10" onClick={() => handleRemoveEvidence(ev)} disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} aria-label="Eliminar evidencia"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                          </div>
+                          </li>))}</ul>
                   ) : <p className="text-xs text-muted-foreground">No hay evidencias adjuntas.</p>}</div>
                 <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Adjuntar nueva evidencia]</h4>
                   <div className="space-y-2">
@@ -684,7 +682,7 @@ export default function UserActionPlansPage() {
                   <Textarea value={selectedPlan.userComments || ''} onChange={(e) => setSelectedPlan(prev => prev ? { ...prev, userComments: e.target.value } : null)} placeholder="Añada sus comentarios sobre el progreso o finalización de esta tarea..." rows={3} className="text-sm" disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} /></div>
                 <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Actualizar estado de esta tarea]</h4>
                   <div className="flex items-center gap-2">
-                     <Button size="sm" variant="default" onClick={handleSignalTaskReadyForValidation} disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || (!fileToUpload && !selectedPlan.userComments && selectedPlan.evidencias.length === 0)} title={selectedPlan.estado === 'Completado' ? "Esta tarea ya ha sido validada y no puede modificarse." : (!fileToUpload && !selectedPlan.userComments && selectedPlan.evidencias.length === 0) ? "Debe adjuntar un archivo o agregar un comentario para marcar la tarea como lista." : "Guardar evidencias, comentarios y marcar la tarea como lista para ser validada por el Líder del Proyecto."}>
+                     <Button size="sm" variant="default" onClick={handleSignalTaskReadyForValidation} disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || (!fileToUpload && !(selectedPlan.userComments && selectedPlan.userComments.trim()))} title={selectedPlan.estado === 'Completado' ? "Esta tarea ya ha sido validada y no puede modificarse." : (!fileToUpload && !(selectedPlan.userComments && selectedPlan.userComments.trim())) ? "Debe adjuntar un archivo o agregar un comentario para marcar la tarea como lista." : "Guardar evidencias, comentarios y marcar la tarea como lista para ser validada por el Líder del Proyecto."}>
                       {isUpdatingAction ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />} 
                       {isUpdatingAction ? 'Procesando...' : 'Marcar como listo para validación'}
                     </Button>
