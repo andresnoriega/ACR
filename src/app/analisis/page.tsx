@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { db, storage } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, updateDoc, where, type QueryConstraint } from "firebase/firestore";
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { Loader2 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -352,7 +352,7 @@ function RCAAnalysisPageComponent() {
     } finally {
         setIsLoadingPage(false);
     }
-  }, [toast, router, userProfile, availableSitesFromDB]);
+  }, [toast, router, userProfile]);
 
   const analysisIdFromParams = useMemo(() => searchParams.get('id'), [searchParams]);
 
@@ -429,17 +429,27 @@ function RCAAnalysisPageComponent() {
 
   useEffect(() => {
     const fetchConfigData = async () => {
+      if (!userProfile) return; // Guard clause for user profile
+
       setIsLoadingPage(true);
       setConfigDataLoaded(false);
       try {
+        const sitesQueryConstraints: QueryConstraint[] = [orderBy("name", "asc")];
+        if (userProfile.role !== 'Super User' && userProfile.empresa) {
+          sitesQueryConstraints.push(where("empresa", "==", userProfile.empresa));
+        }
         const sitesCollectionRef = collection(db, "sites");
-        const sitesQuery = query(sitesCollectionRef, orderBy("name", "asc"));
+        const sitesQuery = query(sitesCollectionRef, ...sitesQueryConstraints);
         const sitesSnapshot = await getDocs(sitesQuery);
         const sitesData = sitesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Site));
         setAvailableSitesFromDB(sitesData);
 
+        const usersQueryConstraints: QueryConstraint[] = [orderBy("name", "asc")];
+        if (userProfile.role !== 'Super User' && userProfile.empresa) {
+          usersQueryConstraints.push(where("empresa", "==", userProfile.empresa));
+        }
         const usersCollectionRef = collection(db, "users");
-        const usersQuery = query(usersCollectionRef, orderBy("name", "asc"));
+        const usersQuery = query(usersCollectionRef, ...usersQueryConstraints);
         const usersSnapshot = await getDocs(usersQuery);
         const usersData = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FullUserProfile));
         setAvailableUsersFromDB(usersData);
@@ -451,9 +461,11 @@ function RCAAnalysisPageComponent() {
         setConfigDataLoaded(true);
       }
     };
-    fetchConfigData();
+    if (userProfile) { // Only fetch if user profile is loaded
+      fetchConfigData();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast]);
+  }, [toast, userProfile]);
 
 
   const ensureEventId = useCallback((): string => {
