@@ -1,3 +1,4 @@
+
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent } from '@/types/rca';
@@ -50,7 +51,7 @@ const initialDetailedFacts: DetailedFacts = {
 };
 
 const initialRCAAnalysisState: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedAt' > = {
-  eventData: { id: '', place: '', equipo: '', date: '', eventType: '', priority: '', focusEventDescription: '' },
+  eventData: { id: '', place: '', equipo: '', date: '', eventType: '', priority: '', focusEventDescription: '', empresa: undefined },
   immediateActions: [],
   projectLeader: '',
   detailedFacts: { ...initialDetailedFacts },
@@ -70,6 +71,7 @@ const initialRCAAnalysisState: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedA
   isFinalized: false,
   rejectionDetails: undefined,
   createdBy: undefined,
+  empresa: undefined,
 };
 
 // Helper function to convert old 'cuando' string to datetime-local format
@@ -499,7 +501,11 @@ function RCAAnalysisPageComponent() {
 
     setIsSaving(true);
     const currentIsFinalized = finalizedOverride !== undefined ? finalizedOverride : isFinalized;
-    const consistentEventData = { ...eventData, id: currentId }; 
+    
+    // Get company from selected site to denormalize data
+    const siteInfo = availableSitesFromDB.find(s => s.name === eventData.place);
+    const siteEmpresa = siteInfo?.empresa;
+    const consistentEventData = { ...eventData, id: currentId, empresa: siteEmpresa };
 
     let currentRejectionDetailsToSave = rejectionDetails;
     if (statusOverride === "Rechazado" && currentRejectionReason) {
@@ -525,7 +531,8 @@ function RCAAnalysisPageComponent() {
       validations: (validationsOverride !== undefined) ? validationsOverride : validations,
       finalComments, isFinalized: currentIsFinalized,
       rejectionDetails: currentRejectionDetailsToSave,
-      createdBy: currentCreatedByState, 
+      createdBy: currentCreatedByState,
+      empresa: siteEmpresa,
     };
 
     try {
@@ -605,6 +612,7 @@ function RCAAnalysisPageComponent() {
         status: statusForReportedEvent,
         description: consistentEventData.focusEventDescription || "Sin descripción detallada.",
         updatedAt: new Date().toISOString(),
+        empresa: siteEmpresa,
       };
 
       const sanitizedReportedEventPayload = sanitizeForFirestore(reportedEventPayload);
@@ -622,6 +630,7 @@ function RCAAnalysisPageComponent() {
             description: sanitizedReportedEventPayload.description,
             status: statusForReportedEvent,
             updatedAt: new Date().toISOString(),
+            empresa: siteEmpresa,
         };
         await updateDoc(reportedEventRef, sanitizeForFirestore(updatePayload));
       }

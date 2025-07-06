@@ -10,6 +10,7 @@ export interface RCAEventData {
   eventType: EventType;
   priority: PriorityType;
   focusEventDescription: string;
+  empresa?: string;
 }
 
 export interface ImmediateAction {
@@ -174,6 +175,7 @@ export interface ReportedEvent {
   description?: string;
   createdAt?: string; // ISO string
   updatedAt?: string; // ISO string
+  empresa?: string;
 }
 
 export interface Site {
@@ -239,4 +241,5 @@ export interface RCAAnalysisDocument {
   createdAt: string; // ISO string
   updatedAt: string; // ISO string
   createdBy?: string; // User NAME who created the analysis document
+  empresa?: string;
 }
