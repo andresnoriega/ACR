@@ -738,10 +738,14 @@ function RCAAnalysisPageComponent() {
 
       const siteInfo = availableSitesFromDB.find(s => s.name === currentConsistentEventData.place);
       if (siteInfo && siteInfo.empresa) {
-        const usersInCompany = availableUsersFromDB.filter(u => u.empresa === siteInfo.empresa);
+        // Only notify Admins and Super Users of the company
+        const relevantUsersInCompany = availableUsersFromDB.filter(u => 
+            u.empresa === siteInfo.empresa &&
+            (u.role === 'Admin' || u.role === 'Super User')
+        );
         let emailsSentCount = 0;
         let attemptedEmails = 0;
-        for (const user of usersInCompany) {
+        for (const user of relevantUsersInCompany) {
           if (user.email && (user.emailNotifications === undefined || user.emailNotifications)) {
             attemptedEmails++;
             const emailSubject = `Evento ACR Aprobado: ${currentConsistentEventData.focusEventDescription.substring(0, 40)}... (ID: ${finalEventId})`;
@@ -751,9 +755,9 @@ function RCAAnalysisPageComponent() {
           }
         }
         if (attemptedEmails > 0) {
-          toast({ title: "Notificaciones de Aprobación", description: `${emailsSentCount} de ${attemptedEmails} correos de notificación procesados para usuarios de la empresa '${siteInfo.empresa}'.` });
+          toast({ title: "Notificaciones de Aprobación", description: `${emailsSentCount} de ${attemptedEmails} correos de notificación procesados para los Administradores de la empresa '${siteInfo.empresa}'.` });
         } else {
-          toast({ title: "Notificación", description: `No se encontraron usuarios elegibles para notificar en la empresa '${siteInfo.empresa}'.`, variant: "default" });
+          toast({ title: "Notificación", description: `No se encontraron Administradores elegibles para notificar en la empresa '${siteInfo.empresa}'.`, variant: "default" });
         }
       } else {
         toast({ title: "Notificación Parcial", description: "No se pudo determinar la empresa del sitio o no hay usuarios de esa empresa configurados para notificar.", variant: "default" });
