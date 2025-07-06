@@ -53,46 +53,54 @@ try {
 } catch (error) {
   console.error('[AI Genkit] Error initializing Genkit or no model plugins available:', error);
   console.warn('[AI Genkit] AI functionality will be mocked/disabled.');
+  
+  const aiMockMessage = "AI functionality is disabled due to a Genkit configuration or initialization issue.";
+  
   ai = {
     defineFlow: (config: any, func: any) => {
-      console.warn(`Genkit flow '${config.name}' called but AI is mocked. Input will be passed to the mock function.`);
+      // Return a function that immediately returns a mocked "disabled" response,
+      // conforming to the expected output schema of the flows.
       return async (input: any) => {
+        console.warn(`Genkit flow '${config.name}' called but AI is mocked. Input:`, input);
         if (config.name === 'generateRcaInsightsFlow') {
-          // Specific mock for generateRcaInsightsFlow to return the disabled message
-          return { summary: "[Resumen IA Deshabilitado por problemas de Genkit]" };
+          return { summary: `[Resumen IA Deshabilitado] ${aiMockMessage}` };
         }
-        // For other flows, attempt to call the original function if it doesn't rely on 'ai'
-        try {
-            return await func(input);
-        } catch(flowError) {
-            console.error(`Error in mocked flow '${config.name}':`, flowError);
-            // Return a generic error for other flows if they fail
-            return { error: `AI functionality for flow '${config.name}' is disabled due to Genkit initialization issues.` };
+        if (config.name === 'suggestRootCausesFlow') {
+          return { suggestedRootCauses: [`[Sugerencias IA Deshabilitadas] ${aiMockMessage}`] };
         }
+        // Generic fallback for other potential flows
+        return { error: `Flow '${config.name}' is disabled. ${aiMockMessage}` };
       };
     },
     definePrompt: (config: any) => {
-      console.warn(`Genkit prompt '${config.name}' called but AI is mocked.`);
-      // Return a function that mimics the prompt call structure but returns a non-functional response.
-      return async (input: any) => { 
-        console.warn(`Genkit prompt '${config.name}' received input:`, input);
-        // The prompt function usually returns a promise that resolves to an object
-        // with an 'output' property (among others like 'usage').
-        // Here we resolve to an object where 'output' is explicitly null.
-        return Promise.resolve({ output: null, usage: {} }); 
+      // This mock returns a function that simulates a prompt call but resolves to a null output.
+      // This prevents crashes in flows that call a prompt and expect a response object.
+      return async (input: any) => {
+        console.warn(`Genkit prompt '${config.name}' called but AI is mocked. Input:`, input);
+        return Promise.resolve({ output: null, usage: {} });
       };
     },
     generate: async (options: any) => {
-        console.warn("ai.generate() called, but AI is mocked. Options:", options);
-        // Mimic the structure of a generate response, ensuring text() and output() are functions.
-        return Promise.resolve({
-            text: () => "[Respuesta IA Deshabilitada por problemas de Genkit]",
-            output: () => null, // Return null as the output
-            usage: {}, // Include an empty usage object
-        });
-    }
-    // Add other Genkit ai object methods here if they are called elsewhere and cause errors
+      console.warn("ai.generate() called, but AI is mocked. Options:", options);
+      // The mock needs to return a structure that flows can destructure or call methods on.
+      const mockGenerateResponse = {
+        text: () => `[Respuesta IA Deshabilitada] ${aiMockMessage}`,
+        output: () => null,
+        usage: {},
+        toString: () => aiMockMessage, // For easy debugging
+      };
+      // Adding this to the object itself for cases where it's not a function call
+      (mockGenerateResponse as any).summary = `[Resumen IA Deshabilitado] ${aiMockMessage}`;
+      (mockGenerateResponse as any).suggestedRootCauses = [`[Sugerencias IA Deshabilitadas] ${aiMockMessage}`];
+      
+      return Promise.resolve(mockGenerateResponse);
+    },
+    // Add a simple property to allow easy checking if the AI is mocked
+    isMocked: true, 
   };
+  
+  // Add a special toString to the mocked `ai` object for easier debugging
+  ai.toString = () => "[Mocked Genkit AI Object]";
 }
 
 

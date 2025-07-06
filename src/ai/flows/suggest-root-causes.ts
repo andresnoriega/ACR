@@ -221,12 +221,13 @@ const suggestRootCausesFlowInternal = ai.defineFlow(
 
 // --- Función Exportada ---
 export async function suggestRootCauses(input: SuggestRootCausesInput): Promise<SuggestRootCausesOutput> {
-   try {
-    if (typeof ai.generate === 'function' && ai.generate.toString().includes("AI is mocked")) {
-        console.warn("Genkit 'ai' object is mocked. AI root cause suggestions will be disabled.");
-        return { suggestedRootCauses: ["[Sugerencias IA Deshabilitadas por problemas de Genkit]"] };
-    }
-    
+  // Check if the AI object is a mock, indicating an initialization issue.
+  if (ai.isMocked) {
+      console.warn("Genkit 'ai' object is mocked. AI root cause suggestions will be disabled.");
+      return { suggestedRootCauses: ["[Sugerencias IA Deshabilitadas por problemas de Genkit]"] };
+  }
+
+  try {
     const result = await suggestRootCausesFlowInternal(input);
     return result;
 
@@ -234,10 +235,15 @@ export async function suggestRootCauses(input: SuggestRootCausesInput): Promise<
     console.error("Error executing suggestRootCauses:", error);
     let errorMessage = "[Sugerencia IA no disponible: Error al procesar la solicitud con IA]";
     if (error instanceof Error) {
-        errorMessage += ` (${error.message})`;
-    }
-     if (error instanceof Error && (error.message.includes("API key not valid") || error.message.includes("model may not exist") || error.message.includes("Must supply a `model`"))) {
-        errorMessage = `[Sugerencia IA no disponible: Problema con la configuración del modelo o API Key. Verifique la consola.] (${error.message})`;
+        if (error.message.includes("API key not valid")) {
+            errorMessage = "[Sugerencia IA no disponible: La API Key de Google AI no es válida. Verifique la configuración.]";
+        } else if (error.message.includes("model may not exist")) {
+            errorMessage = "[Sugerencia IA no disponible: El modelo configurado no existe o no está disponible.]";
+        } else if (error.message.includes("Must supply a `model`")) {
+            errorMessage = "[Sugerencia IA no disponible: Problema con la configuración del modelo o la API Key. Verifique la consola.]";
+        } else {
+            errorMessage += ` (${error.message})`;
+        }
     }
     return { suggestedRootCauses: [errorMessage] };
   }

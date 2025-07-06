@@ -107,12 +107,13 @@ const generateRcaInsightsFlowInternal = ai.defineFlow(
 
 
 export async function generateRcaInsights(input: GenerateRcaInsightsInput): Promise<GenerateRcaInsightsOutput> {
-  try {
-    if (typeof ai.generate === 'function' && ai.generate.toString().includes("AI is mocked")) {
-        console.warn("Genkit 'ai' object is mocked. AI insights will be disabled.");
-        return { summary: "[Resumen IA Deshabilitado por problemas de Genkit]" };
-    }
+  // Check if the AI object is a mock, indicating an initialization issue.
+  if (ai.isMocked) {
+      console.warn("Genkit 'ai' object is mocked. AI insights will be disabled.");
+      return { summary: "[Resumen IA Deshabilitado por problemas de Genkit]" };
+  }
 
+  try {
     const result = await generateRcaInsightsFlowInternal(input);
     return result;
 
@@ -120,10 +121,15 @@ export async function generateRcaInsights(input: GenerateRcaInsightsInput): Prom
     console.error("Error executing generateRcaInsights:", error);
     let errorMessage = "[Resumen IA no disponible: Error al procesar la solicitud con IA]";
     if (error instanceof Error) {
-        errorMessage += ` (${error.message})`;
-    }
-    if (error instanceof Error && (error.message.includes("API key not valid") || error.message.includes("model may not exist") || error.message.includes("Must supply a `model`"))) {
-        errorMessage = `[Resumen IA no disponible: Problema con la configuración del modelo o API Key. Verifique la consola.] (${error.message})`;
+        if (error.message.includes("API key not valid")) {
+            errorMessage = "[Resumen IA no disponible: La API Key de Google AI no es válida. Verifique la configuración.]";
+        } else if (error.message.includes("model may not exist")) {
+            errorMessage = "[Resumen IA no disponible: El modelo configurado no existe o no está disponible.]";
+        } else if (error.message.includes("Must supply a `model`")) {
+             errorMessage = "[Resumen IA no disponible: Problema con la configuración del modelo o la API Key. Verifique la consola.]";
+        } else {
+            errorMessage += ` (${error.message})`;
+        }
     }
     return { summary: errorMessage };
   }
