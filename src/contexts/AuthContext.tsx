@@ -43,8 +43,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [userProfile, setUserProfile] = useState<FullUserProfile | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
 
-  // This listener is now only responsible for READING the user's state on auth change.
-  // All profile creation/migration logic is handled by registerWithEmail for robustness.
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setLoadingAuth(true);
@@ -56,7 +54,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           if (docSnap.exists()) {
             setUserProfile({ id: docSnap.id, ...docSnap.data() } as FullUserProfile);
           } else {
-            console.warn(`[AuthContext] User ${user.uid} (${user.email}) is authenticated but has no Firestore profile. This can happen if profile creation failed or is pending. The user will have no permissions until a profile is created.`);
+            // This case handles a logged-in user without a Firestore profile document.
+            // This can happen if profile creation failed, or if they just registered and the profile hasn't been set yet.
+            // The register function now handles creation, so this indicates a potential issue or a lag.
+            // Setting profile to null is the correct state until it's resolved.
+            console.warn(`[AuthContext] User ${user.uid} (${user.email}) is authenticated but has no Firestore profile. This state should resolve upon registration or if an admin creates the profile.`);
             setUserProfile(null); 
           }
         } catch (error) {
@@ -73,22 +75,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const loginWithEmail = (email: string, pass: string) => {
+    // The onAuthStateChanged listener will handle fetching the user profile upon successful login.
     return signInWithEmailAndPassword(auth, email, pass);
   };
   
-  // Registration function is now responsible for all profile creation/migration logic.
   const registerWithEmail = async (email: string, pass: string, name: string) => {
-    // 1. Check if a profile was pre-created by an admin
+    // 1. Check if a profile was pre-created for this email by an admin
     const usersCollectionRef = collection(db, "users");
     const qByEmail = query(usersCollectionRef, where("email", "==", email), limit(1));
     const existingByEmailSnap = await getDocs(qByEmail);
     
-    // 2. Create the Firebase Auth user
+    // 2. Create the Firebase Auth user. This is the source of truth for authentication.
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     const user = userCredential.user;
 
     if (!existingByEmailSnap.empty) {
-      // 3a. Profile was pre-created. We need to migrate it to the new UID.
+      // 3a. Profile was pre-created. We need to migrate it to the new, correct UID.
       const preCreatedDoc = existingByEmailSnap.docs[0];
       const profileData = preCreatedDoc.data() as Omit<FullUserProfile, 'id'>;
       
@@ -97,7 +99,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Update name from registration form, just in case it differs.
       profileData.name = name;
 
-      // Create new doc with user's UID and delete the old one.
+      // Create new doc with user's UID and delete the old one. This is the "claim" process.
       await setDoc(doc(db, 'users', user.uid), sanitizeForFirestore(profileData));
       await deleteDoc(preCreatedDoc.ref);
       
@@ -105,16 +107,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // 3b. This is a brand new user. Create their profile from scratch.
       console.log(`User ${email} registered. Creating new pending profile with UID ${user.uid}.`);
 
-      // Determine if this is the very first user to assign Super User role.
-      const allUsersQuery = query(usersCollectionRef, limit(1));
+      const allUsersQuery = query(collection(db, "users"), limit(1));
       const anyUserSnap = await getDocs(allUsersQuery);
-      const isFirstUser = anyUserSnap.empty;
+      // The check is tricky because we just added a user. A better check is needed if we were to scale this.
+      // For now, we assume if an Admin or Super User exists, it's not the first user.
+      const adminOrSuperUserQuery = query(collection(db, "users"), where("role", "in", ["Admin", "Super User"]), limit(1));
+      const adminOrSuperUserSnap = await getDocs(adminOrSuperUserQuery);
+      const isFirstEverUser = adminOrSuperUserSnap.empty;
 
       const newUserProfileData: Omit<FullUserProfile, 'id'> = {
         name: name,
         email: email,
-        role: isFirstUser ? 'Super User' : 'Usuario Pendiente',
-        permissionLevel: isFirstUser ? 'Total' : '',
+        role: isFirstEverUser ? 'Super User' : 'Usuario Pendiente',
+        permissionLevel: isFirstEverUser ? 'Total' : '',
         assignedSites: '',
         emailNotifications: true,
         empresa: '', 
@@ -123,7 +128,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await setDoc(doc(db, 'users', user.uid), sanitizeForFirestore(newUserProfileData));
 
       // If it's a pending user, notify the admins.
-      if (!isFirstUser) {
+      if (!isFirstEverUser) {
         try {
           const superUsersQuery = query(usersCollectionRef, where("role", "==", "Super User"));
           const superUsersSnapshot = await getDocs(superUsersQuery);
@@ -145,7 +150,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     }
     
-    // Let the onAuthStateChanged listener pick up the newly created/migrated profile.
+    // The onAuthStateChanged listener will automatically pick up the new user session
+    // and attempt to read the profile document we just created/migrated.
     return userCredential;
   };
 

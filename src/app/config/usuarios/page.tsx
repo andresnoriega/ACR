@@ -59,7 +59,7 @@ export default function ConfiguracionUsuariosPage() {
   const [userToDelete, setUserToDelete] = useState<UserConfigProfile | null>(null);
 
   const fetchInitialData = useCallback(async () => {
-    if (!loggedInUserProfile) return;
+    if (!loggedInUserProfile) return; // Guard clause to prevent running before profile is loaded.
     setIsLoading(true);
     try {
       const usersCollectionRef = collection(db, "users");
@@ -93,13 +93,17 @@ export default function ConfiguracionUsuariosPage() {
 
 
   useEffect(() => {
-    fetchInitialData();
-  }, [fetchInitialData]);
+    // This effect ensures fetchInitialData runs only when loggedInUserProfile is available.
+    if (loggedInUserProfile) {
+      fetchInitialData();
+    }
+  }, [fetchInitialData, loggedInUserProfile]);
 
   const availableRolesForDropdown = useMemo(() => {
     if (loggedInUserProfile?.role === 'Super User') {
       return ALL_USER_ROLES;
     }
+    // Admins cannot create or assign the Super User role.
     return ALL_USER_ROLES.filter(r => r !== 'Super User');
   }, [loggedInUserProfile]);
 
@@ -206,8 +210,10 @@ export default function ConfiguracionUsuariosPage() {
         emailNotifications: userEmailNotifications,
       };
       try {
+        // Here we add a user profile to Firestore. Registration in Firebase Auth is separate.
+        // A user might be created here first by an admin, then register later.
         await addDoc(collection(db, "users"), sanitizeForFirestore(newUserPayload));
-        toast({ title: "Perfil de Usuario Añadido", description: `El perfil para "${newUserPayload.name}" ha sido añadido a Firestore. Asegúrese de que el usuario exista o se registre en Firebase Authentication con el mismo correo.` });
+        toast({ title: "Perfil de Usuario Añadido", description: `El perfil para "${newUserPayload.name}" ha sido añadido a Firestore. El usuario deberá registrarse con este mismo correo para activar la cuenta.` });
         fetchInitialData(); 
       } catch (error) {
         console.error("Error adding user profile to Firestore: ", error);
