@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { SettingsIcon, Users, Globe, KeyRound, ShieldCheck, Loader2, Building } from 'lucide-react';
+import { SettingsIcon, Users, Globe, KeyRound, ShieldCheck, DollarSign, Building } from 'lucide-react';
 
 export default function ConfiguracionHubPage() {
   const router = useRouter();
@@ -94,6 +94,23 @@ export default function ConfiguracionHubPage() {
               <Link href="/config/permisos" passHref>
                 <Button className="w-full" size="lg">
                   Configurar Permisos
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+          
+          <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+            <CardHeader>
+              <div className="flex items-center gap-3 mb-2">
+                <DollarSign className="h-7 w-7 text-primary" />
+                <CardTitle className="text-2xl">Planes y Suscripción</CardTitle>
+              </div>
+              <CardDescription>Gestione su plan, facturación y detalles de suscripción.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/config/suscripciones" passHref>
+                <Button className="w-full" size="lg">
+                  Gestionar Suscripción
                 </Button>
               </Link>
             </CardContent>
