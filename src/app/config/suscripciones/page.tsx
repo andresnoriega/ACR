@@ -29,7 +29,7 @@ const plansData = {
     },
     {
       name: 'Profesional',
-      price: 'UF 1,5',
+      price: 'UF 0,9',
       priceSuffix: '/mes por usuario',
       userRange: '2-5 Usuarios',
       description: 'Para profesionales y equipos pequeños que necesitan más.',
@@ -44,7 +44,7 @@ const plansData = {
     },
     {
       name: 'Negocio',
-      price: 'UF 1,2',
+      price: 'UF 0,8',
       priceSuffix: '/mes por usuario',
       userRange: '6-20 Usuarios',
       description: 'La mejor opción para equipos en crecimiento y Pymes.',
@@ -79,7 +79,7 @@ const plansData = {
       price: '$90.000',
       priceSuffix: '/año',
       userRange: '1 Usuario',
-      description: 'Ahorra 2 meses con el plan anual.',
+      description: 'Ahorra con el plan anual.',
       features: [
         'Análisis Ilimitados',
         'Soporte estándar por email',
@@ -90,10 +90,10 @@ const plansData = {
     },
     {
       name: 'Profesional',
-      price: 'UF 15',
+      price: 'UF 9',
       priceSuffix: '/año por usuario',
       userRange: '2-5 Usuarios',
-      description: 'Ahorra 2 meses con el plan anual.',
+      description: 'Ahorra con el plan anual.',
       features: [
         'Análisis Ilimitados',
         'Roles y Permisos',
@@ -105,10 +105,10 @@ const plansData = {
     },
     {
       name: 'Negocio',
-      price: 'UF 12',
+      price: 'UF 8',
       priceSuffix: '/año por usuario',
       userRange: '6-20 Usuarios',
-      description: 'Ahorra 2 meses con el plan anual.',
+      description: 'Ahorra con el plan anual.',
       features: [
         'Todo lo de Profesional',
         'SSO y Seguridad Avanzada',
@@ -166,7 +166,7 @@ export default function SuscripcionesPage() {
           onCheckedChange={(checked) => setBillingCycle(checked ? 'annually' : 'monthly')}
         />
         <Label htmlFor="billing-cycle-switch" className={cn(billingCycle === 'annually' ? 'text-primary font-semibold' : 'text-muted-foreground')}>
-          Facturación Anual
+          Facturación Anual (Ahorra)
         </Label>
       </div>
       
