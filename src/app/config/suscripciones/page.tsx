@@ -6,74 +6,132 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Slider } from '@/components/ui/slider';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DollarSign, CheckCircle, Users, Building, Star } from 'lucide-react';
+import { DollarSign, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// --- Plan Data ---
+// --- Plan Data with Tiered Pricing ---
 
-const individualPlans = {
+const plansData = {
   monthly: [
     {
       name: 'Básico',
       price: '$0',
       priceSuffix: '/mes',
-      description: 'Ideal para probar y uso personal.',
-      features: ['1 Usuario', '5 Análisis/mes', 'Soporte por comunidad'],
-      isCurrent: false,
+      userRange: '1 Usuario',
+      description: 'Ideal para probar y uso personal limitado.',
+      features: [
+        '5 Análisis/mes',
+        'Soporte por comunidad',
+      ],
       isPopular: false,
       cta: 'Empezar Gratis',
     },
     {
       name: 'Profesional',
       price: '$29',
-      priceSuffix: '/mes',
-      description: 'Para equipos pequeños que necesitan más potencia.',
-      features: ['Hasta 5 Usuarios', 'Análisis Ilimitados', 'Roles y Permisos', 'Soporte prioritario'],
-      isCurrent: true, // Example current plan
+      priceSuffix: '/mes por usuario',
+      userRange: '1-5 Usuarios',
+      description: 'Para profesionales y equipos pequeños que necesitan más.',
+      features: [
+        'Análisis Ilimitados',
+        'Roles y Permisos',
+        'Soporte prioritario por email',
+        'Asistencia IA',
+      ],
       isPopular: true,
-      cta: 'Actualizar Plan',
+      cta: 'Elegir Plan Profesional',
+    },
+    {
+      name: 'Negocio',
+      price: '$22',
+      priceSuffix: '/mes por usuario',
+      userRange: '6-20 Usuarios',
+      description: 'La mejor opción para equipos en crecimiento y Pymes.',
+      features: [
+        'Todo lo de Profesional',
+        'SSO y Seguridad Avanzada',
+        'Onboarding asistido',
+        'Dashboard de Métricas Avanzado',
+      ],
+      isPopular: false,
+      cta: 'Elegir Plan Negocio',
+    },
+    {
+      name: 'Corporativo',
+      price: 'Custom',
+      priceSuffix: '',
+      userRange: '21+ Usuarios',
+      description: 'Solución a medida para grandes organizaciones.',
+      features: [
+        'Todo lo de Negocio',
+        'Soporte Dedicado (SLA)',
+        'Integraciones Personalizadas',
+        'Gestor de cuenta asignado',
+      ],
+      isPopular: false,
+      cta: 'Contactar a Ventas',
     },
   ],
   annually: [
-    {
+     {
       name: 'Básico',
       price: '$0',
       priceSuffix: '/año',
-      description: 'Ideal para probar y uso personal.',
-      features: ['1 Usuario', '5 Análisis/mes', 'Soporte por comunidad'],
-      isCurrent: false,
+      userRange: '1 Usuario',
+      description: 'Ideal para probar y uso personal limitado.',
+      features: [
+        '5 Análisis/mes',
+        'Soporte por comunidad',
+      ],
       isPopular: false,
       cta: 'Empezar Gratis',
     },
     {
       name: 'Profesional',
       price: '$290',
-      priceSuffix: '/año',
+      priceSuffix: '/año por usuario',
+      userRange: '1-5 Usuarios',
       description: 'Ahorra ~17% con el plan anual.',
-      features: ['Hasta 5 Usuarios', 'Análisis Ilimitados', 'Roles y Permisos', 'Soporte prioritario'],
-      isCurrent: true,
+      features: [
+        'Análisis Ilimitados',
+        'Roles y Permisos',
+        'Soporte prioritario por email',
+        'Asistencia IA',
+      ],
       isPopular: true,
-      cta: 'Actualizar Plan',
+      cta: 'Elegir Plan Profesional',
+    },
+    {
+      name: 'Negocio',
+      price: '$220',
+      priceSuffix: '/año por usuario',
+      userRange: '6-20 Usuarios',
+      description: 'Ahorra ~17% con el plan anual.',
+      features: [
+        'Todo lo de Profesional',
+        'SSO y Seguridad Avanzada',
+        'Onboarding asistido',
+        'Dashboard de Métricas Avanzado',
+      ],
+      isPopular: false,
+      cta: 'Elegir Plan Negocio',
+    },
+    {
+      name: 'Corporativo',
+      price: 'Custom',
+      priceSuffix: '',
+      userRange: '21+ Usuarios',
+      description: 'Solución a medida para grandes organizaciones.',
+      features: [
+        'Todo lo de Negocio',
+        'Soporte Dedicado (SLA)',
+        'Integraciones Personalizadas',
+        'Gestor de cuenta asignado',
+      ],
+      isPopular: false,
+      cta: 'Contactar a Ventas',
     },
   ],
-};
-
-const enterprisePlan = {
-  pricing: {
-    monthlyPerUser: 5,
-    annualPerUser: 50,
-  },
-  features: [
-    'Todo lo del plan Profesional',
-    'Usuarios escalables (5+)',
-    'Soporte Dedicado (SLA)',
-    'Onboarding Personalizado',
-    'SSO y Seguridad Avanzada',
-  ],
-  minUsers: 5,
-  maxUsers: 100,
 };
 
 
@@ -81,11 +139,6 @@ const enterprisePlan = {
 
 export default function SuscripcionesPage() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annually'>('monthly');
-  const [numberOfUsers, setNumberOfUsers] = useState(10);
-
-  const enterprisePrice = billingCycle === 'monthly'
-    ? numberOfUsers * enterprisePlan.pricing.monthlyPerUser
-    : numberOfUsers * enterprisePlan.pricing.annualPerUser;
 
   return (
     <div className="space-y-8 py-8">
@@ -97,7 +150,7 @@ export default function SuscripcionesPage() {
           Planes y Suscripción
         </h1>
         <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-          Encuentre el plan que mejor se adapte a sus necesidades.
+          Encuentre el plan que mejor se adapte al tamaño y necesidades de su equipo.
         </p>
       </header>
       
@@ -111,97 +164,48 @@ export default function SuscripcionesPage() {
           onCheckedChange={(checked) => setBillingCycle(checked ? 'annually' : 'monthly')}
         />
         <Label htmlFor="billing-cycle-switch" className={cn(billingCycle === 'annually' ? 'text-primary font-semibold' : 'text-muted-foreground')}>
-          Facturación Anual (Ahorra ~17%)
+          Facturación Anual
         </Label>
       </div>
       
-      <Tabs defaultValue="empresa" className="w-full max-w-5xl mx-auto">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="empresa" className="flex items-center gap-2"><Building className="h-4 w-4" /> Para Empresas</TabsTrigger>
-          <TabsTrigger value="individual" className="flex items-center gap-2"><Users className="h-4 w-4" /> Para Individuos y Equipos Pequeños</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="empresa" className="mt-6">
-          <Card className="shadow-lg border-primary ring-2 ring-primary/50">
-            <CardHeader className="text-center">
-              <CardTitle className="text-2xl">Plan Empresarial</CardTitle>
-              <CardDescription>La solución completa y escalable para su organización.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="px-4">
-                <div className="flex justify-between items-center mb-2">
-                    <Label htmlFor="user-slider" className="flex items-center gap-2"><Users className="h-5 w-5" /> Número de Usuarios:</Label>
-                    <span className="text-lg font-bold">{numberOfUsers}</span>
-                </div>
-                <Slider
-                  id="user-slider"
-                  value={[numberOfUsers]}
-                  onValueChange={(value) => setNumberOfUsers(value[0])}
-                  min={enterprisePlan.minUsers}
-                  max={enterprisePlan.maxUsers}
-                  step={1}
-                />
-              </div>
-              
-              <div className="text-center mt-4">
-                <p className="text-5xl font-bold">${enterprisePrice}</p>
-                <p className="text-muted-foreground">{billingCycle === 'monthly' ? '/mes' : '/año'}</p>
-              </div>
-
-              <ul className="space-y-2 text-sm text-muted-foreground grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 pt-4">
-                {enterprisePlan.features.map((feature, featureIndex) => (
-                  <li key={featureIndex} className="flex items-center">
-                    <Star className="h-4 w-4 mr-2 text-yellow-500 flex-shrink-0" />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-            <CardFooter>
-              <Button size="lg" className="w-full">
-                Contactar a Ventas
-              </Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="individual" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {individualPlans[billingCycle].map((plan, index) => (
+       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
+            {plansData[billingCycle].map((plan, index) => (
               <Card key={index} className={cn(
                 "shadow-md flex flex-col",
                 plan.isPopular && "border-primary ring-2 ring-primary"
               )}>
                 <CardHeader>
-                  <CardTitle>{plan.name}</CardTitle>
+                  <div className="flex justify-between items-center">
+                    <CardTitle>{plan.name}</CardTitle>
+                    {plan.isPopular && <span className="text-xs font-semibold bg-accent text-accent-foreground px-2 py-0.5 rounded-full">Más Popular</span>}
+                  </div>
+                  <p className="text-sm font-semibold text-primary">{plan.userRange}</p>
                   <CardDescription>{plan.description}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4 flex-grow">
                   <div className="text-left">
                     <span className="text-4xl font-bold">{plan.price}</span>
-                    {plan.priceSuffix && <span className="text-muted-foreground">{plan.priceSuffix}</span>}
+                    {plan.priceSuffix && <span className="text-muted-foreground"> {plan.priceSuffix}</span>}
                   </div>
                   <ul className="space-y-2 text-sm text-muted-foreground">
                     {plan.features.map((feature, featureIndex) => (
-                      <li key={featureIndex} className="flex items-center">
-                        <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
-                        {feature}
+                      <li key={featureIndex} className="flex items-start">
+                        <CheckCircle className="h-4 w-4 mr-2 text-green-500 flex-shrink-0 mt-0.5" />
+                        <span>{feature}</span>
                       </li>
                     ))}
                   </ul>
                 </CardContent>
                 <CardFooter>
-                  <Button variant={plan.isCurrent ? 'outline' : 'default'} className="w-full" disabled={plan.isCurrent}>
-                    {plan.isCurrent ? 'Plan Actual' : plan.cta}
+                  <Button variant={plan.isPopular ? 'default' : 'outline'} className="w-full">
+                    {plan.cta}
                   </Button>
                 </CardFooter>
               </Card>
             ))}
-          </div>
-        </TabsContent>
-      </Tabs>
+        </div>
       
-       <Card className="max-w-5xl mx-auto bg-secondary/30 mt-12">
+       <Card className="max-w-7xl mx-auto bg-secondary/30 mt-12">
           <CardContent className="pt-6">
             <h3 className="text-lg font-semibold text-primary mb-2">Gestión de Suscripción</h3>
             <p className="text-sm text-foreground">
