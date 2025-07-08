@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { db, storage } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, updateDoc, where, type QueryConstraint, arrayUnion } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, updateDoc, where, type QueryConstraint, arrayUnion, arrayRemove } from "firebase/firestore";
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { Loader2 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -1117,15 +1117,20 @@ function RCAAnalysisPageComponent() {
     }
   
     setIsSaving(true);
-    toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
-    
-    let currentEventId = analysisDocumentId;
-    if (!currentEventId) {
-      currentEventId = ensureEventId();
-      setAnalysisDocumentId(currentEventId);
-    }
-  
     try {
+      toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
+      
+      let currentEventId = analysisDocumentId;
+      if (!currentEventId) {
+        const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
+        if (!saveResult.success || !saveResult.newEventId) {
+          toast({ title: "Error Crítico", description: "No se pudo crear el documento de análisis antes de subir el archivo. Intente guardar el Paso 1 primero.", variant: "destructive" });
+          setIsSaving(false);
+          return;
+        }
+        currentEventId = saveResult.newEventId;
+      }
+    
       const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
       const fileStorageRef = storageRef(storage, filePath);
   
@@ -1143,17 +1148,12 @@ function RCAAnalysisPageComponent() {
       };
       
       const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
-      const docSnap = await getDoc(rcaDocRef);
-      
-      const existingFacts = docSnap.exists() ? docSnap.data().preservedFacts || [] : [];
-      const updatedFacts = [...existingFacts, newFact];
-      
-      await setDoc(rcaDocRef, {
-        preservedFacts: sanitizeForFirestore(updatedFacts),
+      await updateDoc(rcaDocRef, {
+        preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
         updatedAt: new Date().toISOString()
-      }, { merge: true });
+      });
   
-      setPreservedFacts(updatedFacts);
+      setPreservedFacts(prev => [...prev, newFact]);
       toast({ title: "Hecho Preservado Añadido", description: `Se añadió y subió "${newFact.userGivenName}".` });
   
     } catch (error: any) {
@@ -1163,36 +1163,49 @@ function RCAAnalysisPageComponent() {
       setIsSaving(false);
     }
   };
-
+  
   const handleRemovePreservedFact = async (id: string) => {
     const factToRemove = preservedFacts.find(fact => fact.id === id);
     if (!factToRemove || !analysisDocumentId) return;
-
+  
     setIsSaving(true);
     try {
       if (factToRemove.storagePath) {
         const fileRef = storageRef(storage, factToRemove.storagePath);
         await deleteObject(fileRef);
-        toast({ title: "Archivo Eliminado de Storage", variant: "default" });
       }
     } catch (error: any) {
       if (error.code !== 'storage/object-not-found') {
         console.error("Error deleting file from Storage:", error);
-        toast({ title: "Error al Eliminar Archivo", description: "No se pudo eliminar el archivo de Storage, pero se eliminará la referencia.", variant: "destructive" });
-        setIsSaving(false);
-        return;
+        toast({ title: "Error al Eliminar Archivo", description: "No se pudo eliminar el archivo de Storage, pero se intentará eliminar la referencia.", variant: "destructive" });
       }
     }
     
-    const updatedFacts = preservedFacts.filter(fact => fact.id !== id);
-    const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
     try {
+      const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
+      // Create a temporary object with only the necessary fields for Firestore to find and remove it.
+      // Firestore needs an exact match to remove an element from an array.
+      const factObjectToRemoveForFirestore = {
+        id: factToRemove.id,
+        eventId: factToRemove.eventId,
+        userGivenName: factToRemove.userGivenName,
+        fileName: factToRemove.fileName,
+        fileType: factToRemove.fileType,
+        fileSize: factToRemove.fileSize,
+        category: factToRemove.category,
+        description: factToRemove.description,
+        uploadDate: factToRemove.uploadDate,
+        downloadURL: factToRemove.downloadURL,
+        storagePath: factToRemove.storagePath,
+      };
+
       await updateDoc(rcaDocRef, {
-        preservedFacts: sanitizeForFirestore(updatedFacts),
+        preservedFacts: arrayRemove(sanitizeForFirestore(factObjectToRemoveForFirestore)),
         updatedAt: new Date().toISOString()
       });
-      setPreservedFacts(updatedFacts);
-      toast({ title: "Hecho Preservado Eliminado", description: "Referencia eliminada de la base de datos.", variant: 'destructive' });
+  
+      setPreservedFacts(prev => prev.filter(fact => fact.id !== id));
+      toast({ title: "Hecho Preservado Eliminado", description: "La referencia y el archivo han sido eliminados.", variant: 'destructive' });
     } catch (error) {
        console.error("Error updating document after fact removal:", error);
        toast({ title: "Error de Sincronización", description: "No se pudo actualizar el documento. Recargue la página.", variant: 'destructive' });

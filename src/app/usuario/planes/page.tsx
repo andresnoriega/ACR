@@ -358,18 +358,12 @@ export default function UserActionPlansPage() {
     rcaDocId: string,
     updatedActions: FirestorePlannedAction[]
   ): Promise<boolean> => {
-    try {
-      const rcaDocRef = doc(db, "rcaAnalyses", rcaDocId);
-      await updateDoc(rcaDocRef, {
-        plannedActions: sanitizeForFirestore(updatedActions),
-        updatedAt: new Date().toISOString()
-      });
-      return true;
-    } catch (error) {
-      console.error("Error updating action in Firestore: ", error);
-      toast({ title: "Error al Actualizar", description: `No se pudo actualizar la acción en la base de datos. Error: ${(error as Error).message}`, variant: "destructive" });
-      return false;
-    }
+    const rcaDocRef = doc(db, "rcaAnalyses", rcaDocId);
+    await updateDoc(rcaDocRef, {
+      plannedActions: sanitizeForFirestore(updatedActions),
+      updatedAt: new Date().toISOString()
+    });
+    return true;
   };
 
   const handleRemoveEvidence = async (evidenceToRemove: FirestoreEvidence) => {
@@ -377,87 +371,71 @@ export default function UserActionPlansPage() {
     setIsUpdatingAction(true);
 
     try {
-        // Delete file from Storage
-        if (evidenceToRemove.storagePath) {
-            const fileRef = storageRef(storage, evidenceToRemove.storagePath);
-            await deleteObject(fileRef);
+      if (evidenceToRemove.storagePath) {
+        const fileRef = storageRef(storage, evidenceToRemove.storagePath);
+        await deleteObject(fileRef);
+      }
+
+      const rcaDocRef = doc(db, 'rcaAnalyses', selectedPlan._originalRcaDocId);
+      const docSnap = await getDoc(rcaDocRef);
+      if (!docSnap.exists()) throw new Error("Documento no encontrado para eliminar evidencia.");
+
+      const currentRcaDoc = docSnap.data() as RCAAnalysisDocument;
+      const updatedPlannedActions = currentRcaDoc.plannedActions.map(action => {
+        if (action.id === selectedPlan._originalActionId) {
+          const updatedEvidences = action.evidencias?.filter(ev => ev.id !== evidenceToRemove.id) || [];
+          return { ...action, evidencias: updatedEvidences };
         }
+        return action;
+      });
 
-        // Fetch the latest document to avoid race conditions
-        const rcaDocRef = doc(db, 'rcaAnalyses', selectedPlan._originalRcaDocId);
-        const docSnap = await getDoc(rcaDocRef);
-        if (!docSnap.exists()) throw new Error("Documento no encontrado");
-
-        const currentRcaDoc = docSnap.data() as RCAAnalysisDocument;
-        const updatedPlannedActions = currentRcaDoc.plannedActions.map(action => {
-            if (action.id === selectedPlan._originalActionId) {
-                const updatedEvidences = action.evidencias?.filter(ev => ev.id !== evidenceToRemove.id) || [];
-                const hasComments = action.userComments && action.userComments.trim() !== '';
-                // If no evidences and no comments left, unmark as ready
-                const markedAsReadyAt = (updatedEvidences.length === 0 && !hasComments) ? '' : action.markedAsReadyAt;
-                return { ...action, evidencias: updatedEvidences, markedAsReadyAt };
-            }
-            return action;
-        });
-
-        const success = await updateActionInFirestore(selectedPlan._originalRcaDocId, updatedPlannedActions);
-
-        if (success) {
-            toast({ title: "Evidencia Eliminada", variant: 'destructive' });
-            await fetchRcaDocuments(); // Refetch all data to update UI
-        }
+      await updateActionInFirestore(selectedPlan._originalRcaDocId, updatedPlannedActions);
+      toast({ title: "Evidencia Eliminada", variant: 'destructive' });
+      await fetchRcaDocuments();
     } catch (error) {
-        console.error("Error removing evidence:", error);
-        toast({ title: "Error", description: "No se pudo eliminar la evidencia.", variant: "destructive" });
+      console.error("Error removing evidence:", error);
+      toast({ title: "Error", description: `No se pudo eliminar la evidencia: ${(error as Error).message}`, variant: "destructive" });
     } finally {
-        setIsUpdatingAction(false);
+      setIsUpdatingAction(false);
     }
   };
   
   const handleSignalTaskReadyForValidation = async () => {
     if (!selectedPlan || !userProfile) return;
-  
     setIsUpdatingAction(true);
-  
+    
     try {
-      let downloadURL: string | null = null;
-      let storagePath: string | null = null;
+      const rcaDocRef = doc(db, 'rcaAnalyses', selectedPlan._originalRcaDocId);
+      const docSnap = await getDoc(rcaDocRef);
+      if (!docSnap.exists()) {
+        throw new Error("El documento de análisis no se encontró. No se puede proceder.");
+      }
+
       let newEvidencePayload: FirestoreEvidence | null = null;
-  
       if (fileToUpload) {
         toast({ title: "Subiendo archivo...", description: `Subiendo ${fileToUpload.name}.` });
         const filePath = `rca_evidences/${selectedPlan._originalRcaDocId}/${Date.now()}-${fileToUpload.name}`;
         const fileStorageRef = storageRef(storage, filePath);
         const uploadResult = await uploadBytes(fileStorageRef, fileToUpload);
-        downloadURL = await getDownloadURL(uploadResult.ref);
-        storagePath = uploadResult.ref.fullPath;
+        const downloadURL = await getDownloadURL(uploadResult.ref);
         newEvidencePayload = {
           id: `ev-${Date.now()}`,
           nombre: fileToUpload.name,
           tipo: (fileToUpload.type.split('/')[1] as FirestoreEvidence['tipo']) || 'other',
           comment: evidenceComment.trim() || undefined,
           downloadURL,
-          storagePath,
+          storagePath: uploadResult.ref.fullPath,
         };
       }
-  
-      // Fetch the latest document before making changes
-      const rcaDocRef = doc(db, 'rcaAnalyses', selectedPlan._originalRcaDocId);
-      const docSnap = await getDoc(rcaDocRef);
-      if (!docSnap.exists()) throw new Error("Documento no encontrado");
-  
+
       const currentRcaDoc = docSnap.data() as RCAAnalysisDocument;
       let actionToNotify: FirestorePlannedAction | undefined;
-  
+
       const updatedPlannedActions = currentRcaDoc.plannedActions.map(action => {
         if (action.id === selectedPlan._originalActionId) {
           const currentDateISO = new Date().toISOString();
           const formattedCurrentDate = format(parseISO(currentDateISO), 'dd/MM/yyyy HH:mm', { locale: es });
-  
-          // Add new evidence if it exists
           const updatedEvidences = newEvidencePayload ? [...(action.evidencias || []), newEvidencePayload] : action.evidencias;
-  
-          // Append system message to comments
           const newComment = (action.userComments?.trim() ? action.userComments.trim() + "\n\n" : "") + `[Sistema] Tarea marcada como lista para validación por ${userProfile.name} el ${formattedCurrentDate}.`;
           
           actionToNotify = {
@@ -470,36 +448,32 @@ export default function UserActionPlansPage() {
         }
         return action;
       });
-  
-      const updateSuccess = await updateActionInFirestore(selectedPlan._originalRcaDocId, updatedPlannedActions);
-  
-      if (updateSuccess) {
-        toast({ title: "Tarea Lista para Validación" });
-        await fetchRcaDocuments(); // Refetch all data to ensure UI is up to date
-        
-        // Clear form after successful upload
-        if (fileToUpload) {
-            setEvidenceComment('');
-            setFileToUpload(null);
-            const fileInput = document.getElementById('evidence-file-input') as HTMLInputElement;
-            if (fileInput) fileInput.value = '';
-        }
-  
-        // Send email notification
-        if (actionToNotify) {
-          const validatorProfile = availableUsers.find(u => u.name === selectedPlan.validatorName);
-          if (validatorProfile?.email) {
-            const emailSubject = `Acción Lista para Validación: ${selectedPlan.accionResumen} (ACR: ${selectedPlan.codigoRCA})`;
-            const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-            const validationLink = `${baseUrl}/analisis?id=${selectedPlan._originalRcaDocId}&step=4`;
-            const emailBody = `Estimado/a ${validatorProfile.name},\n\nEl usuario ${userProfile.name} ha marcado la siguiente acción como lista para su validación:\n\nEvento ACR: ${selectedPlan.tituloDetalle}\nAcción: ${actionToNotify.description}\n\nPor favor, acceda al sistema para validar esta acción. Puede ir directamente usando el siguiente enlace:\n${validationLink}\n\nSaludos,\nSistema Asistente ACR`;
-            sendEmailAction({ to: validatorProfile.email, subject: emailSubject, body: emailBody });
-          }
+
+      await updateActionInFirestore(selectedPlan._originalRcaDocId, updatedPlannedActions);
+      
+      toast({ title: "Tarea Lista para Validación" });
+      await fetchRcaDocuments();
+      
+      if (fileToUpload) {
+          setEvidenceComment('');
+          setFileToUpload(null);
+          const fileInput = document.getElementById('evidence-file-input') as HTMLInputElement;
+          if (fileInput) fileInput.value = '';
+      }
+
+      if (actionToNotify) {
+        const validatorProfile = availableUsers.find(u => u.name === selectedPlan.validatorName);
+        if (validatorProfile?.email) {
+          const emailSubject = `Acción Lista para Validación: ${selectedPlan.accionResumen} (ACR: ${selectedPlan.codigoRCA})`;
+          const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+          const validationLink = `${baseUrl}/analisis?id=${selectedPlan._originalRcaDocId}&step=4`;
+          const emailBody = `Estimado/a ${validatorProfile.name},\n\nEl usuario ${userProfile.name} ha marcado la siguiente acción como lista para su validación:\n\nEvento ACR: ${selectedPlan.tituloDetalle}\nAcción: ${actionToNotify.description}\n\nPor favor, acceda al sistema para validar esta acción. Puede ir directamente usando el siguiente enlace:\n${validationLink}\n\nSaludos,\nSistema Asistente ACR`;
+          sendEmailAction({ to: validatorProfile.email, subject: emailSubject, body: emailBody });
         }
       }
     } catch (error) {
       console.error("Error in handleSignalTaskReadyForValidation:", error);
-      toast({ title: "Error Inesperado", description: "Ocurrió un error al procesar la tarea.", variant: "destructive" });
+      toast({ title: "Error Inesperado", description: `Ocurrió un error al procesar la tarea: ${(error as Error).message}`, variant: "destructive" });
     } finally {
       setIsUpdatingAction(false);
     }

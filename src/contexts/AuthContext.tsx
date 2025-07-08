@@ -172,8 +172,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
   
   const updateUserProfilePictureFunc = async (file: File): Promise<string> => {
-    if (!currentUser || !userProfile) {
-      throw new Error("No hay un usuario autenticado o perfil para actualizar.");
+    if (!currentUser) {
+      throw new Error("No hay un usuario autenticado para actualizar.");
     }
   
     const fileExtension = file.name.split('.').pop() || 'jpg';
