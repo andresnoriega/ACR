@@ -171,10 +171,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setCurrentUser({ ...currentUser, ...updates } as FirebaseUser);
   };
   
-  const updateUserProfilePictureFunc = async (file: File) => {
-    if (!currentUser || !userProfile) throw new Error("No hay un usuario autenticado o un perfil de usuario para actualizar.");
-
-    const filePath = `profile-pictures/${currentUser.uid}/${file.name}`;
+  const updateUserProfilePictureFunc = async (file: File): Promise<string> => {
+    if (!currentUser || !userProfile) {
+      throw new Error("No hay un usuario autenticado o un perfil de usuario para actualizar.");
+    }
+  
+    // Use a consistent file name like 'avatar' to prevent accumulating old files, preserving the original extension.
+    const fileExtension = file.name.split('.').pop() || 'jpg';
+    const fileName = `avatar.${fileExtension}`;
+    const filePath = `profile-pictures/${currentUser.uid}/${fileName}`;
     const fileRef = storageRef(storage, filePath);
     
     const uploadMetadata = {
@@ -187,14 +192,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await uploadBytes(fileRef, file, uploadMetadata);
     const photoURL = await getDownloadURL(fileRef);
 
-    await updateProfile(currentUser, { photoURL });
-
+    // This is the cache-busting fix. It adds a unique timestamp to the URL.
+    const finalUrl = `${photoURL}&t=${new Date().getTime()}`;
+  
+    // Update the profile in Firebase Authentication
+    await updateProfile(currentUser, { photoURL: finalUrl });
+  
+    // Update the profile in the Firestore database
     const userDocRef = doc(db, 'users', currentUser.uid);
-    await updateDoc(userDocRef, { photoURL });
-
-    setUserProfile(prev => prev ? { ...prev, photoURL: photoURL } : null);
-
-    return photoURL;
+    await updateDoc(userDocRef, { photoURL: finalUrl });
+  
+    // Update the local state to trigger a re-render in the UI
+    setUserProfile(prev => prev ? { ...prev, photoURL: finalUrl } : null);
+  
+    return finalUrl;
   };
 
 
