@@ -1,4 +1,3 @@
-
 'use client';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -6,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Home, BarChart3, FileText, SettingsIcon, Zap, UserCheck, ListOrdered, Loader2, AlertTriangle } from 'lucide-react';
+import { Home, BarChart3, FileText, SettingsIcon, Zap, UserCheck, ListOrdered, Loader2, AlertTriangle, UserCircle } from 'lucide-react';
 
 export default function InicioPage() {
   const router = useRouter();
@@ -136,7 +135,7 @@ export default function InicioPage() {
           <CardHeader>
             <div className="flex items-center gap-3 mb-2">
               <UserCheck className="h-7 w-7 text-primary" />
-              <CardTitle className="text-2xl">Menú de Usuario</CardTitle>
+              <CardTitle className="text-2xl">Mis Tareas</CardTitle>
             </div>
             <CardDescription>Gestione sus planes de acción y tareas asignadas.</CardDescription>
           </CardHeader>
@@ -144,6 +143,23 @@ export default function InicioPage() {
             <Link href="/usuario/planes" passHref>
               <Button className="w-full" size="lg">
                 Ir a Mis Tareas
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <CardHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <UserCircle className="h-7 w-7 text-primary" />
+              <CardTitle className="text-2xl">Mi Perfil</CardTitle>
+            </div>
+            <CardDescription>Gestiona tu información personal y de seguridad.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/usuario/perfil" passHref>
+              <Button className="w-full" size="lg">
+                Ir a Mi Perfil
               </Button>
             </Link>
           </CardContent>
