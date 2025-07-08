@@ -168,12 +168,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await updateDoc(userDocRef, { name: data.name });
 
     setUserProfile(prev => prev ? { ...prev, name: data.name ?? prev.name } : null);
-    setCurrentUser({ ...currentUser, ...updates } as FirebaseUser);
+    setCurrentUser(JSON.parse(JSON.stringify(auth.currentUser)));
   };
   
   const updateUserProfilePictureFunc = async (file: File): Promise<string> => {
-    if (!currentUser || !userProfile) {
-      throw new Error("No hay un usuario autenticado o un perfil de usuario para actualizar.");
+    if (!currentUser) {
+      throw new Error("No hay un usuario autenticado para actualizar.");
     }
   
     const fileExtension = file.name.split('.').pop() || 'jpg';
@@ -181,14 +181,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const filePath = `profile-pictures/${currentUser.uid}/${fileName}`;
     const fileRef = storageRef(storage, filePath);
     
-    // Add metadata, making it IDENTICAL to how evidences are uploaded for rule consistency.
-    const uploadMetadata = {
-      customMetadata: {
-        userId: userProfile.id, // Using userProfile.id for consistency with working uploads
-      }
-    };
-    
-    await uploadBytes(fileRef, file, uploadMetadata);
+    await uploadBytes(fileRef, file);
     const photoURL = await getDownloadURL(fileRef);
   
     await updateProfile(currentUser, { photoURL });

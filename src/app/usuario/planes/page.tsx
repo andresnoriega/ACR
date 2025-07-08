@@ -438,8 +438,24 @@ export default function UserActionPlansPage() {
     
     setIsUpdatingAction(true);
     const rcaDoc = allRcaDocuments.find(d => d.eventData.id === selectedPlan._originalRcaDocId);
-    if (!rcaDoc || !rcaDoc.empresa) {
-        toast({ title: "Error", description: "No se pudo encontrar el documento de análisis o la empresa asociada.", variant: "destructive"});
+
+    if (!rcaDoc) {
+      toast({ title: "Error", description: "No se encontró el documento de análisis asociado a esta tarea.", variant: "destructive"});
+      setIsUpdatingAction(false);
+      return;
+    }
+
+    let rcaEmpresa = rcaDoc.empresa || rcaDoc.eventData.empresa;
+    if (!rcaEmpresa) {
+        const siteInfo = availableUsers.find(s => s.name === rcaDoc.eventData.place);
+        rcaEmpresa = siteInfo?.empresa;
+    }
+     if (!rcaEmpresa && userProfile.empresa) {
+        rcaEmpresa = userProfile.empresa;
+    }
+
+    if (!rcaEmpresa) {
+        toast({ title: "Error de Configuración", description: "No se pudo determinar la empresa para este evento. Verifique la configuración del sitio o del perfil de usuario.", variant: "destructive"});
         setIsUpdatingAction(false);
         return;
     }
@@ -452,7 +468,7 @@ export default function UserActionPlansPage() {
             toast({ title: "Subiendo archivo...", description: `Subiendo ${fileToUpload.name}.`});
             const filePath = `rca_evidences/${selectedPlan._originalRcaDocId}/${Date.now()}-${fileToUpload.name}`;
             const fileStorageRef = storageRef(storage, filePath);
-            const uploadMetadata = { customMetadata: { eventId: selectedPlan._originalRcaDocId, userId: userProfile.id, empresa: rcaDoc.empresa }};
+            const uploadMetadata = { customMetadata: { eventId: selectedPlan._originalRcaDocId, userId: userProfile.id, empresa: rcaEmpresa }};
             const uploadResult = await uploadBytes(fileStorageRef, fileToUpload, uploadMetadata);
             downloadURL = await getDownloadURL(uploadResult.ref);
             storagePath = uploadResult.ref.fullPath;
