@@ -2,7 +2,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { auth, db, storage, type FirebaseUser } from '@/lib/firebase';
+import { auth, db, type FirebaseUser } from '@/lib/firebase';
 import { 
   onAuthStateChanged, 
   createUserWithEmailAndPassword, 
@@ -16,7 +16,6 @@ import {
   deleteUser,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, collection, query, where, getDocs, limit, deleteDoc, updateDoc } from 'firebase/firestore';
-import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import type { FullUserProfile } from '@/types/rca';
 import { sanitizeForFirestore } from '@/lib/utils';
 import { sendEmailAction } from '@/app/actions';
@@ -176,14 +175,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       throw new Error("No hay un usuario autenticado para actualizar.");
     }
   
-    const fileExtension = file.name.split('.').pop() || 'jpg';
-    const fileName = `avatar-${Date.now()}.${fileExtension}`;
-    const filePath = `profile-pictures/${currentUser.uid}/${fileName}`;
-    const fileRef = storageRef(storage, filePath);
-    
-    // Upload the file
-    await uploadBytes(fileRef, file);
-    const photoURL = await getDownloadURL(fileRef);
+    // Convert file to Data URL
+    const dataUrlPromise = new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+      reader.readAsDataURL(file);
+    });
+
+    const photoURL = await dataUrlPromise;
   
     // Update the Firebase Auth profile
     await updateProfile(currentUser, { photoURL });
@@ -194,6 +194,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   
     // Update the local state to reflect the change immediately
     setUserProfile(prev => prev ? { ...prev, photoURL } : null);
+    setCurrentUser(auth.currentUser); // Refresh currentUser to get latest profile
   
     return photoURL;
   };
