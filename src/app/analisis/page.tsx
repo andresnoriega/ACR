@@ -1118,19 +1118,18 @@ function RCAAnalysisPageComponent() {
   
     setIsSaving(true);
     try {
-      toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
-      
       let currentEventId = analysisDocumentId;
+      // Force save if it's a new analysis to ensure the document exists
       if (!currentEventId) {
         const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
         if (!saveResult.success || !saveResult.newEventId) {
-          toast({ title: "Error Crítico", description: "No se pudo crear el documento de análisis antes de subir el archivo. Intente guardar el Paso 1 primero.", variant: "destructive" });
-          setIsSaving(false);
-          return;
+          throw new Error("No se pudo crear el documento de análisis antes de subir el archivo.");
         }
         currentEventId = saveResult.newEventId;
       }
-    
+  
+      toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
+      
       const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
       const fileStorageRef = storageRef(storage, filePath);
   
@@ -1147,18 +1146,20 @@ function RCAAnalysisPageComponent() {
         storagePath: uploadResult.ref.fullPath,
       };
       
+      // Atomically add the new fact to the array in Firestore
       const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
       await updateDoc(rcaDocRef, {
         preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
         updatedAt: new Date().toISOString()
       });
   
+      // Update local state after successful database update
       setPreservedFacts(prev => [...prev, newFact]);
       toast({ title: "Hecho Preservado Añadido", description: `Se añadió y subió "${newFact.userGivenName}".` });
   
     } catch (error: any) {
       console.error("Error detallado al subir hecho preservado:", error);
-      toast({ title: "Error al Subir", description: `No se pudo subir el archivo. Verifique la consola. Código: ${error.code || 'Desconocido'}`, variant: "destructive" });
+      toast({ title: "Error al Subir", description: `No se pudo subir el archivo. Error: ${error.message}`, variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -1170,40 +1171,27 @@ function RCAAnalysisPageComponent() {
   
     setIsSaving(true);
     try {
+      // First, try to delete the file from Storage
       if (factToRemove.storagePath) {
         const fileRef = storageRef(storage, factToRemove.storagePath);
         await deleteObject(fileRef);
       }
     } catch (error: any) {
       if (error.code !== 'storage/object-not-found') {
-        console.error("Error deleting file from Storage:", error);
+        console.error("Error deleting file from Storage, proceeding to remove DB reference:", error);
         toast({ title: "Error al Eliminar Archivo", description: "No se pudo eliminar el archivo de Storage, pero se intentará eliminar la referencia.", variant: "destructive" });
       }
     }
     
     try {
+      // Atomically remove the fact object from the array in Firestore
       const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
-      // Create a temporary object with only the necessary fields for Firestore to find and remove it.
-      // Firestore needs an exact match to remove an element from an array.
-      const factObjectToRemoveForFirestore = {
-        id: factToRemove.id,
-        eventId: factToRemove.eventId,
-        userGivenName: factToRemove.userGivenName,
-        fileName: factToRemove.fileName,
-        fileType: factToRemove.fileType,
-        fileSize: factToRemove.fileSize,
-        category: factToRemove.category,
-        description: factToRemove.description,
-        uploadDate: factToRemove.uploadDate,
-        downloadURL: factToRemove.downloadURL,
-        storagePath: factToRemove.storagePath,
-      };
-
       await updateDoc(rcaDocRef, {
-        preservedFacts: arrayRemove(sanitizeForFirestore(factObjectToRemoveForFirestore)),
+        preservedFacts: arrayRemove(sanitizeForFirestore(factToRemove)),
         updatedAt: new Date().toISOString()
       });
   
+      // Update local state after successful database update
       setPreservedFacts(prev => prev.filter(fact => fact.id !== id));
       toast({ title: "Hecho Preservado Eliminado", description: "La referencia y el archivo han sido eliminados.", variant: 'destructive' });
     } catch (error) {
