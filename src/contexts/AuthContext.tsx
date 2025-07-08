@@ -181,14 +181,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const filePath = `profile-pictures/${currentUser.uid}/${fileName}`;
     const fileRef = storageRef(storage, filePath);
     
+    // Upload the file
     await uploadBytes(fileRef, file);
     const photoURL = await getDownloadURL(fileRef);
   
+    // Update the Firebase Auth profile
     await updateProfile(currentUser, { photoURL });
   
+    // Update the Firestore user document
     const userDocRef = doc(db, 'users', currentUser.uid);
     await setDoc(userDocRef, { photoURL }, { merge: true });
   
+    // Update the local state to reflect the change immediately
     setUserProfile(prev => prev ? { ...prev, photoURL } : null);
   
     return photoURL;

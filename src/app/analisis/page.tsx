@@ -1107,15 +1107,6 @@ function RCAAnalysisPageComponent() {
     factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>,
     file: File | null
   ) => {
-    let currentEventId = analysisDocumentId;
-    if (!currentEventId) {
-      currentEventId = ensureEventId();
-      setAnalysisDocumentId(currentEventId);
-    }
-    if (!currentEventId) {
-      toast({ title: "Error", description: "ID de evento no encontrado para asociar el hecho preservado.", variant: "destructive" });
-      return;
-    }
     if (!file) {
       toast({ title: "Error", description: "No se seleccionó ningún archivo.", variant: "destructive" });
       return;
@@ -1124,14 +1115,20 @@ function RCAAnalysisPageComponent() {
       toast({ title: "Error de autenticación", description: "No se pudo obtener el perfil del usuario.", variant: "destructive" });
       return;
     }
-    
+  
     setIsSaving(true);
     toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
     
+    let currentEventId = analysisDocumentId;
+    if (!currentEventId) {
+      currentEventId = ensureEventId();
+      setAnalysisDocumentId(currentEventId);
+    }
+  
     try {
       const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
       const fileStorageRef = storageRef(storage, filePath);
-      
+  
       const uploadResult = await uploadBytes(fileStorageRef, file);
       const downloadURL = await getDownloadURL(uploadResult.ref);
   
@@ -1146,14 +1143,19 @@ function RCAAnalysisPageComponent() {
       };
       
       const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
+      const docSnap = await getDoc(rcaDocRef);
+      
+      const existingFacts = docSnap.exists() ? docSnap.data().preservedFacts || [] : [];
+      const updatedFacts = [...existingFacts, newFact];
+      
       await setDoc(rcaDocRef, {
-        preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
+        preservedFacts: sanitizeForFirestore(updatedFacts),
         updatedAt: new Date().toISOString()
       }, { merge: true });
-
-      setPreservedFacts(prev => [...prev, newFact]);
+  
+      setPreservedFacts(updatedFacts);
       toast({ title: "Hecho Preservado Añadido", description: `Se añadió y subió "${newFact.userGivenName}".` });
-
+  
     } catch (error: any) {
       console.error("Error detallado al subir hecho preservado:", error);
       toast({ title: "Error al Subir", description: `No se pudo subir el archivo. Verifique la consola. Código: ${error.code || 'Desconocido'}`, variant: "destructive" });
