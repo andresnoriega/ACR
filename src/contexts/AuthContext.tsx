@@ -172,12 +172,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
   
   const updateUserProfilePictureFunc = async (file: File) => {
-    if (!currentUser) throw new Error("No hay un usuario autenticado para actualizar.");
+    if (!currentUser || !userProfile) throw new Error("No hay un usuario autenticado o un perfil de usuario para actualizar.");
 
     const filePath = `profile-pictures/${currentUser.uid}/${file.name}`;
     const fileRef = storageRef(storage, filePath);
     
-    await uploadBytes(fileRef, file);
+    const uploadMetadata = {
+      customMetadata: {
+        userId: currentUser.uid,
+        empresa: userProfile.empresa || 'sin-empresa'
+      }
+    };
+    
+    await uploadBytes(fileRef, file, uploadMetadata);
     const photoURL = await getDownloadURL(fileRef);
 
     await updateProfile(currentUser, { photoURL });
@@ -189,6 +196,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     return photoURL;
   };
+
 
   const changePasswordFunc = async (currentPass: string, newPass: string) => {
     if (!currentUser || !currentUser.email) throw new Error("No hay un usuario autenticado o falta el correo electrónico.");
