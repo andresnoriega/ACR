@@ -168,7 +168,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await updateDoc(userDocRef, { name: data.name });
 
     setUserProfile(prev => prev ? { ...prev, name: data.name ?? prev.name } : null);
-    setCurrentUser(JSON.parse(JSON.stringify(auth.currentUser)));
+    setCurrentUser(auth.currentUser);
   };
   
   const updateUserProfilePictureFunc = async (file: File): Promise<string> => {
@@ -180,15 +180,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const fileName = `avatar-${Date.now()}.${fileExtension}`;
     const filePath = `profile-pictures/${currentUser.uid}/${fileName}`;
     const fileRef = storageRef(storage, filePath);
-
-    // CRUCIAL: Add metadata for security rules
-    const uploadMetadata = { 
-      customMetadata: { 
-        userId: userProfile.id,
-      }
-    };
     
-    await uploadBytes(fileRef, file, uploadMetadata);
+    await uploadBytes(fileRef, file);
     const photoURL = await getDownloadURL(fileRef);
   
     await updateProfile(currentUser, { photoURL });

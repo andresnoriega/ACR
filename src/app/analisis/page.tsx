@@ -1138,15 +1138,7 @@ function RCAAnalysisPageComponent() {
       const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
       const fileStorageRef = storageRef(storage, filePath);
       
-      const uploadMetadata = {
-        customMetadata: {
-          eventId: currentEventId,
-          userId: userProfile.id,
-          empresa: empresa
-        }
-      };
-      
-      const uploadResult = await uploadBytes(fileStorageRef, file, uploadMetadata);
+      const uploadResult = await uploadBytes(fileStorageRef, file);
       const downloadURL = await getDownloadURL(uploadResult.ref);
 
       const newFact: PreservedFact = {
