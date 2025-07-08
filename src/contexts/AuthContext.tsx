@@ -176,28 +176,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       throw new Error("No hay un usuario autenticado o un perfil de usuario para actualizar.");
     }
   
+    // Using a unique name to bust cache
     const fileExtension = file.name.split('.').pop() || 'jpg';
     const fileName = `avatar-${Date.now()}.${fileExtension}`;
     const filePath = `profile-pictures/${currentUser.uid}/${fileName}`;
     const fileRef = storageRef(storage, filePath);
     
-    const uploadMetadata = {
-      customMetadata: {
-        userId: currentUser.uid,
-      }
-    };
-    
-    await uploadBytes(fileRef, file, uploadMetadata);
+    // The simplified storage rule only requires the path to be correct.
+    // No metadata is needed here for authorization.
+    await uploadBytes(fileRef, file);
     const photoURL = await getDownloadURL(fileRef);
   
-    await updateProfile(currentUser, { photoURL: photoURL });
+    // Add cache-busting parameter to the URL
+    const cacheBustedUrl = `${photoURL}?t=${new Date().getTime()}`;
+
+    await updateProfile(currentUser, { photoURL: cacheBustedUrl });
   
     const userDocRef = doc(db, 'users', currentUser.uid);
-    await updateDoc(userDocRef, { photoURL: photoURL });
+    await updateDoc(userDocRef, { photoURL: cacheBustedUrl });
   
-    setUserProfile(prev => prev ? { ...prev, photoURL: photoURL } : null);
+    setUserProfile(prev => prev ? { ...prev, photoURL: cacheBustedUrl } : null);
   
-    return photoURL;
+    return cacheBustedUrl;
   };
 
 
