@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, ChangeEvent } from 'react';
-import type { FullUserProfile, RCAAnalysisDocument, PlannedAction as FirestorePlannedAction, Evidence as FirestoreEvidence, Validation } from '@/types/rca';
+import type { FullUserProfile, RCAAnalysisDocument, PlannedAction as FirestorePlannedAction, Evidence as FirestoreEvidence, Validation, Site } from '@/types/rca';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -81,6 +81,7 @@ export default function UserActionPlansPage() {
 
   const [availableUsers, setAvailableUsers] = useState<FullUserProfile[]>([]);
   const [allRcaDocuments, setAllRcaDocuments] = useState<RCAAnalysisDocument[]>([]);
+  const [availableSites, setAvailableSites] = useState<Site[]>([]); // Added state for sites
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [isLoadingActions, setIsLoadingActions] = useState(true);
   const [isUpdatingAction, setIsUpdatingAction] = useState(false);
@@ -93,17 +94,29 @@ export default function UserActionPlansPage() {
   const [sortConfigValidation, setSortConfigValidation] = useState<SortConfigValidation>({ key: 'actionMarkedReadyAt', direction: 'descending' });
 
 
-  const fetchUsers = useCallback(async () => {
+  const fetchUsersAndSites = useCallback(async () => {
     setIsLoadingUsers(true);
     try {
       const usersCollectionRef = collection(db, "users");
-      const q = query(usersCollectionRef, orderBy("name", "asc"));
-      const querySnapshot = await getDocs(q);
-      const usersData = querySnapshot.docs.map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() } as FullUserProfile));
+      const sitesCollectionRef = collection(db, "sites");
+      
+      const usersQuery = query(usersCollectionRef, orderBy("name", "asc"));
+      const sitesQuery = query(sitesCollectionRef, orderBy("name", "asc"));
+
+      const [usersSnapshot, sitesSnapshot] = await Promise.all([
+        getDocs(usersQuery),
+        getDocs(sitesQuery),
+      ]);
+
+      const usersData = usersSnapshot.docs.map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() } as FullUserProfile));
       setAvailableUsers(usersData);
+
+      const sitesData = sitesSnapshot.docs.map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() } as Site));
+      setAvailableSites(sitesData);
+
     } catch (error) {
-      console.error("Error fetching users: ", error);
-      toast({ title: "Error al Cargar Usuarios", description: "No se pudieron cargar los usuarios.", variant: "destructive" });
+      console.error("Error fetching users or sites: ", error);
+      toast({ title: "Error al Cargar Datos de Configuración", description: "No se pudieron cargar usuarios o sitios.", variant: "destructive" });
     } finally {
       setIsLoadingUsers(false);
     }
@@ -133,8 +146,8 @@ export default function UserActionPlansPage() {
   }, [toast, userProfile]);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    fetchUsersAndSites();
+  }, [fetchUsersAndSites]);
   
   useEffect(() => {
     if(userProfile) {
@@ -440,22 +453,24 @@ export default function UserActionPlansPage() {
     const rcaDoc = allRcaDocuments.find(d => d.eventData.id === selectedPlan._originalRcaDocId);
 
     if (!rcaDoc) {
-      toast({ title: "Error", description: "No se encontró el documento de análisis asociado a esta tarea.", variant: "destructive"});
-      setIsUpdatingAction(false);
-      return;
+        toast({ title: "Error", description: "No se encontró el documento de análisis asociado.", variant: "destructive"});
+        setIsUpdatingAction(false);
+        return;
     }
 
+    // Correctly determine the company associated with the RCA event
     let rcaEmpresa = rcaDoc.empresa || rcaDoc.eventData.empresa;
     if (!rcaEmpresa) {
-        const siteInfo = availableUsers.find(s => s.name === rcaDoc.eventData.place);
+        const siteInfo = availableSites.find(s => s.name === rcaDoc.eventData.place);
         rcaEmpresa = siteInfo?.empresa;
     }
-     if (!rcaEmpresa && userProfile.empresa) {
+    // Fallback to the current user's company if still not found
+    if (!rcaEmpresa && userProfile.empresa) {
         rcaEmpresa = userProfile.empresa;
     }
 
     if (!rcaEmpresa) {
-        toast({ title: "Error de Configuración", description: "No se pudo determinar la empresa para este evento. Verifique la configuración del sitio o del perfil de usuario.", variant: "destructive"});
+        toast({ title: "Error de Configuración", description: "No se pudo determinar la empresa para este evento. Verifique la configuración del sitio.", variant: "destructive"});
         setIsUpdatingAction(false);
         return;
     }
@@ -468,12 +483,14 @@ export default function UserActionPlansPage() {
             toast({ title: "Subiendo archivo...", description: `Subiendo ${fileToUpload.name}.`});
             const filePath = `rca_evidences/${selectedPlan._originalRcaDocId}/${Date.now()}-${fileToUpload.name}`;
             const fileStorageRef = storageRef(storage, filePath);
+            // This metadata is CRUCIAL for the new security rules
             const uploadMetadata = { customMetadata: { eventId: selectedPlan._originalRcaDocId, userId: userProfile.id, empresa: rcaEmpresa }};
             const uploadResult = await uploadBytes(fileStorageRef, fileToUpload, uploadMetadata);
             downloadURL = await getDownloadURL(uploadResult.ref);
             storagePath = uploadResult.ref.fullPath;
         } catch (error) {
-            toast({ title: "Error de Subida", description: "No se pudo subir el archivo seleccionado.", variant: "destructive" });
+            console.error("Error al subir evidencia:", error);
+            toast({ title: "Error de Subida", description: "No se pudo subir el archivo. Verifique las reglas de seguridad y la consola.", variant: "destructive" });
             setIsUpdatingAction(false);
             return;
         }

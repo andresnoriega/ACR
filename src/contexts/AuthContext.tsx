@@ -172,16 +172,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
   
   const updateUserProfilePictureFunc = async (file: File): Promise<string> => {
-    if (!currentUser) {
-      throw new Error("No hay un usuario autenticado para actualizar.");
+    if (!currentUser || !userProfile) {
+      throw new Error("No hay un usuario autenticado o perfil para actualizar.");
     }
   
     const fileExtension = file.name.split('.').pop() || 'jpg';
     const fileName = `avatar-${Date.now()}.${fileExtension}`;
     const filePath = `profile-pictures/${currentUser.uid}/${fileName}`;
     const fileRef = storageRef(storage, filePath);
+
+    // CRUCIAL: Add metadata for security rules
+    const uploadMetadata = { 
+      customMetadata: { 
+        userId: userProfile.id,
+      }
+    };
     
-    await uploadBytes(fileRef, file);
+    await uploadBytes(fileRef, file, uploadMetadata);
     const photoURL = await getDownloadURL(fileRef);
   
     await updateProfile(currentUser, { photoURL });
