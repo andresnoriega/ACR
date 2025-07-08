@@ -20,7 +20,9 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 const auth = getAuth(app);
 const db = getFirestore(app);
-// Use the standard getStorage() initialization for robustness.
-const storage = getStorage(app);
+
+// Explicitly connect to the storage bucket using the gs:// URL.
+// This can resolve connectivity issues or configuration ambiguities that cause timeouts.
+const storage = getStorage(app, "gs://rca-assistant-jk3ja.appspot.com");
 
 export { app, auth, db, storage, type FirebaseUser };
