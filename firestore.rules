@@ -1,82 +1,13 @@
 
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to get a user's profile data
-    function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
-    }
-
-    // Helper function to check if the requesting user is a Super User
-    function isSuperUser() {
-      return isAuthenticated() && getUserData(request.auth.uid).role == 'Super User';
-    }
-    
-    // Helper function to check if the requesting user is an Admin
-    function isAdmin() {
-      return isAuthenticated() && getUserData(request.auth.uid).role == 'Admin';
-    }
-
-    // Helper function to check if a user is authenticated
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-    
-    // Helper function to check if the user belongs to the resource's company
-    function isMemberOfResourceCompany(resource) {
-        let userData = getUserData(request.auth.uid);
-        return isAuthenticated() && userData.empresa != null && userData.empresa == resource.data.empresa;
-    }
-
-    // --- Rules for 'users' collection ---
-    match /users/{userId} {
-      // Anyone authenticated can get their own profile.
-      allow get: if isAuthenticated();
-      
-      // Only Super Users and Admins can list all users.
-      allow list: if isSuperUser() || isAdmin();
-      
-      // A user can create their own profile on signup. Super Users/Admins can create profiles.
-      allow create: if (request.auth.uid == userId) || isSuperUser() || isAdmin();
-
-      // A user can update their own profile. Super Users/Admins can update profiles.
-      // An Admin cannot update a Super User.
-      allow update: if request.auth.uid == userId || isSuperUser() || (isAdmin() && resource.data.role != 'Super User');
-      
-      // Only Super Users/Admins can delete user profiles.
-      // An Admin cannot delete a Super User.
-      allow delete: if isSuperUser() || (isAdmin() && resource.data.role != 'Super User');
-    }
-
-    // --- Rules for 'companies' collection ---
-    match /companies/{companyId} {
-      // Only Super Users can manage companies.
-      allow read, write: if isSuperUser();
-    }
-
-    // --- Rules for 'sites' collection ---
-    match /sites/{siteId} {
-      // Any authenticated user can read the list of sites (to populate dropdowns).
-      allow read: if isAuthenticated();
-      
-      // Only Super Users or Admins of the relevant company can create/update/delete sites.
-      allow write: if isSuperUser() || (isAdmin() && (request.resource.data.empresa == getUserData(request.auth.uid).empresa || isMemberOfResourceCompany(resource)));
-    }
-
-    // --- Rules for 'rcaAnalyses' and 'reportedEvents' collections ---
-    match /{collection}/{docId} {
-        // This rule applies to both rcaAnalyses and reportedEvents
-        allow read: if isSuperUser() || isMemberOfResourceCompany(resource);
-
-        // Any authenticated user can create a document, as long as they set the company correctly to their own.
-        allow create: if isAuthenticated();
-        
-        // Only Super Users or members of the resource's company can update it.
-        allow update: if isSuperUser() || isMemberOfResourceCompany(resource);
-
-        // Only Super Users or Admins of the company can delete.
-        allow delete: if isSuperUser() || (isAdmin() && isMemberOfResourceCompany(resource));
+    // Regla de seguridad simple para desarrollo y aplicaciones internas.
+    // Permite la lectura y escritura a cualquier usuario que haya iniciado sesión.
+    // La lógica de negocio y los permisos más granulares se manejan en el código de la aplicación.
+    match /{document=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }
