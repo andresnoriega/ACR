@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { db, storage } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, updateDoc, where, type QueryConstraint, arrayUnion, arrayRemove } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, updateDoc, where, type QueryConstraint } from "firebase/firestore";
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { Loader2 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
