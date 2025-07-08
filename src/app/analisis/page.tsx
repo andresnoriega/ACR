@@ -1118,20 +1118,20 @@ function RCAAnalysisPageComponent() {
   
     setIsSaving(true);
     try {
+      // Step 1: Ensure the main document exists to get a valid ID.
       let currentEventId = analysisDocumentId;
       if (!currentEventId) {
         const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
         if (!saveResult.success || !saveResult.newEventId) {
-          throw new Error("No se pudo crear el documento de análisis antes de subir el archivo.");
+          throw new Error("No se pudo crear o guardar el documento de análisis antes de subir el archivo.");
         }
         currentEventId = saveResult.newEventId;
       }
   
+      // Step 2: Upload the file to Storage.
       toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
-      
       const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
       const fileStorageRef = storageRef(storage, filePath);
-  
       const uploadResult = await uploadBytes(fileStorageRef, file);
       const downloadURL = await getDownloadURL(uploadResult.ref);
   
@@ -1145,13 +1145,25 @@ function RCAAnalysisPageComponent() {
         storagePath: uploadResult.ref.fullPath,
       };
       
+      // Step 3: Read, Modify, Write to Firestore to avoid race conditions.
       const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
+      const docSnap = await getDoc(rcaDocRef);
+
+      if (!docSnap.exists()) {
+        throw new Error("El documento de análisis desapareció después de ser creado. Por favor, recargue la página.");
+      }
+      
+      const currentData = docSnap.data();
+      const existingFacts = currentData.preservedFacts || [];
+      const updatedFacts = [...existingFacts, newFact];
+  
       await updateDoc(rcaDocRef, {
-        preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
+        preservedFacts: sanitizeForFirestore(updatedFacts),
         updatedAt: new Date().toISOString()
       });
   
-      setPreservedFacts(prev => [...prev, newFact]);
+      // Step 4: Update local state to reflect the change.
+      setPreservedFacts(updatedFacts);
       toast({ title: "Hecho Preservado Añadido", description: `Se añadió y subió "${newFact.userGivenName}".` });
   
     } catch (error: any) {
@@ -1168,22 +1180,40 @@ function RCAAnalysisPageComponent() {
   
     setIsSaving(true);
     try {
+      // Step 1: Delete from Storage if a path exists.
       if (factToRemove.storagePath) {
         const fileRef = storageRef(storage, factToRemove.storagePath);
-        await deleteObject(fileRef);
+        await deleteObject(fileRef).catch(error => {
+          if (error.code !== 'storage/object-not-found') {
+            console.error("Error deleting file from Storage, but proceeding:", error);
+            toast({ title: "Error al Eliminar Archivo", description: "No se pudo eliminar el archivo de Storage, pero se eliminará la referencia.", variant: "destructive" });
+          }
+        });
       }
       
+      // Step 2: Read, Modify, Write to Firestore.
       const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
+      const docSnap = await getDoc(rcaDocRef);
+
+      if (!docSnap.exists()) {
+        throw new Error("Documento no encontrado para eliminar la referencia del hecho preservado.");
+      }
+
+      const currentData = docSnap.data();
+      const existingFacts = currentData.preservedFacts || [];
+      const updatedFacts = existingFacts.filter((fact: PreservedFact) => fact.id !== id);
+
       await updateDoc(rcaDocRef, {
-        preservedFacts: arrayRemove(sanitizeForFirestore(factToRemove)),
+        preservedFacts: sanitizeForFirestore(updatedFacts),
         updatedAt: new Date().toISOString()
       });
   
-      setPreservedFacts(prev => prev.filter(fact => fact.id !== id));
+      // Step 3: Update local state.
+      setPreservedFacts(updatedFacts);
       toast({ title: "Hecho Preservado Eliminado", description: "La referencia y el archivo han sido eliminados.", variant: 'destructive' });
-    } catch (error) {
+    } catch (error: any) {
        console.error("Error al eliminar hecho preservado:", error);
-       toast({ title: "Error de Sincronización", description: "No se pudo eliminar el hecho. Recargue la página.", variant: 'destructive' });
+       toast({ title: "Error de Sincronización", description: `No se pudo eliminar el hecho: ${error.message}. Recargue la página.`, variant: 'destructive' });
     } finally {
        setIsSaving(false);
     }
@@ -1601,5 +1631,3 @@ export default function RCAAnalysisPage() {
     </Suspense>
   );
 }
-
-    
