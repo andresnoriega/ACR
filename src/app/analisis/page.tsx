@@ -1117,15 +1117,18 @@ function RCAAnalysisPageComponent() {
     }
   
     setIsSaving(true);
+    let currentEventId = analysisDocumentId;
+  
     try {
       // Step 1: Ensure the main document exists to get a valid ID.
-      let currentEventId = analysisDocumentId;
       if (!currentEventId) {
+        // This is a new analysis, so we must first create the document.
         const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
         if (!saveResult.success || !saveResult.newEventId) {
-          throw new Error("No se pudo crear o guardar el documento de análisis antes de subir el archivo.");
+          throw new Error("No se pudo crear el documento de análisis antes de subir el archivo.");
         }
         currentEventId = saveResult.newEventId;
+        // The saveResult will have already updated the URL if needed via navigationTaskUrl
       }
   
       // Step 2: Upload the file to Storage.
@@ -1145,11 +1148,12 @@ function RCAAnalysisPageComponent() {
         storagePath: uploadResult.ref.fullPath,
       };
       
-      // Step 3: Read, Modify, Write to Firestore to avoid race conditions.
+      // Step 3: Read, Modify, Write to Firestore to avoid race conditions and ensure atomicity.
       const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
       const docSnap = await getDoc(rcaDocRef);
 
       if (!docSnap.exists()) {
+        // This case should be rare now, but it's a good safeguard.
         throw new Error("El documento de análisis desapareció después de ser creado. Por favor, recargue la página.");
       }
       
@@ -1176,7 +1180,10 @@ function RCAAnalysisPageComponent() {
   
   const handleRemovePreservedFact = async (id: string) => {
     const factToRemove = preservedFacts.find(fact => fact.id === id);
-    if (!factToRemove || !analysisDocumentId) return;
+    if (!factToRemove || !analysisDocumentId) {
+       toast({ title: "Error", description: "No se encontró la referencia del hecho a eliminar o el ID del análisis.", variant: "destructive" });
+       return;
+    }
   
     setIsSaving(true);
     try {
@@ -1184,14 +1191,15 @@ function RCAAnalysisPageComponent() {
       if (factToRemove.storagePath) {
         const fileRef = storageRef(storage, factToRemove.storagePath);
         await deleteObject(fileRef).catch(error => {
+          // It's okay if the object doesn't exist, log other errors but continue.
           if (error.code !== 'storage/object-not-found') {
-            console.error("Error deleting file from Storage, but proceeding:", error);
-            toast({ title: "Error al Eliminar Archivo", description: "No se pudo eliminar el archivo de Storage, pero se eliminará la referencia.", variant: "destructive" });
+            console.warn("Could not delete file from Storage, but proceeding to remove Firestore reference:", error);
+            toast({ title: "Advertencia", description: "No se pudo eliminar el archivo de Storage, pero se eliminará la referencia.", variant: "default" });
           }
         });
       }
       
-      // Step 2: Read, Modify, Write to Firestore.
+      // Step 2: Read, Modify, Write to Firestore. This is the safest way to remove an item from an array.
       const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
       const docSnap = await getDoc(rcaDocRef);
 
@@ -1208,7 +1216,7 @@ function RCAAnalysisPageComponent() {
         updatedAt: new Date().toISOString()
       });
   
-      // Step 3: Update local state.
+      // Step 3: Update local state to reflect the change.
       setPreservedFacts(updatedFacts);
       toast({ title: "Hecho Preservado Eliminado", description: "La referencia y el archivo han sido eliminados.", variant: 'destructive' });
     } catch (error: any) {
