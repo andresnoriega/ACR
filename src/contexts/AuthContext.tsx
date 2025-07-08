@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { auth, db, storage, type FirebaseUser } from '@/lib/firebase';
+import { auth, db, type FirebaseUser } from '@/lib/firebase';
 import { 
   onAuthStateChanged, 
   createUserWithEmailAndPassword, 
@@ -15,7 +15,6 @@ import {
   deleteUser,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, collection, query, where, getDocs, limit, deleteDoc, updateDoc } from 'firebase/firestore';
-import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import type { FullUserProfile } from '@/types/rca';
 import { sanitizeForFirestore } from '@/lib/utils';
 import { sendEmailAction } from '@/app/actions';
@@ -175,28 +174,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       throw new Error("No hay un usuario autenticado para actualizar.");
     }
 
-    // 1. Create a storage reference
-    const filePath = `profile_pictures/${currentUser.uid}/${Date.now()}-${file.name}`;
-    const fileRef = storageRef(storage, filePath);
+    const reader = new FileReader();
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = (error) => reject(error);
+        reader.readAsDataURL(file);
+    });
 
-    // 2. Upload the file to Cloud Storage
-    const uploadResult = await uploadBytes(fileRef, file);
-
-    // 3. Get the download URL
-    const downloadURL = await getDownloadURL(uploadResult.ref);
-
-    // 4. Update the Firebase Auth profile with the new short URL
-    await updateProfile(currentUser, { photoURL: downloadURL });
-  
-    // 5. Update the user's document in Firestore with the same URL
+    // We do not update the auth.currentUser.photoURL because it has a length limit.
+    // We only update the photoURL in our Firestore user document.
     const userDocRef = doc(db, 'users', currentUser.uid);
-    await setDoc(userDocRef, { photoURL: downloadURL }, { merge: true });
+    await setDoc(userDocRef, { photoURL: dataUrl }, { merge: true });
   
-    // 6. Update local state to reflect the change immediately
-    setUserProfile(prev => prev ? { ...prev, photoURL: downloadURL } : null);
-    setCurrentUser(auth.currentUser); // Refresh currentUser to get latest profile
+    // Update local state to reflect the change immediately
+    setUserProfile(prev => prev ? { ...prev, photoURL: dataUrl } : null);
+    setCurrentUser(auth.currentUser);
   
-    return downloadURL;
+    return dataUrl;
   };
 
 
