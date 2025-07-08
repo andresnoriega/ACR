@@ -1,11 +1,8 @@
-
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Regla de seguridad simple para desarrollo y aplicaciones internas.
-    // Permite la lectura y escritura a cualquier usuario que haya iniciado sesión.
-    // La lógica de negocio y los permisos más granulares se manejan en el código de la aplicación.
+    // Regla simplificada: Permite leer y escribir a cualquier usuario que haya iniciado sesión.
+    // La lógica de la aplicación se encarga de que los usuarios solo vean y editen lo que les corresponde.
     match /{document=**} {
       allow read, write: if request.auth != null;
     }
