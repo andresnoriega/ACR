@@ -20,7 +20,7 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 const auth = getAuth(app);
 const db = getFirestore(app);
-// Explicitly provide the storage bucket URL, which can help in server environments.
-const storage = getStorage(app, `gs://${firebaseConfig.storageBucket}`);
+// Use the standard getStorage() initialization for robustness.
+const storage = getStorage(app);
 
 export { app, auth, db, storage, type FirebaseUser };
