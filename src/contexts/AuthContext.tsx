@@ -2,16 +2,21 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { auth, db, type FirebaseUser } from '@/lib/firebase';
+import { auth, db, storage, type FirebaseUser } from '@/lib/firebase';
 import { 
   onAuthStateChanged, 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signOut,
   UserCredential,
-  updateProfile
+  updateProfile,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
+  updatePassword,
+  deleteUser,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, collection, query, where, getDocs, limit, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, query, where, getDocs, limit, deleteDoc, updateDoc } from 'firebase/firestore';
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import type { FullUserProfile } from '@/types/rca';
 import { sanitizeForFirestore } from '@/lib/utils';
 import { sendEmailAction } from '@/app/actions';
@@ -23,6 +28,10 @@ interface AuthContextType {
   loginWithEmail: (email: string, pass: string) => Promise<UserCredential>;
   registerWithEmail: (email: string, pass: string, name: string) => Promise<UserCredential>;
   logoutUser: () => Promise<void>;
+  updateUserProfile: (data: { name?: string }) => Promise<void>;
+  updateUserProfilePicture: (file: File) => Promise<string>;
+  changePassword: (currentPass: string, newPass: string) => Promise<void>;
+  deleteAccount: (currentPass: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,7 +57,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setLoadingAuth(true);
       if (user) {
-        setCurrentUser(user);
+        // Create a new object from the original user to ensure state updates
+        const userStateClone = JSON.parse(JSON.stringify(user));
+        setCurrentUser(userStateClone);
+
         const userDocRef = doc(db, 'users', user.uid);
         try {
           let docSnap = await getDoc(userDocRef);
@@ -79,7 +91,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             console.warn(`No profile found for ${user.email}. Creating a new profile.`);
             
             const usersCollectionRef = collection(db, "users");
-            const allUsersQuery = query(usersCollectionRef, limit(2)); // Check if more than one user exists
+            const allUsersQuery = query(usersCollectionRef, limit(2));
             const anyUserSnap = await getDocs(allUsersQuery);
             const isFirstEverUser = anyUserSnap.docs.length === 0;
 
@@ -137,8 +149,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const registerWithEmail = async (email: string, pass: string, name: string) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     await updateProfile(userCredential.user, { displayName: name });
-    // The onAuthStateChanged listener will now handle all profile creation and migration logic,
-    // ensuring consistency whether a user registers or logs in.
     return userCredential;
   };
 
@@ -146,13 +156,73 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return signOut(auth);
   };
 
-  const value = {
+  const updateUserProfileFunc = async (data: { name?: string }) => {
+    if (!currentUser) throw new Error("No hay un usuario autenticado para actualizar.");
+
+    const updates: { displayName?: string } = {};
+    if (data.name) updates.displayName = data.name;
+    
+    await updateProfile(currentUser, updates);
+    
+    const userDocRef = doc(db, 'users', currentUser.uid);
+    await updateDoc(userDocRef, { name: data.name });
+
+    setUserProfile(prev => prev ? { ...prev, name: data.name ?? prev.name } : null);
+    setCurrentUser({ ...currentUser, ...updates } as FirebaseUser);
+  };
+  
+  const updateUserProfilePictureFunc = async (file: File) => {
+    if (!currentUser) throw new Error("No hay un usuario autenticado para actualizar.");
+
+    const filePath = `profile-pictures/${currentUser.uid}/${file.name}`;
+    const fileRef = storageRef(storage, filePath);
+    
+    await uploadBytes(fileRef, file);
+    const photoURL = await getDownloadURL(fileRef);
+
+    await updateProfile(currentUser, { photoURL });
+
+    const userDocRef = doc(db, 'users', currentUser.uid);
+    await updateDoc(userDocRef, { photoURL: photoURL });
+
+    setCurrentUser({ ...currentUser, photoURL } as FirebaseUser);
+    setUserProfile(prev => prev ? { ...prev, photoURL: photoURL } : null);
+
+    return photoURL;
+  };
+
+  const changePasswordFunc = async (currentPass: string, newPass: string) => {
+    if (!currentUser || !currentUser.email) throw new Error("No hay un usuario autenticado o falta el correo electrónico.");
+    
+    const credential = EmailAuthProvider.credential(currentUser.email, currentPass);
+    
+    await reauthenticateWithCredential(currentUser, credential);
+    await updatePassword(currentUser, newPass);
+  };
+
+  const deleteAccountFunc = async (currentPass: string) => {
+    if (!currentUser || !currentUser.email) throw new Error("No hay un usuario autenticado.");
+
+    const credential = EmailAuthProvider.credential(currentUser.email, currentPass);
+    await reauthenticateWithCredential(currentUser, credential);
+    
+    const userDocRef = doc(db, 'users', currentUser.uid);
+    await deleteDoc(userDocRef);
+    
+    await deleteUser(currentUser);
+  };
+
+  const value: AuthContextType = {
     currentUser,
     loadingAuth,
     userProfile,
     loginWithEmail,
     registerWithEmail,
     logoutUser,
+    updateUserProfile: updateUserProfileFunc,
+    updateUserProfilePicture: updateUserProfilePictureFunc,
+    changePassword: changePasswordFunc,
+    deleteAccount: deleteAccountFunc,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
