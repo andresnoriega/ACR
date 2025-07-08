@@ -40,8 +40,7 @@ export interface Evidence {
   nombre: string;
   tipo: 'pdf' | 'jpg' | 'jpeg' | 'png' | 'doc' | 'docx' | 'other' | 'link';
   comment?: string;
-  downloadURL: string;
-  storagePath: string;
+  dataUrl: string; // Changed from downloadURL and storagePath
 }
 
 export interface PlannedAction {
@@ -90,7 +89,7 @@ export interface FiveWhyEntry {
 export type FiveWhysData = FiveWhyEntry[];
 
 export interface LatentCause {
-  id: string;
+  id:string;
   description: string;
 }
 
@@ -154,8 +153,7 @@ export interface PreservedFact {
   category: PreservedFactCategory | '';
   description: string;
   uploadDate: string;
-  downloadURL: string;
-  storagePath: string;
+  dataUrl: string; // Changed from downloadURL and storagePath
 }
 
 export interface FullUserProfile {

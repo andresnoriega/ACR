@@ -14,9 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 import { ListTodo, FileText, ImageIcon, Paperclip, CheckCircle2, Save, Info, MessageSquare, Loader2, CalendarCheck, History, Trash2, Mail, ArrowUp, ArrowDown, ChevronsUpDown, UserCircle, FolderKanban, CheckSquare, Link2, ExternalLink } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, query, orderBy, where, QueryConstraint, getDoc, arrayRemove, arrayUnion } from "firebase/firestore";
-import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { sendEmailAction } from '@/app/actions';
@@ -358,27 +357,21 @@ export default function UserActionPlansPage() {
     if (!selectedPlan) return;
     setIsUpdatingAction(true);
     try {
-      if (evidenceToRemove.storagePath) {
-        const fileRef = storageRef(storage, evidenceToRemove.storagePath);
-        await deleteObject(fileRef);
-      }
       const rcaDocRef = doc(db, 'rcaAnalyses', selectedPlan._originalRcaDocId);
-      const docSnap = await getDoc(rcaDocRef);
-      if (!docSnap.exists()) throw new Error("Documento no encontrado para eliminar evidencia.");
-
-      const currentRcaDoc = docSnap.data() as RCAAnalysisDocument;
-      let actionToUpdate = currentRcaDoc.plannedActions.find(a => a.id === selectedPlan._originalActionId);
-
-      if (!actionToUpdate) throw new Error("Acción planificada no encontrada en el documento.");
-
-      const updatedEvidences = actionToUpdate.evidencias?.filter(ev => ev.id !== evidenceToRemove.id) || [];
-      actionToUpdate.evidencias = updatedEvidences;
-
-      const updatedPlannedActions = currentRcaDoc.plannedActions.map(a => a.id === selectedPlan._originalActionId ? actionToUpdate! : a);
+      
+      const sanitizedEvidence = sanitizeForFirestore(evidenceToRemove);
       
       await updateDoc(rcaDocRef, {
-        plannedActions: sanitizeForFirestore(updatedPlannedActions),
-        updatedAt: new Date().toISOString()
+        "plannedActions": allRcaDocuments.find(d => d.id === selectedPlan._originalRcaDocId)
+          ?.plannedActions.map(pa => 
+            pa.id === selectedPlan._originalActionId 
+              ? { ...pa, evidencias: pa.evidencias?.filter(e => e.id !== sanitizedEvidence.id) } 
+              : pa
+          )
+      });
+      
+      await updateDoc(rcaDocRef, {
+          "plannedActions": arrayRemove(sanitizedEvidence)
       });
 
       toast({ title: "Evidencia Eliminada", variant: 'destructive' });
@@ -396,25 +389,29 @@ export default function UserActionPlansPage() {
     setIsUpdatingAction(true);
     
     try {
-      const rcaDocRef = doc(db, 'rcaAnalyses', selectedPlan._originalRcaDocId);
-      
       let newEvidencePayload: FirestoreEvidence | null = null;
       if (fileToUpload) {
         toast({ title: "Subiendo archivo...", description: `Subiendo ${fileToUpload.name}.` });
-        const filePath = `rca_evidences/${selectedPlan._originalRcaDocId}/${Date.now()}-${fileToUpload.name}`;
-        const fileStorageRef = storageRef(storage, filePath);
-        const uploadResult = await uploadBytes(fileStorageRef, fileToUpload);
-        const downloadURL = await getDownloadURL(uploadResult.ref);
-        newEvidencePayload = {
-          id: `ev-${Date.now()}`,
-          nombre: fileToUpload.name,
-          tipo: (fileToUpload.type.split('/')[1] as FirestoreEvidence['tipo']) || 'other',
-          comment: evidenceComment.trim() || undefined,
-          downloadURL,
-          storagePath: uploadResult.ref.fullPath,
-        };
+        
+        const reader = new FileReader();
+        await new Promise<void>((resolve, reject) => {
+            reader.readAsDataURL(fileToUpload!);
+            reader.onload = () => {
+                const dataUrl = reader.result as string;
+                newEvidencePayload = {
+                  id: `ev-${Date.now()}`,
+                  nombre: fileToUpload!.name,
+                  tipo: (fileToUpload!.type.split('/')[1] as FirestoreEvidence['tipo']) || 'other',
+                  comment: evidenceComment.trim() || undefined,
+                  dataUrl,
+                };
+                resolve();
+            };
+            reader.onerror = (error) => reject(error);
+        });
       }
 
+      const rcaDocRef = doc(db, 'rcaAnalyses', selectedPlan._originalRcaDocId);
       const docSnap = await getDoc(rcaDocRef);
       if (!docSnap.exists()) throw new Error("El documento de análisis no se encontró.");
 
@@ -631,7 +628,7 @@ export default function UserActionPlansPage() {
                           <div className="flex-grow"><div className="flex items-center">{getEvidenceIconLocal(ev.tipo)}<span className="font-medium">{ev.nombre}</span></div>
                             {ev.comment && <p className="text-xs text-muted-foreground ml-[calc(1rem+0.5rem)] mt-0.5">Comentario: {ev.comment}</p>}</div>
                           <div className="flex-shrink-0 ml-2">
-                             <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mr-2"><a href={ev.downloadURL} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-1 h-3 w-3" />Ver</a></Button>
+                             <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mr-2"><a href={ev.dataUrl} target="_blank" rel="noopener noreferrer" download={ev.nombre}><ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar</a></Button>
                              <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-destructive/10" onClick={() => handleRemoveEvidence(ev)} disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} aria-label="Eliminar evidencia"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                           </div>
                           </li>))}</ul>
@@ -711,5 +708,3 @@ export default function UserActionPlansPage() {
     </div>
   );
 }
-
-    
