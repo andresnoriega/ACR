@@ -15,7 +15,7 @@ import { ListTodo, FileText, ImageIcon, Paperclip, CheckCircle2, Save, Info, Mes
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { db, storage } from '@/lib/firebase';
-import { collection, getDocs, doc, updateDoc, query, orderBy, where, QueryConstraint, getDoc } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, query, orderBy, where, QueryConstraint, getDoc, arrayRemove, arrayUnion } from "firebase/firestore";
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -354,44 +354,35 @@ export default function UserActionPlansPage() {
     }
   };
 
-  const updateActionInFirestore = async (
-    rcaDocId: string,
-    updatedActions: FirestorePlannedAction[]
-  ): Promise<boolean> => {
-    const rcaDocRef = doc(db, "rcaAnalyses", rcaDocId);
-    await updateDoc(rcaDocRef, {
-      plannedActions: sanitizeForFirestore(updatedActions),
-      updatedAt: new Date().toISOString()
-    });
-    return true;
-  };
-
   const handleRemoveEvidence = async (evidenceToRemove: FirestoreEvidence) => {
     if (!selectedPlan) return;
     setIsUpdatingAction(true);
-
     try {
       if (evidenceToRemove.storagePath) {
         const fileRef = storageRef(storage, evidenceToRemove.storagePath);
         await deleteObject(fileRef);
       }
-
       const rcaDocRef = doc(db, 'rcaAnalyses', selectedPlan._originalRcaDocId);
       const docSnap = await getDoc(rcaDocRef);
       if (!docSnap.exists()) throw new Error("Documento no encontrado para eliminar evidencia.");
 
       const currentRcaDoc = docSnap.data() as RCAAnalysisDocument;
-      const updatedPlannedActions = currentRcaDoc.plannedActions.map(action => {
-        if (action.id === selectedPlan._originalActionId) {
-          const updatedEvidences = action.evidencias?.filter(ev => ev.id !== evidenceToRemove.id) || [];
-          return { ...action, evidencias: updatedEvidences };
-        }
-        return action;
+      let actionToUpdate = currentRcaDoc.plannedActions.find(a => a.id === selectedPlan._originalActionId);
+
+      if (!actionToUpdate) throw new Error("Acción planificada no encontrada en el documento.");
+
+      const updatedEvidences = actionToUpdate.evidencias?.filter(ev => ev.id !== evidenceToRemove.id) || [];
+      actionToUpdate.evidencias = updatedEvidences;
+
+      const updatedPlannedActions = currentRcaDoc.plannedActions.map(a => a.id === selectedPlan._originalActionId ? actionToUpdate! : a);
+      
+      await updateDoc(rcaDocRef, {
+        plannedActions: sanitizeForFirestore(updatedPlannedActions),
+        updatedAt: new Date().toISOString()
       });
 
-      await updateActionInFirestore(selectedPlan._originalRcaDocId, updatedPlannedActions);
       toast({ title: "Evidencia Eliminada", variant: 'destructive' });
-      await fetchRcaDocuments();
+      await fetchRcaDocuments(); // Refresh data from source
     } catch (error) {
       console.error("Error removing evidence:", error);
       toast({ title: "Error", description: `No se pudo eliminar la evidencia: ${(error as Error).message}`, variant: "destructive" });
@@ -406,11 +397,7 @@ export default function UserActionPlansPage() {
     
     try {
       const rcaDocRef = doc(db, 'rcaAnalyses', selectedPlan._originalRcaDocId);
-      const docSnap = await getDoc(rcaDocRef);
-      if (!docSnap.exists()) {
-        throw new Error("El documento de análisis no se encontró. No se puede proceder.");
-      }
-
+      
       let newEvidencePayload: FirestoreEvidence | null = null;
       if (fileToUpload) {
         toast({ title: "Subiendo archivo...", description: `Subiendo ${fileToUpload.name}.` });
@@ -427,6 +414,9 @@ export default function UserActionPlansPage() {
           storagePath: uploadResult.ref.fullPath,
         };
       }
+
+      const docSnap = await getDoc(rcaDocRef);
+      if (!docSnap.exists()) throw new Error("El documento de análisis no se encontró.");
 
       const currentRcaDoc = docSnap.data() as RCAAnalysisDocument;
       let actionToNotify: FirestorePlannedAction | undefined;
@@ -449,10 +439,13 @@ export default function UserActionPlansPage() {
         return action;
       });
 
-      await updateActionInFirestore(selectedPlan._originalRcaDocId, updatedPlannedActions);
+      await updateDoc(rcaDocRef, {
+        plannedActions: sanitizeForFirestore(updatedPlannedActions),
+        updatedAt: new Date().toISOString()
+      });
       
       toast({ title: "Tarea Lista para Validación" });
-      await fetchRcaDocuments();
+      await fetchRcaDocuments(); // Refresh data from source
       
       if (fileToUpload) {
           setEvidenceComment('');
@@ -463,7 +456,7 @@ export default function UserActionPlansPage() {
 
       if (actionToNotify) {
         const validatorProfile = availableUsers.find(u => u.name === selectedPlan.validatorName);
-        if (validatorProfile?.email) {
+        if (validatorProfile?.email && (validatorProfile.emailNotifications === undefined || validatorProfile.emailNotifications)) {
           const emailSubject = `Acción Lista para Validación: ${selectedPlan.accionResumen} (ACR: ${selectedPlan.codigoRCA})`;
           const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
           const validationLink = `${baseUrl}/analisis?id=${selectedPlan._originalRcaDocId}&step=4`;
@@ -718,3 +711,5 @@ export default function UserActionPlansPage() {
     </div>
   );
 }
+
+    
