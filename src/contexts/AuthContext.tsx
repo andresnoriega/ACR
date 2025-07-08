@@ -170,9 +170,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
   
   const updateUserProfilePictureFunc = async (file: File): Promise<string> => {
-    if (!currentUser) {
-      throw new Error("No hay un usuario autenticado para actualizar.");
-    }
+    if (!currentUser) throw new Error("No hay un usuario autenticado para actualizar.");
 
     const reader = new FileReader();
     const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -181,38 +179,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         reader.readAsDataURL(file);
     });
 
-    // We do not update the auth.currentUser.photoURL because it has a length limit.
-    // We only update the photoURL in our Firestore user document.
     const userDocRef = doc(db, 'users', currentUser.uid);
     await setDoc(userDocRef, { photoURL: dataUrl }, { merge: true });
   
-    // Update local state to reflect the change immediately
     setUserProfile(prev => prev ? { ...prev, photoURL: dataUrl } : null);
-    setCurrentUser(auth.currentUser);
+    // No need to update auth.currentUser.photoURL
   
     return dataUrl;
   };
 
-
   const changePasswordFunc = async (currentPass: string, newPass: string) => {
     if (!currentUser || !currentUser.email) throw new Error("No hay un usuario autenticado o falta el correo electrónico.");
     
-    const credential = EmailAuthProvider.credential(currentUser.email, currentPass);
-    
-    await reauthenticateWithCredential(currentUser, credential);
-    await updatePassword(currentUser, newPass);
+    try {
+      const credential = EmailAuthProvider.credential(currentUser.email, currentPass);
+      await reauthenticateWithCredential(currentUser, credential);
+      await updatePassword(currentUser, newPass);
+    } catch (error: any) {
+        if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+          throw new Error("La contraseña actual es incorrecta.");
+        }
+        throw error;
+    }
   };
 
   const deleteAccountFunc = async (currentPass: string) => {
     if (!currentUser || !currentUser.email) throw new Error("No hay un usuario autenticado.");
 
-    const credential = EmailAuthProvider.credential(currentUser.email, currentPass);
-    await reauthenticateWithCredential(currentUser, credential);
-    
-    const userDocRef = doc(db, 'users', currentUser.uid);
-    await deleteDoc(userDocRef);
-    
-    await deleteUser(currentUser);
+    try {
+        const credential = EmailAuthProvider.credential(currentUser.email, currentPass);
+        await reauthenticateWithCredential(currentUser, credential);
+        
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        await deleteDoc(userDocRef);
+        
+        await deleteUser(currentUser);
+    } catch (error: any) {
+        if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+            throw new Error("La contraseña actual es incorrecta.");
+        }
+        throw error;
+    }
   };
 
   const value: AuthContextType = {
