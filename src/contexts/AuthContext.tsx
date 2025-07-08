@@ -181,11 +181,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const filePath = `profile-pictures/${currentUser.uid}/${fileName}`;
     const fileRef = storageRef(storage, filePath);
     
-    // Add metadata, identical to how evidences are uploaded, for rule consistency
+    // Add metadata, making it IDENTICAL to how evidences are uploaded for rule consistency.
     const uploadMetadata = {
       customMetadata: {
-        userId: currentUser.uid,
-        empresa: userProfile.empresa || 'N/A' 
+        userId: userProfile.id, // Using userProfile.id for consistency with working uploads
       }
     };
     
