@@ -1146,10 +1146,10 @@ function RCAAnalysisPageComponent() {
       };
       
       const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
-      await updateDoc(rcaDocRef, {
+      await setDoc(rcaDocRef, {
         preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
         updatedAt: new Date().toISOString()
-      });
+      }, { merge: true });
 
       setPreservedFacts(prev => [...prev, newFact]);
       toast({ title: "Hecho Preservado Añadido", description: `Se añadió y subió "${newFact.userGivenName}".` });

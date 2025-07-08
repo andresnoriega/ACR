@@ -15,7 +15,7 @@ import { ListTodo, FileText, ImageIcon, Paperclip, CheckCircle2, Save, Info, Mes
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { db, storage } from '@/lib/firebase';
-import { collection, getDocs, doc, updateDoc, query, orderBy, where, QueryConstraint } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, query, orderBy, where, QueryConstraint, getDoc } from "firebase/firestore";
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -361,11 +361,14 @@ export default function UserActionPlansPage() {
   ): Promise<boolean> => {
     try {
       const rcaDocRef = doc(db, "rcaAnalyses", rcaDocId);
-      const rcaDocData = allRcaDocuments.find(d => d.eventData.id === rcaDocId);
-      if (!rcaDocData) {
+      const docSnap = await getDoc(rcaDocRef);
+      
+      if (!docSnap.exists()) {
         toast({ title: "Error", description: "No se encontró el documento ACR para actualizar.", variant: "destructive" });
         return false;
       }
+      
+      const rcaDocData = docSnap.data() as RCAAnalysisDocument;
 
       const updatedPlannedActions = rcaDocData.plannedActions.map(action => {
         if (action.id === actionId) {
@@ -385,8 +388,7 @@ export default function UserActionPlansPage() {
       });
       
       const dataToUpdate = { plannedActions: updatedPlannedActions, updatedAt: new Date().toISOString() };
-      const sanitizedDataToUpdate = sanitizeForFirestore(dataToUpdate);
-      await updateDoc(rcaDocRef, sanitizedDataToUpdate);
+      await updateDoc(rcaDocRef, sanitizeForFirestore(dataToUpdate));
       
       return true;
     } catch (error) {
@@ -410,10 +412,9 @@ export default function UserActionPlansPage() {
         const updatesForFirestore: Partial<FirestorePlannedAction> = {
             evidencias: updatedEvidences,
         };
-        // Si ya no quedan evidencias Y no hay comentarios, la tarea ya no puede estar "En Validación"
         const hasComments = selectedPlan.userComments && selectedPlan.userComments.trim() !== '';
         if (updatedEvidences.length === 0 && !hasComments) {
-            updatesForFirestore.markedAsReadyAt = ''; // Clear ready timestamp
+            updatesForFirestore.markedAsReadyAt = '';
         }
 
         const success = await updateActionInFirestore(
@@ -424,7 +425,6 @@ export default function UserActionPlansPage() {
 
         if (success) {
             toast({ title: "Evidencia Eliminada", description: "La evidencia ha sido eliminada.", variant: 'destructive' });
-            setSelectedPlan(prevPlan => prevPlan ? { ...prevPlan, evidencias: updatedEvidences } : null);
             await fetchRcaDocuments(); // Refetch data
         }
     } catch (error) {
@@ -443,13 +443,6 @@ export default function UserActionPlansPage() {
     let updatesForAction: Partial<FirestorePlannedAction> = {};
 
     try {
-      const rcaDoc = allRcaDocuments.find(d => d.eventData.id === selectedPlan._originalRcaDocId);
-      if (!rcaDoc) {
-        toast({ title: "Error", description: "No se encontró el documento de análisis asociado.", variant: "destructive" });
-        setIsUpdatingAction(false);
-        return;
-      }
-
       let downloadURL: string | null = null;
       let storagePath: string | null = null;
 
@@ -463,7 +456,15 @@ export default function UserActionPlansPage() {
       }
 
       updatesForAction = { markedAsReadyAt: currentDateISO };
-      let newEvidencesArray = selectedPlan.evidencias || [];
+      
+      const docRef = doc(db, 'rcaAnalyses', selectedPlan._originalRcaDocId);
+      const docSnap = await getDoc(docRef);
+      if (!docSnap.exists()) throw new Error("Documento no encontrado");
+      const currentPlannedActions = (docSnap.data() as RCAAnalysisDocument).plannedActions || [];
+      const currentActionIndex = currentPlannedActions.findIndex(a => a.id === selectedPlan._originalActionId);
+      if(currentActionIndex === -1) throw new Error("Acción no encontrada en el documento");
+
+      let newEvidencesArray = currentPlannedActions[currentActionIndex].evidencias || [];
 
       if (downloadURL && storagePath && fileToUpload) {
         const newEvidencePayload: FirestoreEvidence = {
@@ -489,15 +490,6 @@ export default function UserActionPlansPage() {
 
       if (updateSuccess) {
         await fetchRcaDocuments();
-
-        const updatedPlanData = {
-          ...selectedPlan,
-          evidencias: updatesForAction.evidencias || selectedPlan.evidencias,
-          userComments: updatesForAction.userComments || selectedPlan.userComments,
-          estado: 'En Validación' as const,
-          userMarkedReadyDate: format(parseISO(currentDateISO), 'dd/MM/yyyy HH:mm', { locale: es }),
-        };
-        setSelectedPlan(updatedPlanData);
         
         if (fileToUpload) {
             setEvidenceComment('');
@@ -506,8 +498,7 @@ export default function UserActionPlansPage() {
             if (fileInput) fileInput.value = '';
         }
 
-        let notificationMessage = `La tarea se ha actualizado y está lista para validación.`;
-        toast({ title: "Tarea Lista para Validación", description: notificationMessage });
+        toast({ title: "Tarea Lista para Validación", description: `La tarea se ha actualizado y está lista para validación.` });
 
         const validatorProfile = availableUsers.find(u => u.name === selectedPlan.validatorName);
         if (validatorProfile && validatorProfile.email) {
@@ -517,7 +508,6 @@ export default function UserActionPlansPage() {
           const emailBody = `Estimado/a ${validatorProfile.name},\n\nEl usuario ${userProfile.name} ha marcado la siguiente acción como lista para su validación:\n\nEvento ACR: ${selectedPlan.tituloDetalle} (ID: ${selectedPlan.codigoRCA})\nAcción Planificada: ${selectedPlan.descripcionDetallada}\nFecha de Cierre (Usuario): ${format(parseISO(currentDateISO), 'dd/MM/yyyy HH:mm', { locale: es })}\n\nComentarios del Usuario:\n${updatesForAction.userComments || "Sin comentarios adicionales."}\n\nPor favor, proceda a validar esta acción en el sistema Asistente ACR. Puede acceder directamente mediante el siguiente enlace:\n${validationLink}\n\nSaludos,\nSistema Asistente ACR`;
           sendEmailAction({ to: validatorProfile.email, subject: emailSubject, body: emailBody });
         }
-
       }
     } catch (error) {
       console.error("Error in handleSignalTaskReadyForValidation:", error);

@@ -165,7 +165,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await updateProfile(currentUser, updates);
     
     const userDocRef = doc(db, 'users', currentUser.uid);
-    await updateDoc(userDocRef, { name: data.name });
+    await setDoc(userDocRef, { name: data.name }, { merge: true });
 
     setUserProfile(prev => prev ? { ...prev, name: data.name ?? prev.name } : null);
     setCurrentUser(auth.currentUser);
@@ -187,7 +187,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await updateProfile(currentUser, { photoURL });
   
     const userDocRef = doc(db, 'users', currentUser.uid);
-    await updateDoc(userDocRef, { photoURL });
+    await setDoc(userDocRef, { photoURL }, { merge: true });
   
     setUserProfile(prev => prev ? { ...prev, photoURL } : null);
   
