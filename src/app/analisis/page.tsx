@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { db, storage } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, updateDoc, where, type QueryConstraint, arrayUnion, arrayRemove } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, updateDoc, where, type QueryConstraint } from "firebase/firestore";
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { Loader2 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -1119,7 +1119,7 @@ function RCAAnalysisPageComponent() {
     setIsSaving(true);
     try {
       let currentEventId = analysisDocumentId;
-      // Force save if it's a new analysis to ensure the document exists
+      // Force-save the analysis if it's new to ensure a document ID exists
       if (!currentEventId) {
         const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
         if (!saveResult.success || !saveResult.newEventId) {
@@ -1133,9 +1133,11 @@ function RCAAnalysisPageComponent() {
       const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
       const fileStorageRef = storageRef(storage, filePath);
   
+      // Upload the file
       const uploadResult = await uploadBytes(fileStorageRef, file);
       const downloadURL = await getDownloadURL(uploadResult.ref);
   
+      // Create the new fact object
       const newFact: PreservedFact = {
         ...factMetadata,
         id: `${currentEventId}-pf-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
@@ -1153,7 +1155,7 @@ function RCAAnalysisPageComponent() {
         updatedAt: new Date().toISOString()
       });
   
-      // Update local state after successful database update
+      // Update local state only after successful database update
       setPreservedFacts(prev => [...prev, newFact]);
       toast({ title: "Hecho Preservado Añadido", description: `Se añadió y subió "${newFact.userGivenName}".` });
   
@@ -1176,27 +1178,20 @@ function RCAAnalysisPageComponent() {
         const fileRef = storageRef(storage, factToRemove.storagePath);
         await deleteObject(fileRef);
       }
-    } catch (error: any) {
-      if (error.code !== 'storage/object-not-found') {
-        console.error("Error deleting file from Storage, proceeding to remove DB reference:", error);
-        toast({ title: "Error al Eliminar Archivo", description: "No se pudo eliminar el archivo de Storage, pero se intentará eliminar la referencia.", variant: "destructive" });
-      }
-    }
-    
-    try {
-      // Atomically remove the fact object from the array in Firestore
+      
+      // Then, atomically remove the fact object from the array in Firestore
       const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
       await updateDoc(rcaDocRef, {
         preservedFacts: arrayRemove(sanitizeForFirestore(factToRemove)),
         updatedAt: new Date().toISOString()
       });
   
-      // Update local state after successful database update
+      // Update local state only after successful database update
       setPreservedFacts(prev => prev.filter(fact => fact.id !== id));
       toast({ title: "Hecho Preservado Eliminado", description: "La referencia y el archivo han sido eliminados.", variant: 'destructive' });
     } catch (error) {
-       console.error("Error updating document after fact removal:", error);
-       toast({ title: "Error de Sincronización", description: "No se pudo actualizar el documento. Recargue la página.", variant: 'destructive' });
+       console.error("Error al eliminar hecho preservado:", error);
+       toast({ title: "Error de Sincronización", description: "No se pudo eliminar el hecho. Recargue la página.", variant: 'destructive' });
     } finally {
        setIsSaving(false);
     }
