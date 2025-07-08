@@ -57,9 +57,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setLoadingAuth(true);
       if (user) {
-        // Create a new object from the original user to ensure state updates
-        const userStateClone = JSON.parse(JSON.stringify(user));
-        setCurrentUser(userStateClone);
+        setCurrentUser(user);
 
         const userDocRef = doc(db, 'users', user.uid);
         try {
@@ -77,6 +75,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               console.log(`Found pre-created profile ${preCreatedDoc.id}. Migrating to new UID ${user.uid}.`);
 
               if (!profileData.name) profileData.name = user.displayName || "Usuario";
+              if (!profileData.photoURL) profileData.photoURL = user.photoURL || '';
               
               await setDoc(userDocRef, sanitizeForFirestore(profileData));
               await deleteDoc(preCreatedDoc.ref);
@@ -103,6 +102,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               assignedSites: '',
               emailNotifications: true,
               empresa: '',
+              photoURL: user.photoURL || '',
             };
             
             await setDoc(userDocRef, sanitizeForFirestore(newUserProfileData));
@@ -183,9 +183,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await updateProfile(currentUser, { photoURL });
 
     const userDocRef = doc(db, 'users', currentUser.uid);
-    await updateDoc(userDocRef, { photoURL: photoURL });
+    await updateDoc(userDocRef, { photoURL });
 
-    setCurrentUser({ ...currentUser, photoURL } as FirebaseUser);
     setUserProfile(prev => prev ? { ...prev, photoURL: photoURL } : null);
 
     return photoURL;

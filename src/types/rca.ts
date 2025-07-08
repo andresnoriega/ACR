@@ -167,6 +167,7 @@ export interface FullUserProfile {
   assignedSites?: string;
   emailNotifications?: boolean;
   empresa?: string;
+  photoURL?: string;
 }
 
 // Types for Eventos Reportados page

@@ -140,7 +140,7 @@ export default function PerfilPage() {
             <CardContent className="space-y-4">
               <div className="flex flex-col items-center space-y-3">
                 <Avatar className="h-24 w-24">
-                  <AvatarImage src={currentUser?.photoURL || ''} alt={userProfile?.name || 'Avatar'} />
+                  <AvatarImage src={userProfile?.photoURL || ''} alt={userProfile?.name || 'Avatar'} />
                   <AvatarFallback>{userProfile?.name?.charAt(0) || 'U'}</AvatarFallback>
                 </Avatar>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/png, image/jpeg" className="hidden" />
