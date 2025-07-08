@@ -176,9 +176,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       throw new Error("No hay un usuario autenticado o un perfil de usuario para actualizar.");
     }
   
-    // Use a consistent file name like 'avatar' to prevent accumulating old files, preserving the original extension.
+    // Use a UNIQUE file name to bust cache. This is more robust than query parameters.
     const fileExtension = file.name.split('.').pop() || 'jpg';
-    const fileName = `avatar.${fileExtension}`;
+    const fileName = `avatar-${Date.now()}.${fileExtension}`;
     const filePath = `profile-pictures/${currentUser.uid}/${fileName}`;
     const fileRef = storageRef(storage, filePath);
     
@@ -190,22 +190,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
     
     await uploadBytes(fileRef, file, uploadMetadata);
-    const photoURL = await getDownloadURL(fileRef);
-
-    // This is the cache-busting fix. It adds a unique timestamp to the URL.
-    const finalUrl = `${photoURL}&t=${new Date().getTime()}`;
+    const photoURL = await getDownloadURL(fileRef); // This URL will be unique due to the filename.
   
     // Update the profile in Firebase Authentication
-    await updateProfile(currentUser, { photoURL: finalUrl });
+    await updateProfile(currentUser, { photoURL: photoURL });
   
     // Update the profile in the Firestore database
     const userDocRef = doc(db, 'users', currentUser.uid);
-    await updateDoc(userDocRef, { photoURL: finalUrl });
+    await updateDoc(userDocRef, { photoURL: photoURL });
   
-    // Update the local state to trigger a re-render in the UI
-    setUserProfile(prev => prev ? { ...prev, photoURL: finalUrl } : null);
+    // Update the local state to trigger a re-render in the UI.
+    setUserProfile(prev => prev ? { ...prev, photoURL: photoURL } : null);
   
-    return finalUrl;
+    return photoURL;
   };
 
 
