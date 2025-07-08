@@ -353,27 +353,34 @@ export default function UserActionPlansPage() {
     }
   };
 
-  const handleRemoveEvidence = async (evidenceToRemove: FirestoreEvidence) => {
+  const handleRemoveEvidence = async (evidenceIdToRemove: string) => {
     if (!selectedPlan) return;
+    
     setIsUpdatingAction(true);
+    const { _originalRcaDocId, _originalActionId } = selectedPlan;
+
     try {
-      const rcaDocRef = doc(db, 'rcaAnalyses', selectedPlan._originalRcaDocId);
-      
-      const sanitizedEvidence = sanitizeForFirestore(evidenceToRemove);
-      
-      await updateDoc(rcaDocRef, {
-        "plannedActions": allRcaDocuments.find(d => d.id === selectedPlan._originalRcaDocId)
-          ?.plannedActions.map(pa => 
-            pa.id === selectedPlan._originalActionId 
-              ? { ...pa, evidencias: pa.evidencias?.filter(e => e.id !== sanitizedEvidence.id) } 
-              : pa
-          )
-      });
-      
-      await updateDoc(rcaDocRef, {
-          "plannedActions": arrayRemove(sanitizedEvidence)
+      const rcaDocRef = doc(db, 'rcaAnalyses', _originalRcaDocId);
+      const docSnap = await getDoc(rcaDocRef);
+
+      if (!docSnap.exists()) {
+        throw new Error("El documento de análisis no se encontró en la base de datos.");
+      }
+
+      const currentRcaDoc = docSnap.data() as RCAAnalysisDocument;
+      const updatedPlannedActions = currentRcaDoc.plannedActions.map(action => {
+        if (action.id === _originalActionId) {
+          const updatedEvidences = (action.evidencias || []).filter(e => e.id !== evidenceIdToRemove);
+          return { ...action, evidencias: updatedEvidences };
+        }
+        return action;
       });
 
+      await updateDoc(rcaDocRef, {
+        plannedActions: sanitizeForFirestore(updatedPlannedActions),
+        updatedAt: new Date().toISOString(),
+      });
+      
       toast({ title: "Evidencia Eliminada", variant: 'destructive' });
       await fetchRcaDocuments(); // Refresh data from source
     } catch (error) {
@@ -394,21 +401,19 @@ export default function UserActionPlansPage() {
         toast({ title: "Subiendo archivo...", description: `Subiendo ${fileToUpload.name}.` });
         
         const reader = new FileReader();
-        await new Promise<void>((resolve, reject) => {
-            reader.readAsDataURL(fileToUpload!);
-            reader.onload = () => {
-                const dataUrl = reader.result as string;
-                newEvidencePayload = {
-                  id: `ev-${Date.now()}`,
-                  nombre: fileToUpload!.name,
-                  tipo: (fileToUpload!.type.split('/')[1] as FirestoreEvidence['tipo']) || 'other',
-                  comment: evidenceComment.trim() || undefined,
-                  dataUrl,
-                };
-                resolve();
-            };
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+            reader.onload = () => resolve(reader.result as string);
             reader.onerror = (error) => reject(error);
+            reader.readAsDataURL(fileToUpload!);
         });
+
+        newEvidencePayload = {
+          id: `ev-${Date.now()}`,
+          nombre: fileToUpload!.name,
+          tipo: (fileToUpload!.type.split('/')[1] as FirestoreEvidence['tipo']) || 'other',
+          comment: evidenceComment.trim() || undefined,
+          dataUrl,
+        };
       }
 
       const rcaDocRef = doc(db, 'rcaAnalyses', selectedPlan._originalRcaDocId);
@@ -629,7 +634,7 @@ export default function UserActionPlansPage() {
                             {ev.comment && <p className="text-xs text-muted-foreground ml-[calc(1rem+0.5rem)] mt-0.5">Comentario: {ev.comment}</p>}</div>
                           <div className="flex-shrink-0 ml-2">
                              <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mr-2"><a href={ev.dataUrl} target="_blank" rel="noopener noreferrer" download={ev.nombre}><ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar</a></Button>
-                             <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-destructive/10" onClick={() => handleRemoveEvidence(ev)} disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} aria-label="Eliminar evidencia"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                             <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-destructive/10" onClick={() => handleRemoveEvidence(ev.id)} disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} aria-label="Eliminar evidencia"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                           </div>
                           </li>))}</ul>
                   ) : <p className="text-xs text-muted-foreground">No hay evidencias adjuntas.</p>}</div>
