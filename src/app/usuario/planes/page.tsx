@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, ChangeEvent } from 'react';
@@ -14,8 +13,9 @@ import { useToast } from "@/hooks/use-toast";
 import { ListTodo, FileText, ImageIcon, Paperclip, CheckCircle2, Save, Info, MessageSquare, Loader2, CalendarCheck, History, Trash2, Mail, ArrowUp, ArrowDown, ChevronsUpDown, UserCircle, FolderKanban, CheckSquare, Link2, ExternalLink, XCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, query, orderBy, where, QueryConstraint, getDoc, arrayRemove, arrayUnion } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { sendEmailAction } from '@/app/actions';
