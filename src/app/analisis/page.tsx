@@ -494,10 +494,11 @@ function RCAAnalysisPageComponent() {
       statusOverride?: ReportedEventStatus;
       rejectionReason?: string;
       validationsOverride?: Validation[];
+      plannedActionsOverride?: PlannedAction[];
       suppressNavigation?: boolean; 
     }
   ): Promise<{ success: boolean; newEventId?: string; needsNavigationUrl?: string }> => {
-    const { finalizedOverride, statusOverride, rejectionReason: currentRejectionReason, validationsOverride, suppressNavigation } = options || {};
+    const { finalizedOverride, statusOverride, rejectionReason: currentRejectionReason, validationsOverride, plannedActionsOverride, suppressNavigation } = options || {};
 
     let currentId = analysisDocumentId;
     let isNewEventCreation = false;
@@ -541,7 +542,8 @@ function RCAAnalysisPageComponent() {
     const rcaDocPayload: Partial<RCAAnalysisDocument> = {
       eventData: consistentEventData, immediateActions, projectLeader, detailedFacts, analysisDetails,
       preservedFacts, timelineEvents, brainstormingIdeas, analysisTechnique, analysisTechniqueNotes, ishikawaData,
-      fiveWhysData, ctmData, identifiedRootCauses, plannedActions,
+      fiveWhysData, ctmData, identifiedRootCauses, 
+      plannedActions: (plannedActionsOverride !== undefined) ? plannedActionsOverride : plannedActions,
       validations: (validationsOverride !== undefined) ? validationsOverride : validations,
       finalComments, isFinalized: currentIsFinalized,
       rejectionDetails: currentRejectionDetailsToSave,
@@ -580,6 +582,7 @@ function RCAAnalysisPageComponent() {
       if (finalizedOverride !== undefined && isFinalized !== finalizedOverride) setIsFinalized(finalizedOverride);
       if (currentRejectionDetailsToSave !== rejectionDetails) setRejectionDetails(currentRejectionDetailsToSave);
       if (validationsOverride !== undefined && validationsOverride !== validations) setValidations(validationsOverride); 
+      if (plannedActionsOverride !== undefined && plannedActionsOverride !== plannedActions) setPlannedActions(plannedActionsOverride);
       if (dataToSave.createdBy && createdBy !== dataToSave.createdBy) setCreatedBy(dataToSave.createdBy);
       if(consistentEventData.id !== eventData.id) setEventData(consistentEventData);
 
@@ -1334,15 +1337,31 @@ function RCAAnalysisPageComponent() {
       return v;
     });
     
-    setValidations(newValidationsArray);
+    let finalPlannedActions = plannedActions;
+    if (newStatus === 'rejected') {
+      finalPlannedActions = plannedActions.map(action => {
+        if (action.id === actionId) {
+          return { ...action, markedAsReadyAt: undefined };
+        }
+        return action;
+      });
+    }
 
+    setValidations(newValidationsArray);
+    if (newStatus === 'rejected') {
+      setPlannedActions(finalPlannedActions);
+    }
+    
     const saveResult = await handleSaveAnalysisData(
       false, 
-      { validationsOverride: newValidationsArray }
+      { 
+        validationsOverride: newValidationsArray,
+        plannedActionsOverride: finalPlannedActions
+      }
     );
     
     if (saveResult.success && newStatus === 'rejected') {
-      const rejectedAction = plannedActions.find(pa => pa.id === actionId);
+      const rejectedAction = finalPlannedActions.find(pa => pa.id === actionId);
       if (rejectedAction && rejectedAction.responsible) {
         const responsibleUser = availableUsersFromDB.find(u => u.name === rejectedAction.responsible);
         if (responsibleUser && responsibleUser.email && (responsibleUser.emailNotifications === undefined || responsibleUser.emailNotifications)) {
@@ -1370,6 +1389,7 @@ function RCAAnalysisPageComponent() {
     } else if (!saveResult.success && newStatus === 'rejected') {
       toast({ title: "Error al Guardar", description: "No se pudo guardar el estado de rechazo. Revirtiendo cambio.", variant: "destructive"});
       setValidations(validations);
+      setPlannedActions(plannedActions);
     }
   };
 

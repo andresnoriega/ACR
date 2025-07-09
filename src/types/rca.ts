@@ -40,7 +40,7 @@ export interface Evidence {
   nombre: string;
   tipo: 'pdf' | 'jpg' | 'jpeg' | 'png' | 'doc' | 'docx' | 'other' | 'link';
   comment?: string;
-  dataUrl: string; // Changed from downloadURL and storagePath
+  dataUrl: string;
 }
 
 export interface PlannedAction {
@@ -153,7 +153,7 @@ export interface PreservedFact {
   category: PreservedFactCategory | '';
   description: string;
   uploadDate: string;
-  dataUrl: string; // Changed from downloadURL and storagePath
+  dataUrl: string;
 }
 
 export interface FullUserProfile {
@@ -252,4 +252,29 @@ export interface RCAAnalysisDocument {
   updatedAt: string;
   createdBy?: string;
   empresa?: string;
+}
+
+// --- Type for User Action Plans Page ---
+export interface ActionPlan {
+  id: string;
+  accionResumen: string;
+  estado: 'Pendiente' | 'En proceso' | 'En Validación' | 'Completado' | 'Rechazado';
+  plazoLimite: string;
+  asignadoPor: string; 
+  validatorName?: string; 
+  tituloDetalle: string;
+  descripcionDetallada: string;
+  responsableDetalle: string;
+  codigoRCA: string;
+  evidencias: Evidence[];
+  userComments?: string;
+  userMarkedReadyDate?: string; 
+  validationDate?: string; 
+  ultimaActualizacion: {
+    usuario: string;
+    mensaje: string;
+    fechaRelativa: string;
+  };
+  _originalRcaDocId: string;
+  _originalActionId: string;
 }

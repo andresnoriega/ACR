@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, ChangeEvent } from 'react';
-import type { FullUserProfile, RCAAnalysisDocument, PlannedAction as FirestorePlannedAction, Evidence as FirestoreEvidence, Validation, Site } from '@/types/rca';
+import type { FullUserProfile, RCAAnalysisDocument, PlannedAction as FirestorePlannedAction, Evidence as FirestoreEvidence, Validation, Site, ActionPlan } from '@/types/rca';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from "@/hooks/use-toast";
-import { ListTodo, FileText, ImageIcon, Paperclip, CheckCircle2, Save, Info, MessageSquare, Loader2, CalendarCheck, History, Trash2, Mail, ArrowUp, ArrowDown, ChevronsUpDown, UserCircle, FolderKanban, CheckSquare, Link2, ExternalLink } from 'lucide-react';
+import { ListTodo, FileText, ImageIcon, Paperclip, CheckCircle2, Save, Info, MessageSquare, Loader2, CalendarCheck, History, Trash2, Mail, ArrowUp, ArrowDown, ChevronsUpDown, UserCircle, FolderKanban, CheckSquare, Link2, ExternalLink, XCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
@@ -25,29 +25,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRouter } from 'next/navigation';
 import { Progress } from '@/components/ui/progress';
 
-interface ActionPlan {
-  id: string;
-  accionResumen: string;
-  estado: 'Pendiente' | 'En proceso' | 'En Validación' | 'Completado';
-  plazoLimite: string;
-  asignadoPor: string; 
-  validatorName?: string; 
-  tituloDetalle: string;
-  descripcionDetallada: string;
-  responsableDetalle: string;
-  codigoRCA: string;
-  evidencias: FirestoreEvidence[];
-  userComments?: string;
-  userMarkedReadyDate?: string; 
-  validationDate?: string; 
-  ultimaActualizacion: {
-    usuario: string;
-    mensaje: string;
-    fechaRelativa: string;
-  };
-  _originalRcaDocId: string;
-  _originalActionId: string;
-}
 
 interface ValidationTask {
   id: string; // Combination of RCA ID and Action ID for uniqueness
@@ -175,9 +152,11 @@ export default function UserActionPlansPage() {
               const validation = rcaDoc.validations?.find(v => v.actionId === pa.id);
               let estado: ActionPlan['estado'] = 'Pendiente';
               const isMarkedReady = pa.markedAsReadyAt && isValidDate(parseISO(pa.markedAsReadyAt));
-
+              
               if (validation?.status === 'validated') {
                 estado = 'Completado';
+              } else if (validation?.status === 'rejected') {
+                estado = 'Rechazado';
               } else if (isMarkedReady) {
                 estado = 'En Validación';
               } else if ((pa.evidencias && pa.evidencias.length > 0) || (pa.userComments && pa.userComments.trim() !== '')) {
@@ -330,6 +309,7 @@ export default function UserActionPlansPage() {
       assignedEnProceso: assignedActionPlans.filter(p => p.estado === 'En proceso').length,
       assignedEnValidacion: assignedActionPlans.filter(p => p.estado === 'En Validación').length,
       assignedCompletadas: assignedActionPlans.filter(p => p.estado === 'Completado').length,
+      assignedRechazadas: assignedActionPlans.filter(p => p.estado === 'Rechazado').length,
       totalValidationPending: validationActionPlans.length,
     };
   }, [assignedActionPlans, validationActionPlans]);
@@ -535,9 +515,9 @@ export default function UserActionPlansPage() {
         <CardHeader>
           <CardTitle className="text-lg font-semibold text-primary">Resumen Rápido</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-center">
+        <CardContent className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 text-center">
           <div className="p-3 bg-secondary/40 rounded-md">
-            <p className="text-2xl font-bold text-destructive">{isLoadingActions ? <Loader2 className="h-6 w-6 animate-spin inline" /> : summary.assignedPendientes}</p>
+            <p className="text-2xl font-bold text-orange-600">{isLoadingActions ? <Loader2 className="h-6 w-6 animate-spin inline" /> : summary.assignedPendientes}</p>
             <p className="text-xs text-muted-foreground">Asignadas Pendientes</p>
           </div>
           <div className="p-3 bg-secondary/40 rounded-md">
@@ -547,6 +527,10 @@ export default function UserActionPlansPage() {
           <div className="p-3 bg-secondary/40 rounded-md">
             <p className="text-2xl font-bold text-blue-600">{isLoadingActions ? <Loader2 className="h-6 w-6 animate-spin inline" /> : summary.assignedEnValidacion}</p>
             <p className="text-xs text-muted-foreground">Asignadas En Validación</p>
+          </div>
+           <div className="p-3 bg-destructive/10 rounded-md">
+            <p className="text-2xl font-bold text-destructive">{isLoadingActions ? <Loader2 className="h-6 w-6 animate-spin inline" /> : summary.assignedRechazadas}</p>
+            <p className="text-xs text-muted-foreground">Asignadas Rechazadas</p>
           </div>
           <div className="p-3 bg-secondary/40 rounded-md">
             <p className="text-2xl font-bold text-green-600">{isLoadingActions ? <Loader2 className="h-6 w-6 animate-spin inline" /> : summary.assignedCompletadas}</p>
@@ -598,10 +582,11 @@ export default function UserActionPlansPage() {
                               />
                           </TableCell><TableCell className="font-medium" onClick={() => handleSelectPlan(plan)}>{plan.accionResumen}</TableCell><TableCell className="font-mono text-xs" onClick={() => handleSelectPlan(plan)}>{plan.id.substring(0,15)}{plan.id.length > 15 ? "..." : ""}</TableCell><TableCell onClick={() => handleSelectPlan(plan)}>
                             <span className={cn("px-2 py-0.5 rounded-full text-xs font-semibold",
-                              plan.estado === 'Pendiente' && 'bg-red-100 text-red-700',
+                              plan.estado === 'Pendiente' && 'bg-orange-100 text-orange-700',
                               plan.estado === 'En proceso' && 'bg-yellow-100 text-yellow-700',
                               plan.estado === 'En Validación' && 'bg-blue-100 text-blue-700',
-                              plan.estado === 'Completado' && 'bg-green-100 text-green-700'
+                              plan.estado === 'Completado' && 'bg-green-100 text-green-700',
+                              plan.estado === 'Rechazado' && 'bg-destructive/10 text-destructive'
                             )}>{plan.estado}</span>
                           </TableCell><TableCell onClick={() => handleSelectPlan(plan)}>{plan.plazoLimite}</TableCell><TableCell onClick={() => handleSelectPlan(plan)}>{plan.validatorName || 'N/A'}</TableCell><TableCell className="font-mono text-xs" onClick={() => handleSelectPlan(plan)}>{plan.codigoRCA.substring(0, 8)}...</TableCell></TableRow>
                       ))}
@@ -634,31 +619,32 @@ export default function UserActionPlansPage() {
                             {ev.comment && <p className="text-xs text-muted-foreground ml-[calc(1rem+0.5rem)] mt-0.5">Comentario: {ev.comment}</p>}</div>
                           <div className="flex-shrink-0 ml-2">
                              <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mr-2"><a href={ev.dataUrl} target="_blank" rel="noopener noreferrer" download={ev.nombre}><ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar</a></Button>
-                             <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-destructive/10" onClick={() => handleRemoveEvidence(ev.id)} disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} aria-label="Eliminar evidencia"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                             <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-destructive/10" onClick={() => handleRemoveEvidence(ev.id)} disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || selectedPlan.estado === 'Rechazado'} aria-label="Eliminar evidencia"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                           </div>
                           </li>))}</ul>
                   ) : <p className="text-xs text-muted-foreground">No hay evidencias adjuntas.</p>}</div>
                 <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Adjuntar nueva evidencia]</h4>
                   <div className="space-y-2">
                     <Label htmlFor="evidence-file-input">Archivo de Evidencia</Label>
-                    <Input id="evidence-file-input" type="file" onChange={handleFileChange} className="text-xs h-9" disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} />
+                    <Input id="evidence-file-input" type="file" onChange={handleFileChange} className="text-xs h-9" disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || selectedPlan.estado === 'Rechazado'} />
                     <Label htmlFor="evidence-comment">Comentario para esta evidencia (opcional)</Label>
-                    <Input id="evidence-comment" type="text" placeholder="Ej: Foto de la reparación, documento de capacitación..." value={evidenceComment} onChange={(e) => setEvidenceComment(e.target.value)} className="text-xs h-9" disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} />
+                    <Input id="evidence-comment" type="text" placeholder="Ej: Foto de la reparación, documento de capacitación..." value={evidenceComment} onChange={(e) => setEvidenceComment(e.target.value)} className="text-xs h-9" disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || selectedPlan.estado === 'Rechazado'} />
                   </div>
                   {fileToUpload && <p className="text-xs text-muted-foreground mt-1">Archivo seleccionado: {fileToUpload.name}</p>}
                 </div>
                 <div className="pt-2"><div className="flex justify-between items-center mb-1"><h4 className="font-semibold text-primary flex items-center"><MessageSquare className="mr-1.5 h-4 w-4" />[Mis Comentarios Generales para la Tarea]</h4></div>
-                  <Textarea value={selectedPlan.userComments || ''} onChange={(e) => setSelectedPlan(prev => prev ? { ...prev, userComments: e.target.value } : null)} placeholder="Añada sus comentarios sobre el progreso o finalización de esta tarea..." rows={3} className="text-sm" disabled={isUpdatingAction || selectedPlan.estado === 'Completado'} /></div>
+                  <Textarea value={selectedPlan.userComments || ''} onChange={(e) => setSelectedPlan(prev => prev ? { ...prev, userComments: e.target.value } : null)} placeholder="Añada sus comentarios sobre el progreso o finalización de esta tarea..." rows={3} className="text-sm" disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || selectedPlan.estado === 'Rechazado'} /></div>
                 <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Actualizar estado de esta tarea]</h4>
                   <div className="flex items-center gap-2">
-                     <Button size="sm" variant="default" onClick={handleSignalTaskReadyForValidation} disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || (!fileToUpload && !(selectedPlan.userComments && selectedPlan.userComments.trim()))} title={selectedPlan.estado === 'Completado' ? "Esta tarea ya ha sido validada y no puede modificarse." : (!fileToUpload && !(selectedPlan.userComments && selectedPlan.userComments.trim())) ? "Debe adjuntar un archivo o agregar un comentario para marcar la tarea como lista." : "Guardar evidencias, comentarios y marcar la tarea como lista para ser validada por el Líder del Proyecto."}>
+                     <Button size="sm" variant="default" onClick={handleSignalTaskReadyForValidation} disabled={isUpdatingAction || ['Completado', 'En Validación', 'Rechazado'].includes(selectedPlan.estado) || (!fileToUpload && !(selectedPlan.userComments && selectedPlan.userComments.trim()))} title={selectedPlan.estado === 'Completado' ? "Esta tarea ya ha sido validada y no puede modificarse." : ['En Validación', 'Rechazado'].includes(selectedPlan.estado) ? `La tarea ya está en estado '${selectedPlan.estado}'` : (!fileToUpload && !(selectedPlan.userComments && selectedPlan.userComments.trim())) ? "Debe adjuntar un archivo o agregar un comentario para marcar la tarea como lista." : "Guardar evidencias, comentarios y marcar la tarea como lista para ser validada por el Líder del Proyecto."}>
                       {isUpdatingAction ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />} 
                       {isUpdatingAction ? 'Procesando...' : 'Marcar como listo para validación'}
                     </Button>
                     {selectedPlan.estado === 'En Validación' && (<span className="text-xs text-green-600 flex items-center ml-2 p-1.5 bg-green-50 border border-green-200 rounded-md"><CheckCircle2 className="mr-1 h-3.5 w-3.5" />Listo para Validar</span>)}</div></div>
                 <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Notas del sistema]</h4>
                   <div className="text-xs bg-secondary/30 p-2 rounded-md"><p>Última actualización del ACR: {selectedPlan.ultimaActualizacion.fechaRelativa}</p>
-                    {selectedPlan.estado === 'Completado' && <p className="text-green-600 font-medium">Esta acción ha sido validada y marcada como completada en el análisis ACR.</p>}</div></div>
+                    {selectedPlan.estado === 'Completado' && <p className="text-green-600 font-medium">Esta acción ha sido validada y marcada como completada en el análisis ACR.</p>}
+                    {selectedPlan.estado === 'Rechazado' && <p className="text-destructive font-medium">Esta acción ha sido rechazada por el validador. Revise los comentarios y vuelva a enviar para validación.</p>}</div></div>
               </CardContent>
             </Card>
           )}
