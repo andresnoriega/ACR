@@ -103,7 +103,7 @@ export default function UserActionPlansPage() {
     setIsLoadingActions(true);
     try {
       const rcaCollectionRef = collection(db, "rcaAnalyses");
-      const queryConstraints: QueryConstraint[] = [orderBy("updatedAt", "desc")];
+      const queryConstraints: QueryConstraint[] = [];
       
       if (userProfile.role !== 'Super User' && userProfile.empresa) {
         queryConstraints.push(where("empresa", "==", userProfile.empresa));
@@ -112,6 +112,14 @@ export default function UserActionPlansPage() {
       const q = query(rcaCollectionRef, ...queryConstraints);
       const querySnapshot = await getDocs(q);
       const rcaData = querySnapshot.docs.map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() } as RCAAnalysisDocument));
+      
+      // Sort on the client side to avoid needing a composite index
+      rcaData.sort((a, b) => {
+        const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        return dateB - dateA; // For descending order
+      });
+
       setAllRcaDocuments(rcaData);
     } catch (error) {
       console.error("Error fetching RCA documents: ", error);
@@ -348,13 +356,29 @@ export default function UserActionPlansPage() {
       }
 
       const currentRcaDoc = docSnap.data() as RCAAnalysisDocument;
+      let evidenceToRemove: FirestoreEvidence | undefined;
+
       const updatedPlannedActions = currentRcaDoc.plannedActions.map(action => {
         if (action.id === _originalActionId) {
+          evidenceToRemove = (action.evidencias || []).find(e => e.id === evidenceIdToRemove);
           const updatedEvidences = (action.evidencias || []).filter(e => e.id !== evidenceIdToRemove);
           return { ...action, evidencias: updatedEvidences };
         }
         return action;
       });
+
+      // After updating Firestore: delete from Storage
+      if (evidenceToRemove && evidenceToRemove.storagePath) {
+          try {
+              const fileStorageRef = ref(storage, evidenceToRemove.storagePath);
+              await deleteObject(fileStorageRef);
+          } catch (storageError: any) {
+              if (storageError.code !== 'storage/object-not-found') {
+                  console.error("Error eliminando archivo de Storage:", storageError);
+                  toast({ title: "Error de Storage", description: "No se pudo eliminar el archivo de Storage, pero la referencia fue eliminada de la base de datos.", variant: "destructive" });
+              }
+          }
+      }
 
       await updateDoc(rcaDocRef, {
         plannedActions: sanitizeForFirestore(updatedPlannedActions),
@@ -379,20 +403,19 @@ export default function UserActionPlansPage() {
       let newEvidencePayload: FirestoreEvidence | null = null;
       if (fileToUpload) {
         toast({ title: "Subiendo archivo...", description: `Subiendo ${fileToUpload.name}.` });
+        const filePath = `evidences/${selectedPlan._originalRcaDocId}/${Date.now()}-${fileToUpload.name}`;
+        const fileStorageRef = ref(storage, filePath);
         
-        const reader = new FileReader();
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = (error) => reject(error);
-            reader.readAsDataURL(fileToUpload!);
-        });
+        const uploadResult = await uploadBytes(fileStorageRef, fileToUpload);
+        const downloadURL = await getDownloadURL(uploadResult.ref);
 
         newEvidencePayload = {
           id: `ev-${Date.now()}`,
           nombre: fileToUpload!.name,
           tipo: (fileToUpload!.type.split('/')[1] as FirestoreEvidence['tipo']) || 'other',
           comment: evidenceComment.trim() || undefined,
-          dataUrl,
+          downloadURL,
+          storagePath: filePath,
         };
       }
 
@@ -618,7 +641,7 @@ export default function UserActionPlansPage() {
                           <div className="flex-grow"><div className="flex items-center">{getEvidenceIconLocal(ev.tipo)}<span className="font-medium">{ev.nombre}</span></div>
                             {ev.comment && <p className="text-xs text-muted-foreground ml-[calc(1rem+0.5rem)] mt-0.5">Comentario: {ev.comment}</p>}</div>
                           <div className="flex-shrink-0 ml-2">
-                             <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mr-2"><a href={ev.dataUrl} target="_blank" rel="noopener noreferrer" download={ev.nombre}><ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar</a></Button>
+                             <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mr-2"><a href={ev.downloadURL} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-1 h-3 w-3" />Ver Evidencia</a></Button>
                              <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-destructive/10" onClick={() => handleRemoveEvidence(ev.id)} disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || selectedPlan.estado === 'Rechazado'} aria-label="Eliminar evidencia"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                           </div>
                           </li>))}</ul>

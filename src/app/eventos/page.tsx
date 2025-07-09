@@ -99,7 +99,7 @@ export default function EventosReportadosPage() {
       
       // Then, fetch events based on company
       const eventsCollectionRef = collection(db, "reportedEvents");
-      const eventsQueryConstraints: QueryConstraint[] = [orderBy("date", "desc")];
+      const eventsQueryConstraints: QueryConstraint[] = [];
       
       if (userProfile.role !== 'Super User' && userProfile.empresa) {
         eventsQueryConstraints.push(where('empresa', '==', userProfile.empresa));
@@ -115,6 +115,13 @@ export default function EventosReportadosPage() {
           eventDate = format(data.date.toDate(), 'yyyy-MM-dd');
         }
         return { id: doc.id, ...data, date: eventDate } as ReportedEvent;
+      });
+
+      // Sort on the client to avoid needing a composite index
+      rawEventsData.sort((a, b) => {
+        const dateA = a.date ? new Date(a.date).getTime() : 0;
+        const dateB = b.date ? new Date(b.date).getTime() : 0;
+        return dateB - dateA; // For descending order
       });
 
       setAllEvents(rawEventsData);
