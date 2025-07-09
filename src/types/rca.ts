@@ -34,13 +34,14 @@ export interface IdentifiedRootCause {
   description: string;
 }
 
-// Definición del tipo Evidence
+// Definición del tipo Evidence para Cloud Storage
 export interface Evidence {
   id: string;
   nombre: string;
   tipo: 'pdf' | 'jpg' | 'jpeg' | 'png' | 'doc' | 'docx' | 'other' | 'link';
   comment?: string;
-  dataUrl: string;
+  downloadURL: string;
+  storagePath: string;
 }
 
 export interface PlannedAction {
