@@ -1336,10 +1336,41 @@ function RCAAnalysisPageComponent() {
     
     setValidations(newValidationsArray);
 
-    await handleSaveAnalysisData(
+    const saveResult = await handleSaveAnalysisData(
       false, 
       { validationsOverride: newValidationsArray }
     );
+    
+    if (saveResult.success && newStatus === 'rejected') {
+      const rejectedAction = plannedActions.find(pa => pa.id === actionId);
+      if (rejectedAction && rejectedAction.responsible) {
+        const responsibleUser = availableUsersFromDB.find(u => u.name === rejectedAction.responsible);
+        if (responsibleUser && responsibleUser.email && (responsibleUser.emailNotifications === undefined || responsibleUser.emailNotifications)) {
+          toast({ title: "Acción Rechazada", description: `Enviando notificación a ${responsibleUser.name}...`, variant: "destructive" });
+          const emailSubject = `Acción RCA Rechazada: ${rejectedAction.description.substring(0, 30)}...`;
+          const validationLink = `${window.location.origin}/usuario/planes`;
+          const emailBody = `Estimado/a ${responsibleUser.name},\n\nLa siguiente acción planificada del evento "${eventData.focusEventDescription}" ha sido RECHAZADA:\n\nAcción: ${rejectedAction.description}\n\nMotivo del Rechazo:\n${rejectionReasonInput}\n\nPor favor, revise la tarea en el sistema para tomar las medidas necesarias. Puede ver sus tareas en el siguiente enlace:\n${validationLink}\n\nSaludos,\nSistema Asistente ACR`;
+
+          const emailResult = await sendEmailAction({
+            to: responsibleUser.email,
+            subject: emailSubject,
+            body: emailBody
+          });
+
+          if (emailResult.success) {
+            toast({ title: "Notificación Enviada", description: `Se ha notificado a ${responsibleUser.name} sobre el rechazo.` });
+          } else {
+            toast({ title: "Error de Notificación", description: `No se pudo enviar el correo: ${emailResult.message}`, variant: "destructive" });
+          }
+
+        } else {
+          toast({ title: "Notificación no enviada", description: "No se pudo encontrar el responsable, su correo, o tiene las notificaciones desactivadas.", variant: "destructive" });
+        }
+      }
+    } else if (!saveResult.success && newStatus === 'rejected') {
+      toast({ title: "Error al Guardar", description: "No se pudo guardar el estado de rechazo. Revirtiendo cambio.", variant: "destructive"});
+      setValidations(validations);
+    }
   };
 
   const handlePrintReport = () => {

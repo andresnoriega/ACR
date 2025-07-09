@@ -20,7 +20,6 @@ import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { sendEmailAction } from '@/app/actions';
 
 
 interface Step4ValidationProps {
@@ -36,8 +35,8 @@ interface Step4ValidationProps {
 }
 
 const getEvidenceIconLocal = (tipo?: Evidence['tipo']) => {
+  if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
   const safeTipo = tipo?.toLowerCase() || 'other';
-  if (!safeTipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
   switch (safeTipo) {
     case 'link': return <Link2 className="h-4 w-4 mr-2 flex-shrink-0 text-indigo-600" />;
     case 'pdf': return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
@@ -78,9 +77,9 @@ const RejectActionDialog: FC<{
     <Dialog open={isOpen} onOpenChange={(open) => {if(!isSubmitting) onClose()}}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="flex items-center"><XCircle className="mr-2 h-5 w-5 text-destructive" />Rechazar Acción Planificada</DialogTitle>
+          <DialogTitle className="flex items-center"><XCircle className="mr-2 h-5 w-5 text-destructive" />Motivo del Rechazo</DialogTitle>
           <DialogDescription>
-            Está a punto de rechazar la acción: "{action.description}". Por favor, proporcione un motivo.
+            Explique por qué se rechaza la acción: "{action.description}"
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
@@ -121,7 +120,6 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   const { toast } = useToast();
   const [isSavingLocally, setIsSavingLocally] = useState(false);
   const [rejectingAction, setRejectingAction] = useState<PlannedAction | null>(null);
-  const [isProcessingEmail, setIsProcessingEmail] = useState(false);
 
   const uniquePlannedActions = useMemo(() => {
     if (!Array.isArray(plannedActions)) {
@@ -144,16 +142,6 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
     return validations.find(v => v.actionId === actionId);
   };
 
-  const canValidateActions = (loggedInUserName: string | null): boolean => {
-    if (!loggedInUserName) return false;
-    const currentUserProfile = availableUserProfiles.find(up => up.name === loggedInUserName);
-    if (!currentUserProfile) return false;
-    if (currentUserProfile.name === projectLeader) return true;
-    if (currentUserProfile.role === 'Admin' && currentUserProfile.permissionLevel === 'Total') return true;
-    if (currentUserProfile.role === 'Super User') return true;
-    return false;
-  };
-
   const handleValidateClick = async (actionId: string) => {
     const currentValidation = getValidation(actionId);
     const newStatus = currentValidation?.status === 'validated' ? 'pending' : 'validated';
@@ -172,57 +160,9 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   };
 
   const handleConfirmRejectAction = async (actionId: string, reason: string) => {
-    const actionBeingRejected = uniquePlannedActions.find(act => act.id === actionId);
-    if (!actionBeingRejected) {
-      toast({ title: "Error", description: "Acción no encontrada.", variant: "destructive" });
-      setRejectingAction(null);
-      return;
-    }
-
     setIsSavingLocally(true);
-    setIsProcessingEmail(true);
-    try {
-      await onToggleValidation(actionId, 'rejected', reason);
-
-      const responsibleUserName = actionBeingRejected.responsible;
-      const responsibleUser = availableUserProfiles.find(up => up.name === responsibleUserName);
-
-      let emailNotificationStatus = "No se pudo determinar el estado del envío de correo.";
-      if (responsibleUser && responsibleUser.email) {
-        const emailSubject = `Acción RCA Rechazada: ${actionBeingRejected.description.substring(0, 30)}...`;
-        const eventId = actionBeingRejected.eventId;
-
-        const emailBody = `Estimado/a ${responsibleUser.name},\n\nLa siguiente acción planificada ha sido RECHAZADA en el análisis RCA (ID Evento: ${eventId}):\n\nAcción: ${actionBeingRejected.description}\nMotivo del Rechazo: ${reason}\n\nPor favor, revise la acción y tome las medidas necesarias.\n\nSaludos,\nSistema RCA Assistant`;
-
-        const emailResult = await sendEmailAction({
-          to: responsibleUser.email,
-          subject: emailSubject,
-          body: emailBody,
-        });
-        if (emailResult.success) {
-          emailNotificationStatus = `Notificación de rechazo enviada a ${responsibleUser.name}.`;
-        } else {
-          emailNotificationStatus = `Se intentó enviar notificación a ${responsibleUser.name}, pero falló: ${emailResult.message}`;
-        }
-      } else {
-        emailNotificationStatus = `No se pudo enviar notificación: responsable "${responsibleUserName}" no encontrado o sin email.`;
-      }
-
-      toast({
-        title: "Acción Rechazada",
-        description: `La acción ha sido marcada como rechazada. ${emailNotificationStatus}`,
-        variant: "destructive",
-        duration: 7000
-      });
-
-    } catch (error) {
-      toast({ title: "Error", description: "Ocurrió un error al rechazar la acción.", variant: "destructive" });
-      console.error("Error during reject action confirmation:", error);
-    } finally {
-      setIsSavingLocally(false);
-      setIsProcessingEmail(false);
-      setRejectingAction(null);
-    }
+    await onToggleValidation(actionId, 'rejected', reason);
+    setIsSavingLocally(false);
   };
 
 
@@ -269,7 +209,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
     onNext();
   };
   
-  const isStepSaving = isSaving || isSavingLocally || isProcessingEmail;
+  const isStepSaving = isSaving || isSavingLocally;
 
   return (
     <>
@@ -412,7 +352,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                                       </div>
                                     </div>
                                     <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
-                                      <a href={ev.downloadURL} target="_blank" rel="noopener noreferrer">
+                                      <a href={ev.dataUrl} target="_blank" rel="noopener noreferrer" download={ev.nombre}>
                                         <ExternalLink className="mr-1 h-3 w-3" />Ver Evidencia
                                       </a>
                                     </Button>
