@@ -29,7 +29,7 @@ interface Step2FactsProps {
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
   preservedFacts: PreservedFact[];
-  onAddPreservedFact: (factData: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>, file: File | null) => void;
+  onAddPreservedFact: (factData: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'dataUrl'>, file: File | null) => void;
   onRemovePreservedFact: (id: string) => void;
   onPrevious: () => void;
   onNext: () => void;
@@ -40,7 +40,7 @@ interface Step2FactsProps {
 const PreservedFactDialog: FC<{
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (factData: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>, file: File | null) => void;
+  onSave: (factData: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'dataUrl'>, file: File | null) => void;
 }> = ({ open, onOpenChange, onSave }) => {
   const [userGivenName, setUserGivenName] = useState('');
   const [category, setCategory] = useState<PreservedFactCategory | ''>('');
@@ -366,9 +366,9 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                                 {fact.fileName && <p className="text-xs text-muted-foreground">Archivo: {fact.fileName} ({fact.fileType}, {fact.fileSize ? (fact.fileSize / 1024).toFixed(2) : 0} KB)</p>}
                                 {fact.description && <p className="text-sm mt-1">{fact.description}</p>}
                                 <p className="text-xs text-muted-foreground mt-1">Cargado: {format(new Date(fact.uploadDate), "dd/MM/yyyy HH:mm", { locale: es })}</p>
-                                {fact.downloadURL && (
+                                {fact.dataUrl && (
                                     <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mt-1">
-                                        <a href={fact.downloadURL} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-1 h-3 w-3" />Ver Archivo</a>
+                                        <a href={fact.dataUrl} target="_blank" rel="noopener noreferrer" download={fact.fileName}><ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar</a>
                                     </Button>
                                 )}
                             </div>

@@ -1130,7 +1130,7 @@ function RCAAnalysisPageComponent() {
           reader.readAsDataURL(file);
       });
 
-      // Step 3: Read, Modify, Write to Firestore.
+      // Step 3: Create the new fact object.
       const newFact: PreservedFact = {
         ...factMetadata,
         id: `${currentEventId}-pf-${Date.now()}`,
@@ -1139,6 +1139,7 @@ function RCAAnalysisPageComponent() {
         dataUrl: dataUrl,
       };
 
+      // Step 4: Robust "Read, Modify, Write" to Firestore.
       const rcaDocRef = doc(db, "rcaAnalyses", currentEventId!);
       const docSnap = await getDoc(rcaDocRef);
 
@@ -1154,7 +1155,7 @@ function RCAAnalysisPageComponent() {
         updatedAt: new Date().toISOString()
       });
 
-      // Step 4: Update local state.
+      // Step 5: Update local state.
       setPreservedFacts(updatedPreservedFacts);
       toast({ title: "Hecho Preservado Añadido", description: `Se añadió "${newFact.userGivenName}".` });
 
