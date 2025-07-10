@@ -22,6 +22,7 @@ import {
   Cell,
   Tooltip as RechartsTooltip,
   Legend as RechartsLegend,
+  ResponsiveContainer,
 } from 'recharts';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
