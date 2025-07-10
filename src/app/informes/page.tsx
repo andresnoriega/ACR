@@ -46,7 +46,6 @@ interface RCASummaryData {
   rcaPendientes: number;
   rcaFinalizados: number;
   rcaCompletionRate?: number;
-  rcaRechazados: number; // Added for rejected events
 }
 
 interface AnalisisEnCursoItem {
@@ -122,7 +121,6 @@ export default function DashboardRCAPage() {
     const currentAnalysesInProgress: AnalisisEnCursoItem[] = [];
     const currentPendingActionPlans: PlanAccionPendienteItem[] = [];
     let currentRcaFinalizadosCount = 0;
-    let currentRcaRechazadosCount = 0;
     let currentRcaPendientesCount = 0;
 
     try {
@@ -168,7 +166,6 @@ export default function DashboardRCAPage() {
         const eventStatus = reportedEventsMap.get(rcaId);
 
         if (eventStatus === 'Rechazado') {
-          currentRcaRechazadosCount++;
           return;
         }
         
@@ -241,13 +238,12 @@ export default function DashboardRCAPage() {
         rcaPendientes: currentRcaPendientesCount,
         rcaFinalizados: currentRcaFinalizadosCount,
         rcaCompletionRate: rcaCompletionRateValue,
-        rcaRechazados: currentRcaRechazadosCount,
       });
 
     } catch (error) {
       console.error("Error fetching dashboard data: ", error);
       setActionStatsData({ totalAcciones: 0, accionesPendientes: 0, accionesValidadas: 0 });
-      setRcaSummaryData({ totalRCAs: 0, rcaPendientes: 0, rcaFinalizados: 0, rcaRechazados: 0, rcaCompletionRate: 0 });
+      setRcaSummaryData({ totalRCAs: 0, rcaPendientes: 0, rcaFinalizados: 0, rcaCompletionRate: 0 });
       setAnalisisEnCurso([]);
       setPlanesAccionPendientes([]);
       toast({ title: "Error al Cargar Datos del Dashboard", description: (error as Error).message, variant: "destructive" });
@@ -359,13 +355,12 @@ export default function DashboardRCAPage() {
   }, [actionStatsData]);
 
   const rcaStatusPieChartData = useMemo(() => {
-    if (!rcaSummaryData || (rcaSummaryData.rcaPendientes === 0 && rcaSummaryData.rcaFinalizados === 0 && rcaSummaryData.rcaRechazados === 0)) {
+    if (!rcaSummaryData || (rcaSummaryData.rcaPendientes === 0 && rcaSummaryData.rcaFinalizados === 0)) {
       return [];
     }
     return [
       { name: 'ACR Pendientes', value: rcaSummaryData.rcaPendientes, color: 'hsl(var(--chart-5))' }, 
       { name: 'ACR Finalizados', value: rcaSummaryData.rcaFinalizados, color: 'hsl(var(--chart-2))' }, 
-      { name: 'ACR Rechazados', value: rcaSummaryData.rcaRechazados, color: 'hsl(var(--chart-3))' }, 
     ].filter(item => item.value > 0);
   }, [rcaSummaryData]);
 
@@ -593,9 +588,9 @@ export default function DashboardRCAPage() {
             <CardTitle className="text-2xl">Resumen de Análisis de Causa Raíz</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-5 gap-4 text-center">
+        <CardContent className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 text-center">
           {isLoadingData ? (
-            [...Array(5)].map((_, i) => (
+            [...Array(4)].map((_, i) => (
               <div key={`rca-load-${i}`} className="p-4 bg-secondary/30 rounded-lg flex flex-col items-center justify-center h-24">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>
@@ -623,11 +618,6 @@ export default function DashboardRCAPage() {
                   {rcaSummaryData.rcaCompletionRate !== undefined ? rcaSummaryData.rcaCompletionRate.toFixed(1) : '0.0'}%
                 </p>
                 <p className="text-sm text-muted-foreground">Cumplimiento ACR</p>
-              </div>
-              <div className="p-4 bg-slate-400/20 rounded-lg">
-                <div className="flex items-center justify-center mb-1"><XCircle className="h-5 w-5 text-slate-600 mr-1.5"/></div>
-                <p className="text-3xl font-bold text-slate-600">{rcaSummaryData.rcaRechazados}</p>
-                <p className="text-sm text-muted-foreground">ACR Rechazados</p>
               </div>
             </>
           ) : (
