@@ -1115,8 +1115,18 @@ function RCAAnalysisPageComponent() {
         throw new Error("No se seleccionó ningún archivo.");
       }
       
+      if (file.size > 700 * 1024) { // 700KB limit
+        toast({
+          title: "Archivo Demasiado Grande",
+          description: "El archivo no puede superar los 700 KB para ser guardado en la base de datos.",
+          variant: "destructive",
+          duration: 7000,
+        });
+        setIsSaving(false);
+        return;
+      }
+      
       let currentEventId = analysisDocumentId;
-      // Step 1: Ensure document exists.
       if (!currentEventId) {
         const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
         if (!saveResult.success || !saveResult.newEventId) {
@@ -1125,7 +1135,6 @@ function RCAAnalysisPageComponent() {
         currentEventId = saveResult.newEventId;
       }
 
-      // Step 2: Convert file to Data URL.
       const reader = new FileReader();
       const dataUrl = await new Promise<string>((resolve, reject) => {
           reader.onload = () => resolve(reader.result as string);
@@ -1133,7 +1142,6 @@ function RCAAnalysisPageComponent() {
           reader.readAsDataURL(file);
       });
 
-      // Step 3: Create the new fact object.
       const newFact: PreservedFact = {
         ...factMetadata,
         id: `${currentEventId}-pf-${Date.now()}`,
@@ -1142,7 +1150,6 @@ function RCAAnalysisPageComponent() {
         dataUrl: dataUrl,
       };
 
-      // Step 4: Robust "Read, Modify, Write" to Firestore.
       const rcaDocRef = doc(db, "rcaAnalyses", currentEventId!);
       const docSnap = await getDoc(rcaDocRef);
 
@@ -1158,7 +1165,6 @@ function RCAAnalysisPageComponent() {
         updatedAt: new Date().toISOString()
       });
 
-      // Step 5: Update local state.
       setPreservedFacts(updatedPreservedFacts);
       toast({ title: "Hecho Preservado Añadido", description: `Se añadió "${newFact.userGivenName}".` });
 

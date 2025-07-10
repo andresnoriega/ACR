@@ -356,22 +356,29 @@ export default function UserActionPlansPage() {
       }
 
       const currentRcaDoc = docSnap.data() as RCAAnalysisDocument;
+      let updatedPlannedActions: FirestorePlannedAction[];
 
-      const updatedPlannedActions = currentRcaDoc.plannedActions.map(action => {
-        if (action.id === _originalActionId) {
-          const updatedEvidences = (action.evidencias || []).filter(e => e.id !== evidenceIdToRemove);
-          return { ...action, evidencias: updatedEvidences };
-        }
-        return action;
-      });
-      
-      await updateDoc(rcaDocRef, {
-        plannedActions: sanitizeForFirestore(updatedPlannedActions),
+      const updatedRcaDoc = {
+        ...currentRcaDoc,
+        plannedActions: currentRcaDoc.plannedActions.map(action => {
+          if (action.id === _originalActionId) {
+            const updatedEvidences = (action.evidencias || []).filter(e => e.id !== evidenceIdToRemove);
+            return { ...action, evidencias: updatedEvidences };
+          }
+          return action;
+        }),
         updatedAt: new Date().toISOString(),
-      });
+      };
+      
+      updatedPlannedActions = updatedRcaDoc.plannedActions;
+
+      await updateDoc(rcaDocRef, sanitizeForFirestore(updatedRcaDoc));
       
       toast({ title: "Evidencia Eliminada", variant: 'destructive' });
-      await fetchRcaDocuments(); // Refresh data from source
+      setAllRcaDocuments(prevDocs => 
+        prevDocs.map(d => d.eventData.id === _originalRcaDocId ? updatedRcaDoc : d)
+      );
+
     } catch (error) {
       console.error("Error removing evidence:", error);
       toast({ title: "Error", description: `No se pudo eliminar la evidencia: ${(error as Error).message}`, variant: "destructive" });
@@ -387,6 +394,17 @@ export default function UserActionPlansPage() {
     try {
       let newEvidencePayload: FirestoreEvidence | null = null;
       if (fileToUpload) {
+        if (fileToUpload.size > 700 * 1024) { // 700 KB limit
+          toast({
+            title: "Archivo Demasiado Grande",
+            description: "El archivo de evidencia no puede superar los 700 KB para ser guardado en la base de datos.",
+            variant: "destructive",
+            duration: 7000,
+          });
+          setIsUpdatingAction(false);
+          return;
+        }
+
         toast({ title: "Procesando archivo...", description: `Convirtiendo ${fileToUpload.name} a Data URL.` });
         const reader = new FileReader();
         const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -397,8 +415,8 @@ export default function UserActionPlansPage() {
 
         newEvidencePayload = {
           id: `ev-${Date.now()}`,
-          nombre: fileToUpload!.name,
-          tipo: (fileToUpload!.type.split('/')[1] as FirestoreEvidence['tipo']) || 'other',
+          nombre: fileToUpload.name,
+          tipo: (fileToUpload.type.split('/')[1] as FirestoreEvidence['tipo']) || 'other',
           comment: evidenceComment.trim() || undefined,
           dataUrl: dataUrl,
         };
@@ -410,6 +428,7 @@ export default function UserActionPlansPage() {
 
       const currentRcaDoc = docSnap.data() as RCAAnalysisDocument;
       let actionToNotify: FirestorePlannedAction | undefined;
+      let updatedRcaDoc: RCAAnalysisDocument;
 
       const updatedPlannedActions = currentRcaDoc.plannedActions.map(action => {
         if (action.id === selectedPlan._originalActionId) {
@@ -428,14 +447,25 @@ export default function UserActionPlansPage() {
         }
         return action;
       });
+      
+      updatedRcaDoc = {
+          ...currentRcaDoc,
+          plannedActions: updatedPlannedActions,
+          updatedAt: new Date().toISOString(),
+      };
 
-      await updateDoc(rcaDocRef, {
-        plannedActions: sanitizeForFirestore(updatedPlannedActions),
-        updatedAt: new Date().toISOString()
-      });
+      await updateDoc(rcaDocRef, sanitizeForFirestore(updatedRcaDoc));
+      
+      // State is now updated directly, avoiding a full re-fetch.
+      setAllRcaDocuments(prevDocs =>
+        prevDocs.map(doc =>
+          doc.eventData.id === selectedPlan._originalRcaDocId
+            ? updatedRcaDoc
+            : doc
+        )
+      );
       
       toast({ title: "Tarea Lista para Validación" });
-      await fetchRcaDocuments(); // Refresh data from source
       
       if (fileToUpload) {
           setEvidenceComment('');
