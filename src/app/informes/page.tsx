@@ -20,13 +20,13 @@ import {
   PieChart as RechartsPieChart,
   Pie,
   Cell,
-  ResponsiveContainer,
   Tooltip as RechartsTooltip,
   Legend as RechartsLegend,
 } from 'recharts';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { useAuth } from '@/contexts/AuthContext';
+import { sendActionReminders } from '@/app/actions';
 
 
 const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Falla de Equipo', 'Accidente', 'No Conformidad', 'Evento Operacional'];
@@ -135,7 +135,7 @@ export default function DashboardRCAPage() {
       }
 
       if (currentFilters.site && currentFilters.site !== ALL_FILTER_VALUE) {
-        rcaQueryConstraints.push(where("eventData.site", "==", currentFilters.site));
+        rcaQueryConstraints.push(where("eventData.place", "==", currentFilters.site));
         eventQueryConstraintsForCounts.push(where("site", "==", currentFilters.site));
       }
       if (currentFilters.type && currentFilters.type !== ALL_FILTER_VALUE) {
@@ -286,6 +286,35 @@ export default function DashboardRCAPage() {
       fetchAllDashboardData(filters);
     }
   }, [loadingAuth, isLoadingSites, fetchAllDashboardData, filters]);
+
+  useEffect(() => {
+    const checkReminders = async () => {
+      const LAST_CHECK_KEY = 'lastReminderCheckTimestamp';
+      // Run check only once every 4 hours to avoid spamming on page reloads
+      const FOUR_HOURS_IN_MS = 4 * 60 * 60 * 1000;
+      const lastCheck = localStorage.getItem(LAST_CHECK_KEY);
+
+      if (!lastCheck || Date.now() - parseInt(lastCheck) > FOUR_HOURS_IN_MS) {
+        console.log('Running scheduled reminder check...');
+        toast({
+          title: "Verificando Recordatorios",
+          description: "Buscando tareas pendientes en segundo plano...",
+          duration: 3000,
+        });
+        localStorage.setItem(LAST_CHECK_KEY, Date.now().toString());
+        try {
+          await sendActionReminders();
+        } catch (error) {
+          console.error("Failed to run reminder check:", error);
+        }
+      }
+    };
+    
+    // Check reminders only if user is logged in and not loading
+    if (userProfile && !loadingAuth) {
+      checkReminders();
+    }
+  }, [userProfile, loadingAuth, toast]);
 
 
   const handleFilterChange = (field: keyof DashboardFilters, value: any) => {

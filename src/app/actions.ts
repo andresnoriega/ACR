@@ -2,6 +2,10 @@
 'use server';
 
 import sgMail from '@sendgrid/mail';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
+import type { RCAAnalysisDocument, FullUserProfile } from '@/types/rca';
+import { differenceInCalendarDays, startOfToday } from 'date-fns';
 
 interface EmailPayload {
   to: string;
@@ -88,5 +92,106 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
       message: `Error al enviar correo: ${errorMessage}`,
       details: payload,
     };
+  }
+}
+
+/**
+ * Checks for pending action plans and sends email reminders.
+ * @returns A promise with the number of actions checked and reminders sent.
+ */
+export async function sendActionReminders(): Promise<{ actionsChecked: number, remindersSent: number }> {
+  console.log('[CRON] Starting action reminder check...');
+  const today = startOfToday();
+  const todayStr = today.toISOString().split('T')[0];
+  let actionsChecked = 0;
+  let remindersSent = 0;
+
+  try {
+    const usersSnapshot = await getDocs(collection(db, "users"));
+    const userMap = new Map<string, FullUserProfile>();
+    usersSnapshot.forEach(userDoc => {
+      const userData = { id: userDoc.id, ...userDoc.data() } as FullUserProfile;
+      if (userData.name) {
+        userMap.set(userData.name, userData);
+      }
+    });
+
+    const rcaSnapshot = await getDocs(collection(db, "rcaAnalyses"));
+    const batch = writeBatch(db);
+    let batchHasWrites = false;
+
+    for (const rcaDoc of rcaSnapshot.docs) {
+      const rcaData = rcaDoc.data() as RCAAnalysisDocument;
+      if (rcaData.isFinalized || !rcaData.plannedActions || rcaData.plannedActions.length === 0) {
+        continue;
+      }
+
+      let actionsModified = false;
+      const updatedActions = rcaData.plannedActions.map(action => {
+        actionsChecked++;
+        const validation = rcaData.validations?.find(v => v.actionId === action.id);
+        const isCompleted = validation?.status === 'validated';
+        const isRejected = validation?.status === 'rejected';
+        
+        // A reminder is needed if the action is not validated
+        if (isCompleted || !action.dueDate || action.lastReminderSent === todayStr) {
+          return action;
+        }
+
+        try {
+          const dueDate = new Date(action.dueDate);
+          const daysUntilDue = differenceInCalendarDays(dueDate, today);
+
+          let reminderType: 'Precaución' | 'Alerta' | null = null;
+          // Send "Alerta" if due today or overdue
+          if (daysUntilDue <= 0) {
+            reminderType = 'Alerta';
+          // Send "Precaución" if due within 7 days
+          } else if (daysUntilDue <= 7) {
+            reminderType = 'Precaución';
+          }
+
+          if (reminderType) {
+            const responsibleUser = userMap.get(action.responsible);
+            if (responsibleUser?.email && (responsibleUser.emailNotifications === undefined || responsibleUser.emailNotifications)) {
+              console.log(`[CRON] Sending ${reminderType} reminder for action "${action.description.substring(0, 20)}..." to ${responsibleUser.email}`);
+              
+              const subject = `Recordatorio de ${reminderType}: Tarea ACR Pendiente`;
+              const body = `Estimado/a ${action.responsible},\n\nEste es un recordatorio sobre su tarea pendiente para el evento ACR "${rcaData.eventData.focusEventDescription}".\n\n- Tarea: ${action.description}\n- Fecha Límite: ${action.dueDate}\n- Estado Actual: ${isRejected ? 'Rechazado' : 'En Proceso/Pendiente'}\n\n${reminderType === 'Alerta' ? '¡ATENCIÓN! La fecha límite para esta tarea ha llegado o ya pasó.' : 'Esta tarea vence en 7 días o menos.'}\n\nPor favor, acceda al sistema para actualizar su estado.\n\nSaludos,\nSistema Asistente ACR`;
+
+              // We don't await this to avoid blocking the loop for a long time
+              sendEmailAction({
+                to: responsibleUser.email,
+                subject: subject,
+                body: body,
+              });
+              remindersSent++;
+              
+              actionsModified = true;
+              return { ...action, lastReminderSent: todayStr };
+            }
+          }
+        } catch (e) {
+            console.error(`[CRON] Error processing date for action ${action.id}:`, e);
+        }
+        return action;
+      });
+
+      if (actionsModified) {
+        batch.update(doc(db, "rcaAnalyses", rcaDoc.id), { plannedActions: updatedActions });
+        batchHasWrites = true;
+      }
+    }
+
+    if (batchHasWrites) {
+      await batch.commit();
+      console.log('[CRON] Batch commit successful. Reminder states updated.');
+    }
+
+    console.log(`[CRON] Reminder check finished. Checked: ${actionsChecked}, Sent: ${remindersSent}`);
+    return { actionsChecked, remindersSent };
+  } catch (error) {
+    console.error("[CRON] Critical error during reminder check:", error);
+    return { actionsChecked: 0, remindersSent: 0 };
   }
 }

@@ -54,6 +54,7 @@ export interface PlannedAction {
   userComments?: string;
   isNotificationSent?: boolean;
   markedAsReadyAt?: string;
+  lastReminderSent?: string; // YYYY-MM-DD format
 }
 
 export interface Validation {
