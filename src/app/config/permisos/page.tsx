@@ -180,7 +180,7 @@ export default function ConfiguracionPermisosPage() {
                           <TableCell>{getProjectAccessDisplay(user.role)}</TableCell>
                           <TableCell>{getEditionDisplay(user.permissionLevel)}</TableCell>
                           <TableCell className="text-right">
-                              <Button variant="ghost" size="icon" onClick={() => openEditDialog(user)} className="hover:text-primary" disabled={isSubmitting || !canEditUser} title={!canEditUser ? "No puede editar este usuario" : "Editar Permisos"}>
+                              <Button variant="ghost" size="icon" onClick={() => openEditDialog(user)} className="h-8 w-8 hover:text-primary" disabled={isSubmitting || !canEditUser} title={!canEditUser ? "No puede editar este usuario" : "Editar Permisos"}>
                                   <Edit2 className="h-4 w-4" />
                                   <span className="sr-only">Editar Permisos</span>
                               </Button>

@@ -569,12 +569,14 @@ export default function ConfiguracionPrivacidadPage() {
                           <TableCell>{event.priority}</TableCell>
                           <TableCell>{renderStatusBadge(event.status)}</TableCell>
                           <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" className="mr-1 hover:text-primary" onClick={() => router.push(`/analisis?id=${event.id}`)} title="Ver/Editar Análisis" disabled={isSendingTestEmail || isDeletingEvent}>
-                                <Edit2 className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="hover:text-destructive" onClick={() => openDeleteEventDialog(event)} disabled={isDeletingEvent || isResetting || isSendingTestEmail} title="Eliminar Evento y Análisis">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <div className="flex justify-end items-center gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-primary" onClick={() => router.push(`/analisis?id=${event.id}`)} title="Ver/Editar Análisis" disabled={isSendingTestEmail || isDeletingEvent}>
+                                  <Edit2 className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => openDeleteEventDialog(event)} disabled={isDeletingEvent || isResetting || isSendingTestEmail} title="Eliminar Evento y Análisis">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))

@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -110,7 +111,7 @@ export function TopNavigation() {
                       aria-current={isActive ? 'page' : undefined}
                     >
                       <item.icon className="h-4 w-4" />
-                      {item.label}
+                      <span className="hidden md:inline">{item.label}</span>
                     </Link>
                   );
                 })}

@@ -50,8 +50,19 @@ const PreservedFactDialog: FC<{
   const [isSubmittingFact, setIsSubmittingFact] = useState(false);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      setSelectedFile(event.target.files[0]);
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size > 700 * 1024) { // 700KB limit
+        toast({
+          title: "Archivo Demasiado Grande",
+          description: "El archivo no puede superar los 700 KB.",
+          variant: "destructive",
+        });
+        setSelectedFile(null);
+        event.target.value = ''; // Reset file input
+        return;
+      }
+      setSelectedFile(file);
     } else {
       setSelectedFile(null);
     }
@@ -99,14 +110,14 @@ const PreservedFactDialog: FC<{
           <DialogTitle className="flex items-center"><Paperclip className="mr-2 h-5 w-5" />Añadir Hecho Preservado</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="pf-name" className="text-right">Nombre <span className="text-destructive">*</span></Label>
-            <Input id="pf-name" value={userGivenName} onChange={(e) => setUserGivenName(e.target.value)} className="col-span-3" placeholder="Ej: Informe Técnico Bomba X" />
+          <div className="space-y-2">
+            <Label htmlFor="pf-name">Nombre <span className="text-destructive">*</span></Label>
+            <Input id="pf-name" value={userGivenName} onChange={(e) => setUserGivenName(e.target.value)} placeholder="Ej: Informe Técnico Bomba X" />
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="pf-category" className="text-right">Categoría <span className="text-destructive">*</span></Label>
+          <div className="space-y-2">
+            <Label htmlFor="pf-category">Categoría <span className="text-destructive">*</span></Label>
             <Select value={category} onValueChange={(value) => setCategory(value as PreservedFactCategory)}>
-              <SelectTrigger className="col-span-3">
+              <SelectTrigger>
                 <SelectValue placeholder="-- Seleccione una categoría --" />
               </SelectTrigger>
               <SelectContent>
@@ -116,18 +127,18 @@ const PreservedFactDialog: FC<{
               </SelectContent>
             </Select>
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="pf-file" className="text-right">Archivo <span className="text-destructive">*</span></Label>
-            <Input id="pf-file" type="file" onChange={handleFileChange} className="col-span-3" />
+          <div className="space-y-2">
+            <Label htmlFor="pf-file">Archivo <span className="text-destructive">*</span></Label>
+            <Input id="pf-file" type="file" onChange={handleFileChange} />
           </div>
           {selectedFile && (
-            <div className="col-span-4 pl-[calc(25%+1rem)] text-xs text-muted-foreground">
+            <div className="col-span-4 text-xs text-muted-foreground">
               <p>Archivo: {selectedFile.name} ({selectedFile.type}, {(selectedFile.size / 1024).toFixed(2)} KB)</p>
             </div>
           )}
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="pf-description" className="text-right">Descripción</Label>
-            <Textarea id="pf-description" value={description} onChange={(e) => setDescription(e.target.value)} className="col-span-3" placeholder="Detalles adicionales sobre el hecho o documento..." />
+          <div className="space-y-2">
+            <Label htmlFor="pf-description">Descripción</Label>
+            <Textarea id="pf-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Detalles adicionales sobre el hecho o documento..." />
           </div>
         </div>
         <DialogFooter>
