@@ -26,20 +26,22 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
   const apiKey = process.env.SENDGRID_API_KEY;
   const senderEmail = process.env.SENDGRID_SENDER_EMAIL;
 
-  if (!apiKey || apiKey === 'TU_API_KEY_DE_SENDGRID_AQUI') {
-    console.error("[sendEmailAction] SendGrid API Key (SENDGRID_API_KEY) is not set in environment variables or is a placeholder.");
+  if (!apiKey || apiKey === 'TU_API_KEY_DE_SENDGRID_AQUI' || !apiKey.startsWith('SG.')) {
+    const errorMessage = "Error de configuración: La API Key de SendGrid (SENDGRID_API_KEY) no está configurada, es un placeholder o no es válida. Debe empezar con 'SG.'. Por favor, añádala a su archivo .env.local.";
+    console.error(`[sendEmailAction] ${errorMessage}`);
     return {
       success: false,
-      message: "Error de configuración: La API Key de SendGrid no está configurada. Por favor, añádala a su archivo .env.",
+      message: errorMessage,
       details: payload,
     };
   }
 
-  if (!senderEmail || senderEmail === 'tu@email_verificado_en_sendgrid.com') {
-    console.error("[sendEmailAction] Sender email address (SENDGRID_SENDER_EMAIL) is not set in environment variables or is a placeholder.");
+  if (!senderEmail || senderEmail === 'tu@email_verificado_en_sendgrid.com' || !senderEmail.includes('@')) {
+    const errorMessage = "Error de configuración: La dirección de correo del remitente (SENDGRID_SENDER_EMAIL) no es válida o es un placeholder. Por favor, añada una dirección que haya verificado como 'Single Sender' en su cuenta de SendGrid a su archivo .env.local.";
+    console.error(`[sendEmailAction] ${errorMessage}`);
     return {
       success: false,
-      message: "Error de configuración: La dirección de correo del remitente (SENDGRID_SENDER_EMAIL) no está configurada. Por favor, añada una dirección que haya verificado como 'Single Sender' en su cuenta de SendGrid a su archivo .env.",
+      message: errorMessage,
       details: payload,
     };
   }
@@ -70,18 +72,18 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
     console.error("[sendEmailAction] Error sending email via SendGrid:", JSON.stringify(error, null, 2));
     
     let errorMessage = "Ocurrió un error desconocido al enviar el correo.";
-    if (error.response && error.response.body && error.response.body.errors) {
+    if (error.response && error.response.body && Array.isArray(error.response.body.errors) && error.response.body.errors.length > 0) {
       const firstError = error.response.body.errors[0];
-      const apiMessage = firstError.message.toLowerCase();
+      const apiMessage = firstError.message ? firstError.message.toLowerCase() : '';
       
       if (apiMessage.includes('permission denied') || apiMessage.includes('api key does not have permissions')) {
         errorMessage = "Error de permisos. La API Key de SendGrid no tiene permisos para enviar correos. Verifique los permisos en el panel de SendGrid.";
       } else if (apiMessage.includes('authorization') || error.code === 401) {
-        errorMessage = "Error de autenticación. Verifique que la SENDGRID_API_KEY en su archivo .env sea correcta y esté activa.";
+        errorMessage = "Error de autenticación. Verifique que la SENDGRID_API_KEY en su archivo .env.local sea correcta y esté activa.";
       } else if (apiMessage.includes('the from address does not match a verified sender')) {
         errorMessage = `La dirección de remitente (${senderEmail}) no está verificada en SendGrid. Por favor, verifíquela como 'Single Sender' o configure la Autenticación de Dominio en su panel de SendGrid.`;
       } else {
-        errorMessage = firstError.message;
+        errorMessage = firstError.message || JSON.stringify(firstError);
       }
     } else if (error.message) {
       errorMessage = error.message;
@@ -131,22 +133,19 @@ export async function sendActionReminders(): Promise<{ actionsChecked: number, r
         actionsChecked++;
         const validation = rcaData.validations?.find(v => v.actionId === action.id);
         const isCompleted = validation?.status === 'validated';
-        const isRejected = validation?.status === 'rejected';
-        const isPending = !validation || validation.status === 'pending';
-        
-        // A reminder is needed if the action is not yet validated.
-        // It must be in a 'pending', 'in progress', or 'rejected' state.
-        if (isCompleted || !action.dueDate || action.lastReminderSent === todayStr) {
-          return action;
-        }
         
         let currentStateForEmail = 'Pendiente';
-        if (isRejected) {
+        if (validation?.status === 'rejected') {
           currentStateForEmail = 'Rechazado';
         } else if (action.userComments || (action.evidencias && action.evidencias.length > 0)) {
            currentStateForEmail = 'En Proceso';
         }
-
+        
+        // A reminder is needed if the action is not yet validated.
+        if (isCompleted || !action.dueDate || action.lastReminderSent === todayStr) {
+          return action;
+        }
+        
         try {
           const dueDate = new Date(action.dueDate);
           const daysUntilDue = differenceInCalendarDays(dueDate, today);

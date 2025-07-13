@@ -427,9 +427,9 @@ export default function ConfiguracionPrivacidadPage() {
         <CardHeader>
           <div className="flex items-center gap-3">
             <Mail className="h-6 w-6 text-primary" />
-            <CardTitle className="text-2xl">Configuración de Correo</CardTitle>
+            <CardTitle className="text-2xl">Configuración de Correo (SendGrid)</CardTitle>
           </div>
-          <CardDescription>Verifique la configuración de envío de correos electrónicos a través de SendGrid.</CardDescription>
+          <CardDescription>Verifique la configuración de envío de correos electrónicos.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row justify-between items-center p-4 border rounded-md">
@@ -443,7 +443,7 @@ export default function ConfiguracionPrivacidadPage() {
             </Button>
           </div>
         </CardContent>
-        <CardFooter><p className="text-xs text-muted-foreground">Requiere las variables `SENDGRID_API_KEY` y `SENDGRID_SENDER_EMAIL` en el archivo `.env`.</p></CardFooter>
+        <CardFooter><p className="text-xs text-muted-foreground">Requiere las variables `SENDGRID_API_KEY` y `SENDGRID_SENDER_EMAIL` en el archivo `.env.local`.</p></CardFooter>
       </Card>
 
       <div className="mt-8 text-center">
