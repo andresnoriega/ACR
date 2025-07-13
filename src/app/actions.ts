@@ -5,7 +5,9 @@ import sgMail from '@sendgrid/mail';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
 import type { RCAAnalysisDocument, FullUserProfile } from '@/types/rca';
-import { differenceInCalendarDays, startOfToday, parse, isValid } from 'date-fns';
+import { differenceInCalendarDays, startOfToday, parseISO } from 'date-fns';
+import { utcToZonedTime, zonedToUtc } from 'date-fns-tz';
+
 
 interface EmailPayload {
   to: string;
@@ -99,31 +101,42 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
 
 /**
  * Parses a date string that could be in YYYY-MM-DD or DD/MM/YYYY format.
+ * Returns a Date object in UTC.
  * @param dateString The date string to parse.
  * @returns A Date object or null if parsing fails.
  */
-function parseFlexibleDate(dateString: string): Date | null {
+function parseFlexibleDateToUTC(dateString: string): Date | null {
   if (!dateString) return null;
   let date: Date | null = null;
-  // Try parsing YYYY-MM-DD format first (from date inputs)
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-    date = new Date(dateString);
-  }
-  // Try parsing DD/MM/YYYY format
-  else if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
-    date = parse(dateString, 'dd/MM/yyyy', new Date());
-  }
-  // Fallback for other potential ISO-like formats just in case
-  else {
-    const isoDate = new Date(dateString);
-    if (isValid(isoDate)) date = isoDate;
-  }
   
+  // Regex to match YYYY-MM-DD format
+  const ymdMatch = dateString.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (ymdMatch) {
+    // Creates a UTC date from the parts to avoid timezone issues.
+    date = new Date(Date.UTC(parseInt(ymdMatch[1]), parseInt(ymdMatch[2]) - 1, parseInt(ymdMatch[3])));
+  } else {
+    // Regex to match DD/MM/YYYY format
+    const dmyMatch = dateString.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (dmyMatch) {
+      date = new Date(Date.UTC(parseInt(dmyMatch[3]), parseInt(dmyMatch[2]) - 1, parseInt(dmyMatch[1])));
+    } else {
+      // Fallback for full ISO strings or other formats JS can parse
+      const isoDate = new Date(dateString);
+      if (!isNaN(isoDate.getTime())) {
+        // Convert local parsed date to a UTC date at midnight
+        date = new Date(Date.UTC(isoDate.getUTCFullYear(), isoDate.getUTCMonth(), isoDate.getUTCDate()));
+      }
+    }
+  }
+
   // Final check if date is valid
-  if (date && isValid(date)) return date;
+  if (date && !isNaN(date.getTime())) {
+    return date;
+  }
   
   return null;
 }
+
 
 /**
  * Checks for pending action plans and sends email reminders.
@@ -132,8 +145,11 @@ function parseFlexibleDate(dateString: string): Date | null {
  */
 export async function sendActionReminders(): Promise<{ actionsChecked: number, remindersSent: number, errors: string[] }> {
   console.log('[CRON] Starting action reminder check...');
-  const today = startOfToday();
+  const now = new Date();
+  // Get today's date at midnight UTC to ensure consistent date comparisons across timezones.
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const todayStr = today.toISOString().split('T')[0];
+
   let actionsChecked = 0;
   let remindersSent = 0;
   const errors: string[] = [];
@@ -173,7 +189,7 @@ export async function sendActionReminders(): Promise<{ actionsChecked: number, r
         if (isCompleted || isActionRejected) {
           return action;
         }
-
+        
         // A reminder is needed if the action has a due date.
         // Also check if a reminder was already sent today.
         if (!action.dueDate || action.lastReminderSent === todayStr) {
@@ -181,7 +197,8 @@ export async function sendActionReminders(): Promise<{ actionsChecked: number, r
         }
         
         try {
-          const dueDate = parseFlexibleDate(action.dueDate);
+          // Use the robust UTC parser
+          const dueDate = parseFlexibleDateToUTC(action.dueDate);
           if (!dueDate) {
             console.warn(`[CRON] Could not parse date for action ${action.id}: "${action.dueDate}". Skipping reminder.`);
             return action;
