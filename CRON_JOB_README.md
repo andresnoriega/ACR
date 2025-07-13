@@ -1,3 +1,4 @@
+
 # Configuración del Cron Job para Recordatorios Automáticos
 
 El sistema de recordatorios de la aplicación ahora se ejecuta a través de una ruta de API segura que debe ser activada por un servicio externo de "cron job". Esto asegura que los recordatorios se envíen de manera fiable, independientemente de si los usuarios inician sesión.
@@ -16,7 +17,7 @@ CRON_SECRET="TU_CLAVE_SECRETA_Y_LARGA_AQUI"
 
 La URL que el servicio externo deberá visitar es la siguiente:
 
-`https://<TU_DOMINIO_PUBLICO>/api/cron/send-reminders?secret=<TU_CLAVE_SECRETA>`
+`https://<TU_DOMINIO_PUBLICO>/api/cron/enviar-recordatorios?secret=<TU_CLAVE_SECRETA>`
 
 - **Reemplaza `<TU_DOMINIO_PUBLICO>`** con el dominio que está públicamente accesible y apuntando a tu aplicación.
     -   **Opción Recomendada (Dominio Personalizado):** Si has configurado un dominio personalizado (ej: a través de Cloudflare), usa ese dominio. Ejemplo: `mi-app-rca.com`.
@@ -24,10 +25,10 @@ La URL que el servicio externo deberá visitar es la siguiente:
 - **Reemplaza `<TU_CLAVE_SECRETA>`** con la misma clave que pusiste en el archivo `.env.local`.
 
 **Ejemplo con dominio personalizado:**
-`https://www.mi-asistente-rca.com/api/cron/send-reminders?secret=MiClaveSuperSegura12345`
+`https://www.mi-asistente-rca.com/api/cron/enviar-recordatorios?secret=MiClaveSuperSegura12345`
 
 **Ejemplo con dominio de Firebase:**
-`https://rca-assistant-jk3ja.web.app/api/cron/send-reminders?secret=MiClaveSuperSegura12345`
+`https://rca-assistant-jk3ja.web.app/api/cron/enviar-recordatorios?secret=MiClaveSuperSegura12345`
 
 
 ## 3. Configurar un Servicio de Cron Job Externo
