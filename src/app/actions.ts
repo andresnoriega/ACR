@@ -132,10 +132,19 @@ export async function sendActionReminders(): Promise<{ actionsChecked: number, r
         const validation = rcaData.validations?.find(v => v.actionId === action.id);
         const isCompleted = validation?.status === 'validated';
         const isRejected = validation?.status === 'rejected';
+        const isPending = !validation || validation.status === 'pending';
         
-        // A reminder is needed if the action is not validated
+        // A reminder is needed if the action is not yet validated.
+        // It must be in a 'pending', 'in progress', or 'rejected' state.
         if (isCompleted || !action.dueDate || action.lastReminderSent === todayStr) {
           return action;
+        }
+        
+        let currentStateForEmail = 'Pendiente';
+        if (isRejected) {
+          currentStateForEmail = 'Rechazado';
+        } else if (action.userComments || (action.evidencias && action.evidencias.length > 0)) {
+           currentStateForEmail = 'En Proceso';
         }
 
         try {
@@ -157,7 +166,7 @@ export async function sendActionReminders(): Promise<{ actionsChecked: number, r
               console.log(`[CRON] Sending ${reminderType} reminder for action "${action.description.substring(0, 20)}..." to ${responsibleUser.email}`);
               
               const subject = `Recordatorio de ${reminderType}: Tarea ACR Pendiente`;
-              const body = `Estimado/a ${action.responsible},\n\nEste es un recordatorio sobre su tarea pendiente para el evento ACR "${rcaData.eventData.focusEventDescription}".\n\n- Tarea: ${action.description}\n- Fecha Límite: ${action.dueDate}\n- Estado Actual: ${isRejected ? 'Rechazado' : 'En Proceso/Pendiente'}\n\n${reminderType === 'Alerta' ? '¡ATENCIÓN! La fecha límite para esta tarea ha llegado o ya pasó.' : 'Esta tarea vence en 7 días o menos.'}\n\nPor favor, acceda al sistema para actualizar su estado.\n\nSaludos,\nSistema Asistente ACR`;
+              const body = `Estimado/a ${action.responsible},\n\nEste es un recordatorio sobre su tarea pendiente para el evento ACR "${rcaData.eventData.focusEventDescription}".\n\n- Tarea: ${action.description}\n- Fecha Límite: ${action.dueDate}\n- Estado Actual: ${currentStateForEmail}\n\n${reminderType === 'Alerta' ? '¡ATENCIÓN! La fecha límite para esta tarea ha llegado o ya pasó.' : 'Esta tarea vence en 7 días o menos.'}\n\nPor favor, acceda al sistema para actualizar su estado.\n\nSaludos,\nSistema Asistente ACR`;
 
               // We don't await this to avoid blocking the loop for a long time
               sendEmailAction({
