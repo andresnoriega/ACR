@@ -178,7 +178,7 @@ export async function sendActionReminders(): Promise<{ actionsChecked: number, r
       
       const updatedActions = await Promise.all(rcaData.plannedActions.map(async (action) => {
         actionsChecked++;
-        // Use optional chaining (?.) for safe access to validations array.
+        // Use optional chaining (?.) for safe access to validations array. This is the fix.
         const actionValidation = rcaData.validations?.find(v => v.actionId === action.id);
         
         const isCompleted = actionValidation?.status === 'validated';
@@ -289,3 +289,5 @@ export async function sendActionReminders(): Promise<{ actionsChecked: number, r
     return { actionsChecked: 0, remindersSent: 0, errors: [`Critical error: ${error.message}`] };
   }
 }
+
+    
