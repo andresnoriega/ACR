@@ -5,9 +5,7 @@ import sgMail from '@sendgrid/mail';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
 import type { RCAAnalysisDocument, FullUserProfile } from '@/types/rca';
-import { differenceInCalendarDays, parseISO } from 'date-fns';
-import { utcToZonedTime, zonedToUtc } from 'date-fns-tz';
-
+import { differenceInCalendarDays } from 'date-fns';
 
 interface EmailPayload {
   to: string;
@@ -101,7 +99,7 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
 
 /**
  * Parses a date string that could be in YYYY-MM-DD or DD/MM/YYYY format.
- * Returns a Date object in UTC.
+ * Returns a Date object in UTC at midnight.
  * @param dateString The date string to parse.
  * @returns A Date object or null if parsing fails.
  */
@@ -113,12 +111,12 @@ function parseFlexibleDateToUTC(dateString: string): Date | null {
   const ymdMatch = dateString.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (ymdMatch) {
     // Creates a UTC date from the parts to avoid timezone issues.
-    date = new Date(Date.UTC(parseInt(ymdMatch[1]), parseInt(ymdMatch[2]) - 1, parseInt(ymdMatch[3])));
+    date = new Date(Date.UTC(parseInt(ymdMatch[1], 10), parseInt(ymdMatch[2], 10) - 1, parseInt(ymdMatch[3], 10)));
   } else {
     // Regex to match DD/MM/YYYY format
     const dmyMatch = dateString.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
     if (dmyMatch) {
-      date = new Date(Date.UTC(parseInt(dmyMatch[3]), parseInt(dmyMatch[2]) - 1, parseInt(dmyMatch[1])));
+      date = new Date(Date.UTC(parseInt(dmyMatch[3], 10), parseInt(dmyMatch[2], 10) - 1, parseInt(dmyMatch[1], 10)));
     } else {
       // Fallback for full ISO strings or other formats JS can parse
       const isoDate = new Date(dateString);
