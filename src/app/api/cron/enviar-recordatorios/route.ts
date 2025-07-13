@@ -3,6 +3,12 @@
 import { NextResponse } from 'next/server';
 import { sendActionReminders } from '@/app/actions';
 
+// Force this route to run on the standard Node.js runtime, not the Edge.
+// This is crucial for compatibility with libraries like @sendgrid/mail.
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+
 // Export a named function for the GET method
 export async function GET(request: Request) {
   // 1. Extract secret from query parameters
