@@ -27,7 +27,7 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
   const senderEmail = process.env.SENDGRID_SENDER_EMAIL;
 
   if (!apiKey || apiKey === 'TU_API_KEY_DE_SENDGRID_AQUI' || !apiKey.startsWith('SG.')) {
-    const errorMessage = "Configuración Incompleta: La API Key de SendGrid (SENDGRID_API_KEY) no está configurada en el archivo .env. Por favor, añada su clave real para poder enviar correos.";
+    const errorMessage = "Configuración Incompleta: La API Key de SendGrid (SENDGRID_API_KEY) no está configurada en el archivo .env.local. Por favor, añada su clave real para poder enviar correos.";
     console.error(`[sendEmailAction] ${errorMessage}`);
     return {
       success: false,
@@ -37,7 +37,7 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
   }
 
   if (!senderEmail || senderEmail === 'tu@email_verificado_en_sendgrid.com' || !senderEmail.includes('@')) {
-    const errorMessage = "Configuración Incompleta: El correo del remitente (SENDGRID_SENDER_EMAIL) no está configurado en el archivo .env. Por favor, añada una dirección que haya verificado en SendGrid.";
+    const errorMessage = "Configuración Incompleta: El correo del remitente (SENDGRID_SENDER_EMAIL) no está configurado en el archivo .env.local. Por favor, añada una dirección que haya verificado en SendGrid.";
     console.error(`[sendEmailAction] ${errorMessage}`);
     return {
       success: false,
@@ -79,7 +79,7 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
       if (apiMessage.includes('permission denied') || apiMessage.includes('api key does not have permissions')) {
         errorMessage = "Error de permisos. La API Key de SendGrid no tiene permisos para enviar correos. Verifique los permisos en el panel de SendGrid.";
       } else if (apiMessage.includes('authorization') || error.code === 401) {
-        errorMessage = "Error de autenticación. Verifique que la SENDGRID_API_KEY en su archivo .env sea correcta y esté activa.";
+        errorMessage = "Error de autenticación. Verifique que la SENDGRID_API_KEY en su archivo .env.local sea correcta y esté activa.";
       } else if (apiMessage.includes('the from address does not match a verified sender')) {
         errorMessage = `La dirección de remitente (${senderEmail}) no está verificada en SendGrid. Por favor, verifíquela como 'Single Sender' o configure la Autenticación de Dominio en su panel de SendGrid.`;
       } else {
@@ -129,11 +129,8 @@ export async function sendActionReminders(): Promise<{ actionsChecked: number, r
       const rcaData = rcaDoc.data() as RCAAnalysisDocument;
       let actionsModified = false;
 
-      // Skip documents that are finalized, rejected or have no actions.
-      const validation = rcaData.validations?.find(v => v.actionId === rcaDoc.eventData.id);
-      const isRejected = validation?.status === 'rejected';
-
-      if (rcaData.isFinalized || isRejected || !rcaData.plannedActions || rcaData.plannedActions.length === 0) {
+      // Skip documents that are finalized or have no actions.
+      if (rcaData.isFinalized || !rcaData.plannedActions || rcaData.plannedActions.length === 0) {
         continue;
       }
       

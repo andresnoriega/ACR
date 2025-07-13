@@ -24,6 +24,7 @@ import { Input } from '@/components/ui/input';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { useRouter } from 'next/navigation';
+import { sendEmailAction } from '@/app/actions';
 
 async function deleteAllDocsInCollection(collectionName: string): Promise<{ success: boolean, docsDeleted: number, error?: any }> {
   try {
@@ -92,6 +93,7 @@ export default function ConfiguracionPrivacidadPage() {
   const router = useRouter();
   const [isResetting, setIsResetting] = useState(false);
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
+  const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
 
   // States for event listing
   const [allEvents, setAllEvents] = useState<ReportedEvent[]>([]);
@@ -333,6 +335,26 @@ export default function ConfiguracionPrivacidadPage() {
     }
   };
 
+  const handleSendTestEmail = async () => {
+    setIsSendingTestEmail(true);
+    toast({ title: "Enviando Correo de Prueba...", description: "Intentando conectar con SendGrid." });
+
+    const result = await sendEmailAction({
+      to: 'TEST_MY_SENDER_ADDRESS', // Special keyword handled by the action
+      subject: 'Prueba de Conexión SendGrid - Asistente ACR',
+      body: 'Si recibe este correo, la configuración de SendGrid (API Key y remitente) es correcta.',
+      htmlBody: '<h1>Prueba de Conexión SendGrid</h1><p>Si recibe este correo, la configuración de <strong>SendGrid</strong> (API Key y remitente) para la aplicación Asistente ACR es correcta.</p>'
+    });
+    
+    if (result.success) {
+      toast({ title: "¡Éxito!", description: result.message, duration: 7000 });
+    } else {
+      toast({ title: "Error de Configuración", description: result.message, variant: "destructive", duration: 15000 });
+    }
+    
+    setIsSendingTestEmail(false);
+  };
+
   return (
     <div className="space-y-8 py-8">
       <header className="text-center space-y-2">
@@ -346,6 +368,28 @@ export default function ConfiguracionPrivacidadPage() {
           Administre cómo se almacenan y gestionan los datos de su aplicación Asistente ACR.
         </p>
       </header>
+
+      <Card className="max-w-2xl mx-auto shadow-lg">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <Mail className="h-6 w-6 text-primary" />
+            <CardTitle className="text-2xl">Verificación de SendGrid</CardTitle>
+          </div>
+          <CardDescription>Verifique la conexión con SendGrid para asegurar el envío de notificaciones y recordatorios.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row justify-between items-center p-4 border rounded-md">
+            <div>
+              <h4 className="font-semibold">Probar Conexión</h4>
+              <p className="text-sm text-muted-foreground">Envia un correo de prueba a su dirección de remitente configurada.</p>
+            </div>
+            <Button variant="outline" className="mt-2 sm:mt-0" onClick={handleSendTestEmail} disabled={isSendingTestEmail}>
+              {isSendingTestEmail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+              Enviar Correo de Prueba
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="max-w-2xl mx-auto shadow-lg">
         <CardHeader>
