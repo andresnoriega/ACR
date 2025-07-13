@@ -5,7 +5,7 @@ import sgMail from '@sendgrid/mail';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
 import type { RCAAnalysisDocument, FullUserProfile } from '@/types/rca';
-import { differenceInCalendarDays, startOfToday, parseISO } from 'date-fns';
+import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { utcToZonedTime, zonedToUtc } from 'date-fns-tz';
 
 
