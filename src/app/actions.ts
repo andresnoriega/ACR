@@ -5,7 +5,7 @@ import sgMail from '@sendgrid/mail';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
 import type { RCAAnalysisDocument, FullUserProfile } from '@/types/rca';
-import { differenceInCalendarDays, startOfToday, parse } from 'date-fns';
+import { differenceInCalendarDays, startOfToday, parse, isValid } from 'date-fns';
 
 interface EmailPayload {
   to: string;
@@ -104,20 +104,24 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
  */
 function parseFlexibleDate(dateString: string): Date | null {
   if (!dateString) return null;
+  let date: Date | null = null;
   // Try parsing YYYY-MM-DD format first (from date inputs)
   if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-    const date = new Date(dateString);
-    if (!isNaN(date.getTime())) return date;
+    date = new Date(dateString);
   }
   // Try parsing DD/MM/YYYY format
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
-    const date = parse(dateString, 'dd/MM/yyyy', new Date());
-    if (!isNaN(date.getTime())) return date;
+  else if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
+    date = parse(dateString, 'dd/MM/yyyy', new Date());
   }
   // Fallback for other potential ISO-like formats just in case
-  const isoDate = new Date(dateString);
-  if (!isNaN(isoDate.getTime())) return isoDate;
-
+  else {
+    const isoDate = new Date(dateString);
+    if (isValid(isoDate)) date = isoDate;
+  }
+  
+  // Final check if date is valid
+  if (date && isValid(date)) return date;
+  
   return null;
 }
 
@@ -162,31 +166,18 @@ export async function sendActionReminders(): Promise<{ actionsChecked: number, r
         actionsChecked++;
         const actionValidation = rcaData.validations?.find(v => v.actionId === action.id);
         
-        let isCompleted = false;
-        let isActionRejected = false;
-        
-        if (actionValidation) {
-            isCompleted = actionValidation.status === 'validated';
-            isActionRejected = actionValidation.status === 'rejected';
-        }
+        const isCompleted = actionValidation?.status === 'validated';
+        const isActionRejected = actionValidation?.status === 'rejected';
 
         // Do not send reminders for completed or rejected tasks.
         if (isCompleted || isActionRejected) {
           return action;
         }
 
-        let currentStateForEmail: string;
-        if (action.markedAsReadyAt) {
-            currentStateForEmail = 'En Validación';
-        } else if (action.evidencias && action.evidencias.length > 0) {
-            currentStateForEmail = 'En Proceso';
-        } else {
-            currentStateForEmail = 'Pendiente';
-        }
-        
-        // A reminder is needed if the action is NOT yet validated and not sent today.
+        // A reminder is needed if the action has a due date.
+        // Also check if a reminder was already sent today.
         if (!action.dueDate || action.lastReminderSent === todayStr) {
-          return action; // No reminder needed today.
+          return action;
         }
         
         try {
@@ -209,9 +200,17 @@ export async function sendActionReminders(): Promise<{ actionsChecked: number, r
 
           if (reminderType) {
             const responsibleUser = userMap.get(action.responsible);
-            // Check if user exists, has an email, and notifications are enabled
             if (responsibleUser?.email && (responsibleUser.emailNotifications === undefined || responsibleUser.emailNotifications)) {
               console.log(`[CRON] Preparing ${reminderType} reminder for action "${action.description.substring(0, 20)}..." to ${responsibleUser.email}`);
+              
+              let currentStateForEmail: string;
+              if (action.markedAsReadyAt) {
+                  currentStateForEmail = 'En Validación';
+              } else if (action.evidencias && action.evidencias.length > 0) {
+                  currentStateForEmail = 'En Proceso';
+              } else {
+                  currentStateForEmail = 'Pendiente';
+              }
               
               const subject = `Recordatorio de ${reminderType}: Tarea ACR Pendiente - ${rcaData.eventData.focusEventDescription.substring(0,30)}...`;
               const htmlBody = `
