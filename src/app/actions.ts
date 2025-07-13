@@ -140,11 +140,16 @@ export async function sendActionReminders(): Promise<{ actionsChecked: number, r
         const isCompleted = validation?.status === 'validated';
         const isRejected = validation?.status === 'rejected';
 
-        let currentStateForEmail: string;
+        // Do not send reminders for completed tasks.
         if (isCompleted) {
-            currentStateForEmail = 'Validado';
-        } else if (isRejected) {
+          return action;
+        }
+
+        let currentStateForEmail: string;
+        if (isRejected) {
             currentStateForEmail = 'Rechazado';
+        } else if (validation?.status === 'validated') {
+             currentStateForEmail = 'Validado';
         } else if (action.markedAsReadyAt) {
             currentStateForEmail = 'En Validación';
         } else if (action.evidencias && action.evidencias.length > 0) {
@@ -153,7 +158,7 @@ export async function sendActionReminders(): Promise<{ actionsChecked: number, r
             currentStateForEmail = 'Pendiente';
         }
         
-        // A reminder is needed if the action is NOT yet validated.
+        // A reminder is needed if the action is NOT yet validated and not sent today.
         if (isCompleted || !action.dueDate || action.lastReminderSent === todayStr) {
           return action; // No reminder needed today.
         }
