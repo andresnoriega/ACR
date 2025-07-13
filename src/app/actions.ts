@@ -5,7 +5,7 @@ import sgMail from '@sendgrid/mail';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
 import type { RCAAnalysisDocument, FullUserProfile } from '@/types/rca';
-import { differenceInCalendarDays, startOfToday } from 'date-fns';
+import { differenceInCalendarDays, startOfToday, parse } from 'date-fns';
 
 interface EmailPayload {
   to: string;
@@ -98,6 +98,30 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
 }
 
 /**
+ * Parses a date string that could be in YYYY-MM-DD or DD/MM/YYYY format.
+ * @param dateString The date string to parse.
+ * @returns A Date object or null if parsing fails.
+ */
+function parseFlexibleDate(dateString: string): Date | null {
+  if (!dateString) return null;
+  // Try parsing YYYY-MM-DD format first (from date inputs)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    const date = new Date(dateString);
+    if (!isNaN(date.getTime())) return date;
+  }
+  // Try parsing DD/MM/YYYY format
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
+    const date = parse(dateString, 'dd/MM/yyyy', new Date());
+    if (!isNaN(date.getTime())) return date;
+  }
+  // Fallback for other potential ISO-like formats just in case
+  const isoDate = new Date(dateString);
+  if (!isNaN(isoDate.getTime())) return isoDate;
+
+  return null;
+}
+
+/**
  * Checks for pending action plans and sends email reminders.
  * This is the core logic for the CRON job.
  * @returns A promise with the number of actions checked and reminders sent.
@@ -166,7 +190,12 @@ export async function sendActionReminders(): Promise<{ actionsChecked: number, r
         }
         
         try {
-          const dueDate = new Date(action.dueDate);
+          const dueDate = parseFlexibleDate(action.dueDate);
+          if (!dueDate) {
+            console.warn(`[CRON] Could not parse date for action ${action.id}: "${action.dueDate}". Skipping reminder.`);
+            return action;
+          }
+
           const daysUntilDue = differenceInCalendarDays(dueDate, today);
 
           let reminderType: 'Precaución' | 'Alerta' | null = null;
