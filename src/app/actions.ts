@@ -289,5 +289,3 @@ export async function sendActionReminders(): Promise<{ actionsChecked: number, r
     return { actionsChecked: 0, remindersSent: 0, errors: [`Critical error: ${error.message}`] };
   }
 }
-
-    
