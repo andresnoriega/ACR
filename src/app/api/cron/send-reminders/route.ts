@@ -8,8 +8,8 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const secret = searchParams.get('secret');
 
-  // 2. Validate the secret key
-  if (secret !== process.env.CRON_SECRET) {
+  // 2. Validate the secret key from environment variables
+  if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
     // Use NextResponse for API responses
     return NextResponse.json({ message: 'Error: Clave secreta no válida.' }, { status: 401 });
   }

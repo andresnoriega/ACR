@@ -24,8 +24,6 @@ import { Input } from '@/components/ui/input';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { useRouter } from 'next/navigation';
-import { sendEmailAction } from '@/app/actions';
-
 
 async function deleteAllDocsInCollection(collectionName: string): Promise<{ success: boolean, docsDeleted: number, error?: any }> {
   try {
@@ -94,7 +92,6 @@ export default function ConfiguracionPrivacidadPage() {
   const router = useRouter();
   const [isResetting, setIsResetting] = useState(false);
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
-  const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
 
   // States for event listing
   const [allEvents, setAllEvents] = useState<ReportedEvent[]>([]);
@@ -336,33 +333,6 @@ export default function ConfiguracionPrivacidadPage() {
     }
   };
 
-  const handleSendTestEmail = async () => {
-    setIsSendingTestEmail(true);
-    
-    const result = await sendEmailAction({
-      to: "TEST_MY_SENDER_ADDRESS", // Special keyword for server to use sender address
-      subject: "Correo de Prueba - Integración Asistente ACR con SendGrid",
-      body: "Este es un correo de prueba enviado desde Asistente ACR para verificar la integración con SendGrid.",
-      htmlBody: "<p>Este es un <strong>correo de prueba</strong> enviado desde <strong>Asistente ACR</strong> para verificar la integración con <strong>SendGrid</strong>.</p>",
-    });
-
-    if (result.success) {
-      toast({
-        title: "Correo de Prueba Enviado",
-        description: "El correo de prueba ha sido enviado a tu dirección de remitente configurada (`SENDGRID_SENDER_EMAIL`). Por favor, revisa tu bandeja de entrada.",
-      });
-    } else {
-      toast({
-        title: "Error al Enviar Correo de Prueba",
-        description: result.message,
-        variant: "destructive",
-        duration: 9000,
-      });
-    }
-    setIsSendingTestEmail(false);
-  };
-
-
   return (
     <div className="space-y-8 py-8">
       <header className="text-center space-y-2">
@@ -400,7 +370,7 @@ export default function ConfiguracionPrivacidadPage() {
             </div>
              <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="mt-2 sm:mt-0" disabled={isResetting || isDeletingEvent || isSendingTestEmail}>
+                <Button variant="destructive" className="mt-2 sm:mt-0" disabled={isResetting || isDeletingEvent}>
                   {(isResetting && !isDeletingEvent) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} 
                   Resetear Todo
                 </Button>
@@ -423,35 +393,12 @@ export default function ConfiguracionPrivacidadPage() {
         <CardFooter><p className="text-xs text-muted-foreground">Otras opciones de gestión de datos (exportación, retención) podrían añadirse aquí.</p></CardFooter>
       </Card>
 
-      <Card className="max-w-2xl mx-auto shadow-lg">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <Mail className="h-6 w-6 text-primary" />
-            <CardTitle className="text-2xl">Configuración de Correo (SendGrid)</CardTitle>
-          </div>
-          <CardDescription>Verifique la configuración de envío de correos electrónicos.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row justify-between items-center p-4 border rounded-md">
-            <div>
-              <h4 className="font-semibold">Verificar Integración</h4>
-              <p className="text-sm text-muted-foreground">Envíe un correo de prueba a su dirección de remitente para confirmar que la API Key y el correo verificado están configurados correctamente en las variables de entorno.</p>
-            </div>
-            <Button onClick={handleSendTestEmail} className="mt-2 sm:mt-0" disabled={isSendingTestEmail || isResetting || isDeletingEvent}>
-              {isSendingTestEmail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
-              Enviar Correo de Prueba
-            </Button>
-          </div>
-        </CardContent>
-        <CardFooter><p className="text-xs text-muted-foreground">Requiere las variables `SENDGRID_API_KEY` y `SENDGRID_SENDER_EMAIL` en el archivo `.env.local`.</p></CardFooter>
-      </Card>
-
       <div className="mt-8 text-center">
         <Button 
           variant="outline" 
           onClick={() => setShowEventManagementUI(prev => !prev)}
           className="w-full max-w-md mx-auto"
-          disabled={isSendingTestEmail || isResetting}
+          disabled={isDeletingEvent || isResetting}
         >
           {showEventManagementUI ? <ChevronUp className="mr-2 h-5 w-5" /> : <ChevronDown className="mr-2 h-5 w-5" />}
           {showEventManagementUI ? 'Ocultar Filtros y Lista de Eventos' : 'Mostrar Filtros y Lista de Eventos'}
@@ -471,7 +418,7 @@ export default function ConfiguracionPrivacidadPage() {
             <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
               <div>
                 <Label htmlFor="filter-site-priv" className="flex items-center mb-1"><Globe className="mr-1.5 h-4 w-4 text-muted-foreground"/>Sitio/Planta</Label>
-                <Select value={filters.site || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('site', val)} disabled={isLoadingSites || isDeletingEvent || isSendingTestEmail}>
+                <Select value={filters.site || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('site', val)} disabled={isLoadingSites || isDeletingEvent}>
                   <SelectTrigger id="filter-site-priv"><SelectValue placeholder="Todos los sitios" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value={ALL_FILTER_VALUE}>Todos los sitios</SelectItem>
@@ -484,7 +431,7 @@ export default function ConfiguracionPrivacidadPage() {
                 <Label htmlFor="filter-date-priv" className="flex items-center mb-1"><CalendarDays className="mr-1.5 h-4 w-4 text-muted-foreground"/>Fecha</Label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button id="filter-date-priv" variant="outline" className="w-full justify-start text-left font-normal" disabled={isLoadingData || isDeletingEvent || isSendingTestEmail}>
+                    <Button id="filter-date-priv" variant="outline" className="w-full justify-start text-left font-normal" disabled={isLoadingData || isDeletingEvent}>
                       {filters.date ? format(filters.date, "PPP", { locale: es }) : <span>Seleccione fecha</span>}
                     </Button>
                   </PopoverTrigger>
@@ -493,7 +440,7 @@ export default function ConfiguracionPrivacidadPage() {
               </div>
               <div>
                 <Label htmlFor="filter-type-priv" className="flex items-center mb-1"><AlertTriangle className="mr-1.5 h-4 w-4 text-muted-foreground"/>Tipo</Label>
-                <Select value={filters.type || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('type', val as ReportedEventType | typeof ALL_FILTER_VALUE)} disabled={isLoadingData || isDeletingEvent || isSendingTestEmail}>
+                <Select value={filters.type || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('type', val as ReportedEventType | typeof ALL_FILTER_VALUE)} disabled={isLoadingData || isDeletingEvent}>
                   <SelectTrigger id="filter-type-priv"><SelectValue placeholder="Todos los tipos" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value={ALL_FILTER_VALUE}>Todos los tipos</SelectItem>
@@ -503,7 +450,7 @@ export default function ConfiguracionPrivacidadPage() {
               </div>
               <div>
                 <Label htmlFor="filter-priority-priv" className="flex items-center mb-1"><Flame className="mr-1.5 h-4 w-4 text-muted-foreground"/>Prioridad</Label>
-                <Select value={filters.priority || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('priority', val as PriorityType | typeof ALL_FILTER_VALUE)} disabled={isLoadingData || isDeletingEvent || isSendingTestEmail}>
+                <Select value={filters.priority || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('priority', val as PriorityType | typeof ALL_FILTER_VALUE)} disabled={isLoadingData || isDeletingEvent}>
                   <SelectTrigger id="filter-priority-priv"><SelectValue placeholder="Todas" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value={ALL_FILTER_VALUE}>Todas</SelectItem>
@@ -513,7 +460,7 @@ export default function ConfiguracionPrivacidadPage() {
               </div>
               <div>
                 <Label htmlFor="filter-status-priv" className="flex items-center mb-1"><ActivityIcon className="mr-1.5 h-4 w-4 text-muted-foreground"/>Estado</Label>
-                <Select value={filters.status || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('status', val as ReportedEventStatus | typeof ALL_FILTER_VALUE)} disabled={isLoadingData || isDeletingEvent || isSendingTestEmail}>
+                <Select value={filters.status || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('status', val as ReportedEventStatus | typeof ALL_FILTER_VALUE)} disabled={isLoadingData || isDeletingEvent}>
                   <SelectTrigger id="filter-status-priv"><SelectValue placeholder="Todos" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value={ALL_FILTER_VALUE}>Todos</SelectItem>
@@ -523,12 +470,12 @@ export default function ConfiguracionPrivacidadPage() {
               </div>
               <div>
                 <Label htmlFor="filter-event-id-priv" className="flex items-center mb-1"><Fingerprint className="mr-1.5 h-4 w-4 text-muted-foreground"/>ID Evento</Label>
-                <Input id="filter-event-id-priv" placeholder="Ej: E-12345-001" value={filters.eventId} onChange={(e) => handleFilterChange('eventId', e.target.value)} disabled={isLoadingData || isDeletingEvent || isSendingTestEmail}/>
+                <Input id="filter-event-id-priv" placeholder="Ej: E-12345-001" value={filters.eventId} onChange={(e) => handleFilterChange('eventId', e.target.value)} disabled={isLoadingData || isDeletingEvent}/>
               </div>
             </CardContent>
             <CardFooter className="flex justify-start gap-3 pt-4 border-t">
-              <Button onClick={applyFilters} disabled={isLoadingData || isDeletingEvent || isSendingTestEmail}><Search className="mr-2"/>Aplicar Filtros</Button>
-              <Button onClick={clearFilters} variant="outline" disabled={isLoadingData || isDeletingEvent || isSendingTestEmail}><RefreshCcw className="mr-2"/>Limpiar Filtros</Button>
+              <Button onClick={applyFilters} disabled={isLoadingData || isDeletingEvent}><Search className="mr-2"/>Aplicar Filtros</Button>
+              <Button onClick={clearFilters} variant="outline" disabled={isLoadingData || isDeletingEvent}><RefreshCcw className="mr-2"/>Limpiar Filtros</Button>
             </CardFooter>
           </Card>
 
@@ -570,10 +517,10 @@ export default function ConfiguracionPrivacidadPage() {
                           <TableCell>{renderStatusBadge(event.status)}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end items-center gap-1">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-primary" onClick={() => router.push(`/analisis?id=${event.id}`)} title="Ver/Editar Análisis" disabled={isSendingTestEmail || isDeletingEvent}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-primary" onClick={() => router.push(`/analisis?id=${event.id}`)} title="Ver/Editar Análisis" disabled={isDeletingEvent}>
                                   <Edit2 className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => openDeleteEventDialog(event)} disabled={isDeletingEvent || isResetting || isSendingTestEmail} title="Eliminar Evento y Análisis">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => openDeleteEventDialog(event)} disabled={isDeletingEvent || isResetting} title="Eliminar Evento y Análisis">
                                 <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
@@ -588,7 +535,7 @@ export default function ConfiguracionPrivacidadPage() {
               </div>
             </CardContent>
             <CardFooter className="flex justify-end pt-4 border-t">
-              <Button variant="outline" size="sm" onClick={handleExportToExcel} disabled={isLoadingData || isDeletingEvent || sortedFilteredEvents.length === 0 || isSendingTestEmail}>
+              <Button variant="outline" size="sm" onClick={handleExportToExcel} disabled={isLoadingData || isDeletingEvent || sortedFilteredEvents.length === 0}>
                 <FileDown className="mr-1.5 h-3.5 w-3.5" /> Exportar a Excel
               </Button>
             </CardFooter>
@@ -605,8 +552,8 @@ export default function ConfiguracionPrivacidadPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setEventToDelete(null)} disabled={isDeletingEvent || isSendingTestEmail}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteEvent} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" disabled={isDeletingEvent || isSendingTestEmail}>
+            <AlertDialogCancel onClick={() => setEventToDelete(null)} disabled={isDeletingEvent}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteEvent} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" disabled={isDeletingEvent}>
               {isDeletingEvent ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Eliminar"}
             </AlertDialogAction>
           </AlertDialogFooter>

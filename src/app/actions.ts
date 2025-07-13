@@ -99,14 +99,16 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
 
 /**
  * Checks for pending action plans and sends email reminders.
+ * This is the core logic for the CRON job.
  * @returns A promise with the number of actions checked and reminders sent.
  */
-export async function sendActionReminders(): Promise<{ actionsChecked: number, remindersSent: number }> {
+export async function sendActionReminders(): Promise<{ actionsChecked: number, remindersSent: number, errors: string[] }> {
   console.log('[CRON] Starting action reminder check...');
   const today = startOfToday();
   const todayStr = today.toISOString().split('T')[0];
   let actionsChecked = 0;
   let remindersSent = 0;
+  const errors: string[] = [];
 
   try {
     const usersSnapshot = await getDocs(collection(db, "users"));
@@ -122,28 +124,38 @@ export async function sendActionReminders(): Promise<{ actionsChecked: number, r
     const batch = writeBatch(db);
     let batchHasWrites = false;
 
+    // Use a for...of loop to handle async operations correctly inside the loop.
     for (const rcaDoc of rcaSnapshot.docs) {
       const rcaData = rcaDoc.data() as RCAAnalysisDocument;
+      let actionsModified = false;
+
+      // Skip documents that are finalized or have no actions.
       if (rcaData.isFinalized || !rcaData.plannedActions || rcaData.plannedActions.length === 0) {
         continue;
       }
-
-      let actionsModified = false;
-      const updatedActions = rcaData.plannedActions.map(action => {
+      
+      const updatedActions = await Promise.all(rcaData.plannedActions.map(async (action) => {
         actionsChecked++;
         const validation = rcaData.validations?.find(v => v.actionId === action.id);
         const isCompleted = validation?.status === 'validated';
-        
-        let currentStateForEmail = 'Pendiente';
-        if (validation?.status === 'rejected') {
-          currentStateForEmail = 'Rechazado';
-        } else if (action.userComments || (action.evidencias && action.evidencias.length > 0)) {
-           currentStateForEmail = 'En Proceso';
+        const isRejected = validation?.status === 'rejected';
+
+        let currentStateForEmail: string;
+        if (isCompleted) {
+            currentStateForEmail = 'Validado';
+        } else if (isRejected) {
+            currentStateForEmail = 'Rechazado';
+        } else if (action.markedAsReadyAt) {
+            currentStateForEmail = 'En Validación';
+        } else if (action.evidencias && action.evidencias.length > 0) {
+            currentStateForEmail = 'En Proceso';
+        } else {
+            currentStateForEmail = 'Pendiente';
         }
         
-        // A reminder is needed if the action is not yet validated.
+        // A reminder is needed if the action is NOT yet validated.
         if (isCompleted || !action.dueDate || action.lastReminderSent === todayStr) {
-          return action;
+          return action; // No reminder needed today.
         }
         
         try {
@@ -161,29 +173,52 @@ export async function sendActionReminders(): Promise<{ actionsChecked: number, r
 
           if (reminderType) {
             const responsibleUser = userMap.get(action.responsible);
+            // Check if user exists, has an email, and notifications are enabled
             if (responsibleUser?.email && (responsibleUser.emailNotifications === undefined || responsibleUser.emailNotifications)) {
-              console.log(`[CRON] Sending ${reminderType} reminder for action "${action.description.substring(0, 20)}..." to ${responsibleUser.email}`);
+              console.log(`[CRON] Preparing ${reminderType} reminder for action "${action.description.substring(0, 20)}..." to ${responsibleUser.email}`);
               
-              const subject = `Recordatorio de ${reminderType}: Tarea ACR Pendiente`;
-              const body = `Estimado/a ${action.responsible},\n\nEste es un recordatorio sobre su tarea pendiente para el evento ACR "${rcaData.eventData.focusEventDescription}".\n\n- Tarea: ${action.description}\n- Fecha Límite: ${action.dueDate}\n- Estado Actual: ${currentStateForEmail}\n\n${reminderType === 'Alerta' ? '¡ATENCIÓN! La fecha límite para esta tarea ha llegado o ya pasó.' : 'Esta tarea vence en 7 días o menos.'}\n\nPor favor, acceda al sistema para actualizar su estado.\n\nSaludos,\nSistema Asistente ACR`;
+              const subject = `Recordatorio de ${reminderType}: Tarea ACR Pendiente - ${rcaData.eventData.focusEventDescription.substring(0,30)}...`;
+              const htmlBody = `
+                <p>Estimado/a ${action.responsible},</p>
+                <p>Este es un recordatorio sobre su tarea pendiente para el evento ACR <strong>"${rcaData.eventData.focusEventDescription}"</strong>.</p>
+                <ul>
+                  <li><strong>Tarea:</strong> ${action.description}</li>
+                  <li><strong>Fecha Límite:</strong> ${action.dueDate}</li>
+                  <li><strong>Estado Actual:</strong> ${currentStateForEmail}</li>
+                </ul>
+                <p><strong>${reminderType === 'Alerta' ? '¡ATENCIÓN! La fecha límite para esta tarea ha llegado o ya pasó.' : 'Esta tarea vence en 7 días o menos.'}</strong></p>
+                <p>Por favor, acceda al sistema para actualizar su estado y adjuntar las evidencias correspondientes.</p>
+                <br/>
+                <p>Saludos,</p>
+                <p><strong>Sistema Asistente ACR</strong></p>
+              `;
 
-              // We don't await this to avoid blocking the loop for a long time
-              sendEmailAction({
+              const emailResult = await sendEmailAction({
                 to: responsibleUser.email,
                 subject: subject,
-                body: body,
+                body: `Este es un recordatorio para su tarea: ${action.description}. Fecha límite: ${action.dueDate}.`,
+                htmlBody: htmlBody,
               });
-              remindersSent++;
-              
-              actionsModified = true;
-              return { ...action, lastReminderSent: todayStr };
+
+              if (emailResult.success) {
+                remindersSent++;
+                actionsModified = true;
+                return { ...action, lastReminderSent: todayStr };
+              } else {
+                errors.push(`Failed to send email to ${responsibleUser.email} for action ${action.id}: ${emailResult.message}`);
+                console.error(`[CRON] Email sending failed: ${emailResult.message}`);
+              }
+            } else {
+               console.log(`[CRON] Skipping reminder for action ${action.id}: Responsible user '${action.responsible}' not found, has no email, or notifications are disabled.`);
             }
           }
-        } catch (e) {
-            console.error(`[CRON] Error processing date for action ${action.id}:`, e);
+        } catch (e: any) {
+            const errorMessage = `[CRON] Error processing date for action ${action.id}: ${e.message}`;
+            console.error(errorMessage, e);
+            errors.push(errorMessage);
         }
-        return action;
-      });
+        return action; // Return original action if no reminder was sent or an error occurred.
+      }));
 
       if (actionsModified) {
         batch.update(doc(db, "rcaAnalyses", rcaDoc.id), { plannedActions: updatedActions });
@@ -196,10 +231,10 @@ export async function sendActionReminders(): Promise<{ actionsChecked: number, r
       console.log('[CRON] Batch commit successful. Reminder states updated.');
     }
 
-    console.log(`[CRON] Reminder check finished. Checked: ${actionsChecked}, Sent: ${remindersSent}`);
-    return { actionsChecked, remindersSent };
-  } catch (error) {
+    console.log(`[CRON] Reminder check finished. Checked: ${actionsChecked}, Sent: ${remindersSent}, Errors: ${errors.length}`);
+    return { actionsChecked, remindersSent, errors };
+  } catch (error: any) {
     console.error("[CRON] Critical error during reminder check:", error);
-    return { actionsChecked: 0, remindersSent: 0 };
+    return { actionsChecked: 0, remindersSent: 0, errors: [`Critical error: ${error.message}`] };
   }
 }
