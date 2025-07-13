@@ -26,8 +26,8 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
   const apiKey = process.env.SENDGRID_API_KEY;
   const senderEmail = process.env.SENDGRID_SENDER_EMAIL;
 
-  if (!apiKey || apiKey === 'TU_API_KEY_DE_SENDGRID_AQUI' || !apiKey.startsWith('SG.')) {
-    const errorMessage = "Configuración Incompleta: La API Key de SendGrid (SENDGRID_API_KEY) no está configurada en el archivo .env.local. Por favor, añada su clave real para poder enviar correos.";
+  if (!apiKey || !apiKey.startsWith('SG.')) {
+    const errorMessage = "Configuración Incompleta: La API Key de SendGrid (SENDGRID_API_KEY) no está configurada o no es válida en el archivo .env.local. Por favor, añada su clave real para poder enviar correos.";
     console.error(`[sendEmailAction] ${errorMessage}`);
     return {
       success: false,
@@ -36,8 +36,8 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
     };
   }
 
-  if (!senderEmail || senderEmail === 'tu@email_verificado_en_sendgrid.com' || !senderEmail.includes('@')) {
-    const errorMessage = "Configuración Incompleta: El correo del remitente (SENDGRID_SENDER_EMAIL) no está configurado en el archivo .env.local. Por favor, añada una dirección que haya verificado en SendGrid.";
+  if (!senderEmail || !senderEmail.includes('@')) {
+    const errorMessage = "Configuración Incompleta: El correo del remitente (SENDGRID_SENDER_EMAIL) no está configurado o no es válido en el archivo .env.local. Por favor, añada una dirección que haya verificado en SendGrid.";
     console.error(`[sendEmailAction] ${errorMessage}`);
     return {
       success: false,
