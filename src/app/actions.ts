@@ -137,8 +137,14 @@ export async function sendActionReminders(): Promise<{ actionsChecked: number, r
       const updatedActions = await Promise.all(rcaData.plannedActions.map(async (action) => {
         actionsChecked++;
         const actionValidation = rcaData.validations?.find(v => v.actionId === action.id);
-        const isCompleted = actionValidation?.status === 'validated';
-        const isActionRejected = actionValidation?.status === 'rejected';
+        
+        let isCompleted = false;
+        let isActionRejected = false;
+        
+        if (actionValidation) {
+            isCompleted = actionValidation.status === 'validated';
+            isActionRejected = actionValidation.status === 'rejected';
+        }
 
         // Do not send reminders for completed or rejected tasks.
         if (isCompleted || isActionRejected) {
