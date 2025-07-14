@@ -59,7 +59,7 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
   console.log(`[sendEmailAction] Attempting to send email via SendGrid API to: ${recipientEmail} with subject: "${payload.subject}" from: ${senderEmail}.`);
 
   try {
-    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    const response = await fetch('https://api/sendgrid.com/v3/mail/send', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
