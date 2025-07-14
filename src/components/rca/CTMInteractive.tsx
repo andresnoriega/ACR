@@ -50,26 +50,28 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
   const handleAdd = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(ctmData));
     let current: any = newData;
-    let parent: any = null;
-    let lastKey: string | number = '';
     
     for (const key of path) {
-      parent = current;
-      lastKey = key;
       current = current[key];
     }
   
-    if (Array.isArray(current)) { // Adding FailureMode
+    // Correct order of checks from most specific to most general
+    if (Array.isArray(current)) { // Root level, adding FailureMode
       current.push({ id: generateId('fm'), description: 'Nuevo Modo de Falla', hypotheses: [] });
-    } else if (current.hypotheses) {
-      current.hypotheses.push({ id: generateId('hyp'), description: 'Nueva Hipótesis', physicalCauses: [], status: 'pending' });
-    } else if (current.physicalCauses) {
-      current.physicalCauses.push({ id: generateId('pc'), description: 'Nueva Causa Física', humanCauses: [] });
-    } else if (current.humanCauses) {
-      current.humanCauses.push({ id: generateId('hc'), description: 'Nueva Causa Humana', latentCauses: [] });
-    } else if (current.latentCauses) {
+    } else if ('latentCauses' in current) { // Current is a HumanCause
+      if (!current.latentCauses) current.latentCauses = [];
       current.latentCauses.push({ id: generateId('lc'), description: 'Nueva Causa Latente' });
+    } else if ('humanCauses' in current) { // Current is a PhysicalCause
+       if (!current.humanCauses) current.humanCauses = [];
+      current.humanCauses.push({ id: generateId('hc'), description: 'Nueva Causa Humana', latentCauses: [] });
+    } else if ('physicalCauses' in current) { // Current is a Hypothesis
+       if (!current.physicalCauses) current.physicalCauses = [];
+      current.physicalCauses.push({ id: generateId('pc'), description: 'Nueva Causa Física', humanCauses: [] });
+    } else if ('hypotheses' in current) { // Current is a FailureMode
+       if (!current.hypotheses) current.hypotheses = [];
+      current.hypotheses.push({ id: generateId('hyp'), description: 'Nueva Hipótesis', physicalCauses: [], status: 'pending' });
     }
+
     onSetCtmData(newData);
   };
 
@@ -139,7 +141,7 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
     </div>
   );
   
-  const renderHypotheses = (hypotheses: Hypothesis[], path: (string | number)[]) => (
+  const renderHypotheses = (hypotheses: Hypothesis[] | undefined, path: (string | number)[]) => (
       <div className="pl-4 border-l-2 border-teal-500/50 ml-4 mt-2 space-y-3">
         {(hypotheses || []).map((hyp, hypIndex) => (
           <Card key={hyp.id} className={cn("p-3", hyp.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' : hyp.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 opacity-70' : 'bg-card')}>
