@@ -1,4 +1,3 @@
-
 export type EventType = 'Incidente' | 'Accidente' | 'Falla de Equipo' | 'No Conformidad' | 'Evento Operacional' | '';
 export type PriorityType = 'Alta' | 'Media' | 'Baja' | '';
 
@@ -55,7 +54,6 @@ export interface PlannedAction {
   userComments?: string;
   isNotificationSent?: boolean;
   markedAsReadyAt?: string;
-  lastReminderSent?: string;
 }
 
 export interface Validation {
