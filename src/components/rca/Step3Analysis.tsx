@@ -873,7 +873,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold font-headline">Plan de Acción Correctiva</h3>
+          <h3 className="text-lg font-semibold font-headline">Plan de Acción Correctivo</h3>
           {uniquePlannedActions.map((action, index) => (
             <Card key={action.id} className="p-4 space-y-3 bg-secondary/50">
                <div className="flex justify-between items-center">
@@ -1018,5 +1018,3 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     </>
   );
 };
-
-    
