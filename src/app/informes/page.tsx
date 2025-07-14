@@ -27,6 +27,7 @@ import {
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { useAuth } from '@/contexts/AuthContext';
+import { sendEmailAction } from '@/app/actions';
 
 
 const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Falla de Equipo', 'Accidente', 'No Conformidad', 'Evento Operacional'];
@@ -93,9 +94,11 @@ export default function DashboardRCAPage() {
   const [analisisEnCurso, setAnalisisEnCurso] = useState<AnalisisEnCursoItem[]>([]);
   const [planesAccionPendientes, setPlanesAccionPendientes] = useState<PlanAccionPendienteItem[]>([]);
 
+  const [availableUsers, setAvailableUsers] = useState<FullUserProfile[]>([]);
   const [availableSites, setAvailableSites] = useState<Site[]>([]);
   const [isLoadingSites, setIsLoadingSites] = useState(true);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [remindingActionId, setRemindingActionId] = useState<string | null>(null);
 
   const [filters, setFilters] = useState<DashboardFilters>({
     site: '',
@@ -123,6 +126,11 @@ export default function DashboardRCAPage() {
     let currentRcaPendientesCount = 0;
 
     try {
+      // Fetch users first to have them available for reminders
+      const usersQuery = query(collection(db, "users"), orderBy("name", "asc"));
+      const usersSnapshot = await getDocs(usersQuery);
+      setAvailableUsers(usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FullUserProfile)));
+
       const rcaQueryConstraints: QueryConstraint[] = [];
       const eventQueryConstraintsForCounts: QueryConstraint[] = [];
 
@@ -473,6 +481,44 @@ export default function DashboardRCAPage() {
     });
   };
 
+  const handleSendReminder = async (item: PlanAccionPendienteItem) => {
+    setRemindingActionId(item.actionId);
+    const responsibleUser = availableUsers.find(u => u.name === item.responsable);
+    
+    if (!responsibleUser || !responsibleUser.email) {
+        toast({
+            title: "Error de Destinatario",
+            description: `No se pudo encontrar un correo para el responsable '${item.responsable}'. No se puede enviar recordatorio.`,
+            variant: "destructive"
+        });
+        setRemindingActionId(null);
+        return;
+    }
+
+    const emailSubject = `Recordatorio de Tarea Pendiente: ${item.accion.substring(0, 30)}...`;
+    const emailBody = `Estimado/a ${item.responsable},\n\nEste es un recordatorio de que tiene una tarea pendiente relacionada con el evento "${item.rcaTitle}" (ID: ${item.rcaId}).\n\nTarea: ${item.accion}\nFecha Límite: ${item.fechaLimite}\n\nPor favor, acceda al sistema para actualizar el estado de esta tarea.\n\nSaludos,\nSistema RCA Assistant`;
+    
+    const result = await sendEmailAction({
+      to: responsibleUser.email,
+      subject: emailSubject,
+      body: emailBody,
+    });
+
+    if (result.success) {
+      toast({
+        title: "Recordatorio Enviado",
+        description: `Se ha enviado un correo de recordatorio a ${item.responsable}.`
+      });
+    } else {
+      toast({
+        title: "Error al Enviar Recordatorio",
+        description: result.message || "No se pudo enviar el correo.",
+        variant: "destructive"
+      });
+    }
+    setRemindingActionId(null);
+  };
+
 
   return (
     <div className="space-y-6 py-8">
@@ -812,13 +858,39 @@ export default function DashboardRCAPage() {
           ) : (
             <Table>
               <TableHeader>
-                <TableRow><TableHead className="w-[15%] text-xs cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('rcaId')}><div className="flex items-center gap-1">ID Evento {renderSortIconPlanes('rcaId')}</div></TableHead><TableHead className="w-[15%] text-xs cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('actionId')}><div className="flex items-center gap-1">ID Acción {renderSortIconPlanes('actionId')}</div></TableHead><TableHead className="w-[25%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('accion')}><div className="flex items-center gap-1">Acción (Análisis: <span className="italic text-xs">Título ACR</span>) {renderSortIconPlanes('accion')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('responsable')}><div className="flex items-center gap-1">Responsable {renderSortIconPlanes('responsable')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('fechaLimite')}><div className="flex items-center gap-1">Fecha Límite {renderSortIconPlanes('fechaLimite')}</div></TableHead><TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('estado')}><div className="flex items-center gap-1">Estado Acción {renderSortIconPlanes('estado')}</div></TableHead></TableRow>
+                <TableRow>
+                    <TableHead className="w-[15%] text-xs cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('rcaId')}><div className="flex items-center gap-1">ID Evento {renderSortIconPlanes('rcaId')}</div></TableHead>
+                    <TableHead className="w-[15%] text-xs cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('actionId')}><div className="flex items-center gap-1">ID Acción {renderSortIconPlanes('actionId')}</div></TableHead>
+                    <TableHead className="w-[25%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('accion')}><div className="flex items-center gap-1">Acción (Análisis: <span className="italic text-xs">Título ACR</span>) {renderSortIconPlanes('accion')}</div></TableHead>
+                    <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('responsable')}><div className="flex items-center gap-1">Responsable {renderSortIconPlanes('responsable')}</div></TableHead>
+                    <TableHead className="w-[10%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('fechaLimite')}><div className="flex items-center gap-1">Fecha Límite {renderSortIconPlanes('fechaLimite')}</div></TableHead>
+                    <TableHead className="w-[10%] cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => requestSortPlanes('estado')}><div className="flex items-center gap-1">Estado Acción {renderSortIconPlanes('estado')}</div></TableHead>
+                    <TableHead className="w-[10%] text-right">Recordatorio</TableHead>
+                </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedPlanesAccionPendientes.length > 0 ? sortedPlanesAccionPendientes.slice(0,5).map((item) => ( // Only show top 5
-                  <TableRow key={`${item.rcaId}-${item.actionId}`}><TableCell className="font-mono text-xs">{item.rcaId.substring(0, 8)}...</TableCell><TableCell className="font-mono text-xs">{item.actionId.substring(0, 8)}...</TableCell><TableCell className="font-medium text-sm">{item.accion}<p className="text-xs text-muted-foreground italic mt-0.5">Del Análisis: {item.rcaTitle}</p></TableCell><TableCell className="text-sm">{item.responsable}</TableCell><TableCell className="text-sm">{item.fechaLimite}</TableCell><TableCell><span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">{item.estado}</span></TableCell></TableRow>
+                  <TableRow key={`${item.rcaId}-${item.actionId}`}>
+                    <TableCell className="font-mono text-xs">{item.rcaId.substring(0, 8)}...</TableCell>
+                    <TableCell className="font-mono text-xs">{item.actionId.substring(0, 8)}...</TableCell>
+                    <TableCell className="font-medium text-sm">{item.accion}<p className="text-xs text-muted-foreground italic mt-0.5">Del Análisis: {item.rcaTitle}</p></TableCell>
+                    <TableCell className="text-sm">{item.responsable}</TableCell>
+                    <TableCell className="text-sm">{item.fechaLimite}</TableCell>
+                    <TableCell><span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">{item.estado}</span></TableCell>
+                    <TableCell className="text-right">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleSendReminder(item)}
+                        disabled={remindingActionId === item.actionId}
+                        title={`Enviar recordatorio a ${item.responsable}`}
+                      >
+                        {remindingActionId === item.actionId ? <Loader2 className="h-4 w-4 animate-spin"/> : <Bell className="h-4 w-4" />}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                 )) : (
-                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground h-24">
+                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground h-24">
                        No hay planes de acción activos que coincidan con los filtros o no se pudieron cargar.
                     </TableCell></TableRow>
                 )}
