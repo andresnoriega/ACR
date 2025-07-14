@@ -14,7 +14,9 @@ export const runtime = 'nodejs';
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const secret = searchParams.get('secret');
-  const cronSecret = process.env.CRON_SECRET;
+
+  // Read the secret from environment variables and trim it to remove potential whitespaces/quotes.
+  const cronSecret = process.env.CRON_SECRET?.trim().replace(/^"(.*)"$/, '$1');
 
   if (!cronSecret) {
     console.error('[CRON] CRON_SECRET is not set in environment variables. Aborting.');
