@@ -8,11 +8,9 @@ import { differenceInCalendarDays, startOfToday, parseISO } from 'date-fns';
 interface EmailPayload {
   to: string;
   subject: string;
-  body: string;
   htmlBody?: string;
+  body: string;
 }
-
-const SPECIAL_TEST_ADDRESS = "TEST_MY_SENDER_ADDRESS";
 
 /**
  * Sends an email using SendGrid's fetch API.
@@ -44,7 +42,7 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
     };
   }
   
-  const recipientEmail = payload.to === SPECIAL_TEST_ADDRESS ? senderEmail : payload.to;
+  const recipientEmail = payload.to === "TEST_MY_SENDER_ADDRESS" ? senderEmail : payload.to;
 
   const emailData = {
     personalizations: [{ to: [{ email: recipientEmail }] }],
@@ -59,7 +57,7 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
   console.log(`[sendEmailAction] Attempting to send email via SendGrid API to: ${recipientEmail} with subject: "${payload.subject}" from: ${senderEmail}.`);
 
   try {
-    const response = await fetch('https://api/sendgrid.com/v3/mail/send', {
+    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
