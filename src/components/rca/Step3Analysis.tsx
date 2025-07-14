@@ -1,3 +1,4 @@
+
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useCallback, useEffect } from 'react'; 
@@ -9,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectSeparator } from '@/components/ui/select'; 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2, Save, Send, Loader2, Mail, Sparkles, ClipboardCopy, ChevronLeft, ChevronRight, AlertTriangle, Lightbulb, Edit3, X } from 'lucide-react';
+import { PlusCircle, Trash2, MessageSquare, ShareTree, Link2, Save, Send, Loader2, Mail, Sparkles, ClipboardCopy, ChevronLeft, ChevronRight, AlertTriangle, Lightbulb, Edit3, X, HelpCircle, Share2 as CtmIcon } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
 import { FiveWhysInteractive } from './FiveWhysInteractive';
@@ -629,126 +630,136 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
         
         <TimelineComponent events={timelineEvents} onSetEvents={onSetTimelineEvents} />
         <Separator className="my-6" />
-
-
-        <div className="space-y-4">
-            <Label htmlFor="brainstormingIdeas" className="text-lg font-semibold font-headline flex items-center">
-              <Lightbulb className="mr-2 h-5 w-5 text-primary" />
-              Lluvia de Ideas Inicial (Clasificada)
-            </Label>
-            {brainstormingIdeas.map((idea, index) => (
-              <Card key={idea.id} className="p-3 bg-card shadow-sm">
-                <div className="flex justify-between items-start mb-2">
-                  <p className="font-medium text-sm text-primary">Idea #{index + 1}</p>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onRemoveBrainstormIdea(idea.id)}
-                    aria-label={`Eliminar idea #${index + 1}`}
-                    className="h-7 w-7"
-                    disabled={isSaving}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="space-y-1 sm:col-span-1">
-                        <Label htmlFor={`bi-type-${idea.id}`} className="text-xs">Tipo de Idea</Label>
-                        <Select
-                        value={idea.type}
-                        onValueChange={(value) => onUpdateBrainstormIdea(idea.id, 'type', value as BrainstormIdeaType)}
-                        disabled={isSaving}
-                        >
-                        <SelectTrigger id={`bi-type-${idea.id}`} className="h-9 text-xs">
-                            <SelectValue placeholder="-- Tipo --" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {BRAINSTORM_IDEA_TYPES.map(typeOpt => (
-                            <SelectItem key={typeOpt} value={typeOpt} className="text-xs">{typeOpt}</SelectItem>
-                            ))}
-                        </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-1 sm:col-span-2">
-                        <Label htmlFor={`bi-desc-${idea.id}`} className="text-xs">Descripción de la Idea</Label>
-                        <Textarea
-                            id={`bi-desc-${idea.id}`}
-                            value={idea.description}
-                            onChange={(e) => onUpdateBrainstormIdea(idea.id, 'description', e.target.value)}
-                            placeholder="Describa su idea aquí..."
-                            rows={2}
-                            className="text-xs"
-                            disabled={isSaving}
-                        />
-                    </div>
-                </div>
-              </Card>
-            ))}
-            <Button
-              onClick={onAddBrainstormIdea}
-              variant="outline"
-              className="w-full"
-              disabled={isSaving}
-            >
-              <PlusCircle className="mr-2 h-4 w-4" /> Añadir Idea a la Lluvia de Ideas
-            </Button>
-        </div>
-        <Separator className="my-6" />
-
-        <div className="space-y-2">
-          <Label htmlFor="analysisTechnique">Técnica de Análisis Principal</Label>
-          <Select value={analysisTechnique} onValueChange={(value: AnalysisTechnique) => onAnalysisTechniqueChange(value)}>
-            <SelectTrigger id="analysisTechnique">
-              <SelectValue placeholder="-- Seleccione una técnica --" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="WhyWhy">5 Porqués</SelectItem>
-              <SelectItem value="Ishikawa">Ishikawa (Diagrama de Causa-Efecto)</SelectItem>
-              <SelectItem value="CTM">Árbol de Causas (CTM)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {analysisTechnique === 'Ishikawa' && (
-          <IshikawaDiagramInteractive
-            focusEventDescription={eventData.focusEventDescription || "Evento Foco (no definido en Paso 1)"}
-            ishikawaData={ishikawaData}
-            onSetIshikawaData={onSetIshikawaData}
-          />
-        )}
-
-        {analysisTechnique === 'WhyWhy' && (
-          <FiveWhysInteractive
-            focusEventDescription={eventData.focusEventDescription || "Evento Foco (no definido en Paso 1)"}
-            fiveWhysData={fiveWhysData}
-            onAddFiveWhyEntry={onAddFiveWhyEntry}
-            onUpdateFiveWhyEntry={onUpdateFiveWhyEntry}
-            onRemoveFiveWhyEntry={onRemoveFiveWhyEntry}
-          />
-        )}
-
-        {analysisTechnique === 'CTM' && (
-           <CTMInteractive
-            focusEventDescription={eventData.focusEventDescription || "Evento Foco (no definido en Paso 1)"}
-            ctmData={ctmData}
-            onSetCtmData={onSetCtmData}
-          />
-        )}
         
-        {(analysisTechnique === '' || analysisTechniqueNotes.trim() !== '') && (
-          <div className="space-y-2 mt-4">
-            <Label htmlFor="analysisTechniqueNotes">
-              Notas Adicionales del Análisis ({analysisTechnique || 'General'}):
-            </Label>
-            <Textarea
-              id="analysisTechniqueNotes"
-              value={analysisTechniqueNotes}
-              onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onAnalysisTechniqueNotesChange(e.target.value)}
-              placeholder={getPlaceholderForNotes()}
-              rows={analysisTechnique === '' ? 10 : 4}
-            />
-          </div>
-        )}
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-xl font-semibold font-headline text-primary flex items-center">
+              <Lightbulb className="mr-2 h-6 w-6" />
+              Lluvia de Ideas Inicial (Clasificada)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+              {brainstormingIdeas.map((idea, index) => (
+                <Card key={idea.id} className="p-3 bg-card shadow-sm">
+                  <div className="flex justify-between items-start mb-2">
+                    <p className="font-medium text-sm text-primary">Idea #{index + 1}</p>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onRemoveBrainstormIdea(idea.id)}
+                      aria-label={`Eliminar idea #${index + 1}`}
+                      className="h-7 w-7"
+                      disabled={isSaving}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="space-y-1 sm:col-span-1">
+                          <Label htmlFor={`bi-type-${idea.id}`} className="text-xs">Tipo de Idea</Label>
+                          <Select
+                          value={idea.type}
+                          onValueChange={(value) => onUpdateBrainstormIdea(idea.id, 'type', value as BrainstormIdeaType)}
+                          disabled={isSaving}
+                          >
+                          <SelectTrigger id={`bi-type-${idea.id}`} className="h-9 text-xs">
+                              <SelectValue placeholder="-- Tipo --" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              {BRAINSTORM_IDEA_TYPES.map(typeOpt => (
+                              <SelectItem key={typeOpt} value={typeOpt} className="text-xs">{typeOpt}</SelectItem>
+                              ))}
+                          </SelectContent>
+                          </Select>
+                      </div>
+                      <div className="space-y-1 sm:col-span-2">
+                          <Label htmlFor={`bi-desc-${idea.id}`} className="text-xs">Descripción de la Idea</Label>
+                          <Textarea
+                              id={`bi-desc-${idea.id}`}
+                              value={idea.description}
+                              onChange={(e) => onUpdateBrainstormIdea(idea.id, 'description', e.target.value)}
+                              placeholder="Describa su idea aquí..."
+                              rows={2}
+                              className="text-xs"
+                              disabled={isSaving}
+                          />
+                      </div>
+                  </div>
+                </Card>
+              ))}
+              <Button
+                onClick={onAddBrainstormIdea}
+                variant="outline"
+                className="w-full"
+                disabled={isSaving}
+              >
+                <PlusCircle className="mr-2 h-4 w-4" /> Añadir Idea a la Lluvia de Ideas
+              </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-lg">
+          <CardHeader>
+             <CardTitle className="text-xl font-semibold font-headline text-primary flex items-center">
+              <ShareTree className="mr-2 h-6 w-6" />
+              Técnica de Análisis Principal
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="analysisTechnique">Seleccione una técnica</Label>
+              <Select value={analysisTechnique} onValueChange={(value: AnalysisTechnique) => onAnalysisTechniqueChange(value)}>
+                <SelectTrigger id="analysisTechnique">
+                  <SelectValue placeholder="-- Seleccione una técnica --" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="WhyWhy"><div className="flex items-center"><HelpCircle className="mr-2 h-4 w-4" />5 Porqués</div></SelectItem>
+                  <SelectItem value="Ishikawa"><div className="flex items-center"><Share2 className="mr-2 h-4 w-4" />Ishikawa</div></SelectItem>
+                  <SelectItem value="CTM"><div className="flex items-center"><CtmIcon className="mr-2 h-4 w-4" />Árbol de Causas (CTM)</div></SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {analysisTechnique === 'Ishikawa' && (
+              <IshikawaDiagramInteractive
+                focusEventDescription={eventData.focusEventDescription || "Evento Foco (no definido en Paso 1)"}
+                ishikawaData={ishikawaData}
+                onSetIshikawaData={onSetIshikawaData}
+              />
+            )}
+
+            {analysisTechnique === 'WhyWhy' && (
+              <FiveWhysInteractive
+                focusEventDescription={eventData.focusEventDescription || "Evento Foco (no definido en Paso 1)"}
+                fiveWhysData={fiveWhysData}
+                onAddFiveWhyEntry={onAddFiveWhyEntry}
+                onUpdateFiveWhyEntry={onUpdateFiveWhyEntry}
+                onRemoveFiveWhyEntry={onRemoveFiveWhyEntry}
+              />
+            )}
+
+            {analysisTechnique === 'CTM' && (
+              <CTMInteractive ctmData={ctmData} onSetCtmData={onSetCtmData} />
+            )}
+            
+            {(analysisTechnique === '' || analysisTechniqueNotes.trim() !== '') && (
+              <div className="space-y-2 pt-4">
+                <Label htmlFor="analysisTechniqueNotes">
+                  Notas Adicionales del Análisis ({analysisTechnique || 'General'}):
+                </Label>
+                <Textarea
+                  id="analysisTechniqueNotes"
+                  value={analysisTechniqueNotes}
+                  onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onAnalysisTechniqueNotesChange(e.target.value)}
+                  placeholder={getPlaceholderForNotes()}
+                  rows={analysisTechnique === '' ? 10 : 4}
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Separator className="my-6" />
         
         <div className="space-y-4">
             <div className="flex justify-between items-center">
