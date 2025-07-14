@@ -109,7 +109,9 @@ export async function sendActionReminders() {
   const usersRef = collection(db, 'users');
 
   try {
-    const q = query(rcaAnalysesRef, where('isFinalized', '==', false));
+    // This query is more robust. It gets documents where isFinalized is not true.
+    // This includes documents where isFinalized is false, null, or doesn't exist.
+    const q = query(rcaAnalysesRef, where('isFinalized', '!=', true));
     const rcaSnapshot = await getDocs(q);
     const usersSnapshot = await getDocs(usersRef);
     const users = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FullUserProfile));
