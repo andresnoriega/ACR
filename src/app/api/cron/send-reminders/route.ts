@@ -2,15 +2,29 @@
 import { NextResponse } from 'next/server';
 import { sendActionReminders } from '@/app/actions';
 
-// This forces the an API Route to be deployed as a Node.js serverless function.
+// This forces an API Route to be deployed as a Node.js serverless function.
 // This is required for SendGrid's library to work.
 export const runtime = 'nodejs';
 
 /**
  * API route to be called by an external cron job service.
  * It triggers the function to send reminders for planned actions.
+ * It requires a secret key for security.
  */
-export async function GET() {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const secret = searchParams.get('secret');
+  const cronSecret = process.env.CRON_SECRET;
+
+  if (!cronSecret) {
+    console.error('[CRON] CRON_SECRET is not set in environment variables. Aborting.');
+    return NextResponse.json({ message: 'CRON_SECRET not configured.' }, { status: 500 });
+  }
+
+  if (secret !== cronSecret) {
+    return NextResponse.json({ message: 'Invalid secret.' }, { status: 401 });
+  }
+
   try {
     const result = await sendActionReminders();
     if (result.success) {
