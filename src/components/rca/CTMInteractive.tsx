@@ -52,24 +52,27 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
     let current: any = newData;
     
     for (const key of path) {
+      // Ensure the key exists before trying to access it. If not, something is wrong.
+      if (current === undefined || current[key] === undefined) {
+        console.error("Invalid path for handleAdd:", path);
+        return;
+      }
       current = current[key];
     }
   
-    // Correct order of checks from most specific to most general
-    if (Array.isArray(current)) { // Root level, adding FailureMode
-      current.push({ id: generateId('fm'), description: 'Nuevo Modo de Falla', hypotheses: [] });
-    } else if ('latentCauses' in current) { // Current is a HumanCause
-      if (!current.latentCauses) current.latentCauses = [];
-      current.latentCauses.push({ id: generateId('lc'), description: 'Nueva Causa Latente' });
-    } else if ('humanCauses' in current) { // Current is a PhysicalCause
-       if (!current.humanCauses) current.humanCauses = [];
-      current.humanCauses.push({ id: generateId('hc'), description: 'Nueva Causa Humana', latentCauses: [] });
-    } else if ('physicalCauses' in current) { // Current is a Hypothesis
-       if (!current.physicalCauses) current.physicalCauses = [];
-      current.physicalCauses.push({ id: generateId('pc'), description: 'Nueva Causa Física', humanCauses: [] });
-    } else if ('hypotheses' in current) { // Current is a FailureMode
-       if (!current.hypotheses) current.hypotheses = [];
-      current.hypotheses.push({ id: generateId('hyp'), description: 'Nueva Hipótesis', physicalCauses: [], status: 'pending' });
+    // Now 'current' is the array we want to push to.
+    if (Array.isArray(current)) {
+      if (path.length === 0) { // Adding a FailureMode to the root
+        current.push({ id: generateId('fm'), description: 'Nuevo Modo de Falla', hypotheses: [] });
+      } else if (path[path.length -1] === 'hypotheses') {
+        current.push({ id: generateId('hyp'), description: 'Nueva Hipótesis', physicalCauses: [], status: 'pending' });
+      } else if (path[path.length -1] === 'physicalCauses') {
+        current.push({ id: generateId('pc'), description: 'Nueva Causa Física', humanCauses: [] });
+      } else if (path[path.length -1] === 'humanCauses') {
+        current.push({ id: generateId('hc'), description: 'Nueva Causa Humana', latentCauses: [] });
+      } else if (path[path.length -1] === 'latentCauses') {
+        current.push({ id: generateId('lc'), description: 'Nueva Causa Latente' });
+      }
     }
 
     onSetCtmData(newData);
@@ -77,10 +80,8 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
 
   const handleRemove = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(ctmData));
-    let parent: any = null;
     let current: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
-        parent = current;
         current = current[path[i]];
     }
     const indexToRemove = path[path.length - 1] as number;
