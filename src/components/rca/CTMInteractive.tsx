@@ -167,28 +167,34 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
       <h3 className="text-lg font-semibold font-headline text-center text-primary flex items-center justify-center">
         <Share2 className="mr-2 h-5 w-5" /> Árbol de Causas (CTM)
       </h3>
-      <Accordion type="multiple" className="w-full">
+      <div className="flex space-x-4 overflow-x-auto py-2">
         {ctmData.map((fm, fmIndex) => (
-          <AccordionItem value={fm.id} key={fm.id}>
-            <div className="flex items-center w-full">
-              <AccordionTrigger className="flex-grow">
-                <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> Modo de Falla #{fmIndex + 1}</span>
-              </AccordionTrigger>
-              <Button size="icon" variant="ghost" className="h-7 w-7 ml-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemove([fmIndex]);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-            </div>
-            <AccordionContent className="pl-2">
-              <div className="space-y-2 p-2 border-l-2">
-                <Label>Descripción del Modo de Falla</Label>
-                <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex], e.target.value)} className="text-sm"/>
-                {renderHypotheses(fm.hypotheses, [fmIndex, 'hypotheses'])}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
+          <div key={fm.id} className="w-80 min-w-[20rem] flex-shrink-0">
+            <Accordion type="single" collapsible defaultValue="item-1">
+              <AccordionItem value="item-1">
+                <div className="flex items-center w-full">
+                  <AccordionTrigger className="flex-grow">
+                    <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> Modo de Falla #{fmIndex + 1}</span>
+                  </AccordionTrigger>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 ml-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemove([fmIndex]);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                </div>
+                <AccordionContent className="pl-2">
+                  <div className="space-y-2 p-2 border-l-2">
+                    <Label>Descripción del Modo de Falla</Label>
+                    <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex], e.target.value)} className="text-sm"/>
+                    {renderHypotheses(fm.hypotheses, [fmIndex, 'hypotheses'])}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </div>
         ))}
-      </Accordion>
-      <Button onClick={() => handleAdd([])} variant="outline" className="w-full">
-        <PlusCircle className="mr-2 h-4 w-4" /> Añadir Modo de Falla
-      </Button>
+        <div className="flex-shrink-0 flex items-center">
+            <Button onClick={() => handleAdd([])} variant="outline" className="h-full">
+                <PlusCircle className="mr-2 h-4 w-4" /> Añadir Modo de Falla
+            </Button>
+        </div>
+      </div>
     </div>
   );
 };
