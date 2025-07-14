@@ -1,3 +1,4 @@
+
 'use client';
 import { FC, useCallback, useMemo, useState } from 'react';
 import {
@@ -85,9 +86,9 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
     onSetCtmData(newData);
   };
   
-  const renderLatentCauses = (latentCauses: LatentCause[], path: (string | number)[]) => (
+  const renderLatentCauses = (latentCauses: LatentCause[] | undefined, path: (string | number)[]) => (
     <div className="pl-4 border-l ml-4 mt-2 space-y-2">
-      {latentCauses.map((lc, lcIndex) => (
+      {(latentCauses || []).map((lc, lcIndex) => (
         <div key={lc.id} className="space-y-1">
           <Label className="text-xs font-semibold flex items-center text-purple-600 dark:text-purple-400">
             <Building className="mr-1 h-3 w-3" /> Causa Latente #{lcIndex + 1}
@@ -102,9 +103,9 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
     </div>
   );
 
-  const renderHumanCauses = (humanCauses: HumanCause[], path: (string | number)[]) => (
+  const renderHumanCauses = (humanCauses: HumanCause[] | undefined, path: (string | number)[]) => (
     <div className="pl-4 border-l ml-4 mt-2 space-y-2">
-      {humanCauses.map((hc, hcIndex) => (
+      {(humanCauses || []).map((hc, hcIndex) => (
         <div key={hc.id} className="space-y-1">
           <Label className="text-xs font-semibold flex items-center text-yellow-600 dark:text-yellow-400">
             <User className="mr-1 h-3 w-3" /> Causa Humana #{hcIndex + 1}
@@ -120,9 +121,9 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
     </div>
   );
 
-  const renderPhysicalCauses = (physicalCauses: PhysicalCause[], path: (string | number)[]) => (
+  const renderPhysicalCauses = (physicalCauses: PhysicalCause[] | undefined, path: (string | number)[]) => (
     <div className="pl-4 border-l ml-4 mt-2 space-y-2">
-      {physicalCauses.map((pc, pcIndex) => (
+      {(physicalCauses || []).map((pc, pcIndex) => (
         <div key={pc.id} className="space-y-1">
           <Label className="text-xs font-semibold flex items-center text-orange-600 dark:text-orange-400">
             <Wrench className="mr-1 h-3 w-3" /> Causa Física #{pcIndex + 1}
@@ -140,7 +141,7 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
   
   const renderHypotheses = (hypotheses: Hypothesis[], path: (string | number)[]) => (
       <div className="pl-4 border-l-2 border-teal-500/50 ml-4 mt-2 space-y-3">
-        {hypotheses.map((hyp, hypIndex) => (
+        {(hypotheses || []).map((hyp, hypIndex) => (
           <Card key={hyp.id} className={cn("p-3", hyp.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' : hyp.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 opacity-70' : 'bg-card')}>
             <Label className="text-sm font-semibold flex items-center text-teal-700 dark:text-teal-300">
               <BrainCircuit className="mr-2 h-4 w-4" /> Hipótesis #{hypIndex + 1}
