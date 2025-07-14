@@ -1,7 +1,6 @@
 
 'use server';
 
-import sgMail from '@sendgrid/mail';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, writeBatch, doc, query, updateDoc, where } from 'firebase/firestore';
 import type { RCAAnalysisDocument, FullUserProfile, PlannedAction } from '@/types/rca';
@@ -17,7 +16,7 @@ interface EmailPayload {
 const SPECIAL_TEST_ADDRESS = "TEST_MY_SENDER_ADDRESS";
 
 /**
- * Sends an email using SendGrid.
+ * Sends an email using SendGrid's fetch API.
  * Requires SENDGRID_API_KEY and SENDGRID_SENDER_EMAIL environment variables to be set.
  * @param payload - The email details.
  * @returns Promise<object> - A promise that resolves with a success or error message.
@@ -27,7 +26,7 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
   const senderEmail = process.env.SENDGRID_SENDER_EMAIL;
 
   if (!apiKey || !apiKey.startsWith('SG.')) {
-    const errorMessage = "Configuración Incompleta: La API Key de SendGrid (SENDGRID_API_KEY) no está configurada o no es válida en el archivo .env.local. Por favor, añada su clave real para poder enviar correos.";
+    const errorMessage = "Configuración Incompleta: La API Key de SendGrid (SENDGRID_API_KEY) no está configurada o no es válida. Por favor, añada su clave real para poder enviar correos.";
     console.error(`[sendEmailAction] ${errorMessage}`);
     return {
       success: false,
@@ -37,7 +36,7 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
   }
 
   if (!senderEmail || !senderEmail.includes('@')) {
-    const errorMessage = "Configuración Incompleta: El correo del remitente (SENDGRID_SENDER_EMAIL) no está configurado o no es válido en el archivo .env.local. Por favor, añada una dirección que haya verificado en SendGrid.";
+    const errorMessage = "Configuración Incompleta: El correo del remitente (SENDGRID_SENDER_EMAIL) no está configurado o no es válido. Por favor, añada una dirección que haya verificado en SendGrid.";
     console.error(`[sendEmailAction] ${errorMessage}`);
     return {
       success: false,
@@ -45,53 +44,53 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
       details: payload,
     };
   }
-
-  sgMail.setApiKey(apiKey);
-
+  
   const recipientEmail = payload.to === SPECIAL_TEST_ADDRESS ? senderEmail : payload.to;
 
-  const msg = {
-    to: recipientEmail,
-    from: senderEmail,
+  const emailData = {
+    personalizations: [{ to: [{ email: recipientEmail }] }],
+    from: { email: senderEmail },
     subject: payload.subject,
-    text: payload.body,
-    html: payload.htmlBody || `<p>${payload.body}</p>`,
+    content: [
+      { type: 'text/plain', value: payload.body },
+      { type: 'text/html', value: payload.htmlBody || `<p>${payload.body}</p>` },
+    ],
   };
 
-  console.log(`[sendEmailAction] Attempting to send email via SendGrid to: ${recipientEmail} with subject: "${payload.subject}" from: ${senderEmail}.`);
+  console.log(`[sendEmailAction] Attempting to send email via SendGrid API to: ${recipientEmail} with subject: "${payload.subject}" from: ${senderEmail}.`);
 
   try {
-    await sgMail.send(msg);
-    console.log(`[sendEmailAction] Email successfully sent to ${recipientEmail} via SendGrid.`);
-    return {
-      success: true,
-      message: `Correo enviado exitosamente a ${recipientEmail}.`,
-      details: payload,
-    };
-  } catch (error: any) {
-    console.error("[sendEmailAction] Error sending email via SendGrid:", JSON.stringify(error, null, 2));
-    
-    let errorMessage = "Ocurrió un error desconocido al enviar el correo.";
-    if (error.response && error.response.body && Array.isArray(error.response.body.errors) && error.response.body.errors.length > 0) {
-      const firstError = error.response.body.errors[0];
-      const apiMessage = firstError.message ? firstError.message.toLowerCase() : '';
-      
-      if (apiMessage.includes('permission denied') || apiMessage.includes('api key does not have permissions')) {
-        errorMessage = "Error de permisos. La API Key de SendGrid no tiene permisos para enviar correos. Verifique los permisos en el panel de SendGrid.";
-      } else if (apiMessage.includes('authorization') || error.code === 401) {
-        errorMessage = "Error de autenticación. Verifique que la SENDGRID_API_KEY en su archivo .env.local sea correcta y esté activa.";
-      } else if (apiMessage.includes('the from address does not match a verified sender')) {
-        errorMessage = `La dirección de remitente (${senderEmail}) no está verificada en SendGrid. Por favor, verifíquela como 'Single Sender' o configure la Autenticación de Dominio en su panel de SendGrid.`;
-      } else {
-        errorMessage = firstError.message || JSON.stringify(firstError);
-      }
-    } else if (error.message) {
-      errorMessage = error.message;
+    const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(emailData),
+    });
+
+    if (response.ok) {
+      console.log(`[sendEmailAction] Email successfully sent to ${recipientEmail} via SendGrid API.`);
+      return {
+        success: true,
+        message: `Correo enviado exitosamente a ${recipientEmail}.`,
+        details: payload,
+      };
+    } else {
+      const errorBody = await response.json();
+      console.error("[sendEmailAction] Error sending email via SendGrid API:", JSON.stringify(errorBody, null, 2));
+      const firstError = errorBody.errors && errorBody.errors[0] ? errorBody.errors[0].message : 'Error desconocido de la API.';
+      return {
+        success: false,
+        message: `Error de SendGrid: ${firstError}`,
+        details: payload,
+      };
     }
-    
+  } catch (error: any) {
+    console.error("[sendEmailAction] Critical fetch error sending email:", error);
     return {
       success: false,
-      message: `Error al enviar correo: ${errorMessage}`,
+      message: `Error crítico de red al contactar SendGrid: ${error.message}`,
       details: payload,
     };
   }
