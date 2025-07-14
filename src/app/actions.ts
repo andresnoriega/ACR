@@ -140,6 +140,8 @@ export async function sendActionReminders() {
 
         const dueDate = parseISO(action.dueDate);
         const daysUntilDue = differenceInCalendarDays(dueDate, today);
+        
+        // Safely check lastReminderSent
         const lastReminderDate = action.lastReminderSent ? parseISO(action.lastReminderSent) : null;
         const reminderAlreadySentToday = lastReminderDate ? differenceInCalendarDays(today, lastReminderDate) === 0 : false;
 
@@ -159,6 +161,7 @@ export async function sendActionReminders() {
 
             remindersSent++;
             const actionToUpdate: Partial<PlannedAction> = { lastReminderSent: today.toISOString() };
+            
             const updatedActions = rcaData.plannedActions.map(pa => 
               pa.id === action.id ? { ...pa, ...actionToUpdate } : pa
             );
