@@ -1,16 +1,39 @@
 
 'use client';
-import type { FC, ChangeEvent } from 'react';
+import { FC, useCallback, useMemo, useState } from 'react';
+import ReactFlow, {
+  Controls,
+  Background,
+  applyNodeChanges,
+  applyEdgeChanges,
+  Node,
+  Edge,
+  NodeChange,
+  EdgeChange,
+  Connection,
+  addEdge,
+  MarkerType
+} from 'reactflow';
+import 'reactflow/dist/style.css';
+
 import type { CTMData, FailureMode, Hypothesis, PhysicalCause, HumanCause, LatentCause } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import * as AccordionPrimitive from "@radix-ui/react-accordion";
-import { PlusCircle, Trash2, CornerDownRight, Share2, Check, X, ChevronDown } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PlusCircle, Trash2, Share2, Check, X, GitBranchPlus, BrainCircuit, Wrench, User, Building } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+
 
 interface CTMInteractiveProps {
   focusEventDescription: string;
@@ -20,416 +43,354 @@ interface CTMInteractiveProps {
 
 const generateId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
+const NodeEditor: FC<{
+  id: string;
+  label: string;
+  description: string;
+  onDescriptionChange: (newDesc: string) => void;
+  onClose: () => void;
+}> = ({ id, label, description, onDescriptionChange, onClose }) => (
+  <Dialog open={true} onOpenChange={(isOpen) => !isOpen && onClose()}>
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>Editar: {label}</DialogTitle>
+      </DialogHeader>
+      <div className="py-4">
+        <Label htmlFor={`desc-editor-${id}`}>Descripción</Label>
+        <Textarea
+          id={`desc-editor-${id}`}
+          value={description}
+          onChange={(e) => onDescriptionChange(e.target.value)}
+          rows={4}
+        />
+      </div>
+      <DialogFooter>
+        <DialogClose asChild>
+          <Button type="button" onClick={onClose}>Cerrar</Button>
+        </DialogClose>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+);
+
 export const CTMInteractive: FC<CTMInteractiveProps> = ({
   focusEventDescription,
   ctmData,
   onSetCtmData,
 }) => {
+  const [editingNode, setEditingNode] = useState<{ id: string; label: string; description: string; path: string[] } | null>(null);
 
-  // --- Failure Mode Handlers ---
-  const handleAddFailureMode = () => {
-    const newFailureMode: FailureMode = {
-      id: generateId('fm'),
-      description: '',
-      hypotheses: [],
-    };
-    onSetCtmData([...ctmData, newFailureMode]);
+  const getElementByPath = (path: string[]) => {
+    let currentLevel: any = ctmData;
+    let element: any = null;
+
+    for (const part of path) {
+      if (currentLevel && typeof currentLevel.find === 'function') {
+        const [prefix, id] = part.split(/-(.+)/);
+        element = currentLevel.find((item: any) => item.id === part);
+        if (element) {
+            if (prefix === 'fm') currentLevel = element.hypotheses;
+            else if (prefix === 'hyp') currentLevel = element.physicalCauses;
+            else if (prefix === 'pc') currentLevel = element.humanCauses;
+            else if (prefix === 'hc') currentLevel = element.latentCauses;
+            else currentLevel = null;
+        } else {
+          currentLevel = null;
+          break;
+        }
+      } else {
+        element = null;
+        break;
+      }
+    }
+    return element;
   };
 
-  const handleUpdateFailureMode = (fmId: string, description: string) => {
-    onSetCtmData(ctmData.map(fm => fm.id === fmId ? { ...fm, description } : fm));
-  };
+  const updateElementByPath = (path: string[], newProps: Partial<any>) => {
+    const newCtmData = JSON.parse(JSON.stringify(ctmData));
+    let currentLevel: any[] = newCtmData;
+    
+    for (let i = 0; i < path.length; i++) {
+        const part = path[i];
+        const [prefix] = part.split(/-(.+)/);
+        const index = currentLevel.findIndex(item => item.id === part);
 
-  const handleRemoveFailureMode = (fmId: string) => {
-    onSetCtmData(ctmData.filter(fm => fm.id !== fmId));
-  };
+        if (index === -1) return; // Not found
 
-  // --- Hypothesis Handlers ---
-  const handleAddHypothesis = (fmId: string) => {
-    const newHypothesis: Hypothesis = {
-      id: generateId('hyp'),
-      description: '',
-      physicalCauses: [],
-      status: 'pending',
-    };
-    onSetCtmData(ctmData.map(fm => 
-      fm.id === fmId ? { ...fm, hypotheses: [...fm.hypotheses, newHypothesis] } : fm
-    ));
-  };
+        if (i === path.length - 1) {
+            // Last element, update it
+            currentLevel[index] = { ...currentLevel[index], ...newProps };
+        } else {
+            // Navigate deeper
+            let nextLevelKey: string;
+            if (prefix === 'fm') nextLevelKey = 'hypotheses';
+            else if (prefix === 'hyp') nextLevelKey = 'physicalCauses';
+            else if (prefix === 'pc') nextLevelKey = 'humanCauses';
+            else if (prefix === 'hc') nextLevelKey = 'latentCauses';
+            else return; // Invalid path
 
-  const handleUpdateHypothesis = (fmId: string, hypId: string, description: string) => {
-    onSetCtmData(ctmData.map(fm => 
-      fm.id === fmId ? { 
-        ...fm, 
-        hypotheses: fm.hypotheses.map(hyp => 
-          hyp.id === hypId ? { ...hyp, description } : hyp
-        ) 
-      } : fm
-    ));
-  };
-
-  const handleRemoveHypothesis = (fmId: string, hypId: string) => {
-    onSetCtmData(ctmData.map(fm => 
-      fm.id === fmId ? { 
-        ...fm, 
-        hypotheses: fm.hypotheses.filter(hyp => hyp.id !== hypId) 
-      } : fm
-    ));
+            if (!currentLevel[index][nextLevelKey]) {
+                currentLevel[index][nextLevelKey] = [];
+            }
+            currentLevel = currentLevel[index][nextLevelKey];
+        }
+    }
+    onSetCtmData(newCtmData);
   };
   
-  const handleUpdateHypothesisStatus = (fmId: string, hypId: string, newStatus: 'pending' | 'accepted' | 'rejected') => {
-    onSetCtmData(ctmData.map(fm =>
-      fm.id === fmId ? {
-        ...fm,
-        hypotheses: fm.hypotheses.map(hyp =>
-          hyp.id === hypId ? { ...hyp, status: newStatus } : hyp
-        )
-      } : fm
-    ));
+  const addElementByPath = (path: string[], newElement: any) => {
+    const newCtmData = JSON.parse(JSON.stringify(ctmData));
+    let currentLevel: any[] = newCtmData;
+
+    if (path.length === 0) { // Adding a new Failure Mode
+      newCtmData.push(newElement);
+    } else {
+      for (let i = 0; i < path.length; i++) {
+        const part = path[i];
+        const [prefix] = part.split(/-(.+)/);
+        const index = currentLevel.findIndex(item => item.id === part);
+
+        if (index === -1) return;
+
+        let nextLevelKey: string;
+        if (prefix === 'fm') nextLevelKey = 'hypotheses';
+        else if (prefix === 'hyp') nextLevelKey = 'physicalCauses';
+        else if (prefix === 'pc') nextLevelKey = 'humanCauses';
+        else if (prefix === 'hc') nextLevelKey = 'latentCauses';
+        else return;
+
+        if (!currentLevel[index][nextLevelKey]) {
+          currentLevel[index][nextLevelKey] = [];
+        }
+        
+        if (i === path.length - 1) {
+          currentLevel[index][nextLevelKey].push(newElement);
+        } else {
+          currentLevel = currentLevel[index][nextLevelKey];
+        }
+      }
+    }
+    onSetCtmData(newCtmData);
   };
 
-  // --- Physical Cause Handlers ---
-  const handleAddPhysicalCause = (fmId: string, hypId: string) => {
-    const newPhysicalCause: PhysicalCause = {
-      id: generateId('pc'),
-      description: '',
-      humanCauses: [],
+  const removeElementByPath = (path: string[]) => {
+      const newCtmData = JSON.parse(JSON.stringify(ctmData));
+      let currentLevel: any[] = newCtmData;
+
+      if (path.length === 1) { // Removing a Failure Mode
+        const index = newCtmData.findIndex(item => item.id === path[0]);
+        if (index !== -1) newCtmData.splice(index, 1);
+      } else {
+          for (let i = 0; i < path.length -1; i++) {
+            const part = path[i];
+            const [prefix] = part.split(/-(.+)/);
+            const index = currentLevel.findIndex(item => item.id === part);
+            
+            if (index === -1) return;
+            
+            let nextLevelKey: string;
+            if (prefix === 'fm') nextLevelKey = 'hypotheses';
+            else if (prefix === 'hyp') nextLevelKey = 'physicalCauses';
+            else if (prefix === 'pc') nextLevelKey = 'humanCauses';
+            else if (prefix === 'hc') nextLevelKey = 'latentCauses';
+            else return;
+            
+            if (i === path.length - 2) { // Parent of element to remove
+              const childKey = nextLevelKey;
+              const childList = currentLevel[index][childKey] || [];
+              const childIndex = childList.findIndex((item: any) => item.id === path[i+1]);
+              if (childIndex !== -1) {
+                childList.splice(childIndex, 1);
+              }
+            } else {
+              currentLevel = currentLevel[index][nextLevelKey];
+            }
+          }
+      }
+      onSetCtmData(newCtmData);
+  };
+
+  const onAddChild = (path: string[]) => {
+    const parentPrefix = path.length > 0 ? path[path.length - 1].split('-')[0] : '';
+    let newElement: any = {};
+    
+    if (parentPrefix === '') { // Add Failure Mode
+      newElement = { id: generateId('fm'), description: 'Nuevo Modo de Falla', hypotheses: [] };
+    } else if (parentPrefix === 'fm') { // Add Hypothesis
+      newElement = { id: generateId('hyp'), description: 'Nueva Hipótesis', physicalCauses: [], status: 'pending' };
+    } else if (parentPrefix === 'hyp') { // Add Physical Cause
+      newElement = { id: generateId('pc'), description: 'Nueva Causa Física', humanCauses: [] };
+    } else if (parentPrefix === 'pc') { // Add Human Cause
+      newElement = { id: generateId('hc'), description: 'Nueva Causa Humana', latentCauses: [] };
+    } else if (parentPrefix === 'hc') { // Add Latent Cause
+      newElement = { id: generateId('lc'), description: 'Nueva Causa Latente' };
+    } else { return; }
+    
+    addElementByPath(path, newElement);
+  };
+
+  const { nodes, edges } = useMemo(() => {
+    const initialNodes: Node[] = [];
+    const initialEdges: Edge[] = [];
+    let yOffset = 0;
+    const xSpacing = 250;
+    const ySpacing = 120;
+    
+    const nodeDefaults = {
+      sourcePosition: 'right',
+      targetPosition: 'left',
     };
-    onSetCtmData(ctmData.map(fm => 
-      fm.id === fmId ? {
-        ...fm,
-        hypotheses: fm.hypotheses.map(hyp => 
-          hyp.id === hypId ? { ...hyp, physicalCauses: [...hyp.physicalCauses, newPhysicalCause] } : hyp
-        )
-      } : fm
-    ));
-  };
 
-  const handleUpdatePhysicalCause = (fmId: string, hypId: string, pcId: string, description: string) => {
-    onSetCtmData(ctmData.map(fm =>
-      fm.id === fmId ? {
-        ...fm,
-        hypotheses: fm.hypotheses.map(hyp =>
-          hyp.id === hypId ? {
-            ...hyp,
-            physicalCauses: hyp.physicalCauses.map(pc =>
-              pc.id === pcId ? { ...pc, description } : pc
-            )
-          } : hyp
-        )
-      } : fm
-    ));
-  };
-  
-  const handleRemovePhysicalCause = (fmId: string, hypId: string, pcId: string) => {
-    onSetCtmData(ctmData.map(fm =>
-      fm.id === fmId ? {
-        ...fm,
-        hypotheses: fm.hypotheses.map(hyp =>
-          hyp.id === hypId ? {
-            ...hyp,
-            physicalCauses: hyp.physicalCauses.filter(pc => pc.id !== pcId)
-          } : hyp
-        )
-      } : fm
-    ));
-  };
+    const addNodesAndEdges = (items: any[], parentId: string | null, parentPath: string[], level: number, parentY: number) => {
+        let currentY = parentY;
+        items.forEach((item, index) => {
+            const currentPath = [...parentPath, item.id];
+            const nodeY = index === 0 ? currentY : currentY + ySpacing;
+            currentY = nodeY;
 
-  // --- Human Cause Handlers ---
-  const handleAddHumanCause = (fmId: string, hypId: string, pcId: string) => {
-    const newHumanCause: HumanCause = {
-      id: generateId('hc'),
-      description: '',
-      latentCauses: [],
+            const [prefix] = item.id.split(/-(.+)/);
+            let label = 'Elemento';
+            let icon = Wrench;
+            let bgColor = 'bg-gray-100';
+
+            switch(prefix) {
+                case 'fm': label = 'Modo de Falla'; icon = GitBranchPlus; bgColor = 'bg-red-100 dark:bg-red-900/30'; break;
+                case 'hyp': label = 'Hipótesis'; icon = BrainCircuit; bgColor = 'bg-teal-100 dark:bg-teal-900/30'; break;
+                case 'pc': label = 'Causa Física'; icon = Wrench; bgColor = 'bg-orange-100 dark:bg-orange-900/30'; break;
+                case 'hc': label = 'Causa Humana'; icon = User; bgColor = 'bg-yellow-100 dark:bg-yellow-900/30'; break;
+                case 'lc': label = 'Causa Latente'; icon = Building; bgColor = 'bg-purple-100 dark:bg-purple-900/30'; break;
+            }
+
+            initialNodes.push({
+                ...nodeDefaults,
+                id: item.id,
+                position: { x: level * xSpacing, y: nodeY },
+                data: {
+                    label: item.description || `(${label})`,
+                    type: prefix,
+                    path: currentPath,
+                    status: item.status,
+                    onAddChild,
+                    onRemove: removeElementByPath,
+                    onEdit: setEditingNode,
+                    onStatusChange: updateElementByPath,
+                    fullDescription: item.description
+                },
+                type: 'causeNode'
+            });
+
+            if (parentId) {
+                initialEdges.push({
+                    id: `e-${parentId}-${item.id}`,
+                    source: parentId,
+                    target: item.id,
+                    type: 'smoothstep',
+                    markerEnd: { type: MarkerType.ArrowClosed },
+                });
+            }
+
+            let children = [];
+            if (prefix === 'fm') children = item.hypotheses || [];
+            else if (prefix === 'hyp') children = item.physicalCauses || [];
+            else if (prefix === 'pc') children = item.humanCauses || [];
+            else if (prefix === 'hc') children = item.latentCauses || [];
+
+            if (children.length > 0) {
+              const childrenTotalHeight = (children.length - 1) * ySpacing;
+              const childrenStartY = nodeY - (childrenTotalHeight / 2);
+              currentY = addNodesAndEdges(children, item.id, currentPath, level + 1, childrenStartY);
+            }
+        });
+        return currentY;
     };
-    onSetCtmData(ctmData.map(fm =>
-      fm.id === fmId ? {
-        ...fm,
-        hypotheses: fm.hypotheses.map(hyp =>
-          hyp.id === hypId ? {
-            ...hyp,
-            physicalCauses: hyp.physicalCauses.map(pc =>
-              pc.id === pcId ? { ...pc, humanCauses: [...pc.humanCauses, newHumanCause] } : pc
-            )
-          } : hyp
-        )
-      } : fm
-    ));
-  };
+    
+    addNodesAndEdges(ctmData, null, [], 0, yOffset);
 
-  const handleUpdateHumanCause = (fmId: string, hypId: string, pcId: string, hcId: string, description: string) => {
-    onSetCtmData(ctmData.map(fm =>
-      fm.id === fmId ? {
-        ...fm,
-        hypotheses: fm.hypotheses.map(hyp =>
-          hyp.id === hypId ? {
-            ...hyp,
-            physicalCauses: hyp.physicalCauses.map(pc =>
-              pc.id === pcId ? {
-                ...pc,
-                humanCauses: pc.humanCauses.map(hc =>
-                  hc.id === hcId ? { ...hc, description } : hc
-                )
-              } : pc
-            )
-          } : hyp
-        )
-      } : fm
-    ));
-  };
+    return { nodes: initialNodes, edges: initialEdges };
+  }, [ctmData]);
 
-  const handleRemoveHumanCause = (fmId: string, hypId: string, pcId: string, hcId: string) => {
-     onSetCtmData(ctmData.map(fm =>
-      fm.id === fmId ? {
-        ...fm,
-        hypotheses: fm.hypotheses.map(hyp =>
-          hyp.id === hypId ? {
-            ...hyp,
-            physicalCauses: hyp.physicalCauses.map(pc =>
-              pc.id === pcId ? {
-                ...pc,
-                humanCauses: pc.humanCauses.filter(hc => hc.id !== hcId)
-              } : pc
-            )
-          } : hyp
-        )
-      } : fm
-    ));
-  };
+  const CauseNode: FC<Node<any>> = ({ data }) => {
+    const { label, type, path, status, onAddChild, onRemove, onEdit, onStatusChange, fullDescription } = data;
+    let labelText = 'Elemento';
+    let Icon = Wrench;
+    let bgColor = 'bg-gray-100 dark:bg-gray-800';
+    let canAddChild = true;
+    
+    switch(type) {
+        case 'fm': labelText = 'Modo de Falla'; Icon = GitBranchPlus; bgColor = 'bg-red-100 dark:bg-red-900/30'; break;
+        case 'hyp': labelText = 'Hipótesis'; Icon = BrainCircuit; bgColor = 'bg-teal-100 dark:bg-teal-900/30'; break;
+        case 'pc': labelText = 'Causa Física'; Icon = Wrench; bgColor = 'bg-orange-100 dark:bg-orange-900/30'; break;
+        case 'hc': labelText = 'Causa Humana'; Icon = User; bgColor = 'bg-yellow-100 dark:bg-yellow-900/30'; break;
+        case 'lc': labelText = 'Causa Latente'; Icon = Building; bgColor = 'bg-purple-100 dark:bg-purple-900/30'; canAddChild = false; break;
+    }
 
-  // --- Latent Cause Handlers ---
-  const handleAddLatentCause = (fmId: string, hypId: string, pcId: string, hcId: string) => {
-    const newLatentCause: LatentCause = {
-      id: generateId('lc'),
-      description: '',
-    };
-    onSetCtmData(ctmData.map(fm =>
-      fm.id === fmId ? {
-        ...fm,
-        hypotheses: fm.hypotheses.map(hyp =>
-          hyp.id === hypId ? {
-            ...hyp,
-            physicalCauses: hyp.physicalCauses.map(pc =>
-              pc.id === pcId ? {
-                ...pc,
-                humanCauses: pc.humanCauses.map(hc =>
-                  hc.id === hcId ? { ...hc, latentCauses: [...hc.latentCauses, newLatentCause] } : hc
-                )
-              } : pc
-            )
-          } : hyp
-        )
-      } : fm
-    ));
-  };
+    const isHypothesis = type === 'hyp';
+    const isAccepted = status === 'accepted';
+    const isRejected = status === 'rejected';
 
-  const handleUpdateLatentCause = (fmId: string, hypId: string, pcId: string, hcId: string, lcId: string, description: string) => {
-    onSetCtmData(ctmData.map(fm =>
-      fm.id === fmId ? {
-        ...fm,
-        hypotheses: fm.hypotheses.map(hyp =>
-          hyp.id === hypId ? {
-            ...hyp,
-            physicalCauses: hyp.physicalCauses.map(pc =>
-              pc.id === pcId ? {
-                ...pc,
-                humanCauses: pc.humanCauses.map(hc =>
-                  hc.id === hcId ? {
-                    ...hc,
-                    latentCauses: hc.latentCauses.map(lc =>
-                      lc.id === lcId ? { ...lc, description } : lc
-                    )
-                  } : hc
-                )
-              } : pc
-            )
-          } : hyp
-        )
-      } : fm
-    ));
-  };
-  
-  const handleRemoveLatentCause = (fmId: string, hypId: string, pcId: string, hcId: string, lcId: string) => {
-    onSetCtmData(ctmData.map(fm =>
-      fm.id === fmId ? {
-        ...fm,
-        hypotheses: fm.hypotheses.map(hyp =>
-          hyp.id === hypId ? {
-            ...hyp,
-            physicalCauses: hyp.physicalCauses.map(pc =>
-              pc.id === pcId ? {
-                ...pc,
-                humanCauses: pc.humanCauses.map(hc =>
-                  hc.id === hcId ? {
-                    ...hc,
-                    latentCauses: hc.latentCauses.filter(lc => lc.id !== lcId)
-                  } : hc
-                )
-              } : pc
-            )
-          } : hyp
-        )
-      } : fm
-    ));
-  };
-
-  // --- Render Functions for each level ---
-  const renderLatentCauses = (fmId: string, hypId: string, pcId: string, hcId: string, latentCauses: LatentCause[]) => (
-    <div className="ml-8 pl-4 border-l border-dashed border-muted-foreground/50 space-y-2">
-      {latentCauses.map((lc, index) => (
-        <Card key={lc.id} className="p-3 bg-background/70 shadow-sm">
-          <Label htmlFor={`lc-${lc.id}`} className="text-xs font-medium text-purple-700 dark:text-purple-400">Causa Latente #{index + 1}</Label>
-          <div className="flex items-center space-x-2">
-            <Textarea id={`lc-${lc.id}`} value={lc.description} onChange={(e) => handleUpdateLatentCause(fmId, hypId, pcId, hcId, lc.id, e.target.value)} placeholder="Descripción de la causa latente..." rows={1} className="text-xs" />
-            <Button variant="ghost" size="icon" onClick={() => handleRemoveLatentCause(fmId, hypId, pcId, hcId, lc.id)} className="h-7 w-7"><Trash2 className="h-3 w-3 text-destructive" /></Button>
-          </div>
+    return (
+        <Card className={cn("w-48 shadow-md border-2", 
+            isAccepted ? "border-green-500" : isRejected ? "border-destructive/70 opacity-80" : "border-transparent",
+            bgColor
+        )}>
+            <CardHeader className="p-2 border-b">
+                <CardTitle className="text-xs font-semibold flex items-center">
+                    <Icon className="h-4 w-4 mr-1.5" />
+                    {labelText}
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="p-2 text-xs truncate" title={fullDescription}>{label}</CardContent>
+            <div className="p-1 border-t bg-background/50 flex items-center justify-end gap-0.5">
+                {isHypothesis && (
+                  <>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onStatusChange(path, { status: isAccepted ? 'pending' : 'accepted'})} disabled={isRejected} title="Aceptar"><Check className="h-4 w-4 text-green-600"/></Button>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onStatusChange(path, { status: isRejected ? 'pending' : 'rejected'})} disabled={isAccepted} title="Rechazar"><X className="h-4 w-4 text-destructive"/></Button>
+                  </>
+                )}
+                {canAddChild && <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onAddChild(path)} disabled={isRejected} title="Añadir Causa Hija"><PlusCircle className="h-4 w-4 text-primary" /></Button>}
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onEdit({id: path[path.length-1], label: labelText, description: fullDescription, path})} title="Editar"><Wrench className="h-4 w-4"/></Button>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemove(path)} title="Eliminar"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+            </div>
         </Card>
-      ))}
-      <Button variant="outline" size="sm" onClick={() => handleAddLatentCause(fmId, hypId, pcId, hcId)} className="text-xs"><PlusCircle className="mr-1 h-3.5 w-3.5" /> Añadir Causa Latente</Button>
-    </div>
-  );
+    );
+  };
 
-  const renderHumanCauses = (fmId: string, hypId: string, pcId: string, humanCauses: HumanCause[]) => (
-    <div className="ml-8 pl-4 border-l border-dashed border-muted-foreground/50 space-y-3">
-      {humanCauses.map((hc, index) => (
-        <Accordion key={hc.id} type="single" collapsible className="w-full">
-          <AccordionItem value={hc.id} className="border rounded-md shadow bg-secondary/40">
-            <AccordionPrimitive.Header className="flex items-center p-3 rounded-t-md">
-              <AccordionPrimitive.Trigger className="flex flex-1 items-center justify-between text-left hover:no-underline w-full group">
-                  <span className="text-sm font-medium text-red-700 dark:text-red-400 flex-grow pr-2 group-hover:underline">Causa Humana #{index + 1}: {hc.description.substring(0,30) || "(Sin describir)"}...</span>
-                  <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-              </AccordionPrimitive.Trigger>
-              <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10 shrink-0 ml-2" onClick={(e) => { e.stopPropagation(); handleRemoveHumanCause(fmId, hypId, pcId, hc.id); }} aria-label={`Eliminar Causa Humana ${index + 1}`}>
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
-            </AccordionPrimitive.Header>
-            <AccordionContent className="p-3 border-t">
-              <Label htmlFor={`hc-${hc.id}`} className="text-xs font-semibold">Descripción Causa Humana</Label>
-              <Textarea id={`hc-${hc.id}`} value={hc.description} onChange={(e) => handleUpdateHumanCause(fmId, hypId, pcId, hc.id, e.target.value)} placeholder="Descripción de la causa humana..." rows={2} className="mb-2 text-sm" />
-              {renderLatentCauses(fmId, hypId, pcId, hc.id, hc.latentCauses)}
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-      ))}
-      <Button variant="outline" size="sm" onClick={() => handleAddHumanCause(fmId, hypId, pcId)} className="text-sm"><PlusCircle className="mr-1 h-4 w-4" /> Añadir Causa Humana</Button>
-    </div>
-  );
-
-  const renderPhysicalCauses = (fmId: string, hypId: string, physicalCauses: PhysicalCause[]) => (
-    <div className="ml-8 pl-4 border-l border-dashed border-muted-foreground/50 space-y-3">
-      {physicalCauses.map((pc, index) => (
-        <Accordion key={pc.id} type="single" collapsible className="w-full">
-          <AccordionItem value={pc.id} className="border rounded-md shadow bg-background/80">
-            <AccordionPrimitive.Header className="flex items-center p-3 rounded-t-md">
-              <AccordionPrimitive.Trigger className="flex flex-1 items-center justify-between text-left hover:no-underline w-full group">
-                  <span className="text-sm font-medium text-orange-700 dark:text-orange-400 flex-grow pr-2 group-hover:underline">Causa Física #{index + 1}: {pc.description.substring(0,35) || "(Sin describir)"}...</span>
-                   <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-              </AccordionPrimitive.Trigger>
-              <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10 shrink-0 ml-2" onClick={(e) => { e.stopPropagation(); handleRemovePhysicalCause(fmId, hypId, pc.id); }} aria-label={`Eliminar Causa Física ${index + 1}`}>
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
-            </AccordionPrimitive.Header>
-            <AccordionContent className="p-3 border-t">
-              <Label htmlFor={`pc-${pc.id}`} className="text-xs font-semibold">Descripción Causa Física</Label>
-              <Textarea id={`pc-${pc.id}`} value={pc.description} onChange={(e) => handleUpdatePhysicalCause(fmId, hypId, pc.id, e.target.value)} placeholder="Descripción de la causa física..." rows={2} className="mb-2 text-sm" />
-              {renderHumanCauses(fmId, hypId, pc.id, pc.humanCauses)}
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-      ))}
-      <Button variant="outline" size="sm" onClick={() => handleAddPhysicalCause(fmId, hypId)} className="text-sm"><PlusCircle className="mr-1 h-4 w-4" /> Añadir Causa Física</Button>
-    </div>
-  );
-
-  const renderHypotheses = (fmId: string, hypotheses: Hypothesis[]) => (
-    <div className="ml-6 pl-4 border-l border-dashed border-muted-foreground/70 space-y-3">
-      {hypotheses.map((hyp, index) => {
-        const isAccepted = hyp.status === 'accepted';
-        const isRejected = hyp.status === 'rejected';
-        return(
-        <Accordion key={hyp.id} type="single" collapsible className="w-full">
-          <AccordionItem value={hyp.id} className={cn("border rounded-md shadow-md bg-secondary/50 group", isAccepted && "border-green-400 bg-green-50/50 dark:bg-green-900/20", isRejected && "border-destructive/40 bg-red-50/50 dark:bg-red-900/20 opacity-75")}>
-            <AccordionPrimitive.Header className="flex items-center p-3 rounded-t-md">
-                <AccordionPrimitive.Trigger className="flex-1 text-left hover:no-underline group-data-[state=open]:underline flex items-center justify-between">
-                    <span className="text-base font-medium text-teal-700 dark:text-teal-400 flex-grow text-left pr-2">Hipótesis #{index + 1}: {hyp.description.substring(0,40) || "(Sin describir)"}...</span>
-                    <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                </AccordionPrimitive.Trigger>
-                 <div className="flex items-center gap-1 shrink-0 ml-2">
-                    <Button size="icon" variant={isAccepted ? 'default' : 'ghost'} className={cn("h-7 w-7", isAccepted && "bg-green-600 hover:bg-green-700")} onClick={(e) => {e.stopPropagation(); handleUpdateHypothesisStatus(fmId, hyp.id, isAccepted ? 'pending' : 'accepted');}} disabled={isRejected} title={isAccepted ? "Anular aceptación" : "Aceptar hipótesis"}><Check className="h-4 w-4" /></Button>
-                    <Button size="icon" variant={isRejected ? 'destructive' : 'ghost'} className="h-7 w-7" onClick={(e) => {e.stopPropagation(); handleUpdateHypothesisStatus(fmId, hyp.id, isRejected ? 'pending' : 'rejected');}} disabled={isAccepted} title={isRejected ? "Anular rechazo" : "Rechazar hipótesis"}><X className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-destructive/10" onClick={(e) => {e.stopPropagation(); handleRemoveHypothesis(fmId, hyp.id);}} aria-label={`Eliminar Hipótesis ${index + 1}`}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                 </div>
-            </AccordionPrimitive.Header>
-            <AccordionContent className="p-3 border-t">
-              {isRejected ? (
-                <div className="text-center p-4 text-sm text-destructive font-medium">Hipótesis Rechazada. La investigación por esta rama ha sido detenida.</div>
-              ) : (
-                <>
-                  <Label htmlFor={`hyp-${hyp.id}`} className="text-sm font-semibold">Descripción Hipótesis</Label>
-                  <Textarea id={`hyp-${hyp.id}`} value={hyp.description} onChange={(e) => handleUpdateHypothesis(fmId, hyp.id, e.target.value)} placeholder="Descripción de la hipótesis..." rows={2} className="mb-3" />
-                  {renderPhysicalCauses(fmId, hyp.id, hyp.physicalCauses)}
-                </>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-      )})}
-      <Button variant="outline" onClick={() => handleAddHypothesis(fmId)}><PlusCircle className="mr-2 h-4 w-4" /> Añadir Hipótesis</Button>
-    </div>
-  );
+  const nodeTypes = useMemo(() => ({ causeNode: CauseNode }), []);
 
   return (
-    <div className="space-y-6 mt-4 p-4 border rounded-lg shadow-sm bg-background">
+    <div className="space-y-4 mt-4 p-4 border rounded-lg shadow-sm bg-background">
       <h3 className="text-lg font-semibold font-headline text-center text-primary flex items-center justify-center">
-        <Share2 className="mr-2 h-5 w-5" /> Árbol de Causas (CTM)
+        <Share2 className="mr-2 h-5 w-5" /> Árbol de Causas (CTM) - Interactivo
       </h3>
-
-      <Card className="bg-primary/10">
-        <CardHeader>
-          <CardTitle className="text-md font-semibold text-primary text-center">Evento Foco Inicial</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-foreground text-center">{focusEventDescription || "Defina el evento foco en el Paso 1."}</p>
-        </CardContent>
-      </Card>
-
-      <div className="relative w-full overflow-x-auto pb-4 -mx-4 px-4">
-        <div className="inline-flex items-start space-x-6 p-2 min-h-[10rem]">
-          {ctmData.map((fm, index) => (
-            <div key={fm.id} className="w-96 flex-shrink-0">
-              <Accordion type="single" collapsible className="w-full">
-                <AccordionItem value={fm.id} className="border rounded-lg shadow-lg bg-card">
-                  <AccordionPrimitive.Header className="flex items-center p-4 bg-primary/5 rounded-t-lg">
-                    <AccordionPrimitive.Trigger className="flex flex-1 items-center justify-between text-left hover:no-underline w-full group">
-                        <span className="text-base font-semibold text-primary flex-grow pr-2 group-hover:underline">Modo de Falla #{index + 1}: {fm.description.substring(0,30) || "(Sin describir)"}...</span>
-                        <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                    </AccordionPrimitive.Trigger>
-                    <Button variant="ghost" size="icon" className="h-9 w-9 hover:bg-destructive/10 shrink-0 ml-2" onClick={(e) => { e.stopPropagation(); handleRemoveFailureMode(fm.id); }} aria-label={`Eliminar Modo de Falla ${index + 1}`}>
-                      <Trash2 className="h-5 w-5 text-destructive" />
-                    </Button>
-                  </AccordionPrimitive.Header>
-                  <AccordionContent className="p-4 border-t">
-                      <Label htmlFor={`fm-${fm.id}`} className="text-base font-semibold">Descripción Modo de Falla</Label>
-                      <Textarea id={`fm-${fm.id}`} value={fm.description} onChange={(e) => handleUpdateFailureMode(fm.id, e.target.value)} placeholder="Describa el modo de falla..." rows={3} className="mb-4" />
-                      {renderHypotheses(fm.id, fm.hypotheses)}
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            </div>
-          ))}
-
-          <div className="flex-shrink-0">
-            <Button
-              onClick={handleAddFailureMode}
-              variant="outline"
-              className="h-full w-40 flex flex-col justify-center items-center p-4 border-dashed hover:border-primary hover:bg-secondary/50"
-            >
-              <PlusCircle className="h-8 w-8 mb-2 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground text-center">Añadir Modo de Falla</span>
-            </Button>
-          </div>
-        </div>
+      <div className="flex items-center justify-center gap-4">
+        <p className="text-sm text-center"><strong>Evento Foco:</strong> {focusEventDescription || "Defina el evento foco en el Paso 1."}</p>
+        <Button onClick={() => onAddChild([])} variant="outline" size="sm">
+            <PlusCircle className="mr-2 h-4 w-4" /> Añadir Modo de Falla
+        </Button>
       </div>
+      <div style={{ height: '600px' }} className="bg-muted/30 rounded-md border">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          fitView
+        >
+          <Controls />
+          <Background />
+        </ReactFlow>
+      </div>
+      {editingNode && (
+          <NodeEditor 
+            id={editingNode.id}
+            label={editingNode.label}
+            description={editingNode.description}
+            onDescriptionChange={(newDesc) => {
+              updateElementByPath(editingNode.path, { description: newDesc });
+              setEditingNode(prev => prev ? {...prev, description: newDesc } : null);
+            }}
+            onClose={() => setEditingNode(null)}
+          />
+      )}
     </div>
   );
 };
