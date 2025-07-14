@@ -49,29 +49,45 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
 
   const handleAdd = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(ctmData));
-    let current: any = newData;
+    let parent: any = newData;
+    let lastKey = path.length > 0 ? path[path.length - 1] : null;
     
-    for (const key of path) {
-      // Ensure the key exists before trying to access it. If not, something is wrong.
-      if (current === undefined || current[key] === undefined) {
-        console.error("Invalid path for handleAdd:", path);
-        return;
-      }
-      current = current[key];
+    // Traverse to the parent of the target array
+    for (let i = 0; i < path.length - 1; i++) {
+      parent = parent[path[i]];
     }
-  
-    // Now 'current' is the array we want to push to.
-    if (Array.isArray(current)) {
-      if (path.length === 0) { // Adding a FailureMode to the root
-        current.push({ id: generateId('fm'), description: 'Nuevo Modo de Falla', hypotheses: [] });
-      } else if (path[path.length -1] === 'hypotheses') {
-        current.push({ id: generateId('hyp'), description: 'Nueva Hipótesis', physicalCauses: [], status: 'pending' });
-      } else if (path[path.length -1] === 'physicalCauses') {
-        current.push({ id: generateId('pc'), description: 'Nueva Causa Física', humanCauses: [] });
-      } else if (path[path.length -1] === 'humanCauses') {
-        current.push({ id: generateId('hc'), description: 'Nueva Causa Humana', latentCauses: [] });
-      } else if (path[path.length -1] === 'latentCauses') {
-        current.push({ id: generateId('lc'), description: 'Nueva Causa Latente' });
+
+    if (lastKey === null) { // Adding a new FailureMode to the root
+      newData.push({ id: generateId('fm'), description: 'Nuevo Modo de Falla', hypotheses: [] });
+    } else {
+      let targetArray;
+      if (typeof lastKey === 'string') {
+        targetArray = parent[lastKey];
+      } else if (typeof lastKey === 'number') {
+        parent = parent[lastKey]; // Move to the object itself
+        if ('latentCauses' in parent) targetArray = parent.latentCauses;
+        else if ('humanCauses' in parent) targetArray = parent.humanCauses;
+        else if ('physicalCauses' in parent) targetArray = parent.physicalCauses;
+        else if ('hypotheses' in parent) targetArray = parent.hypotheses;
+      }
+      
+      if (!Array.isArray(targetArray)) {
+         console.error("Target for adding is not an array", path, parent);
+         return; // Should not happen with corrected logic
+      }
+
+      if ('latentCauses' in parent) {
+        if (!parent.latentCauses) parent.latentCauses = [];
+        parent.latentCauses.push({ id: generateId('lc'), description: 'Nueva Causa Latente' });
+      } else if ('humanCauses' in parent) {
+        if (!parent.humanCauses) parent.humanCauses = [];
+        parent.humanCauses.push({ id: generateId('hc'), description: 'Nueva Causa Humana', latentCauses: [] });
+      } else if ('physicalCauses' in parent) {
+        if (!parent.physicalCauses) parent.physicalCauses = [];
+        parent.physicalCauses.push({ id: generateId('pc'), description: 'Nueva Causa Física', humanCauses: [] });
+      } else if ('hypotheses' in parent) {
+        if (!parent.hypotheses) parent.hypotheses = [];
+        parent.hypotheses.push({ id: generateId('hyp'), description: 'Nueva Hipótesis', physicalCauses: [], status: 'pending' });
       }
     }
 
@@ -177,7 +193,7 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
       </div>
       <div className="flex space-x-4 overflow-x-auto py-2">
         {ctmData.map((fm, fmIndex) => (
-          <div key={fm.id} className="w-80 min-w-[20rem] flex-shrink-0">
+          <div key={fm.id} className="min-w-[20rem] flex-shrink-0">
             <Accordion type="single" collapsible defaultValue="item-1">
               <AccordionItem value="item-1">
                 <div className="flex items-center w-full">
