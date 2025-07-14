@@ -164,9 +164,14 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
 
   return (
     <div className="space-y-4 mt-4 p-4 border rounded-lg shadow-sm bg-background">
-      <h3 className="text-lg font-semibold font-headline text-center text-primary flex items-center justify-center">
-        <Share2 className="mr-2 h-5 w-5" /> Árbol de Causas (CTM)
-      </h3>
+      <div className="flex justify-between items-center flex-wrap gap-2">
+        <h3 className="text-lg font-semibold font-headline text-primary flex items-center">
+          <Share2 className="mr-2 h-5 w-5" /> Árbol de Causas (CTM)
+        </h3>
+        <Button onClick={() => handleAdd([])} variant="outline" size="sm">
+            <PlusCircle className="mr-2 h-4 w-4" /> Añadir Modo de Falla
+        </Button>
+      </div>
       <div className="flex space-x-4 overflow-x-auto py-2">
         {ctmData.map((fm, fmIndex) => (
           <div key={fm.id} className="w-80 min-w-[20rem] flex-shrink-0">
@@ -189,11 +194,11 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
             </Accordion>
           </div>
         ))}
-        <div className="flex-shrink-0 flex items-center">
-            <Button onClick={() => handleAdd([])} variant="outline" className="h-full">
-                <PlusCircle className="mr-2 h-4 w-4" /> Añadir Modo de Falla
-            </Button>
-        </div>
+        {ctmData.length === 0 && (
+          <div className="text-center text-muted-foreground italic py-4 w-full">
+            Haga clic en "Añadir Modo de Falla" para comenzar a construir el árbol.
+          </div>
+        )}
       </div>
     </div>
   );
