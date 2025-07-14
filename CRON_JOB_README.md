@@ -14,7 +14,7 @@ Por seguridad, la URL del cron job está protegida por una clave secreta.
 
 La URL que debe configurar en el servicio de cron job es:
 
-`https://<SU_DOMINIO_DE_PRODUCCION>/api/cron/send-reminders?secret=<SU_CLAVE_SECRETA>`
+`https://<SU_DOMINIO_DE_PRODUCCION>/api/cron/enviar-recordatorios?secret=<SU_CLAVE_SECRETA>`
 
 Reemplace:
 *   `<SU_DOMINIO_DE_PRODUCCION>` con el dominio real donde está desplegada su aplicación.
@@ -30,14 +30,14 @@ La configuración se realiza fuera de este código, en la plataforma donde tenga
 2.  Vaya a la pestaña de "Settings" y luego a "Cron Jobs".
 3.  Cree un nuevo Cron Job con la siguiente configuración:
     *   **Schedule:** `0 12 * * *` (Esto significa "todos los días a las 12:00 PM UTC". Puede ajustarlo a su necesidad. Use [crontab.guru](https://crontab.guru/) para ayuda).
-    *   **Path:** `/api/cron/send-reminders?secret=<SU_CLAVE_SECRETA>` (Vercel añadirá su dominio automáticamente. **Recuerde poner su clave secreta aquí**).
+    *   **Path:** `/api/cron/enviar-recordatorios?secret=<SU_CLAVE_SECRETA>` (Vercel añadirá su dominio automáticamente. **Recuerde poner su clave secreta aquí**).
     *   **Branch:** `main` (o la rama principal de su proyecto).
 
 ### Opción 2: Usando un servicio externo como `cron-job.org`
 
 1.  Regístrese en un servicio gratuito como [cron-job.org](https://cron-job.org/).
 2.  Cree un nuevo cron job.
-3.  En el campo "URL", pegue la URL completa: `https://<SU_DOMINIO_DE_PRODUCCION>/api/cron/send-reminders?secret=<SU_CLAVE_SECRETA>`.
+3.  En el campo "URL", pegue la URL completa: `https://<SU_DOMINIO_DE_PRODUCCION>/api/cron/enviar-recordatorios?secret=<SU_CLAVE_SECRETA>`.
 4.  Configure el horario de ejecución (por ejemplo, "todos los días" a una hora específica).
 5.  Guarde el cron job.
 
