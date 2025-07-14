@@ -169,12 +169,12 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
       <Accordion type="multiple" className="w-full">
         {ctmData.map((fm, fmIndex) => (
           <AccordionItem value={fm.id} key={fm.id}>
-            <AccordionTrigger>
-              <div className="flex items-center justify-between w-full pr-2">
+            <div className="flex items-center w-full">
+              <AccordionTrigger className="flex-grow">
                 <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> Modo de Falla #{fmIndex + 1}</span>
-                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={(e) => {e.stopPropagation(); handleRemove([fmIndex]);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-              </div>
-            </AccordionTrigger>
+              </AccordionTrigger>
+              <Button size="icon" variant="ghost" className="h-7 w-7 ml-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemove([fmIndex]);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+            </div>
             <AccordionContent className="pl-2">
               <div className="space-y-2 p-2 border-l-2">
                 <Label>Descripción del Modo de Falla</Label>
