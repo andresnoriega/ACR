@@ -5,6 +5,7 @@ import { sendActionReminders } from '@/app/actions';
 // This forces an API Route to be deployed as a Node.js serverless function.
 // This is required for SendGrid's library to work.
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 /**
  * API route to be called by an external cron job service.
