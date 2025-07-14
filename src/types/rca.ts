@@ -40,7 +40,8 @@ export interface Evidence {
   nombre: string;
   tipo: 'pdf' | 'jpg' | 'jpeg' | 'png' | 'doc' | 'docx' | 'other' | 'link';
   comment?: string;
-  dataUrl: string;
+  downloadURL: string;
+  storagePath: string;
 }
 
 export interface PlannedAction {
@@ -54,6 +55,7 @@ export interface PlannedAction {
   userComments?: string;
   isNotificationSent?: boolean;
   markedAsReadyAt?: string;
+  lastReminderSent?: string;
 }
 
 export interface Validation {
@@ -153,7 +155,8 @@ export interface PreservedFact {
   category: PreservedFactCategory | '';
   description: string;
   uploadDate: string;
-  dataUrl: string;
+  downloadURL: string;
+  storagePath: string;
 }
 
 export interface FullUserProfile {

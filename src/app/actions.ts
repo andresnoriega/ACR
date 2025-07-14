@@ -3,9 +3,9 @@
 
 import sgMail from '@sendgrid/mail';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
-import type { RCAAnalysisDocument, FullUserProfile } from '@/types/rca';
-import { differenceInCalendarDays } from 'date-fns';
+import { collection, getDocs, writeBatch, doc, query, updateDoc, where } from 'firebase/firestore';
+import type { RCAAnalysisDocument, FullUserProfile, PlannedAction } from '@/types/rca';
+import { differenceInCalendarDays, startOfToday, parseISO } from 'date-fns';
 
 interface EmailPayload {
   to: string;
@@ -94,5 +94,85 @@ export async function sendEmailAction(payload: EmailPayload): Promise<{ success:
       message: `Error al enviar correo: ${errorMessage}`,
       details: payload,
     };
+  }
+}
+
+
+/**
+ * Sends reminders for planned actions that are due soon.
+ * This function is intended to be called by a cron job.
+ */
+export async function sendActionReminders() {
+  console.log('[CRON] Iniciando trabajo de envío de recordatorios...');
+  const today = startOfToday(); // Use startOfToday to ignore time part.
+  const rcaAnalysesRef = collection(db, 'rcaAnalyses');
+  const usersRef = collection(db, 'users');
+
+  try {
+    const q = query(rcaAnalysesRef, where('isFinalized', '==', false));
+    const rcaSnapshot = await getDocs(q);
+    const usersSnapshot = await getDocs(usersRef);
+    const users = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FullUserProfile));
+    const batch = writeBatch(db);
+    let remindersSent = 0;
+
+    for (const rcaDoc of rcaSnapshot.docs) {
+      const rcaData = rcaDoc.data() as RCAAnalysisDocument;
+      if (!rcaData.plannedActions || rcaData.plannedActions.length === 0) {
+        continue;
+      }
+
+      for (const action of rcaData.plannedActions) {
+        if (!action.dueDate || !action.responsible) {
+          continue;
+        }
+
+        const actionValidation = rcaData.validations?.find(v => v.actionId === action.id);
+        if (actionValidation?.status === 'validated' || actionValidation?.status === 'rejected') {
+          continue;
+        }
+
+        const dueDate = parseISO(action.dueDate);
+        const daysUntilDue = differenceInCalendarDays(dueDate, today);
+        const lastReminderDate = action.lastReminderSent ? parseISO(action.lastReminderSent) : null;
+        const reminderAlreadySentToday = lastReminderDate ? differenceInCalendarDays(today, lastReminderDate) === 0 : false;
+
+        if (daysUntilDue <= 7 && daysUntilDue >= 0 && !reminderAlreadySentToday) {
+          const responsibleUser = users.find(u => u.name === action.responsible);
+          if (responsibleUser?.email && (responsibleUser.emailNotifications === undefined || responsibleUser.emailNotifications)) {
+            console.log(`[CRON] Preparando recordatorio para la acción "${action.description}" (vence en ${daysUntilDue} días)`);
+            
+            const emailSubject = `Recordatorio de Tarea Próxima a Vencer: ${action.description.substring(0, 30)}...`;
+            const emailBody = `Estimado/a ${responsibleUser.name},\n\nEste es un recordatorio de que la siguiente acción planificada está próxima a su fecha límite:\n\nEvento ACR: ${rcaData.eventData.focusEventDescription}\nAcción: ${action.description}\nFecha Límite: ${action.dueDate}\nDías Restantes: ${daysUntilDue}\n\nPor favor, acceda al sistema para actualizar el estado de esta tarea.\n\nSaludos,\nSistema Asistente ACR`;
+
+            await sendEmailAction({
+              to: responsibleUser.email,
+              subject: emailSubject,
+              body: emailBody,
+            });
+
+            remindersSent++;
+            const actionToUpdate: Partial<PlannedAction> = { lastReminderSent: today.toISOString() };
+            const updatedActions = rcaData.plannedActions.map(pa => 
+              pa.id === action.id ? { ...pa, ...actionToUpdate } : pa
+            );
+            
+            batch.update(rcaDoc.ref, { plannedActions: updatedActions });
+          }
+        }
+      }
+    }
+
+    if (remindersSent > 0) {
+      await batch.commit();
+      console.log(`[CRON] ¡Éxito! Se enviaron ${remindersSent} recordatorios y se actualizaron en la base de datos.`);
+    } else {
+      console.log('[CRON] No se encontraron acciones que requieran un recordatorio hoy.');
+    }
+
+    return { success: true, remindersSent };
+  } catch (error) {
+    console.error('[CRON] Error crítico durante la ejecución de sendActionReminders:', error);
+    return { success: false, error: (error as Error).message };
   }
 }
