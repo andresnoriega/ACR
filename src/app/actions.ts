@@ -6,10 +6,6 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, writeBatch, doc, query, updateDoc, where } from 'firebase/firestore';
 import type { RCAAnalysisDocument, FullUserProfile, PlannedAction } from '@/types/rca';
 import { differenceInCalendarDays, startOfToday, parseISO } from 'date-fns';
-import dotenv from 'dotenv';
-
-// Cargar variables de entorno explícitamente para asegurar su disponibilidad en entornos de servidor.
-dotenv.config();
 
 interface EmailPayload {
   to: string;
