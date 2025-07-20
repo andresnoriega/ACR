@@ -110,7 +110,7 @@ export function TopNavigation() {
                       )}
                       aria-current={isActive ? 'page' : undefined}
                     >
-                      <item.icon className="h-4 w-4" />
+                      <item.icon className="h-5 w-5 sm:h-4 sm:w-4" />
                       <span className="hidden md:inline">{item.label}</span>
                     </Link>
                   );

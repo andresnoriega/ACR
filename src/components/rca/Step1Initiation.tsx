@@ -1,3 +1,4 @@
+
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect, useMemo } from 'react'; 
@@ -542,7 +543,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
             title={!eventData.id ? "El evento debe guardarse primero para poder notificar." : (currentEventStatus === 'Rechazado' || isEventFinalized) ? "Evento rechazado o finalizado." : "Guardar el evento y luego notificar su creación"}
           >
              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            <Bell className="mr-2 h-4 w-4" /> Guardar y Notificar Evento
+            <Bell className="mr-2 h-4 w-4" /> Guardar y Notificar
           </Button>
           
           <DropdownMenu>
