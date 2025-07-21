@@ -15,7 +15,7 @@ const plansData = {
   monthly: [
     {
       name: 'Básico',
-      price: '$9.000',
+      price: 'UF 0,25',
       priceSuffix: '/mes',
       userRange: '1 Usuario',
       description: 'Ideal para freelancers y uso individual intensivo.',
@@ -76,7 +76,7 @@ const plansData = {
   annually: [
     {
       name: 'Básico',
-      price: '$90.000',
+      price: 'UF 2,5',
       priceSuffix: '/año',
       userRange: '1 Usuario',
       description: 'Ahorra con el plan anual.',
