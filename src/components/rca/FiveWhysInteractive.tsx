@@ -107,7 +107,7 @@ const getNodeByPath = (data: any[], path: (string | number)[]): any => {
     let current: any = data;
     for (const key of path) {
         if (current === undefined || current === null) return null;
-        current = current[key];
+        current = Array.isArray(current) ? current[key as number] : current[key];
     }
     return current;
 };
@@ -284,13 +284,10 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
   const handleUpdate = useCallback((path: (string|number)[], value: any, field: keyof FiveWhyNode | 'why' | 'isCollapsed' | 'width') => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    const parentNode = getNodeByPath(newData, path.slice(0, -1));
-    const key = path[path.length - 1];
+    const nodeToUpdate = getNodeByPath(newData, path);
 
-    if (field === 'why') {
-      parentNode[key].why = value;
-    } else {
-       parentNode[key] = { ...parentNode[key], [field]: value };
+    if (nodeToUpdate) {
+        nodeToUpdate[field] = value;
     }
     onSetFiveWhysData(newData);
   }, [fiveWhysData, onSetFiveWhysData]);
