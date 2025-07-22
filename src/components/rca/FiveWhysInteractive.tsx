@@ -271,13 +271,20 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   const handleRemoveNode = useCallback((path: (string|number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     let parent: any = newData;
+    // Navigate to the object containing the array.
     for (let i = 0; i < path.length - 2; i++) {
         parent = parent[path[i]];
     }
-    const arrayKey = path[path.length - 2];
+    const arrayKey = path[path.length - 2] as string;
     const indexToRemove = path[path.length - 1] as number;
-    parent[arrayKey].splice(indexToRemove, 1);
-    onSetFiveWhysData(newData);
+    
+    // Check if the array exists before trying to splice it.
+    if (parent && Array.isArray(parent[arrayKey])) {
+        parent[arrayKey].splice(indexToRemove, 1);
+        onSetFiveWhysData(newData);
+    } else {
+        console.error("Error on handleRemoveNode: Could not find array to remove from.", { path, parent });
+    }
   }, [fiveWhysData, onSetFiveWhysData]);
 
 
@@ -370,7 +377,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                       basePath={[index]}
                       onUpdate={handleUpdate}
                       onAddNode={handleAddNode}
-                      onRemoveNode={onRemoveNode}
+                      onRemoveNode={handleRemoveNode}
                       onAddSubAnalysis={handleAddSubAnalysis}
                       onSetRootCause={handleSetRootCause}
                     />
