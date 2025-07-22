@@ -5,7 +5,7 @@ import type { FiveWhyEntry, FiveWhyNode } from '@/types/rca';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Trash2, HelpCircle, Check, X, Loader2, ChevronUp, ChevronDown, GitBranch, Target } from 'lucide-react';
+import { PlusCircle, Trash2, HelpCircle, Check, X, Loader2, ChevronDown, GitBranch, Target } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -95,12 +95,12 @@ const FiveWhysRecursiveRenderer: FC<{
         rows={2}
       />
       
-      <div className="space-y-3 mt-2">
+      <div className="mt-2 flex flex-wrap gap-4">
         {(entry.responses || []).map((node, nodeIndex) => {
           const nodePath = [...basePath, 'responses', nodeIndex];
           return (
             <Card key={node.id} className={cn(
-                "p-3 space-y-2",
+                "p-3 space-y-2 flex-grow min-w-[300px] w-full sm:w-auto",
                 node.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' :
                 node.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 opacity-70' :
                 node.isRootCause ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-400 ring-2 ring-amber-300' :
@@ -151,9 +151,11 @@ const FiveWhysRecursiveRenderer: FC<{
             </Card>
           );
         })}
-        <Button size="sm" variant="outline" className="w-full text-muted-foreground" onClick={() => onAddNode([...basePath, 'responses'])}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Añadir Causa Paralela
-        </Button>
+        <div className="flex items-center justify-center flex-grow min-w-[300px] w-full sm:w-auto">
+            <Button size="sm" variant="outline" className="w-full text-muted-foreground h-full" onClick={() => onAddNode([...basePath, 'responses'])}>
+              <PlusCircle className="mr-2 h-4 w-4" /> Añadir Causa Paralela
+            </Button>
+        </div>
       </div>
     </div>
   );
@@ -184,7 +186,8 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         { id: generateId('why'), why: initialWhyText, responses: [] }
       ]);
     }
-  }, [focusEventDescription, fiveWhysData, onSetFiveWhysData, initialWhyText]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusEventDescription, onSetFiveWhysData, initialWhyText]);
 
 
   const handleUpdate = useCallback((path: (string|number)[], value: any, field?: keyof FiveWhyNode | 'why') => {
@@ -402,3 +405,4 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     </Card>
   );
 };
+
