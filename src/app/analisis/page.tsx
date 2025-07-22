@@ -37,7 +37,7 @@ const initialIshikawaData: IshikawaData = [
 ];
 
 const initialFiveWhysData: FiveWhysData = [
-  { id: `5why-${Date.now()}`, why: '', becauses: [] }
+  { id: `5why-${Date.now()}`, why: '', because: '' }
 ];
 
 
@@ -1233,8 +1233,20 @@ function RCAAnalysisPageComponent() {
     setIshikawaData(newData);
   };
 
-  const handleSetFiveWhysData = (newData: FiveWhysData) => {
-    setFiveWhysData(newData);
+  const handleAddFiveWhyEntry = () => {
+    setFiveWhysData(prev => {
+      const lastEntry = prev.length > 0 ? prev[prev.length - 1] : null;
+      const initialWhy = lastEntry && lastEntry.because ? `¿Por qué: "${lastEntry.because.substring(0,70)}${lastEntry.because.length > 70 ? "..." : ""}"?` : '';
+      return [...prev, { id: `5why-${Date.now()}-${Math.random().toString(36).substring(2,7)}`, why: initialWhy, because: '' }];
+    });
+  };
+
+  const handleUpdateFiveWhyEntry = (id: string, field: 'why' | 'because', value: string) => {
+    setFiveWhysData(prev => prev.map(entry => entry.id === id ? { ...entry, [field]: value } : entry));
+  };
+
+  const handleRemoveFiveWhyEntry = (id: string) => {
+    setFiveWhysData(prev => prev.filter(entry => entry.id !== id));
   };
 
   const handleSetCtmData = (newData: CTMData) => {
@@ -1538,8 +1550,11 @@ function RCAAnalysisPageComponent() {
           onSetIshikawaData={handleSetIshikawaData}
           fiveWhysData={fiveWhysData}
           onSetFiveWhysData={setFiveWhysData}
+          onAddFiveWhyEntry={handleAddFiveWhyEntry}
+          onUpdateFiveWhyEntry={handleUpdateFiveWhyEntry}
+          onRemoveFiveWhyEntry={handleRemoveFiveWhyEntry}
           ctmData={ctmData}
-          onSetCtmData={handleSetCtmData}
+          onSetCtmData={setCtmData}
           identifiedRootCauses={identifiedRootCauses}
           onAddIdentifiedRootCause={handleAddIdentifiedRootCause}
           onUpdateIdentifiedRootCause={handleUpdateIdentifiedRootCause}
