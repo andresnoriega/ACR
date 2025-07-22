@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Trash2, CornerDownRight, Share2 } from 'lucide-react';
+import { PlusCircle, Trash2, CornerDownRight, Fish } from 'lucide-react';
 
 interface IshikawaDiagramInteractiveProps {
   focusEventDescription: string;
@@ -67,7 +67,7 @@ export const IshikawaDiagramInteractive: FC<IshikawaDiagramInteractiveProps> = (
         <Card key={`${groupKey}-${category.id}`} className="flex flex-col">
           <CardHeader className="pb-2 pt-3 px-4 bg-secondary/30">
             <CardTitle className="text-base font-semibold text-primary flex items-center">
-                <Share2 className={`mr-2 h-4 w-4 transform ${groupKey === 'top' ? 'rotate-[225deg]' : 'rotate-[135deg]' }`} /> 
+                <Fish className={`mr-2 h-4 w-4 transform ${groupKey === 'top' ? 'rotate-[225deg]' : 'rotate-[135deg]' }`} /> 
                 {category.name}
             </CardTitle>
           </CardHeader>
