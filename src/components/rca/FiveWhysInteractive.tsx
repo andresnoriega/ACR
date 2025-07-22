@@ -1,30 +1,183 @@
 
 'use client';
 import type { FC } from 'react';
-import { FiveWhysData, FiveWhyEntry } from '@/types/rca';
+import { FiveWhysData, FiveWhyBecause, FiveWhyEntry } from '@/types/rca';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { PlusCircle, Trash2, GitBranchPlus, MessageCircle, HelpCircle, ArrowRight } from 'lucide-react';
+import { PlusCircle, Trash2, HelpCircle, ArrowRight, MessageCircle } from 'lucide-react';
 
 interface FiveWhysInteractiveProps {
   focusEventDescription: string;
   fiveWhysData: FiveWhysData;
   onSetFiveWhysData: (data: FiveWhysData) => void;
-  onAddFiveWhyEntry: () => void;
-  onUpdateFiveWhyEntry: (id: string, field: 'why' | 'because', value: string) => void;
-  onRemoveFiveWhyEntry: (id: string) => void;
 }
+
+const generateId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+// Recursive renderer for the tree structure
+const FiveWhysRecursiveRenderer: FC<{
+  entries: FiveWhyEntry[];
+  level: number;
+  onUpdate: (path: (string | number)[], value: any) => void;
+  onAdd: (path: (string | number)[], type: 'why' | 'because') => void;
+  onRemove: (path: (string | number)[]) => void;
+}> = ({ entries, level, onUpdate, onAdd, onRemove }) => {
+  return (
+    <div className="space-y-4">
+      {entries.map((entry, entryIndex) => (
+        <Card key={entry.id} className="bg-secondary/30">
+          <CardHeader className="p-3">
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-base font-semibold text-primary flex items-center">
+                <HelpCircle className="mr-1.5 h-4 w-4" /> Porque #{level}
+              </CardTitle>
+              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRemove(['entries', entryIndex])}>
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </div>
+            <Textarea
+              value={entry.why}
+              onChange={(e) => onUpdate(['entries', entryIndex, 'why'], e.target.value)}
+              placeholder={`¿Por qué ocurrió el evento anterior?`}
+              rows={2}
+              className="text-sm bg-background"
+            />
+          </CardHeader>
+          <CardContent className="p-3 pt-0 space-y-3">
+            {(entry.becauses || []).map((because, becauseIndex) => (
+              <div key={because.id} className="pl-4 border-l-2 border-primary/30 ml-4 space-y-2 py-2">
+                <div className="flex justify-between items-center">
+                  <Label htmlFor={`because-${because.id}`} className="text-sm font-semibold flex items-center text-foreground">
+                    <MessageCircle className="mr-1.5 h-4 w-4" /> Sub-Porque {level}.{becauseIndex + 1}
+                  </Label>
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRemove(['entries', entryIndex, 'becauses', becauseIndex])}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+                <Textarea
+                  id={`because-${because.id}`}
+                  value={because.description}
+                  onChange={(e) => onUpdate(['entries', entryIndex, 'becauses', becauseIndex, 'description'], e.target.value)}
+                  placeholder="Describa la razón..."
+                  rows={2}
+                  className="text-sm bg-background"
+                />
+                
+                <FiveWhysRecursiveRenderer
+                  entries={because.subWhys || []}
+                  level={level + 1}
+                  onUpdate={(subPath, value) => onUpdate(['entries', entryIndex, 'becauses', becauseIndex, 'subWhys', ...subPath], value)}
+                  onAdd={(subPath, type) => onAdd(['entries', entryIndex, 'becauses', becauseIndex, 'subWhys', ...subPath], type)}
+                  onRemove={(subPath) => onRemove(['entries', entryIndex, 'becauses', becauseIndex, 'subWhys', ...subPath])}
+                />
+
+                {(because.subWhys || []).length === 0 && (
+                   <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => onAdd(['entries', entryIndex, 'becauses', becauseIndex], 'why')}>
+                     <PlusCircle className="mr-1 h-3 w-3" /> Añadir Siguiente ¿Por qué?
+                   </Button>
+                )}
+              </div>
+            ))}
+            <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => onAdd(['entries', entryIndex], 'because')}>
+              <PlusCircle className="mr-1 h-3 w-3" /> Añadir Sub-Porque
+            </Button>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+};
+
 
 export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   focusEventDescription,
   fiveWhysData,
   onSetFiveWhysData,
-  onAddFiveWhyEntry,
-  onUpdateFiveWhyEntry,
-  onRemoveFiveWhyEntry,
 }) => {
+  const handleUpdate = (path: (string | number)[], value: any) => {
+    const newData = JSON.parse(JSON.stringify(fiveWhysData));
+    let current = newData;
+    for (let i = 0; i < path.length - 1; i++) {
+        current = current[path[i]];
+    }
+    const finalKey = path[path.length - 1];
+    if (typeof finalKey === 'string' && typeof current === 'object' && current !== null && finalKey in current) {
+      current[finalKey] = value;
+    } else if (typeof finalKey === 'number' && Array.isArray(current)) {
+      current[finalKey] = { ...current[finalKey], ...value };
+    }
+    onSetFiveWhysData(newData);
+  };
+  
+  const handlePathUpdate = (fullPath: (string | number)[], value: any) => {
+    const newData = JSON.parse(JSON.stringify(fiveWhysData));
+    let current: any = { root: newData }; // Wrap in a root object to handle top-level array
+    const path = ['root', ...fullPath];
+
+    for (let i = 0; i < path.length - 1; i++) {
+      if (current === undefined) return; // Path is invalid, abort
+      current = current[path[i]];
+    }
+
+    const finalKey = path[path.length - 1];
+    if(typeof current === 'object' && current !== null && finalKey in current) {
+        current[finalKey] = value;
+    }
+    onSetFiveWhysData(newData);
+  };
+
+
+  const handleAdd = (path: (string | number)[], type: 'why' | 'because') => {
+    const newData = JSON.parse(JSON.stringify(fiveWhysData));
+    let parent: any = { root: newData };
+    const fullPath = ['root', ...path];
+
+    for (let i = 0; i < fullPath.length; i++) {
+        if(parent === undefined) return;
+        parent = parent[fullPath[i]];
+    }
+
+    if (type === 'because') {
+      if (!parent.becauses) parent.becauses = [];
+      parent.becauses.push({ id: generateId('bec'), description: '', subWhys: [] });
+    } else if (type === 'why') {
+      if (!parent.subWhys) parent.subWhys = [];
+      const previousBecause = parent.description || 'evento anterior';
+      parent.subWhys.push({ id: generateId('why'), why: `¿Por qué: "${previousBecause.substring(0,50)}..."?`, becauses: [] });
+    }
+    onSetFiveWhysData(newData);
+  };
+  
+  const handleAddToRoot = () => {
+    const newData = JSON.parse(JSON.stringify(fiveWhysData || []));
+    const whyText = focusEventDescription ? `¿Por qué ocurrió: "${focusEventDescription.substring(0,70)}..."?` : '¿Por qué ocurrió el evento?';
+    newData.push({
+      id: generateId('why'),
+      why: whyText,
+      becauses: [],
+    });
+    onSetFiveWhysData(newData);
+  };
+
+  const handleRemove = (path: (string | number)[]) => {
+    const newData = JSON.parse(JSON.stringify(fiveWhysData));
+    let parent: any = { root: newData };
+    const fullPath = ['root', ...path];
+    
+    for (let i = 0; i < fullPath.length - 1; i++) {
+        if (parent === undefined) return;
+        parent = parent[fullPath[i]];
+    }
+    
+    const finalKey = fullPath[fullPath.length-1];
+    if (Array.isArray(parent) && typeof finalKey === 'number') {
+        parent.splice(finalKey, 1);
+    }
+    onSetFiveWhysData(newData);
+  };
+
   return (
     <div className="space-y-6 mt-4 p-4 border rounded-lg shadow-sm bg-background">
       <h3 className="text-lg font-semibold font-headline text-center text-primary flex items-center justify-center">
@@ -40,72 +193,24 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         </CardContent>
       </Card>
       
-      <div className="relative w-full overflow-x-auto pb-4">
-        <div className="flex items-start space-x-4 min-w-max">
-          {(fiveWhysData || []).map((entry, index) => (
-            <div key={entry.id} className="flex items-center space-x-4">
-              {index > 0 && <ArrowRight className="h-6 w-6 text-primary shrink-0" />}
-              <Card className="w-80 shrink-0">
-                <CardHeader className="p-3 bg-secondary/40">
-                  <div className="flex justify-between items-center">
-                    <CardTitle className="text-base font-semibold text-primary">
-                      Paso {index + 1}
-                    </CardTitle>
-                    {index > 0 && ( // The first one cannot be deleted
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        onClick={() => onRemoveFiveWhyEntry(entry.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="p-3 space-y-3">
-                  <div className="space-y-1">
-                    <Label htmlFor={`why-${entry.id}`} className="font-semibold flex items-center text-primary text-sm">
-                      <HelpCircle className="mr-1.5 h-4 w-4" /> ¿Por qué?
-                    </Label>
-                    <Textarea
-                      id={`why-${entry.id}`}
-                      value={entry.why}
-                      onChange={(e) => onUpdateFiveWhyEntry(entry.id, 'why', e.target.value)}
-                      placeholder="Describa el 'porqué'..."
-                      rows={3}
-                      className="text-sm"
-                      disabled={index === 0}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor={`because-${entry.id}`} className="font-semibold flex items-center text-sm">
-                      <MessageCircle className="mr-1.5 h-4 w-4" /> Porque...
-                    </Label>
-                    <Textarea
-                      id={`because-${entry.id}`}
-                      value={entry.because}
-                      onChange={(e) => onUpdateFiveWhyEntry(entry.id, 'because', e.target.value)}
-                      placeholder="Describa la razón..."
-                      rows={3}
-                      className="text-sm"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+      <div className="space-y-4">
+        {(fiveWhysData || []).map((rootWhy, index) => (
+            <FiveWhysRecursiveRenderer
+              key={rootWhy.id}
+              entries={[rootWhy]}
+              level={1}
+              onUpdate={(path, value) => handlePathUpdate([index, ...path.slice(1)], value)}
+              onAdd={(path, type) => handleAdd([index, ...path.slice(1)], type)}
+              onRemove={(path) => handleRemove([index, ...path.slice(1)])}
+            />
+        ))}
+        {(!fiveWhysData || fiveWhysData.length === 0) && (
+            <div className="text-center py-4">
+                <Button onClick={handleAddToRoot} variant="outline">
+                    <PlusCircle className="mr-2 h-4 w-4" /> Iniciar Análisis del Porqué
+                </Button>
             </div>
-          ))}
-          <div className="flex items-center pl-4">
-            <Button
-              onClick={onAddFiveWhyEntry}
-              variant="outline"
-              className="h-full w-40 flex-col"
-            >
-              <PlusCircle className="h-6 w-6 mb-2" />
-              Añadir Siguiente Paso
-            </Button>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

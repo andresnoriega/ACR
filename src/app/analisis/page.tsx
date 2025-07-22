@@ -36,9 +36,7 @@ const initialIshikawaData: IshikawaData = [
   { id: 'environment', name: 'Medio Ambiente', causes: [] },
 ];
 
-const initialFiveWhysData: FiveWhysData = [
-  { id: `5why-${Date.now()}`, why: '', because: '' }
-];
+const initialFiveWhysData: FiveWhysData = [];
 
 
 const initialCTMData: CTMData = [];
@@ -1219,11 +1217,7 @@ function RCAAnalysisPageComponent() {
     if (value === 'Ishikawa') {
       setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
     } else if (value === 'WhyWhy') {
-      const newFiveWhysData = JSON.parse(JSON.stringify(initialFiveWhysData));
-       if (eventData.focusEventDescription) {
-         newFiveWhysData[0].why = `¿Por qué ocurrió: "${eventData.focusEventDescription.substring(0,70)}${eventData.focusEventDescription.length > 70 ? "..." : ""}"?`;
-       }
-      setFiveWhysData(newFiveWhysData);
+      setFiveWhysData([]); // Reset to empty array for the tree structure
     } else if (value === 'CTM') {
       setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
     }
@@ -1232,21 +1226,9 @@ function RCAAnalysisPageComponent() {
   const handleSetIshikawaData = (newData: IshikawaData) => {
     setIshikawaData(newData);
   };
-
-  const handleAddFiveWhyEntry = () => {
-    setFiveWhysData(prev => {
-      const lastEntry = prev.length > 0 ? prev[prev.length - 1] : null;
-      const initialWhy = lastEntry && lastEntry.because ? `¿Por qué: "${lastEntry.because.substring(0,70)}${lastEntry.because.length > 70 ? "..." : ""}"?` : '';
-      return [...prev, { id: `5why-${Date.now()}-${Math.random().toString(36).substring(2,7)}`, why: initialWhy, because: '' }];
-    });
-  };
-
-  const handleUpdateFiveWhyEntry = (id: string, field: 'why' | 'because', value: string) => {
-    setFiveWhysData(prev => prev.map(entry => entry.id === id ? { ...entry, [field]: value } : entry));
-  };
-
-  const handleRemoveFiveWhyEntry = (id: string) => {
-    setFiveWhysData(prev => prev.filter(entry => entry.id !== id));
+  
+  const handleSetFiveWhysData = (newData: FiveWhysData) => {
+    setFiveWhysData(newData);
   };
 
   const handleSetCtmData = (newData: CTMData) => {
@@ -1550,9 +1532,6 @@ function RCAAnalysisPageComponent() {
           onSetIshikawaData={handleSetIshikawaData}
           fiveWhysData={fiveWhysData}
           onSetFiveWhysData={setFiveWhysData}
-          onAddFiveWhyEntry={handleAddFiveWhyEntry}
-          onUpdateFiveWhyEntry={handleUpdateFiveWhyEntry}
-          onRemoveFiveWhyEntry={handleRemoveFiveWhyEntry}
           ctmData={ctmData}
           onSetCtmData={setCtmData}
           identifiedRootCauses={identifiedRootCauses}
@@ -1673,3 +1652,4 @@ export default function RCAAnalysisPage() {
     </Suspense>
   );
 }
+
