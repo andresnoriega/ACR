@@ -69,96 +69,6 @@ const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onC
   );
 };
 
-
-// --- FiveWhysRecursiveRenderer Component ---
-interface FiveWhysRecursiveRendererProps {
-  entries: FiveWhyEntry[];
-  parentPath: (string | number)[];
-  parentNumber: string;
-  onUpdate: (path: (string | number)[], value: any, field?: string) => void;
-  onAdd: (path: (string | number)[]) => void;
-  onRemove: (path: (string | number)[]) => void;
-}
-
-const FiveWhysRecursiveRenderer: FC<FiveWhysRecursiveRendererProps> = ({
-  entries,
-  parentPath,
-  parentNumber,
-  onUpdate,
-  onAdd,
-  onRemove,
-}) => {
-  return (
-    <div className="ml-6 border-l-2 pl-4 space-y-4">
-      {entries.map((entry, whyIndex) => {
-        const currentWhyNumber = `${parentNumber}.${whyIndex + 1}`;
-        const currentWhyPath = [...parentPath, whyIndex];
-        return (
-          <div key={entry.id}>
-            <div className="flex justify-between items-center mb-1">
-              <Label htmlFor={`why-${entry.id}`} className="font-medium text-base">¿Por qué? #{currentWhyNumber}</Label>
-              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRemove(currentWhyPath)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-            </div>
-            <Textarea
-              id={`why-${entry.id}`}
-              value={entry.why}
-              onChange={(e) => onUpdate(currentWhyPath, e.target.value, 'why')}
-              placeholder="Describa la pregunta..."
-              rows={2}
-            />
-            <div className="mt-2 flex flex-wrap gap-4">
-              {entry.becauses.map((because, becauseIndex) => (
-                <Card key={because.id} className={cn("p-3 space-y-2 flex-1 min-w-[280px]", because.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' : because.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700' : 'bg-card')}>
-                  <div className="flex justify-between items-center">
-                    <Label className="font-medium text-sm">¿Por qué? #{currentWhyNumber}.{becauseIndex + 1}</Label>
-                    <div className="flex items-center">
-                      <Button size="icon" variant={because.status === 'accepted' ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => onUpdate([...currentWhyPath, 'becauses', becauseIndex], 'accepted', 'status')}><Check className="h-4 w-4 text-green-600" /></Button>
-                      <Button size="icon" variant={because.status === 'rejected' ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => onUpdate([...currentWhyPath, 'becauses', becauseIndex], 'rejected', 'status')}><X className="h-4 w-4 text-destructive" /></Button>
-                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => onRemove([...currentWhyPath, 'becauses', becauseIndex])}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                    </div>
-                  </div>
-                  <Textarea
-                    value={because.description}
-                    onChange={(e) => onUpdate([...currentWhyPath, 'becauses', becauseIndex], e.target.value, 'description')}
-                    placeholder="Describa la razón..."
-                    rows={2}
-                  />
-                   {because.validationMethod && (
-                      <div className="text-xs text-muted-foreground pt-1">
-                          <span className="font-semibold">Método de V/R:</span> {because.validationMethod}
-                      </div>
-                   )}
-                  {because.status === 'accepted' && (
-                    <Button size="sm" variant="outline" className="text-xs h-7 mt-2" onClick={() => onAdd([...currentWhyPath, 'becauses', becauseIndex, 'subWhys'])}>
-                      <PlusCircle className="mr-1 h-3 w-3" /> Añadir Siguiente ¿Por qué?
-                    </Button>
-                  )}
-                  {because.subWhys && because.subWhys.length > 0 && (
-                    <FiveWhysRecursiveRenderer
-                      entries={because.subWhys}
-                      parentPath={[...currentWhyPath, 'becauses', becauseIndex, 'subWhys']}
-                      parentNumber={`${currentWhyNumber}.${becauseIndex + 1}`}
-                      onUpdate={onUpdate}
-                      onAdd={onAdd}
-                      onRemove={onRemove}
-                    />
-                  )}
-                </Card>
-              ))}
-              <div className="flex items-center">
-                  <Button size="sm" variant="outline" className="h-full" onClick={() => onAdd([...currentWhyPath, 'becauses'])}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Añadir "Porque..."
-                  </Button>
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
-
 // --- Main Component ---
 interface FiveWhysInteractiveProps {
   focusEventDescription: string;
@@ -181,6 +91,18 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       ]);
     }
   }, [focusEventDescription, fiveWhysData, onSetFiveWhysData]);
+  
+  const findParentAndIndex = (path: (string | number)[]): { parent: any; index: number } | null => {
+      if (path.length === 0) return null;
+      let current: any = fiveWhysData;
+      // Navigate to the parent array
+      for (let i = 0; i < path.length - 1; i++) {
+        if (current === undefined) return null;
+        current = current[path[i]];
+      }
+      return { parent: current, index: path[path.length - 1] as number };
+  };
+
 
   const handleUpdate = useCallback((path: (string | number)[], value: any, field?: string) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
@@ -192,7 +114,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     
     if (field === 'status') {
       const currentStatus = current[finalKey].status;
-      if (currentStatus === value) { // If clicking on the same status, toggle it back to pending
+      if (currentStatus === value) { 
           current[finalKey].status = 'pending';
           current[finalKey].validationMethod = undefined;
           onSetFiveWhysData(newData);
@@ -214,62 +136,134 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     if (!validationState) return;
     setIsProcessingValidation(true);
     const { path, status } = validationState;
+    
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    let current = newData;
+    let parent = newData;
     for (let i = 0; i < path.length - 1; i++) {
-        current = current[path[i]];
+        parent = parent[path[i]];
     }
     const finalKey = path[path.length - 1];
-    current[finalKey].status = status;
-    current[finalKey].validationMethod = method;
+    const itemToUpdate = parent[finalKey];
+    
+    itemToUpdate.status = status;
+    itemToUpdate.validationMethod = method;
+
+    if (status === 'accepted' && !itemToUpdate.subWhys) {
+        // Automatically add a new "why" entry when a "because" is accepted.
+        const parentWhyEntry = findWhyEntryForBecause(newData, itemToUpdate.id);
+        if (parentWhyEntry) {
+            parentWhyEntry.becauses.forEach(b => {
+                if (b.id === itemToUpdate.id) {
+                    if(!b.subWhys) b.subWhys = [];
+                    const whyText = `¿Por qué: "${b.description.substring(0, 50)}..."?`;
+                    b.subWhys.push({ id: generateId('why'), why: whyText, becauses: [] });
+                }
+            })
+        }
+    }
+
     onSetFiveWhysData(newData);
     setIsProcessingValidation(false);
     setValidationState(null);
   }, [fiveWhysData, onSetFiveWhysData, validationState]);
+  
+  const findWhyEntryForBecause = (data: FiveWhysData, becauseId: string): FiveWhyEntry | null => {
+      for (const entry of data) {
+          if (entry.becauses.some(b => b.id === becauseId)) return entry;
+          for (const because of entry.becauses) {
+              if (because.subWhys) {
+                  const found = findWhyEntryForBecause(because.subWhys, becauseId);
+                  if (found) return found;
+              }
+          }
+      }
+      return null;
+  }
 
-  const handleAdd = useCallback((path: (string | number)[]) => {
-    const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    let current: any = newData;
-    for (let i = 0; i < path.length; i++) {
-      current = current[path[i]];
-    }
-    
-    const keyToAdd = path[path.length-1];
-    if (keyToAdd === 'becauses') {
-        current.push({ id: generateId('because'), description: '', status: 'pending', subWhys: [] });
-    } else if (keyToAdd === 'subWhys') {
-        const parentBecauseDescription = current.description || '';
-        if (!current.subWhys) current.subWhys = [];
-        current.subWhys.push({ id: generateId('why'), why: `¿Por qué: "${parentBecauseDescription.substring(0,50)}..."?`, becauses: [] });
-    }
-    
-    onSetFiveWhysData(newData);
+  const handleAddBecause = useCallback((path: (string | number)[]) => {
+      const newData = JSON.parse(JSON.stringify(fiveWhysData));
+      let parentWhy = newData;
+       for (let i = 0; i < path.length; i++) {
+          parentWhy = parentWhy[path[i]];
+      }
+      parentWhy.becauses.push({ id: generateId('because'), description: '', status: 'pending', subWhys: [] });
+      onSetFiveWhysData(newData);
+  }, [fiveWhysData, onSetFiveWhysData]);
+  
+  const handleRemove = useCallback((path: (string | number)[]) => {
+      const newData = JSON.parse(JSON.stringify(fiveWhysData));
+      const result = findParentAndIndex(path);
+      if (result) {
+          result.parent.splice(result.index, 1);
+          onSetFiveWhysData(newData);
+      } else {
+          console.error("Error on handleRemove: Could not find parent to splice from.", { path });
+      }
   }, [fiveWhysData, onSetFiveWhysData]);
 
-  const handleRemove = useCallback((path: (string | number)[]) => {
-    const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    let parent: any = newData;
-    
-    if (path.length === 1) { // Root level removal
-      newData.splice(path[0] as number, 1);
-    } else {
-      // Navigate to the parent object
-      for (let i = 0; i < path.length - 2; i++) {
-        parent = parent[path[i]];
-      }
-      
-      const keyOfArray = path[path.length - 2];
-      const indexToRemove = path[path.length - 1] as number;
 
-      if (parent && Array.isArray(parent[keyOfArray])) {
-        parent[keyOfArray].splice(indexToRemove, 1);
-      } else {
-        console.error("Error on handleRemove: Parent or array not found.", { path, parent });
-      }
-    }
-
-    onSetFiveWhysData(newData);
-}, [fiveWhysData, onSetFiveWhysData]);
+  const FiveWhysRecursiveRenderer: FC<{ entries: FiveWhyEntry[], parentNumber: string, basePath: (string|number)[] }> = ({ entries, parentNumber, basePath }) => {
+    return (
+      <div className="ml-6 border-l-2 pl-4 space-y-4">
+        {entries.map((entry, whyIndex) => {
+          const currentWhyNumber = `${parentNumber}.${whyIndex + 1}`;
+          const currentPath = [...basePath, whyIndex];
+          return (
+            <div key={entry.id} className="p-3 border rounded-md bg-secondary/30">
+              <div className="flex justify-between items-center mb-1">
+                <Label htmlFor={`why-${entry.id}`} className="font-medium text-base">¿Por qué? #{currentWhyNumber}</Label>
+                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleRemove(currentPath)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+              </div>
+              <Textarea
+                id={`why-${entry.id}`}
+                value={entry.why}
+                onChange={(e) => handleUpdate([...currentPath, 'why'], e.target.value)}
+                placeholder="Describa la pregunta..."
+                rows={2}
+              />
+              <div className="mt-2 flex flex-wrap gap-4">
+                {entry.becauses.map((because, becauseIndex) => (
+                  <Card key={because.id} className={cn("p-3 space-y-2 flex-1 min-w-[280px]", because.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' : because.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700' : 'bg-card')}>
+                    <div className="flex justify-between items-center">
+                      <Label className="font-medium text-sm">Porque... {currentWhyNumber}.{becauseIndex + 1}</Label>
+                      <div className="flex items-center">
+                        <Button size="icon" variant={because.status === 'accepted' ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => handleUpdate([...currentPath, 'becauses', becauseIndex], 'accepted', 'status')}><Check className="h-4 w-4 text-green-600" /></Button>
+                        <Button size="icon" variant={because.status === 'rejected' ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => handleUpdate([...currentPath, 'becauses', becauseIndex], 'rejected', 'status')}><X className="h-4 w-4 text-destructive" /></Button>
+                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleRemove([...currentPath, 'becauses', becauseIndex])}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      </div>
+                    </div>
+                    <Textarea
+                      value={because.description}
+                      onChange={(e) => handleUpdate([...currentPath, 'becauses', becauseIndex, 'description'], e.target.value)}
+                      placeholder="Describa la razón..."
+                      rows={2}
+                    />
+                    {because.validationMethod && (
+                      <div className="text-xs text-muted-foreground pt-1">
+                        <span className="font-semibold">Método de V/R:</span> {because.validationMethod}
+                      </div>
+                    )}
+                    {because.subWhys && because.subWhys.length > 0 && (
+                      <FiveWhysRecursiveRenderer
+                        entries={because.subWhys}
+                        parentNumber={`${currentWhyNumber}.${becauseIndex + 1}`}
+                        basePath={[...currentPath, 'becauses', becauseIndex, 'subWhys']}
+                      />
+                    )}
+                  </Card>
+                ))}
+                <div className="flex items-center self-stretch">
+                  <Button size="sm" variant="outline" className="h-full" onClick={() => handleAddBecause([...currentPath, 'becauses'])}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> Añadir "Porque..."
+                  </Button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
   
   return (
     <Card className="mt-4 shadow-sm">
@@ -286,7 +280,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
             <Textarea
               id={`why-root-${entry.id}`}
               value={entry.why}
-              onChange={(e) => handleUpdate([index], e.target.value, 'why')}
+              onChange={(e) => handleUpdate([index, 'why'], e.target.value)}
               placeholder="Describa la pregunta inicial..."
               rows={2}
             />
@@ -294,7 +288,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
               {entry.becauses.map((because, becauseIndex) => (
                 <Card key={because.id} className={cn("p-3 space-y-2 flex-1 min-w-[280px]", because.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' : because.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700' : 'bg-card')}>
                   <div className="flex justify-between items-center">
-                    <Label className="font-medium text-sm">¿Por qué? #{index + 1}.{becauseIndex + 1}</Label>
+                    <Label className="font-medium text-sm">Porque... {index + 1}.{becauseIndex + 1}</Label>
                      <div className="flex items-center">
                         <Button size="icon" variant={because.status === 'accepted' ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => handleUpdate([index, 'becauses', becauseIndex], 'accepted', 'status')}><Check className="h-4 w-4 text-green-600"/></Button>
                         <Button size="icon" variant={because.status === 'rejected' ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => handleUpdate([index, 'becauses', becauseIndex], 'rejected', 'status')}><X className="h-4 w-4 text-destructive" /></Button>
@@ -303,7 +297,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                   </div>
                    <Textarea
                         value={because.description}
-                        onChange={(e) => handleUpdate([index, 'becauses', becauseIndex], e.target.value, 'description')}
+                        onChange={(e) => handleUpdate([index, 'becauses', becauseIndex, 'description'], e.target.value)}
                         placeholder="Describa la razón..."
                         rows={2}
                     />
@@ -312,33 +306,23 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                             <span className="font-semibold">Método de V/R:</span> {because.validationMethod}
                         </div>
                      )}
-                   {because.status === 'accepted' && (
-                       <Button size="sm" variant="outline" className="text-xs h-7 mt-2" onClick={() => handleAdd([index, 'becauses', becauseIndex, 'subWhys'])}>
-                           <PlusCircle className="mr-1 h-3 w-3" /> Añadir Siguiente ¿Por qué?
-                       </Button>
-                   )}
                   {because.subWhys && because.subWhys.length > 0 && (
                     <FiveWhysRecursiveRenderer
                       entries={because.subWhys}
-                      parentPath={[index, 'becauses', becauseIndex, 'subWhys']}
                       parentNumber={`${index + 1}.${becauseIndex + 1}`}
-                      onUpdate={handleUpdate}
-                      onAdd={handleAdd}
-                      onRemove={onRemove}
+                      basePath={[index, 'becauses', becauseIndex, 'subWhys']}
                     />
                   )}
                 </Card>
               ))}
                <div className="flex items-center self-stretch">
-                  <Button size="sm" variant="outline" className="h-full" onClick={() => handleAdd([index, 'becauses'])}>
+                  <Button size="sm" variant="outline" className="h-full" onClick={() => handleAddBecause([index, 'becauses'])}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Añadir "Porque..."
                   </Button>
                </div>
             </div>
           </div>
         ))}
-
-
         {validationState && (
           <ValidationDialog
             isOpen={!!validationState}
