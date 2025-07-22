@@ -95,7 +95,7 @@ const FiveWhysRecursiveRenderer: FC<{
         rows={2}
       />
       
-      <div className="mt-2 flex flex-wrap gap-4 items-start">
+      <div className="flex flex-wrap gap-4 items-start">
         {(entry.responses || []).map((node, nodeIndex) => {
           const nodePath = [...basePath, 'responses', nodeIndex];
           return (
@@ -103,8 +103,8 @@ const FiveWhysRecursiveRenderer: FC<{
                 "p-3 space-y-2 flex-grow min-w-[300px] w-full sm:w-auto",
                 node.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' :
                 node.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 opacity-70' :
-                node.isRootCause ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-400 ring-2 ring-amber-300' :
-                'bg-card'
+                'bg-card',
+                node.isRootCause && 'ring-2 ring-amber-400 border-amber-400'
             )}>
               <div className="flex justify-between items-center">
                 <Label className="font-medium text-sm">Porque... #{level}.{nodeIndex + 1}</Label>
@@ -128,7 +128,7 @@ const FiveWhysRecursiveRenderer: FC<{
                 <div className="flex flex-wrap gap-2 pt-2">
                   <Button size="xs" variant={node.status === 'accepted' ? 'secondary' : 'outline'} className="text-xs h-7" onClick={() => onUpdate(nodePath, 'accepted', 'status')}><Check className="mr-1 h-3 w-3" /> Validar</Button>
                   <Button size="xs" variant={node.status === 'rejected' ? 'secondary' : 'outline'} className="text-xs h-7" onClick={() => onUpdate(nodePath, 'rejected', 'status')}><X className="mr-1 h-3 w-3" /> Rechazar</Button>
-                  <Button size="xs" variant={node.isRootCause ? 'secondary' : 'outline'} className="text-xs h-7" onClick={() => onSetRootCause(nodePath)}><Target className="mr-1 h-3 w-3" /> Causa Raíz</Button>
+                  <Button size="xs" variant={node.isRootCause ? 'default' : 'outline'} className="text-xs h-7" onClick={() => onSetRootCause(nodePath)}><Target className="mr-1 h-3 w-3" /> Causa Raíz</Button>
                 </div>
                 {node.status === 'accepted' && !node.subAnalysis && (
                   <Button size="xs" variant="outline" className="text-xs h-6 mt-1" onClick={() => onAddSubAnalysis(nodePath)}>
@@ -151,9 +151,7 @@ const FiveWhysRecursiveRenderer: FC<{
             </Card>
           );
         })}
-      </div>
-      <div className="mt-4">
-        <Button size="sm" variant="outline" className="w-full text-muted-foreground" onClick={() => onAddNode([...basePath, 'responses'])}>
+         <Button size="sm" variant="outline" className="text-muted-foreground self-center h-full min-h-[120px] w-full sm:w-auto" onClick={() => onAddNode([...basePath, 'responses'])}>
             <PlusCircle className="mr-2 h-4 w-4" /> Añadir Causa Paralela
         </Button>
       </div>
@@ -328,8 +326,15 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         parent = parent[path[i]];
     }
     const finalKey = path[path.length - 1];
-    parent[finalKey].isRootCause = !parent[finalKey].isRootCause; // Toggle
-    parent[finalKey].status = 'accepted'; // A root cause must be accepted
+    const nodeToUpdate = parent[finalKey];
+    
+    // Toggle root cause status
+    nodeToUpdate.isRootCause = !nodeToUpdate.isRootCause;
+    
+    // If it's now a root cause, ensure it's also accepted.
+    if (nodeToUpdate.isRootCause) {
+        nodeToUpdate.status = 'accepted';
+    }
 
     onSetFiveWhysData(newData);
   }, [fiveWhysData, onSetFiveWhysData]);
