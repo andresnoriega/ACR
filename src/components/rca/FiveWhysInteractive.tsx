@@ -96,7 +96,7 @@ const FiveWhysRecursiveRenderer: FC<{
       />
       
       <div className="space-y-3 mt-2">
-        {entry.responses.map((node, nodeIndex) => {
+        {(entry.responses || []).map((node, nodeIndex) => {
           const nodePath = [...basePath, 'responses', nodeIndex];
           return (
             <Card key={node.id} className={cn(
@@ -162,8 +162,8 @@ const FiveWhysRecursiveRenderer: FC<{
 
 interface FiveWhysInteractiveProps {
   focusEventDescription: string;
-  fiveWhysData: FiveWhysData;
-  onSetFiveWhysData: (data: FiveWhysData) => void;
+  fiveWhysData: FiveWhyEntry[];
+  onSetFiveWhysData: (data: FiveWhyEntry[]) => void;
 }
 
 export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
@@ -186,17 +186,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     }
   }, [focusEventDescription, fiveWhysData, onSetFiveWhysData, initialWhyText]);
 
-  // Function to recursively traverse and update data
-  const updateNested = (path: (string | number)[], updater: (item: any) => any) => {
-    const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    let current = newData;
-    for (let i = 0; i < path.length - 1; i++) {
-      current = current[path[i]];
-    }
-    const finalKey = path[path.length - 1];
-    current[finalKey] = updater(current[finalKey]);
-    onSetFiveWhysData(newData);
-  };
 
   const handleUpdate = useCallback((path: (string|number)[], value: any, field: keyof FiveWhyNode | 'why') => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
@@ -222,8 +211,10 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     if (field === 'isCollapsed') {
       current[finalKey].isCollapsed = value;
     } else if (field === 'why') {
-      current.why = value;
+      // Handles updating the 'why' text of a FiveWhyEntry object
+      current[finalKey].why = value;
     } else {
+      // Handles updating a field within a FiveWhyNode object
       current[finalKey][field] = value;
     }
 
@@ -304,6 +295,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
     // Function to recursively clear existing root causes
     const clearRootCauses = (entry: FiveWhyEntry) => {
+      if (!entry.responses) return;
       entry.responses.forEach(node => {
         node.isRootCause = false;
         if (node.subAnalysis) {
@@ -311,7 +303,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         }
       });
     };
-    clearRootCauses(newData[0]);
+    newData.forEach(clearRootCauses);
 
     // Set the new root cause
     let parent: any = newData;
@@ -324,6 +316,17 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
     onSetFiveWhysData(newData);
   }, [fiveWhysData, onSetFiveWhysData]);
+  
+  const handleAddWhyInvestigation = () => {
+    onSetFiveWhysData([
+      ...fiveWhysData,
+      { id: generateId('why'), why: `¿Por qué ocurrió el evento? (Investigación Paralela #${fiveWhysData.length})`, responses: [] }
+    ]);
+  };
+  
+  const handleRemoveWhyInvestigation = (indexToRemove: number) => {
+    onSetFiveWhysData(fiveWhysData.filter((_, index) => index !== indexToRemove));
+  };
 
 
   if (fiveWhysData.length === 0) {
@@ -344,17 +347,33 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
           <HelpCircle className="mr-2 h-5 w-5" /> Análisis de los 5 Porqués (Árbol Ramificado)
         </h3>
         
-        <div className="p-3 border rounded-md bg-secondary/30">
-          <FiveWhysRecursiveRenderer
-            entry={fiveWhysData[0]}
-            level={1}
-            basePath={[0]}
-            onUpdate={handleUpdate}
-            onAddNode={handleAddNode}
-            onRemoveNode={handleRemoveNode}
-            onAddSubAnalysis={handleAddSubAnalysis}
-            onSetRootCause={handleSetRootCause}
-          />
+        <div className="flex flex-row gap-4 overflow-x-auto p-2">
+            {fiveWhysData.map((entry, index) => (
+                <div key={entry.id} className="p-3 border rounded-md bg-secondary/30 flex-shrink-0 w-full max-w-lg">
+                    <div className="flex justify-end mb-1">
+                      {fiveWhysData.length > 1 && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveWhyInvestigation(index)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
+                    <FiveWhysRecursiveRenderer
+                      entry={entry}
+                      level={1}
+                      basePath={[index]}
+                      onUpdate={handleUpdate}
+                      onAddNode={handleAddNode}
+                      onRemoveNode={handleRemoveNode}
+                      onAddSubAnalysis={handleAddSubAnalysis}
+                      onSetRootCause={handleSetRootCause}
+                    />
+                </div>
+            ))}
+        </div>
+        <div className="pt-4 border-t">
+          <Button variant="outline" className="w-full" onClick={handleAddWhyInvestigation}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Añadir Línea de Investigación Paralela
+          </Button>
         </div>
 
         {validationState && (
