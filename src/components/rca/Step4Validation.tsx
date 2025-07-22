@@ -156,7 +156,12 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
   };
 
   const handleRejectClick = (action: PlannedAction) => {
-    setRejectingAction(action);
+    const currentValidation = getValidation(action.id);
+    if (currentValidation?.status === 'rejected') {
+      onToggleValidation(action.id, 'pending');
+    } else {
+      setRejectingAction(action);
+    }
   };
 
   const handleConfirmRejectAction = async (actionId: string, reason: string) => {
@@ -292,7 +297,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                              <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => { status === 'rejected' ? onToggleValidation(action.id, 'pending') : handleRejectClick(action); }}
+                              onClick={() => handleRejectClick(action)}
                               disabled={isStepSaving}
                               className={cn(status === 'rejected' ? "bg-red-100 hover:bg-red-200 text-red-700" : "hover:bg-red-50", "transition-colors")}
                               title={status === 'rejected' ? "Rechazado (Click para marcar como pendiente)" : "Rechazar esta acción"}
