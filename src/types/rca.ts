@@ -91,6 +91,8 @@ export interface FiveWhyBecause {
   id: string;
   description: string;
   subWhys: FiveWhyEntry[];
+  status?: 'pending' | 'accepted' | 'rejected';
+  validationMethod?: string;
 }
 export type FiveWhysData = FiveWhyEntry[];
 
