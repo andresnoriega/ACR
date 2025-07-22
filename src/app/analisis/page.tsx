@@ -36,7 +36,7 @@ const initialIshikawaData: IshikawaData = [
   { id: 'environment', name: 'Medio Ambiente', causes: [] },
 ];
 
-const initialFiveWhysData: FiveWhysData = [];
+const initialFiveWhysData: FiveWhyEntry[] = [];
 
 
 const initialCTMData: CTMData = [];
@@ -161,7 +161,7 @@ function RCAAnalysisPageComponent() {
   const [analysisTechnique, setAnalysisTechnique] = useState<AnalysisTechnique>(initialRCAAnalysisState.analysisTechnique);
   const [analysisTechniqueNotes, setAnalysisTechniqueNotes] = useState(initialRCAAnalysisState.analysisTechniqueNotes);
   const [ishikawaData, setIshikawaData] = useState<IshikawaData>(initialRCAAnalysisState.ishikawaData);
-  const [fiveWhysData, setFiveWhysData] = useState<FiveWhysData>(initialRCAAnalysisState.fiveWhysData);
+  const [fiveWhysData, setFiveWhysData] = useState<FiveWhyEntry[]>(initialRCAAnalysisState.fiveWhysData);
   const [ctmData, setCtmData] = useState<CTMData>(initialRCAAnalysisState.ctmData);
   const [identifiedRootCauses, setIdentifiedRootCauses] = useState<IdentifiedRootCause[]>(initialRCAAnalysisState.identifiedRootCauses);
 
@@ -1117,6 +1117,7 @@ function RCAAnalysisPageComponent() {
       
       let currentEventId = analysisDocumentId;
       if (!currentEventId) {
+        // First save creates the document and gives us an ID
         const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
         if (!saveResult.success || !saveResult.newEventId) {
           throw new Error("No se pudo crear el documento de análisis antes de subir el archivo.");
@@ -1141,21 +1142,14 @@ function RCAAnalysisPageComponent() {
       };
 
       const rcaDocRef = doc(db, "rcaAnalyses", currentEventId!);
-      const docSnap = await getDoc(rcaDocRef);
-
-      if (!docSnap.exists()) {
-        throw new Error("El documento de análisis no se encontró en la base de datos.");
-      }
-
-      const currentData = docSnap.data() as RCAAnalysisDocument;
-      const updatedPreservedFacts = [...(currentData.preservedFacts || []), newFact];
-
+      // Use an update operation to just add the new fact, which is more efficient.
       await updateDoc(rcaDocRef, {
-        preservedFacts: sanitizeForFirestore(updatedPreservedFacts),
+        preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
         updatedAt: new Date().toISOString()
       });
 
-      setPreservedFacts(updatedPreservedFacts);
+      // Update local state to match
+      setPreservedFacts(prev => [...prev, newFact]);
       toast({ title: "Hecho Preservado Añadido", description: `Se añadió y subió "${newFact.userGivenName}".` });
 
     } catch (error: any) {
@@ -1190,21 +1184,18 @@ function RCAAnalysisPageComponent() {
       }
     }
     
-    // Then, remove from local state and trigger a save
-    const updatedFacts = preservedFacts.filter(fact => fact.id !== id);
-    setPreservedFacts(updatedFacts);
-    
+    // Then, remove from Firestore using arrayRemove and update local state
     const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
     try {
       await updateDoc(rcaDocRef, {
-          preservedFacts: sanitizeForFirestore(updatedFacts),
+          preservedFacts: arrayRemove(sanitizeForFirestore(factToRemove)),
           updatedAt: new Date().toISOString()
       });
+      setPreservedFacts(prev => prev.filter(fact => fact.id !== id));
       toast({ title: "Hecho Preservado Eliminado", description: "La referencia se eliminó exitosamente.", variant: 'destructive' });
     } catch (error: any) {
       console.error("Error al actualizar Firestore después de eliminar hecho:", error);
       toast({ title: "Error de Sincronización", description: `No se pudo confirmar la eliminación en la base de datos: ${error.message}. Recargue la página.`, variant: 'destructive' });
-      setPreservedFacts(preservedFacts); // Revert local state on error
     } finally {
       setIsSaving(false);
     }
@@ -1227,7 +1218,7 @@ function RCAAnalysisPageComponent() {
     setIshikawaData(newData);
   };
   
-  const handleSetFiveWhysData = (newData: FiveWhysData) => {
+  const handleSetFiveWhysData = (newData: FiveWhyEntry[]) => {
     setFiveWhysData(newData);
   };
 
