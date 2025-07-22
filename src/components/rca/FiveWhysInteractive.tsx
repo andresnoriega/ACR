@@ -307,7 +307,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     let nodeToUpdate: FiveWhyNode | null = null;
     let parentOfNode: any = newData;
 
-    // Traverse to the parent of the node to update
     for (let i = 0; i < path.length - 1; i++) {
       parentOfNode = parentOfNode[path[i]];
     }
@@ -316,14 +315,12 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
     if (!nodeToUpdate) return;
 
-    // Determine the new state for isRootCause
     const newIsRootCauseState = !nodeToUpdate.isRootCause;
     
     // Function to recursively clear all other root causes
     const clearOtherRootCauses = (entry: FiveWhyEntry) => {
       if (!entry.responses) return;
-      entry.responses.forEach(node => {
-        // Clear the root cause flag for all nodes
+      (entry.responses || []).forEach(node => {
         node.isRootCause = false;
         if (node.subAnalysis) {
           clearOtherRootCauses(node.subAnalysis);
@@ -331,18 +328,24 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       });
     };
 
-    // If we are setting a new root cause, clear all existing ones first
     if (newIsRootCauseState) {
       newData.forEach(clearOtherRootCauses);
     }
-
-    // Now, set the new state on the specific node
-    nodeToUpdate.isRootCause = newIsRootCauseState;
-
-    // If a node is marked as a root cause, it should also be validated
-    if (newIsRootCauseState) {
-        nodeToUpdate.status = 'accepted';
-    }
+    
+    const findAndSet = (entry: FiveWhyEntry) => {
+        if (!entry.responses) return;
+        (entry.responses || []).forEach(node => {
+            if (node.id === (nodeToUpdate as FiveWhyNode).id) {
+                node.isRootCause = newIsRootCauseState;
+                 if (newIsRootCauseState && node.status !== 'accepted') {
+                   node.status = 'accepted';
+                 }
+            } else if (node.subAnalysis) {
+                findAndSet(node.subAnalysis);
+            }
+        });
+    };
+    newData.forEach(findAndSet);
 
     onSetFiveWhysData(newData);
   }, [fiveWhysData, onSetFiveWhysData]);
