@@ -1,4 +1,3 @@
-
 'use client';
 import { FC, useState, useCallback, useMemo, useEffect } from 'react';
 import type { FiveWhyEntry, FiveWhyNode } from '@/types/rca';
@@ -211,7 +210,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
     if (field) {
         current[finalKey][field] = value;
-    } else { // Should not happen with field check, but for safety
+    } else {
        current[finalKey] = value;
     }
 
@@ -245,14 +244,12 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     let parent: any = newData;
     
-    // Traverse to the object that should contain the array.
     for (let i = 0; i < path.length - 1; i++) {
         parent = parent[path[i]];
     }
 
     const arrayKey = path[path.length - 1] as string;
 
-    // Ensure the array exists before pushing.
     if (!Array.isArray(parent[arrayKey])) {
         parent[arrayKey] = [];
     }
@@ -272,14 +269,13 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   const handleRemoveNode = useCallback((path: (string|number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     let parent: any = newData;
-    // Navigate to the object containing the array.
+    
     for (let i = 0; i < path.length - 2; i++) {
         parent = parent[path[i]];
     }
     const arrayKey = path[path.length - 2] as string;
     const indexToRemove = path[path.length - 1] as number;
     
-    // Check if the array exists before trying to splice it.
     if (parent && Array.isArray(parent[arrayKey])) {
         parent[arrayKey].splice(indexToRemove, 1);
         onSetFiveWhysData(newData);
@@ -308,6 +304,19 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   const handleSetRootCause = useCallback((path: (string|number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
 
+    let nodeToUpdate: FiveWhyNode | null = null;
+    let parentOfNode: any = newData;
+    for (let i = 0; i < path.length - 1; i++) {
+      parentOfNode = parentOfNode[path[i]];
+    }
+    const finalKey = path[path.length - 1];
+    nodeToUpdate = parentOfNode[finalKey];
+
+    if (!nodeToUpdate) return;
+    
+    // Toggle root cause status
+    const newIsRootCauseState = !nodeToUpdate.isRootCause;
+    
     // Function to recursively clear existing root causes
     const clearRootCauses = (entry: FiveWhyEntry) => {
       if (!entry.responses) return;
@@ -318,20 +327,13 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         }
       });
     };
-    newData.forEach(clearRootCauses);
 
-    // Set the new root cause
-    let parent: any = newData;
-    for (let i = 0; i < path.length - 1; i++) {
-        parent = parent[path[i]];
+    if (newIsRootCauseState) {
+      newData.forEach(clearRootCauses);
     }
-    const finalKey = path[path.length - 1];
-    const nodeToUpdate = parent[finalKey];
+
+    nodeToUpdate.isRootCause = newIsRootCauseState;
     
-    // Toggle root cause status
-    nodeToUpdate.isRootCause = !nodeToUpdate.isRootCause;
-    
-    // If it's now a root cause, ensure it's also accepted.
     if (nodeToUpdate.isRootCause) {
         nodeToUpdate.status = 'accepted';
     }
