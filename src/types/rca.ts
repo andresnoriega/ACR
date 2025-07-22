@@ -82,11 +82,15 @@ export type IshikawaData = IshikawaCategory[];
 
 
 // --- Tree Structure for 5 Whys ---
+export interface FiveWhyCause {
+  description: string;
+  validationMethod?: string;
+}
+
 export interface FiveWhyBecause {
   id: string;
-  description: string;
-  status: 'pending' | 'accepted' | 'rejected' | 'root-cause'; // Added root-cause status
-  validationMethod?: string;
+  cause: FiveWhyCause;
+  status: 'pending' | 'accepted' | 'rejected' | 'root-cause';
   subWhys?: FiveWhyEntry[];
   isCollapsed?: boolean;
 }
