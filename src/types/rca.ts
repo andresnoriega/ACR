@@ -81,12 +81,21 @@ export interface IshikawaCategory {
 export type IshikawaData = IshikawaCategory[];
 
 
-// --- Simplified 5 Whys Linear Structure ---
+// --- Tree Structure for 5 Whys ---
+export interface FiveWhyBecause {
+  id: string;
+  description: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  validationMethod?: string;
+  subWhys?: FiveWhyEntry[];
+}
+
 export interface FiveWhyEntry {
   id: string;
   why: string;
-  because: string;
+  becauses: FiveWhyBecause[];
 }
+
 export type FiveWhysData = FiveWhyEntry[];
 
 
