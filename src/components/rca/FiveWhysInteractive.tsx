@@ -1,6 +1,6 @@
 'use client';
 import { FC, useState, useEffect } from 'react';
-import { FiveWhyBecause, FiveWhyEntry } from '@/types/rca';
+import type { FiveWhyEntry, FiveWhyBecause } from '@/types/rca';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -87,15 +87,14 @@ const ValidationDialog: FC<{
 // Recursive renderer for the tree structure
 const FiveWhysRecursiveRenderer: FC<{
   entry: FiveWhyEntry;
-  level: number;
   parentNumber: string;
   path: (string | number)[];
   onUpdate: (path: (string | number)[], value: any, field?: string) => void;
   onAdd: (path: (string | number)[], type: 'why' | 'because') => void;
   onRemove: (path: (string | number)[]) => void;
   onOpenValidationDialog: (path: (string | number)[], statusToSet: 'accepted' | 'rejected') => void;
-}> = ({ entry, level, parentNumber, path, onUpdate, onAdd, onRemove, onOpenValidationDialog }) => {
-  const currentNumber = `${parentNumber}${level > 1 ? '.' : ''}${path[path.length - 1] + 1}`;
+}> = ({ entry, parentNumber, path, onUpdate, onAdd, onRemove, onOpenValidationDialog }) => {
+  const currentNumber = parentNumber ? `${parentNumber}.${path[path.length - 1] + 1}` : `${path[path.length - 1] + 1}`;
 
   return (
     <Card className="bg-secondary/30 w-full">
@@ -163,7 +162,6 @@ const FiveWhysRecursiveRenderer: FC<{
                           <FiveWhysRecursiveRenderer
                               key={subWhy.id}
                               entry={subWhy}
-                              level={level + 1}
                               parentNumber={becauseNumber}
                               path={[...becausePath, 'subWhys', subWhyIndex]}
                               onUpdate={onUpdate}
@@ -174,7 +172,7 @@ const FiveWhysRecursiveRenderer: FC<{
                       ))}
                   </div>
                   
-                  {isAccepted && (
+                  {isAccepted && !isRejected && (
                     <Button size="sm" variant="outline" className="text-xs h-7 mt-3" onClick={() => onAdd(becausePath, 'why')}>
                         <PlusCircle className="mr-1 h-3 w-3" /> Añadir Siguiente ¿Por qué?
                     </Button>
@@ -211,6 +209,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   const handleUpdate = (path: (string | number)[], value: any, field: string = 'description') => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     let current: any = newData;
+    // Traverse to the object to be updated
     for (let i = 0; i < path.length; i++) {
         current = current[path[i] as any];
     }
@@ -222,6 +221,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     let parent: any = newData;
 
+    // Traverse to the parent object that contains the array
     for (let i = 0; i < path.length; i++) {
         if(parent === undefined) return;
         parent = parent[path[i] as any];
@@ -314,7 +314,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
               <FiveWhysRecursiveRenderer
                 key={rootWhy.id}
                 entry={rootWhy}
-                level={1}
                 parentNumber="" // Top level has no parent number
                 path={[index]} 
                 onUpdate={handleUpdate}
