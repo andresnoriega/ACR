@@ -1,4 +1,3 @@
-
 'use client';
 import { FC, useState, useEffect, useCallback } from 'react';
 import type { FiveWhyEntry, FiveWhyBecause } from '@/types/rca';
@@ -247,22 +246,31 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
  const handleRemove = useCallback((path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     
-    let parent: any = newData;
-    for (let i = 0; i < path.length - 1; i++) {
-        parent = parent[path[i]];
+    // Handle root level deletion
+    if (path.length === 1) {
+        newData.splice(path[0] as number, 1);
+        onSetFiveWhysData(newData);
+        return;
     }
 
-    const indexToRemove = path[path.length - 1] as number;
-    const finalKey = path[path.length - 2];
+    // Navigate to the parent object
+    let parent = newData;
+    for (let i = 0; i < path.length - 2; i++) {
+        if (parent[path[i]] === undefined) {
+            console.error("Error on handleRemove: Invalid path.", { path, parent });
+            return;
+        }
+        parent = parent[path[i]];
+    }
     
-    if (finalKey === 'becauses' && parent.becauses) {
-      parent.becauses.splice(indexToRemove, 1);
-    } else if (finalKey === 'subWhys' && parent.subWhys) {
-      parent.subWhys.splice(indexToRemove, 1);
-    } else if (path.length === 1) { // Root level removal
-      newData.splice(indexToRemove, 1);
+    const arrayKey = path[path.length - 2] as string; // 'becauses' or 'subWhys'
+    const indexToRemove = path[path.length - 1] as number;
+
+    // Check if the parent is an object and has the array key
+    if (typeof parent === 'object' && parent !== null && Array.isArray((parent as any)[arrayKey])) {
+        (parent as any)[arrayKey].splice(indexToRemove, 1);
     } else {
-      console.error("Error on handleRemove: Could not find array to remove from.", { path, parent });
+        console.error("Error on handleRemove: Could not find array to remove from.", { path, parent });
     }
 
     onSetFiveWhysData(newData);
