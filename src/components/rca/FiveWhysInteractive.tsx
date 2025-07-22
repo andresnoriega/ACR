@@ -17,77 +17,78 @@ const generateId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().
 
 // Recursive renderer for the tree structure
 const FiveWhysRecursiveRenderer: FC<{
-  entries: FiveWhyEntry[];
+  entry: FiveWhyEntry;
   level: number;
-  basePath: (string | number)[];
+  path: (string | number)[];
   onUpdate: (path: (string | number)[], value: any) => void;
   onAdd: (path: (string | number)[], type: 'why' | 'because') => void;
   onRemove: (path: (string | number)[]) => void;
-}> = ({ entries, level, basePath, onUpdate, onAdd, onRemove }) => {
+}> = ({ entry, level, path, onUpdate, onAdd, onRemove }) => {
   return (
-    <div className="space-y-4">
-      {(entries || []).map((entry, entryIndex) => (
-        <Card key={entry.id} className="bg-secondary/30">
-          <CardHeader className="p-3">
-            <div className="flex justify-between items-center">
-              <CardTitle className="text-base font-semibold text-primary flex items-center">
-                <HelpCircle className="mr-1.5 h-4 w-4" /> ¿Por qué? #{level}
-              </CardTitle>
-              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRemove([...basePath, entryIndex])}>
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
-            </div>
-            <Textarea
-              value={entry.why}
-              onChange={(e) => onUpdate([...basePath, entryIndex, 'why'], e.target.value)}
-              placeholder={`¿Por qué ocurrió el evento anterior?`}
-              rows={2}
-              className="text-sm bg-background"
-            />
-          </CardHeader>
-          <CardContent className="p-3 pt-0 space-y-3">
-            {(entry.becauses || []).map((because, becauseIndex) => (
-              <div key={because.id} className="pl-4 border-l-2 border-primary/30 ml-4 space-y-2 py-2">
-                <div className="flex justify-between items-center">
+    <Card className="bg-secondary/30 w-full">
+      <CardHeader className="p-3">
+        <div className="flex justify-between items-center">
+          <CardTitle className="text-base font-semibold text-primary flex items-center">
+            <HelpCircle className="mr-1.5 h-4 w-4" /> ¿Por qué? #{level}
+          </CardTitle>
+          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRemove(path)}>
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
+        <Textarea
+          value={entry.why}
+          onChange={(e) => onUpdate([...path, 'why'], e.target.value)}
+          placeholder={`¿Por qué ocurrió el evento anterior?`}
+          rows={2}
+          className="text-sm bg-background"
+        />
+      </CardHeader>
+      <CardContent className="p-3 pt-0 space-y-3">
+         <div className="flex flex-wrap gap-3">
+          {(entry.becauses || []).map((because, becauseIndex) => (
+            <div key={because.id} className="flex-1 min-w-[250px] p-3 rounded-lg border bg-background/50">
+               <div className="flex justify-between items-center mb-1">
                   <Label htmlFor={`because-${because.id}`} className="text-sm font-semibold flex items-center text-foreground">
                     <MessageCircle className="mr-1.5 h-4 w-4" /> Porque...
                   </Label>
-                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRemove([...basePath, entryIndex, 'becauses', becauseIndex])}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
+                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => onRemove([...path, 'becauses', becauseIndex])}>
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
                   </Button>
                 </div>
                 <Textarea
                   id={`because-${because.id}`}
                   value={because.description}
-                  onChange={(e) => onUpdate([...basePath, entryIndex, 'becauses', becauseIndex, 'description'], e.target.value)}
+                  onChange={(e) => onUpdate([...path, 'becauses', becauseIndex, 'description'], e.target.value)}
                   placeholder="Describa la razón..."
                   rows={2}
-                  className="text-sm bg-background"
+                  className="text-sm"
                 />
                 
-                <FiveWhysRecursiveRenderer
-                  entries={because.subWhys || []}
-                  level={level + 1}
-                  basePath={[...basePath, entryIndex, 'becauses', becauseIndex, 'subWhys']}
-                  onUpdate={onUpdate}
-                  onAdd={onAdd}
-                  onRemove={onRemove}
-                />
+                <div className="mt-3 space-y-3">
+                    {because.subWhys?.map((subWhy, subWhyIndex) => (
+                        <FiveWhysRecursiveRenderer
+                            key={subWhy.id}
+                            entry={subWhy}
+                            level={level + 1}
+                            path={[...path, 'becauses', becauseIndex, 'subWhys', subWhyIndex]}
+                            onUpdate={onUpdate}
+                            onAdd={onAdd}
+                            onRemove={onRemove}
+                        />
+                    ))}
+                </div>
 
-                {(because.subWhys || []).length === 0 && (
-                   <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => onAdd([...basePath, entryIndex, 'becauses', becauseIndex], 'why')}>
-                     <PlusCircle className="mr-1 h-3 w-3" /> Añadir Siguiente ¿Por qué?
-                   </Button>
-                )}
-              </div>
-            ))}
-            <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => onAdd([...basePath, entryIndex], 'because')}>
-              <PlusCircle className="mr-1 h-3 w-3" /> Añadir 'Porque...'
-            </Button>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+                <Button size="sm" variant="outline" className="text-xs h-7 mt-3" onClick={() => onAdd([...path, 'becauses', becauseIndex], 'why')}>
+                    <PlusCircle className="mr-1 h-3 w-3" /> Añadir Siguiente ¿Por qué?
+                </Button>
+            </div>
+          ))}
+        </div>
+        <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => onAdd(path, 'because')}>
+          <PlusCircle className="mr-1 h-3 w-3" /> Añadir 'Porque...'
+        </Button>
+      </CardContent>
+    </Card>
   );
 };
 
@@ -108,7 +109,9 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         current = current[key];
     }
     const finalKey = path[path.length - 1];
-    current[finalKey] = value;
+    if (typeof finalKey === 'string') {
+        current[finalKey] = value;
+    }
     onSetFiveWhysData(newData);
   };
   
@@ -144,21 +147,20 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   };
 
   const handleRemove = (path: (string | number)[]) => {
+    if (path.length === 0) return;
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     
-    // Find the parent array and the index to remove
-    let parent = newData;
+    let current = newData;
     for (let i = 0; i < path.length - 1; i++) {
-      parent = parent[path[i] as any];
+      current = current[path[i] as any];
     }
     
     const indexToRemove = path[path.length - 1] as number;
 
-    // Check if parent is an array before splicing
-    if (Array.isArray(parent)) {
-        parent.splice(indexToRemove, 1);
+    if (Array.isArray(current)) {
+        current.splice(indexToRemove, 1);
     } else {
-        console.error("Error on handleRemove: Could not find parent array for path:", path);
+        console.error("Error on handleRemove: Parent is not an array for path:", path);
     }
     
     onSetFiveWhysData(newData);
@@ -183,12 +185,12 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         {(fiveWhysData || []).map((rootWhy, index) => (
             <FiveWhysRecursiveRenderer
               key={rootWhy.id}
-              entries={[rootWhy]}
+              entry={rootWhy}
               level={1}
-              basePath={[]} // The root entries are directly in the main array
+              path={[index]} 
               onUpdate={handleUpdate}
               onAdd={handleAdd}
-              onRemove={() => handleRemove([index])} // Pass the root index to remove
+              onRemove={handleRemove}
             />
         ))}
         <div className="text-center pt-2">
