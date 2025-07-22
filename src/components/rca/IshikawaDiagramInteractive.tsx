@@ -5,7 +5,7 @@ import type { IshikawaData, IshikawaCategory, IshikawaCause } from '@/types/rca'
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Trash2, CornerDownRight, Users, Sitemap, Wrench, Box, Ruler, Leaf } from 'lucide-react';
+import { PlusCircle, Trash2, CornerDownRight, Users, Network, Wrench, Box, Ruler, Leaf } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface IshikawaDiagramInteractiveProps {
@@ -16,7 +16,7 @@ interface IshikawaDiagramInteractiveProps {
 
 const categoryIcons: { [key: string]: React.ElementType } = {
   manpower: Users,
-  method: Sitemap,
+  method: Network,
   machinery: Wrench,
   material: Box,
   measurement: Ruler,
