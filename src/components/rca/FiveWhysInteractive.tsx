@@ -1,4 +1,3 @@
-
 'use client';
 import { FC, useState, useEffect, useCallback, useMemo } from 'react';
 import type { FiveWhyEntry, FiveWhyBecause } from '@/types/rca';
@@ -75,10 +74,10 @@ const FiveWhysRecursiveRenderer: FC<{
     level: number,
     basePath: (string|number)[],
     onRemove: (path: (string|number)[]) => void,
-    onAddSubWhy: (path: (string | number)[], initialWhy: string) => void,
+    handleAddSubWhy: (path: (string | number)[], initialWhy: string) => void,
     onAddBecause: (path: (string | number)[]) => void,
     handleUpdate: (path: (string | number)[], value: any, field?: string) => void,
-}> = ({ entries, level, basePath, onRemove, onAddSubWhy, onAddBecause, handleUpdate }) => {
+}> = ({ entries, level, basePath, onRemove, handleAddSubWhy, onAddBecause, handleUpdate }) => {
     return (
         <div className="ml-4 pl-4 border-l-2 border-gray-300 space-y-3 mt-2">
           {entries.map((entry, whyIndex) => {
@@ -99,13 +98,13 @@ const FiveWhysRecursiveRenderer: FC<{
                 />
                 
                 <div className="space-y-2">
-                    <div className="flex flex-col items-start gap-4 py-2">
+                    <div className="flex items-start gap-4 overflow-x-auto py-2">
                         {entry.becauses.map((because, becauseIndex) => {
                             const currentBecauseNumber = `${level}.${becauseIndex + 1}`;
                             return (
-                            <Card key={because.id} className={cn("p-3 space-y-2 w-full", because.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' : because.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700' : 'bg-card')}>
+                            <Card key={because.id} className={cn("p-3 space-y-2 flex-shrink-0 w-72", because.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' : because.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700' : 'bg-card')}>
                                 <div className="flex justify-between items-center">
-                                <Label className="font-medium text-sm">¿Por qué? #{currentBecauseNumber}</Label>
+                                <Label className="font-medium text-sm">Porque... #{currentBecauseNumber}</Label>
                                 <div className="flex items-center">
                                     <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleUpdate([...currentPath, 'becauses', becauseIndex], !because.isCollapsed, 'isCollapsed')}>{because.isCollapsed ? <ChevronDown className="h-4 w-4"/> : <ChevronUp className="h-4 w-4"/>}</Button>
                                     <Button size="icon" variant={because.status === 'accepted' ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => handleUpdate([...currentPath, 'becauses', becauseIndex], 'accepted', 'status')}><Check className="h-4 w-4 text-green-600" /></Button>
@@ -126,7 +125,7 @@ const FiveWhysRecursiveRenderer: FC<{
                                     </div>
                                     )}
                                     {because.status === 'accepted' && (
-                                    <Button size="xs" variant="outline" className="text-xs h-6 mt-1" onClick={() => onAddSubWhy([...currentPath, 'becauses', becauseIndex, 'subWhys'], `¿Por qué? #${level + 1}`)}>
+                                    <Button size="xs" variant="outline" className="text-xs h-6 mt-1" onClick={() => handleAddSubWhy([...currentPath, 'becauses', becauseIndex, 'subWhys'], `¿Por qué? #${level + 1}`)}>
                                         <PlusCircle className="mr-1 h-3 w-3"/> Siguiente ¿Por qué?
                                     </Button>
                                     )}
@@ -136,7 +135,7 @@ const FiveWhysRecursiveRenderer: FC<{
                                         level={level + 1}
                                         basePath={[...currentPath, 'becauses', becauseIndex, 'subWhys']}
                                         onRemove={onRemove}
-                                        onAddSubWhy={onAddSubWhy}
+                                        handleAddSubWhy={handleAddSubWhy}
                                         onAddBecause={onAddBecause}
                                         handleUpdate={handleUpdate}
                                     />
@@ -145,11 +144,9 @@ const FiveWhysRecursiveRenderer: FC<{
                             </Card>
                             );
                         })}
-                    </div>
-                     <div className="flex items-center self-stretch mt-2">
-                         <Card className="flex items-center justify-center p-3 w-full bg-secondary/30 hover:bg-secondary/50 transition-colors">
+                        <Card className="flex items-center justify-center p-3 flex-shrink-0 w-48 bg-secondary/30 hover:bg-secondary/50 transition-colors">
                             <Button size="sm" variant="ghost" className="w-full h-full text-muted-foreground" onClick={() => onAddBecause([...currentPath, 'becauses'])}>
-                                <PlusCircle className="mr-2 h-4 w-4" /> Añadir "¿Por qué?..."
+                                <PlusCircle className="mr-2 h-4 w-4" /> Añadir "Porque..."
                             </Button>
                         </Card>
                     </div>
@@ -273,45 +270,29 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     onSetFiveWhysData(newData);
   }, [fiveWhysData, onSetFiveWhysData]);
   
- const handleRemove = useCallback((path: (string | number)[]) => {
+  const handleRemove = useCallback((path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    let parent: any = newData;
-  
-    // Handle root level removal
-    if (path.length === 1) {
-      newData.splice(path[0] as number, 1);
-      onSetFiveWhysData(newData);
-      return;
-    }
-  
-    // Traverse to the parent object
-    for (let i = 0; i < path.length - 1; i++) {
-      parent = parent[path[i]];
-    }
-  
-    // The last part of the path is the index to remove
-    const indexToRemove = path[path.length - 1] as number;
-    
-    // Determine the array to splice from ('becauses' or 'subWhys')
-    const secondToLastKey = path[path.length - 2];
-    
-    if(secondToLastKey === 'becauses' && Array.isArray(parent)) {
-      parent.splice(indexToRemove, 1);
-    } else if (secondToLastKey === 'subWhys' && Array.isArray(parent)) {
-      parent.splice(indexToRemove, 1);
+    if (path.length === 1) { // Removing a root "Why"
+        newData.splice(path[0] as number, 1);
     } else {
-        // This handles cases where parent is the object containing the array.
-        if (parent && Array.isArray(parent.becauses)) {
-            parent.becauses.splice(indexToRemove, 1);
-        } else if (parent && Array.isArray(parent.subWhys)) {
-            parent.subWhys.splice(indexToRemove, 1);
+        let parent: any = newData;
+        // Traverse to the parent array
+        for (let i = 0; i < path.length - 2; i++) {
+            parent = parent[path[i]];
+        }
+        
+        const arrayKey = path[path.length - 2];
+        const indexToRemove = path[path.length - 1] as number;
+        
+        if (parent[arrayKey] && Array.isArray(parent[arrayKey])) {
+            parent[arrayKey].splice(indexToRemove, 1);
         } else {
             console.error("Error on handleRemove: Could not find array to remove from.", { path, parent });
             return;
         }
     }
     onSetFiveWhysData(newData);
-  }, [fiveWhysData, onSetFiveWhysData]);
+}, [fiveWhysData, onSetFiveWhysData]);
 
 
   return (
@@ -335,13 +316,13 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
             />
             <div className="mt-4">
                 <div className="space-y-2">
-                    <div className="flex flex-col items-start gap-4 py-2">
+                    <div className="flex items-start gap-4 overflow-x-auto py-2">
                         {entry.becauses.map((because, becauseIndex) => {
                             const currentBecauseNumber = `1.${becauseIndex + 1}`;
                             return (
-                                <Card key={because.id} className={cn("p-3 space-y-2 w-full", because.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' : because.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700' : 'bg-card')}>
+                                <Card key={because.id} className={cn("p-3 space-y-2 w-72 flex-shrink-0", because.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' : because.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700' : 'bg-card')}>
                                     <div className="flex justify-between items-center">
-                                        <Label className="font-medium text-sm">¿Por qué? #{currentBecauseNumber}</Label>
+                                        <Label className="font-medium text-sm">Porque... #{currentBecauseNumber}</Label>
                                         <div className="flex items-center">
                                             <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleUpdate([index, 'becauses', becauseIndex], !because.isCollapsed, 'isCollapsed')}>{because.isCollapsed ? <ChevronDown className="h-4 w-4"/> : <ChevronUp className="h-4 w-4"/>}</Button>
                                             <Button size="icon" variant={because.status === 'accepted' ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => handleUpdate([index, 'becauses', becauseIndex], 'accepted', 'status')}><Check className="h-4 w-4 text-green-600"/></Button>
@@ -372,7 +353,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                                             level={2}
                                             basePath={[index, 'becauses', becauseIndex, 'subWhys']}
                                             onRemove={handleRemove}
-                                            onAddSubWhy={handleAddSubWhy}
+                                            handleAddSubWhy={handleAddSubWhy}
                                             onAddBecause={handleAddBecause}
                                             handleUpdate={handleUpdate}
                                         />
@@ -381,11 +362,9 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                                 </Card>
                             );
                         })}
-                    </div>
-                     <div className="flex items-center self-stretch mt-2">
-                         <Card className="flex items-center justify-center p-3 w-full bg-secondary/30 hover:bg-secondary/50 transition-colors">
+                         <Card className="flex items-center justify-center p-3 flex-shrink-0 w-48 bg-secondary/30 hover:bg-secondary/50 transition-colors">
                             <Button size="sm" variant="ghost" className="w-full h-full text-muted-foreground" onClick={() => handleAddBecause([index, 'becauses'])}>
-                                <PlusCircle className="mr-2 h-4 w-4" /> Añadir "¿Por qué?..."
+                                <PlusCircle className="mr-2 h-4 w-4" /> Añadir "Porque..."
                             </Button>
                         </Card>
                     </div>
