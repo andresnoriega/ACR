@@ -1,3 +1,4 @@
+
 'use client';
 import { FC, useState } from 'react';
 import { FiveWhysData, FiveWhyBecause, FiveWhyEntry } from '@/types/rca';
@@ -96,11 +97,9 @@ const FiveWhysRecursiveRenderer: FC<{
           <CardTitle className="text-base font-semibold text-primary flex items-center">
             <HelpCircle className="mr-1.5 h-4 w-4" /> ¿Por qué? #{level}
           </CardTitle>
-          {level > 1 && ( // Allow removing only sub-whys, not the root ones tied to the main event focus
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRemove(path)}>
-                <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
-           )}
+          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRemove(path)}>
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
         </div>
         <Textarea
           value={entry.why}
@@ -111,7 +110,7 @@ const FiveWhysRecursiveRenderer: FC<{
         />
       </CardHeader>
       <CardContent className="p-3 pt-0 space-y-3">
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-row flex-wrap gap-3">
           {(entry.becauses || []).map((because, becauseIndex) => {
             const becausePath = [...path, 'becauses', becauseIndex];
             const isRejected = because.status === 'rejected';
@@ -232,22 +231,21 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
   const handleRemove = (path: (string | number)[]) => {
     if (path.length === 0) return;
-    const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    
-    let parent = newData;
-    for (let i = 0; i < path.length - 1; i++) {
-      parent = parent[path[i] as any];
-    }
-    
-    const indexToRemove = path[path.length - 1] as number;
-    const key = path[path.length - 2];
 
-    if(key === undefined && Array.isArray(parent)) { // Root level
-        parent.splice(indexToRemove, 1);
-    } else if (Array.isArray(parent[key as any])) {
-        parent[key as any].splice(indexToRemove, 1);
+    const newData = JSON.parse(JSON.stringify(fiveWhysData));
+    let current = newData;
+
+    // Traverse to the parent array
+    for (let i = 0; i < path.length - 1; i++) {
+        current = current[path[i] as any];
+    }
+
+    const finalKey = path[path.length - 1];
+
+    if (Array.isArray(current) && typeof finalKey === 'number') {
+        current.splice(finalKey, 1);
     } else {
-        console.error("Error on handleRemove: Parent is not an array or key is not a number for splice.", { path, parent });
+        console.error("Error on handleRemove: Parent is not an array or key is not a number for splice.", { path, current });
     }
     
     onSetFiveWhysData(newData);
@@ -328,3 +326,4 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     </>
   );
 };
+
