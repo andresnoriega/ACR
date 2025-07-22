@@ -1,7 +1,7 @@
 
 'use client';
 import { FC, useState, useEffect, useCallback } from 'react';
-import type { FiveWhyEntry, FiveWhysData, FiveWhyBecause } from '@/types/rca';
+import type { FiveWhyEntry, FiveWhyBecause } from '@/types/rca';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -72,7 +72,7 @@ const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onC
 // --- Main Component ---
 interface FiveWhysInteractiveProps {
   focusEventDescription: string;
-  fiveWhysData: FiveWhysData;
+  fiveWhysData: FiveWhyEntry[];
   onSetFiveWhysData: (data: FiveWhysData) => void;
 }
 
@@ -164,28 +164,33 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     onSetFiveWhysData(newData);
   };
   
-  const handleRemove = useCallback((path: (string | number)[]) => {
+ const handleRemove = useCallback((path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     
-    if (path.length === 1) { // Removing a root "Why"
-        newData.splice(path[0] as number, 1);
+    let parent: any = newData;
+    // Traverse to the parent of the array to be modified.
+    for (let i = 0; i < path.length - 1; i++) {
+        parent = parent[path[i]];
+    }
+
+    const indexToRemove = path[path.length - 1] as number;
+    
+    // If path.length is 1, parent is newData, and we splice from it.
+    if (path.length === 1) {
+        newData.splice(indexToRemove, 1);
     } else {
-        let parent: any = newData;
-        // Traverse to the parent of the array to be modified
-        for (let i = 0; i < path.length - 2; i++) {
-            parent = parent[path[i]];
-        }
-        
-        const arrayKey = path[path.length - 2] as string; // 'becauses' or 'subWhys'
-        const indexToRemove = path[path.length - 1] as number;
-        
-        // Check if the parent and the array to modify exist before splicing
-        if (parent && Array.isArray(parent[arrayKey])) {
-            parent[arrayKey].splice(indexToRemove, 1);
+        // If nested, parent is an object, and we need to find which array to splice.
+        if (Array.isArray(parent)) { // This case handles the root array if path length > 1
+             parent.splice(indexToRemove, 1);
+        } else if (parent && Array.isArray(parent.becauses) && path[path.length - 2] === 'becauses') {
+             parent.becauses.splice(indexToRemove, 1);
+        } else if (parent && Array.isArray(parent.subWhys) && path[path.length - 2] === 'subWhys') {
+             parent.subWhys.splice(indexToRemove, 1);
         } else {
-            console.error("Error on handleRemove: Could not find array to remove from.", { path, parent });
+             console.error("Error on handleRemove: Could not find array to remove from.", { path, parent });
         }
     }
+
     onSetFiveWhysData(newData);
 }, [fiveWhysData, onSetFiveWhysData]);
 
@@ -195,8 +200,9 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     parentNumber: string, 
     basePath: (string|number)[], 
     onRemove: (path: (string|number)[]) => void,
-    onAddSubWhy: (path: (string | number)[]) => void // Pass add function
-  }> = ({ entries, parentNumber, basePath, onRemove, onAddSubWhy }) => {
+    onAddSubWhy: (path: (string | number)[]) => void,
+    onAddBecause: (path: (string | number)[]) => void
+  }> = ({ entries, parentNumber, basePath, onRemove, onAddSubWhy, onAddBecause }) => {
     return (
       <div className="ml-6 border-l-2 pl-4 space-y-4">
         {entries.map((entry, whyIndex) => {
@@ -249,12 +255,13 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                         basePath={[...currentPath, 'becauses', becauseIndex, 'subWhys']}
                         onRemove={onRemove}
                         onAddSubWhy={onAddSubWhy}
+                        onAddBecause={onAddBecause}
                       />
                     )}
                   </Card>
                 ))}
                 <div className="flex items-center self-stretch">
-                  <Button size="sm" variant="outline" className="h-full" onClick={() => handleAddBecause([...currentPath, 'becauses'])}>
+                  <Button size="sm" variant="outline" className="h-full" onClick={() => onAddBecause([...currentPath, 'becauses'])}>
                     <PlusCircle className="mr-2 h-4 w-4" /> Añadir "¿Por qué?..."
                   </Button>
                 </div>
@@ -319,6 +326,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                       basePath={[index, 'becauses', becauseIndex, 'subWhys']}
                       onRemove={handleRemove}
                       onAddSubWhy={handleAddSubWhy}
+                      onAddBecause={handleAddBecause}
                     />
                   )}
                 </Card>
