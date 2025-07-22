@@ -33,7 +33,7 @@ const FiveWhysRecursiveRenderer: FC<{
             <Label htmlFor={`why-${entry.id}`} className="font-semibold flex items-center text-primary">
               <HelpCircle className="mr-2 h-4 w-4" /> ¿Por qué?
             </Label>
-             {!isRoot && (
+             {(!isRoot || entryIndex > 0) && ( // Allow deleting any "why" except the very first one
               <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRemove(['entries', entryIndex])}><Trash2 className="h-4 w-4 text-destructive" /></Button>
             )}
           </div>
