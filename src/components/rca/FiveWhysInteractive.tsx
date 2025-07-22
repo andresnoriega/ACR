@@ -9,6 +9,7 @@ import { PlusCircle, Trash2, HelpCircle, Check, X, Loader2, ChevronDown, GitBran
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { useToast } from "@/hooks/use-toast";
 
 const generateId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
@@ -143,7 +144,7 @@ const FiveWhysRecursiveRenderer: FC<{
                     'bg-card',
                     node.isRootCause && 'ring-2 ring-amber-400 border-amber-400'
                 )}
-                style={{ width: node.width || 'auto', flexBasis: node.width ? 'auto' : undefined }}
+                style={{ width: node.width || 'auto', flexGrow: 1, flexBasis: '48%' }}
             >
               <div className="flex justify-between items-center">
                 <Label className="font-medium text-sm">Porque... #{level}.{nodeIndex + 1}</Label>
@@ -198,7 +199,7 @@ const FiveWhysRecursiveRenderer: FC<{
             </Card>
           );
         })}
-        <Button size="sm" variant="outline" className="text-muted-foreground self-center min-h-[120px] basis-full md:basis-auto" onClick={() => onAddNode([...basePath, 'responses'])}>
+        <Button size="sm" variant="outline" className="text-muted-foreground self-center min-h-[120px] md:basis-[48%] flex-grow" onClick={() => onAddNode([...basePath, 'responses'])}>
             <PlusCircle className="mr-2 h-4 w-4" /> Añadir Causa Paralela
         </Button>
       </div>
@@ -218,6 +219,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   fiveWhysData,
   onSetFiveWhysData,
 }) => {
+  const { toast } = useToast();
   const [validationState, setValidationState] = useState<{ path: (string | number)[]; status: FiveWhyNode['status'] } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
 
@@ -308,7 +310,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         isRootCause: false,
         isCollapsed: false,
         status: 'pending',
-        width: '350px' // Default width
+        width: 'auto'
     });
     
     onSetFiveWhysData(newData);
@@ -352,9 +354,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   
   const handleSetRootCause = useCallback((path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    let nodeToUpdate: FiveWhyNode | null = null;
     
-    // Helper to find the node deep in the structure
     const findNode = (p: (string | number)[], current: any): FiveWhyNode | null => {
       let target = current;
       for (const key of p) {
@@ -364,6 +364,18 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       return target;
     };
     
+    let nodeToCheck = findNode([...path], newData);
+    if (nodeToCheck && nodeToCheck.status === 'rejected') {
+        toast({
+            title: "Acción no permitida",
+            description: "No se puede establecer una causa rechazada como causa raíz.",
+            variant: "destructive"
+        });
+        return; 
+    }
+
+    // Continue with the original logic if not rejected
+    let nodeToUpdate: FiveWhyNode | null = null;
     let pathForTraversal = [...path];
     nodeToUpdate = findNode(pathForTraversal, newData);
 
@@ -375,7 +387,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     const newIsRootCauseState = !nodeToUpdate.isRootCause;
 
     if (newIsRootCauseState) {
-        // Clear all other root causes
         const clearOtherRootCauses = (entry: FiveWhyEntry) => {
             if (!entry.responses) return;
             entry.responses.forEach(node => {
@@ -388,7 +399,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         newData.forEach(clearOtherRootCauses);
     }
 
-    // Set the state for the target node
     nodeToUpdate = findNode(pathForTraversal, newData);
     if(nodeToUpdate){
       nodeToUpdate.isRootCause = newIsRootCauseState;
@@ -397,9 +407,8 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       }
     }
 
-
     onSetFiveWhysData(newData);
-  }, [fiveWhysData, onSetFiveWhysData]);
+  }, [fiveWhysData, onSetFiveWhysData, toast]);
 
   
   const handleAddWhyInvestigation = () => {
