@@ -1,3 +1,4 @@
+
 export type EventType = 'Incidente' | 'Accidente' | 'Falla de Equipo' | 'No Conformidad' | 'Evento Operacional' | '';
 export type PriorityType = 'Alta' | 'Media' | 'Baja' | '';
 
@@ -79,13 +80,20 @@ export interface IshikawaCategory {
 
 export type IshikawaData = IshikawaCategory[];
 
+
+// --- New 5 Whys Tree Structure ---
 export interface FiveWhyEntry {
   id: string;
   why: string;
-  because: string;
+  becauses: FiveWhyBecause[];
 }
-
+export interface FiveWhyBecause {
+  id: string;
+  description: string;
+  subWhys: FiveWhyEntry[];
+}
 export type FiveWhysData = FiveWhyEntry[];
+
 
 export interface LatentCause {
   id:string;

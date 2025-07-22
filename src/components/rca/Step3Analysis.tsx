@@ -167,9 +167,7 @@ interface Step3AnalysisProps {
   ishikawaData: IshikawaData;
   onSetIshikawaData: (data: IshikawaData) => void;
   fiveWhysData: FiveWhysData;
-  onAddFiveWhyEntry: () => void;
-  onUpdateFiveWhyEntry: (id: string, field: 'why' | 'because', value: string) => void;
-  onRemoveFiveWhyEntry: (id: string) => void;
+  onSetFiveWhysData: (data: FiveWhysData) => void;
   ctmData: CTMData;
   onSetCtmData: (data: CTMData) => void;
   identifiedRootCauses: IdentifiedRootCause[];
@@ -203,9 +201,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   ishikawaData,
   onSetIshikawaData,
   fiveWhysData,
-  onAddFiveWhyEntry,
-  onUpdateFiveWhyEntry,
-  onRemoveFiveWhyEntry,
+  onSetFiveWhysData,
   ctmData,
   onSetCtmData,
   identifiedRootCauses,
@@ -412,8 +408,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     const hasPlannedActions = uniquePlannedActions.length > 0;
 
     const isIshikawaEdited = ishikawaData.some(cat => cat.causes.some(c => c.description.trim() !== ''));
-    const isFiveWhysEdited = fiveWhysData.length > 1 || 
-                             (fiveWhysData.length === 1 && (fiveWhysData[0].because.trim() !== '' || (eventData.focusEventDescription && fiveWhysData[0].why.trim() !== initialFiveWhysWhyText(eventData.focusEventDescription).trim() )));
+    const isFiveWhysEdited = fiveWhysData.some(entry => entry.why.trim() !== '' || entry.becauses.length > 0);
     const isCtmEdited = ctmData.length > 0 && ctmData.some(fm => 
         fm.description.trim() !== '' || 
         fm.hypotheses.some(h => h.description.trim() !== '' || 
@@ -731,9 +726,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
               <FiveWhysInteractive
                 focusEventDescription={eventData.focusEventDescription || "Evento Foco (no definido en Paso 1)"}
                 fiveWhysData={fiveWhysData}
-                onAddFiveWhyEntry={onAddFiveWhyEntry}
-                onUpdateFiveWhyEntry={onUpdateFiveWhyEntry}
-                onRemoveFiveWhyEntry={onRemoveFiveWhyEntry}
+                onSetFiveWhysData={onSetFiveWhysData}
               />
             )}
 

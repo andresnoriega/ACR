@@ -11,8 +11,9 @@ import { Step5Results } from '@/components/rca/Step5Results';
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, updateDoc, where, type QueryConstraint, arrayUnion, arrayRemove } from "firebase/firestore";
+import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { Loader2 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { sanitizeForFirestore } from '@/lib/utils';
@@ -36,8 +37,9 @@ const initialIshikawaData: IshikawaData = [
 ];
 
 const initialFiveWhysData: FiveWhysData = [
-  { id: `5why-${Date.now()}`, why: '', because: '' }
+  { id: `5why-${Date.now()}`, why: '', becauses: [] }
 ];
+
 
 const initialCTMData: CTMData = [];
 
@@ -1106,24 +1108,13 @@ function RCAAnalysisPageComponent() {
   };
 
   const handleAddPreservedFact = async (
-    factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'dataUrl'>,
+    factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>,
     file: File | null
   ) => {
     setIsSaving(true);
     try {
       if (!file) {
         throw new Error("No se seleccionó ningún archivo.");
-      }
-      
-      if (file.size > 700 * 1024) { // 700KB limit
-        toast({
-          title: "Archivo Demasiado Grande",
-          description: "El archivo no puede superar los 700 KB para ser guardado en la base de datos.",
-          variant: "destructive",
-          duration: 7000,
-        });
-        setIsSaving(false);
-        return;
       }
       
       let currentEventId = analysisDocumentId;
@@ -1135,19 +1126,20 @@ function RCAAnalysisPageComponent() {
         currentEventId = saveResult.newEventId;
       }
 
-      const reader = new FileReader();
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = (error) => reject(error);
-          reader.readAsDataURL(file);
-      });
+      toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
+      const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
+      const fileStorageRef = storageRef(storage, filePath);
+      
+      const uploadResult = await uploadBytes(fileStorageRef, file);
+      const downloadURL = await getDownloadURL(uploadResult.ref);
 
       const newFact: PreservedFact = {
         ...factMetadata,
-        id: `${currentEventId}-pf-${Date.now()}`,
+        id: `${currentEventId}-pf-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         uploadDate: new Date().toISOString(),
         eventId: currentEventId,
-        dataUrl: dataUrl,
+        downloadURL: downloadURL,
+        storagePath: uploadResult.ref.fullPath,
       };
 
       const rcaDocRef = doc(db, "rcaAnalyses", currentEventId!);
@@ -1166,11 +1158,11 @@ function RCAAnalysisPageComponent() {
       });
 
       setPreservedFacts(updatedPreservedFacts);
-      toast({ title: "Hecho Preservado Añadido", description: `Se añadió "${newFact.userGivenName}".` });
+      toast({ title: "Hecho Preservado Añadido", description: `Se añadió y subió "${newFact.userGivenName}".` });
 
     } catch (error: any) {
-      console.error("Error detallado al añadir hecho preservado:", error);
-      toast({ title: "Error al Guardar", description: `No se pudo añadir el hecho preservado: ${error.message}`, variant: "destructive" });
+      console.error("Error detallado al subir hecho preservado:", error);
+      toast({ title: "Error al Subir", description: `No se pudo subir el archivo. Verifique la consola. Código: ${error.code || 'Desconocido'}`, variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -1181,29 +1173,40 @@ function RCAAnalysisPageComponent() {
       toast({ title: "Error", description: "ID del análisis no encontrado.", variant: "destructive" });
       return;
     }
+    const factToRemove = preservedFacts.find(fact => fact.id === id);
+    if (!factToRemove) return;
 
     setIsSaving(true);
-    try {
-      const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
-      const docSnap = await getDoc(rcaDocRef);
-
-      if (!docSnap.exists()) {
-        throw new Error("El documento de análisis no se encontró en la base de datos.");
+    
+    // First, try to delete from storage if a path exists
+    if (factToRemove.storagePath) {
+      try {
+        const fileRef = storageRef(storage, factToRemove.storagePath);
+        await deleteObject(fileRef);
+        toast({ title: "Archivo Eliminado de Storage", variant: "default" });
+      } catch (error: any) {
+        if (error.code !== 'storage/object-not-found') {
+          console.error("Error deleting file from Storage:", error);
+          toast({ title: "Error al Eliminar Archivo", description: "No se pudo eliminar el archivo de Storage, pero se eliminará la referencia.", variant: "destructive" });
+        }
       }
-
-      const currentData = docSnap.data() as RCAAnalysisDocument;
-      const updatedPreservedFacts = (currentData.preservedFacts || []).filter(fact => fact.id !== id);
-
+    }
+    
+    // Then, remove from local state and trigger a save
+    const updatedFacts = preservedFacts.filter(fact => fact.id !== id);
+    setPreservedFacts(updatedFacts);
+    
+    const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
+    try {
       await updateDoc(rcaDocRef, {
-        preservedFacts: updatedPreservedFacts,
-        updatedAt: new Date().toISOString()
+          preservedFacts: sanitizeForFirestore(updatedFacts),
+          updatedAt: new Date().toISOString()
       });
-
-      setPreservedFacts(updatedPreservedFacts);
-      toast({ title: "Hecho Preservado Eliminado", variant: 'destructive' });
+      toast({ title: "Hecho Preservado Eliminado", description: "La referencia se eliminó exitosamente.", variant: 'destructive' });
     } catch (error: any) {
-      console.error("Error al eliminar hecho preservado:", error);
-      toast({ title: "Error de Sincronización", description: `No se pudo eliminar el hecho: ${error.message}. Recargue la página.`, variant: 'destructive' });
+      console.error("Error al actualizar Firestore después de eliminar hecho:", error);
+      toast({ title: "Error de Sincronización", description: `No se pudo confirmar la eliminación en la base de datos: ${error.message}. Recargue la página.`, variant: 'destructive' });
+      setPreservedFacts(preservedFacts); // Revert local state on error
     } finally {
       setIsSaving(false);
     }
@@ -1230,20 +1233,8 @@ function RCAAnalysisPageComponent() {
     setIshikawaData(newData);
   };
 
-  const handleAddFiveWhyEntry = () => {
-    setFiveWhysData(prev => {
-      const lastEntry = prev.length > 0 ? prev[prev.length - 1] : null;
-      const initialWhy = lastEntry && lastEntry.because ? `¿Por qué: "${lastEntry.because.substring(0,70)}${lastEntry.because.length > 70 ? "..." : ""}"?` : '';
-      return [...prev, { id: `5why-${Date.now()}-${Math.random().toString(36).substring(2,7)}`, why: initialWhy, because: '' }];
-    });
-  };
-
-  const handleUpdateFiveWhyEntry = (id: string, field: 'why' | 'because', value: string) => {
-    setFiveWhysData(prev => prev.map(entry => entry.id === id ? { ...entry, [field]: value } : entry));
-  };
-
-  const handleRemoveFiveWhyEntry = (id: string) => {
-    setFiveWhysData(prev => prev.filter(entry => entry.id !== id));
+  const handleSetFiveWhysData = (newData: FiveWhysData) => {
+    setFiveWhysData(newData);
   };
 
   const handleSetCtmData = (newData: CTMData) => {
@@ -1546,9 +1537,7 @@ function RCAAnalysisPageComponent() {
           ishikawaData={ishikawaData}
           onSetIshikawaData={handleSetIshikawaData}
           fiveWhysData={fiveWhysData}
-          onAddFiveWhyEntry={handleAddFiveWhyEntry}
-          onUpdateFiveWhyEntry={handleUpdateFiveWhyEntry}
-          onRemoveFiveWhyEntry={handleRemoveFiveWhyEntry}
+          onSetFiveWhysData={setFiveWhysData}
           ctmData={ctmData}
           onSetCtmData={handleSetCtmData}
           identifiedRootCauses={identifiedRootCauses}
