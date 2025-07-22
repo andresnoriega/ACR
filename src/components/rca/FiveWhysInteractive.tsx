@@ -100,7 +100,7 @@ const FiveWhysRecursiveRenderer: FC<{
           const nodePath = [...basePath, 'responses', nodeIndex];
           return (
             <Card key={node.id} className={cn(
-                "p-3 space-y-2 flex-grow basis-full md:basis-[48%]", // Adjusted width classes
+                "p-3 space-y-2 flex-grow min-w-[280px] w-full md:w-auto", // Let it grow but have a min-width
                 node.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' :
                 node.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 opacity-70' :
                 'bg-card',
@@ -302,14 +302,15 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     onSetFiveWhysData(newData);
   }, [fiveWhysData, onSetFiveWhysData]);
   
- const handleSetRootCause = useCallback((path: (string | number)[]) => {
+  const handleSetRootCause = useCallback((path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     let nodeToUpdate: FiveWhyNode | null = null;
-
+    
+    // Helper to find the node deep in the structure
     const findNode = (p: (string | number)[], current: any): FiveWhyNode | null => {
       let target = current;
       for (const key of p) {
-        if (target === undefined) return null;
+        if (target === undefined || target === null) return null;
         target = target[key];
       }
       return target;
@@ -324,22 +325,21 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
     const newIsRootCauseState = !nodeToUpdate.isRootCause;
     
-    const clearOtherRootCauses = (entry: FiveWhyEntry) => {
-      if (!entry.responses) return;
-      (entry.responses || []).forEach(node => {
-        if (node.id !== (nodeToUpdate as FiveWhyNode).id) {
-          node.isRootCause = false;
-        }
-        if (node.subAnalysis) {
-          clearOtherRootCauses(node.subAnalysis);
-        }
-      });
-    };
-
+    // If we are setting a new root cause, clear all others.
     if (newIsRootCauseState) {
-      newData.forEach(clearOtherRootCauses);
+        const clearOtherRootCauses = (entry: FiveWhyEntry) => {
+            if (!entry.responses) return;
+            (entry.responses || []).forEach(node => {
+                node.isRootCause = false; // Clear all
+                if (node.subAnalysis) {
+                    clearOtherRootCauses(node.subAnalysis);
+                }
+            });
+        };
+        newData.forEach(clearOtherRootCauses);
     }
     
+    // Now, set the state for the target node
     nodeToUpdate.isRootCause = newIsRootCauseState;
     if (newIsRootCauseState && nodeToUpdate.status !== 'accepted') {
         nodeToUpdate.status = 'accepted';
