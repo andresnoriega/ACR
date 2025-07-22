@@ -95,7 +95,7 @@ const FiveWhysRecursiveRenderer: FC<{
         rows={2}
       />
       
-      <div className="mt-2 flex flex-wrap gap-4">
+      <div className="mt-2 flex flex-wrap gap-4 items-start">
         {(entry.responses || []).map((node, nodeIndex) => {
           const nodePath = [...basePath, 'responses', nodeIndex];
           return (
@@ -151,11 +151,11 @@ const FiveWhysRecursiveRenderer: FC<{
             </Card>
           );
         })}
-        <div className="flex items-center justify-center flex-grow min-w-[300px] w-full sm:w-auto">
-            <Button size="sm" variant="outline" className="w-full text-muted-foreground h-full" onClick={() => onAddNode([...basePath, 'responses'])}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Añadir Causa Paralela
-            </Button>
-        </div>
+      </div>
+      <div className="mt-4">
+        <Button size="sm" variant="outline" className="w-full text-muted-foreground" onClick={() => onAddNode([...basePath, 'responses'])}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Añadir Causa Paralela
+        </Button>
       </div>
     </div>
   );
@@ -364,9 +364,9 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
           <HelpCircle className="mr-2 h-5 w-5" /> Análisis de los 5 Porqués (Árbol Ramificado)
         </h3>
         
-        <div className="space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:space-x-4 space-y-4 lg:space-y-0">
             {fiveWhysData.map((entry, index) => (
-                <div key={entry.id} className="p-3 border rounded-md bg-secondary/30">
+                <div key={entry.id} className="p-3 border rounded-md bg-secondary/30 flex-1 min-w-0">
                     <div className="flex justify-end mb-1">
                       {fiveWhysData.length > 1 && (
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveWhyInvestigation(index)}>
@@ -405,4 +405,3 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     </Card>
   );
 };
-
