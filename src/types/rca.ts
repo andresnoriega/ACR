@@ -81,7 +81,7 @@ export interface IshikawaCategory {
 export type IshikawaData = IshikawaCategory[];
 
 
-// --- NEW Tree Structure for 5 Whys ---
+// --- Tree Structure for 5 Whys ---
 export interface FiveWhyNode {
   id: string;
   description: string;
@@ -98,9 +98,10 @@ export interface FiveWhyEntry {
   responses: FiveWhyNode[];
 }
 
-export type FiveWhysData = FiveWhyEntry[]; // It will always be an array with one root entry.
+export type FiveWhysData = FiveWhyEntry[];
 
 
+// --- Tree Structure for CTM ---
 export interface LatentCause {
   id:string;
   description: string;
@@ -123,6 +124,7 @@ export interface Hypothesis {
   description: string;
   physicalCauses: PhysicalCause[];
   status?: 'pending' | 'accepted' | 'rejected';
+  validationMethod?: string;
 }
 
 export interface FailureMode {
