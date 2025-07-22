@@ -1214,14 +1214,6 @@ function RCAAnalysisPageComponent() {
     }
   };
 
-  const handleSetIshikawaData = (newData: IshikawaData) => {
-    setIshikawaData(newData);
-  };
-  
-  const handleSetFiveWhysData = (newData: FiveWhyEntry[]) => {
-    setFiveWhysData(newData);
-  };
-
   const handleSetCtmData = (newData: CTMData) => {
     setCtmData(newData);
   };
@@ -1520,7 +1512,7 @@ function RCAAnalysisPageComponent() {
           analysisTechniqueNotes={analysisTechniqueNotes}
           onAnalysisTechniqueNotesChange={setAnalysisTechniqueNotes}
           ishikawaData={ishikawaData}
-          onSetIshikawaData={onSetIshikawaData}
+          onSetIshikawaData={setIshikawaData}
           fiveWhysData={fiveWhysData}
           onSetFiveWhysData={setFiveWhysData}
           ctmData={ctmData}
