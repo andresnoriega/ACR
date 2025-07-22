@@ -1291,7 +1291,7 @@ function RCAAnalysisPageComponent() {
     });
   }, [plannedActions]);
 
-  const handleToggleValidation = async (actionId: string, newStatus: Validation['status'], rejectionReasonInput?: string) => {
+  const handleToggleValidation = useCallback(async (actionId: string, newStatus: Validation['status'], rejectionReasonInput?: string) => {
     const newValidationsArray = validations.map(v => {
       if (v.actionId === actionId) {
         const nowISO = new Date().toISOString();
@@ -1369,7 +1369,8 @@ function RCAAnalysisPageComponent() {
       setValidations(validations);
       setPlannedActions(plannedActions);
     }
-  };
+  }, [validations, plannedActions, handleSaveAnalysisData, toast, availableUsersFromDB, eventData.focusEventDescription]);
+
 
   const handlePrintReport = () => {
     const nonPrintableElements = document.querySelectorAll('.no-print');

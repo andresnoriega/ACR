@@ -300,6 +300,11 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     modifyData(newData => {
       const parent = getParentNodeByPath(newData, path);
       const finalKey = path[path.length - 1];
+      
+      if (!parent || parent[finalKey] === undefined) {
+          console.error("Invalid path for update:", path);
+          return;
+      }
 
       if (field === 'status') {
           const itemToUpdate = parent[finalKey];
