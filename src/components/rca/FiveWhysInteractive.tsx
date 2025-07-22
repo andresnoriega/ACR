@@ -146,19 +146,27 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
   const handleRemove = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    let parent: any = newData;
+    let current: any = newData;
     
     // Traverse to the parent array/object
     for (let i = 0; i < path.length - 1; i++) {
-        if (parent === undefined) return; // Path is invalid
-        parent = parent[path[i]];
+        if (current === undefined) return; // Path is invalid
+        current = current[path[i]];
     }
     
     const finalKey = path[path.length - 1];
-    if (Array.isArray(parent) && typeof finalKey === 'number') {
-        parent.splice(finalKey, 1);
+
+    if (typeof finalKey === 'string') { // e.g., 'becauses' or 'subWhys'
+      // This case should ideally not be hit if we are removing an item from an array
+      // But if it is, we would need to check if current[finalKey] is the array we want to splice from
+      console.error("Attempted to remove from an object property directly, expected array index.");
+      return;
+    }
+
+    if (Array.isArray(current) && typeof finalKey === 'number') {
+        current.splice(finalKey, 1);
     } else {
-       console.error("Error on handleRemove: Parent is not an array or key is not a number for splice", { path, parent });
+       console.error("Error on handleRemove: Parent is not an array or key is not a number for splice.", { path, current });
     }
     onSetFiveWhysData(newData);
   };
