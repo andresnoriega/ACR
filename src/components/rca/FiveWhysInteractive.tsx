@@ -94,7 +94,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
   const handleUpdate = useCallback((path: (string | number)[], value: any, field?: string) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    let current = newData;
+    let current: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
         current = current[path[i]];
     }
@@ -126,7 +126,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     const { path, status } = validationState;
     
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    let parent = newData;
+    let parent: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
         parent = parent[path[i]];
     }
@@ -143,7 +143,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
   const handleAddBecause = useCallback((path: (string | number)[]) => {
       const newData = JSON.parse(JSON.stringify(fiveWhysData));
-      let parentWhy = newData;
+      let parentWhy: any = newData;
        for (let i = 0; i < path.length; i++) {
           parentWhy = parentWhy[path[i]];
       }
@@ -154,7 +154,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   
   const handleAddSubWhy = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    let parentBecause = newData;
+    let parentBecause: any = newData;
     for(let i=0; i< path.length; i++) {
         parentBecause = parentBecause[path[i]];
     }
@@ -165,30 +165,38 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   };
   
   const handleRemove = useCallback((path: (string | number)[]) => {
-      const newData = JSON.parse(JSON.stringify(fiveWhysData));
-      
-      if (path.length === 1) { // Removing a root "Why"
-          newData.splice(path[0] as number, 1);
-      } else {
-          let parent = newData;
-          for (let i = 0; i < path.length - 2; i++) {
-              parent = parent[path[i]];
-          }
-          
-          const arrayKey = path[path.length - 2] as string; // 'becauses' or 'subWhys'
-          const indexToRemove = path[path.length - 1] as number;
-          
-          if (parent && Array.isArray(parent[arrayKey])) {
-              parent[arrayKey].splice(indexToRemove, 1);
-          } else {
-              console.error("Error on handleRemove: Could not find array to remove from.", { path, parent });
-          }
-      }
-      onSetFiveWhysData(newData);
-  }, [fiveWhysData, onSetFiveWhysData]);
+    const newData = JSON.parse(JSON.stringify(fiveWhysData));
+    
+    if (path.length === 1) { // Removing a root "Why"
+        newData.splice(path[0] as number, 1);
+    } else {
+        let parent: any = newData;
+        // Traverse to the parent of the array to be modified
+        for (let i = 0; i < path.length - 2; i++) {
+            parent = parent[path[i]];
+        }
+        
+        const arrayKey = path[path.length - 2] as string; // 'becauses' or 'subWhys'
+        const indexToRemove = path[path.length - 1] as number;
+        
+        // Check if the parent and the array to modify exist before splicing
+        if (parent && Array.isArray(parent[arrayKey])) {
+            parent[arrayKey].splice(indexToRemove, 1);
+        } else {
+            console.error("Error on handleRemove: Could not find array to remove from.", { path, parent });
+        }
+    }
+    onSetFiveWhysData(newData);
+}, [fiveWhysData, onSetFiveWhysData]);
 
 
-  const FiveWhysRecursiveRenderer: FC<{ entries: FiveWhyEntry[], parentNumber: string, basePath: (string|number)[], onRemove: (path: (string|number)[]) => void }> = ({ entries, parentNumber, basePath, onRemove }) => {
+  const FiveWhysRecursiveRenderer: FC<{ 
+    entries: FiveWhyEntry[], 
+    parentNumber: string, 
+    basePath: (string|number)[], 
+    onRemove: (path: (string|number)[]) => void,
+    onAddSubWhy: (path: (string | number)[]) => void // Pass add function
+  }> = ({ entries, parentNumber, basePath, onRemove, onAddSubWhy }) => {
     return (
       <div className="ml-6 border-l-2 pl-4 space-y-4">
         {entries.map((entry, whyIndex) => {
@@ -211,7 +219,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                 {entry.becauses.map((because, becauseIndex) => (
                   <Card key={because.id} className={cn("p-3 space-y-2 flex-1 min-w-[280px]", because.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' : because.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700' : 'bg-card')}>
                     <div className="flex justify-between items-center">
-                      <Label className="font-medium text-sm">Porque... {currentWhyNumber}.{becauseIndex + 1}</Label>
+                      <Label className="font-medium text-sm">¿Por qué? #{currentWhyNumber}.{becauseIndex + 1}</Label>
                       <div className="flex items-center">
                         <Button size="icon" variant={because.status === 'accepted' ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => handleUpdate([...currentPath, 'becauses', becauseIndex], 'accepted', 'status')}><Check className="h-4 w-4 text-green-600" /></Button>
                         <Button size="icon" variant={because.status === 'rejected' ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => handleUpdate([...currentPath, 'becauses', becauseIndex], 'rejected', 'status')}><X className="h-4 w-4 text-destructive" /></Button>
@@ -230,7 +238,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                       </div>
                     )}
                     {because.status === 'accepted' && (
-                        <Button size="xs" variant="outline" className="text-xs h-6 mt-1" onClick={() => handleAddSubWhy([...currentPath, 'becauses', becauseIndex])}>
+                        <Button size="xs" variant="outline" className="text-xs h-6 mt-1" onClick={() => onAddSubWhy([...currentPath, 'becauses', becauseIndex])}>
                             <PlusCircle className="mr-1 h-3 w-3"/> Siguiente ¿Por qué?
                         </Button>
                     )}
@@ -240,13 +248,14 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                         parentNumber={`${currentWhyNumber}.${becauseIndex + 1}`}
                         basePath={[...currentPath, 'becauses', becauseIndex, 'subWhys']}
                         onRemove={onRemove}
+                        onAddSubWhy={onAddSubWhy}
                       />
                     )}
                   </Card>
                 ))}
                 <div className="flex items-center self-stretch">
                   <Button size="sm" variant="outline" className="h-full" onClick={() => handleAddBecause([...currentPath, 'becauses'])}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Añadir "Porque..."
+                    <PlusCircle className="mr-2 h-4 w-4" /> Añadir "¿Por qué?..."
                   </Button>
                 </div>
               </div>
@@ -280,7 +289,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
               {entry.becauses.map((because, becauseIndex) => (
                 <Card key={because.id} className={cn("p-3 space-y-2 flex-1 min-w-[280px]", because.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' : because.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700' : 'bg-card')}>
                   <div className="flex justify-between items-center">
-                    <Label className="font-medium text-sm">Porque... {index + 1}.{becauseIndex + 1}</Label>
+                    <Label className="font-medium text-sm">¿Por qué? #{index + 1}.{becauseIndex + 1}</Label>
                      <div className="flex items-center">
                         <Button size="icon" variant={because.status === 'accepted' ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => handleUpdate([index, 'becauses', becauseIndex], 'accepted', 'status')}><Check className="h-4 w-4 text-green-600"/></Button>
                         <Button size="icon" variant={because.status === 'rejected' ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => handleUpdate([index, 'becauses', becauseIndex], 'rejected', 'status')}><X className="h-4 w-4 text-destructive" /></Button>
@@ -309,13 +318,14 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                       parentNumber={`${index + 1}.${becauseIndex + 1}`}
                       basePath={[index, 'becauses', becauseIndex, 'subWhys']}
                       onRemove={handleRemove}
+                      onAddSubWhy={handleAddSubWhy}
                     />
                   )}
                 </Card>
               ))}
                <div className="flex items-center self-stretch">
                   <Button size="sm" variant="outline" className="h-full" onClick={() => handleAddBecause([index, 'becauses'])}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Añadir "Porque..."
+                    <PlusCircle className="mr-2 h-4 w-4" /> Añadir "¿Por qué?..."
                   </Button>
                </div>
             </div>
@@ -334,3 +344,4 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     </Card>
   );
 };
+
