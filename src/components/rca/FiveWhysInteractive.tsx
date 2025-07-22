@@ -302,11 +302,12 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     onSetFiveWhysData(newData);
   }, [fiveWhysData, onSetFiveWhysData]);
   
-  const handleSetRootCause = useCallback((path: (string|number)[]) => {
+ const handleSetRootCause = useCallback((path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-
     let nodeToUpdate: FiveWhyNode | null = null;
     let parentOfNode: any = newData;
+
+    // Traverse to the parent of the node to update
     for (let i = 0; i < path.length - 1; i++) {
       parentOfNode = parentOfNode[path[i]];
     }
@@ -314,33 +315,38 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     nodeToUpdate = parentOfNode[finalKey];
 
     if (!nodeToUpdate) return;
-    
-    // Toggle root cause status
+
+    // Determine the new state for isRootCause
     const newIsRootCauseState = !nodeToUpdate.isRootCause;
     
-    // Function to recursively clear existing root causes
-    const clearRootCauses = (entry: FiveWhyEntry) => {
+    // Function to recursively clear all other root causes
+    const clearOtherRootCauses = (entry: FiveWhyEntry) => {
       if (!entry.responses) return;
       entry.responses.forEach(node => {
+        // Clear the root cause flag for all nodes
         node.isRootCause = false;
         if (node.subAnalysis) {
-          clearRootCauses(node.subAnalysis);
+          clearOtherRootCauses(node.subAnalysis);
         }
       });
     };
 
+    // If we are setting a new root cause, clear all existing ones first
     if (newIsRootCauseState) {
-      newData.forEach(clearRootCauses);
+      newData.forEach(clearOtherRootCauses);
     }
 
+    // Now, set the new state on the specific node
     nodeToUpdate.isRootCause = newIsRootCauseState;
-    
-    if (nodeToUpdate.isRootCause) {
+
+    // If a node is marked as a root cause, it should also be validated
+    if (newIsRootCauseState) {
         nodeToUpdate.status = 'accepted';
     }
 
     onSetFiveWhysData(newData);
   }, [fiveWhysData, onSetFiveWhysData]);
+
   
   const handleAddWhyInvestigation = () => {
     onSetFiveWhysData([
