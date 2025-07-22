@@ -1,11 +1,11 @@
 
 'use client';
-import { FC, useState, useCallback, useMemo, useEffect } from 'react';
+import { FC, useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { FiveWhyEntry, FiveWhyNode } from '@/types/rca';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Trash2, HelpCircle, Check, X, Loader2, ChevronDown, GitBranch, Target } from 'lucide-react';
+import { PlusCircle, Trash2, HelpCircle, Check, X, Loader2, ChevronDown, GitBranch, Target, GripVertical } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -74,12 +74,46 @@ const FiveWhysRecursiveRenderer: FC<{
   entry: FiveWhyEntry,
   level: number,
   basePath: (string | number)[],
-  onUpdate: (path: (string | number)[], value: any, field: keyof FiveWhyNode | 'why') => void,
+  onUpdate: (path: (string | number)[], value: any, field: keyof FiveWhyNode | 'why' | 'width') => void,
   onAddNode: (path: (string | number)[]) => void,
   onRemoveNode: (path: (string | number)[]) => void,
   onAddSubAnalysis: (path: (string | number)[]) => void,
   onSetRootCause: (path: (string | number)[]) => void,
 }> = ({ entry, level, basePath, onUpdate, onAddNode, onRemoveNode, onAddSubAnalysis, onSetRootCause }) => {
+  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const resizingNodeIndex = useRef<number | null>(null);
+  const startX = useRef(0);
+  const startWidth = useRef(0);
+  
+  const handleMouseDown = (e: React.MouseEvent, index: number) => {
+    const cardElement = cardRefs.current[index];
+    if (cardElement) {
+        resizingNodeIndex.current = index;
+        startX.current = e.clientX;
+        startWidth.current = cardElement.offsetWidth;
+        document.body.style.cursor = 'ew-resize';
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+    }
+  };
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (resizingNodeIndex.current === null) return;
+    
+    const dx = e.clientX - startX.current;
+    const newWidth = Math.max(280, startWidth.current + dx); // Minimum width
+    const nodePath = [...basePath, 'responses', resizingNodeIndex.current];
+    onUpdate(nodePath, `${newWidth}px`, 'width');
+  }, [basePath, onUpdate]);
+
+  const handleMouseUp = useCallback(() => {
+    document.body.style.cursor = 'default';
+    window.removeEventListener('mousemove', handleMouseMove);
+    window.removeEventListener('mouseup', handleMouseUp);
+    resizingNodeIndex.current = null;
+  }, [handleMouseMove]);
+
+
   return (
     <div className="ml-4 pl-4 border-l-2 border-gray-300 space-y-3 mt-2">
       <div className="flex justify-between items-center">
@@ -99,13 +133,18 @@ const FiveWhysRecursiveRenderer: FC<{
         {(entry.responses || []).map((node, nodeIndex) => {
           const nodePath = [...basePath, 'responses', nodeIndex];
           return (
-            <Card key={node.id} className={cn(
-                "p-3 space-y-2 md:basis-[48%] flex-grow min-w-[280px]",
-                node.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' :
-                node.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 opacity-70' :
-                'bg-card',
-                node.isRootCause && 'ring-2 ring-amber-400 border-amber-400'
-            )}>
+            <Card
+                key={node.id}
+                ref={el => cardRefs.current[nodeIndex] = el}
+                className={cn(
+                    "relative p-3 space-y-2 flex-grow min-w-[280px]",
+                    node.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' :
+                    node.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 opacity-70' :
+                    'bg-card',
+                    node.isRootCause && 'ring-2 ring-amber-400 border-amber-400'
+                )}
+                style={{ width: node.width || 'auto', flexBasis: node.width ? 'auto' : undefined }}
+            >
               <div className="flex justify-between items-center">
                 <Label className="font-medium text-sm">Porque... #{level}.{nodeIndex + 1}</Label>
                 <div className="flex items-center">
@@ -148,10 +187,18 @@ const FiveWhysRecursiveRenderer: FC<{
                   />
                 )}
               </div>
+               <div 
+                  className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize group"
+                  onMouseDown={(e) => handleMouseDown(e, nodeIndex)}
+                >
+                   <div className="w-full h-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <GripVertical className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                </div>
             </Card>
           );
         })}
-         <Button size="sm" variant="outline" className="text-muted-foreground self-center h-full min-h-[120px] basis-full md:basis-auto" onClick={() => onAddNode([...basePath, 'responses'])}>
+        <Button size="sm" variant="outline" className="text-muted-foreground self-center min-h-[120px] basis-full md:basis-auto" onClick={() => onAddNode([...basePath, 'responses'])}>
             <PlusCircle className="mr-2 h-4 w-4" /> Añadir Causa Paralela
         </Button>
       </div>
@@ -188,7 +235,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   }, [focusEventDescription, onSetFiveWhysData, initialWhyText]);
 
 
-  const handleUpdate = useCallback((path: (string|number)[], value: any, field?: keyof FiveWhyNode | 'why') => {
+  const handleUpdate = useCallback((path: (string|number)[], value: any, field?: keyof FiveWhyNode | 'why' | 'width') => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     let current: any = newData;
     
@@ -261,6 +308,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         isRootCause: false,
         isCollapsed: false,
         status: 'pending',
+        width: '350px' // Default width
     });
     
     onSetFiveWhysData(newData);
@@ -341,7 +389,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     }
 
     // Set the state for the target node
-    // Re-find the node after potential modifications of the structure by clear function.
     nodeToUpdate = findNode(pathForTraversal, newData);
     if(nodeToUpdate){
       nodeToUpdate.isRootCause = newIsRootCauseState;

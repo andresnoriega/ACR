@@ -90,6 +90,7 @@ export interface FiveWhyNode {
   status: 'pending' | 'accepted' | 'rejected';
   validationMethod?: string;
   subAnalysis?: FiveWhyEntry; // A node can have a subsequent "Why?" analysis
+  width?: string;
 }
 
 export interface FiveWhyEntry {
