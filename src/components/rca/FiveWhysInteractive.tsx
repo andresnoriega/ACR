@@ -187,7 +187,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   }, [focusEventDescription, fiveWhysData, onSetFiveWhysData, initialWhyText]);
 
 
-  const handleUpdate = useCallback((path: (string|number)[], value: any, field: keyof FiveWhyNode | 'why') => {
+  const handleUpdate = useCallback((path: (string|number)[], value: any, field?: keyof FiveWhyNode | 'why') => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     let current: any = newData;
     
@@ -208,14 +208,10 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       return;
     }
 
-    if (field === 'isCollapsed') {
-      current[finalKey].isCollapsed = value;
-    } else if (field === 'why') {
-      // Handles updating the 'why' text of a FiveWhyEntry object
-      current[finalKey].why = value;
-    } else {
-      // Handles updating a field within a FiveWhyNode object
-      current[finalKey][field] = value;
+    if (field) {
+        current[finalKey][field] = value;
+    } else { // Should not happen with field check, but for safety
+       current[finalKey] = value;
     }
 
     onSetFiveWhysData(newData);
@@ -244,22 +240,33 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   }, [fiveWhysData, onSetFiveWhysData, validationState]);
 
 
-  const handleAddNode = useCallback((path: (string|number)[]) => {
+  const handleAddNode = useCallback((path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     let parent: any = newData;
+    
+    // Traverse to the object that should contain the array.
     for (let i = 0; i < path.length - 1; i++) {
-      parent = parent[path[i]];
+        parent = parent[path[i]];
     }
-    const arrayKey = path[path.length - 1];
+
+    const arrayKey = path[path.length - 1] as string;
+
+    // Ensure the array exists before pushing.
+    if (!Array.isArray(parent[arrayKey])) {
+        parent[arrayKey] = [];
+    }
+
     parent[arrayKey].push({
-      id: generateId('node'),
-      description: '',
-      isRootCause: false,
-      isCollapsed: false,
-      status: 'pending',
+        id: generateId('node'),
+        description: '',
+        isRootCause: false,
+        isCollapsed: false,
+        status: 'pending',
     });
+    
     onSetFiveWhysData(newData);
   }, [fiveWhysData, onSetFiveWhysData]);
+
 
   const handleRemoveNode = useCallback((path: (string|number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
@@ -347,9 +354,9 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
           <HelpCircle className="mr-2 h-5 w-5" /> Análisis de los 5 Porqués (Árbol Ramificado)
         </h3>
         
-        <div className="flex flex-row gap-4 overflow-x-auto p-2">
+        <div className="space-y-4">
             {fiveWhysData.map((entry, index) => (
-                <div key={entry.id} className="p-3 border rounded-md bg-secondary/30 flex-shrink-0 w-full max-w-lg">
+                <div key={entry.id} className="p-3 border rounded-md bg-secondary/30">
                     <div className="flex justify-end mb-1">
                       {fiveWhysData.length > 1 && (
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveWhyInvestigation(index)}>
@@ -363,7 +370,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                       basePath={[index]}
                       onUpdate={handleUpdate}
                       onAddNode={handleAddNode}
-                      onRemoveNode={handleRemoveNode}
+                      onRemoveNode={onRemoveNode}
                       onAddSubAnalysis={handleAddSubAnalysis}
                       onSetRootCause={handleSetRootCause}
                     />
