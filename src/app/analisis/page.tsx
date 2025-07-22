@@ -1217,6 +1217,10 @@ function RCAAnalysisPageComponent() {
   const handleSetCtmData = (newData: CTMData) => {
     setCtmData(newData);
   };
+  
+  const handleSetFiveWhysData = (newData: FiveWhyEntry[]) => {
+    setFiveWhysData(newData);
+  };
 
   const handleAddIdentifiedRootCause = () => {
     setIdentifiedRootCauses(prev => [...prev, { id: `rc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, description: '' }]);
@@ -1514,7 +1518,7 @@ function RCAAnalysisPageComponent() {
           ishikawaData={ishikawaData}
           onSetIshikawaData={setIshikawaData}
           fiveWhysData={fiveWhysData}
-          onSetFiveWhysData={setFiveWhysData}
+          onSetFiveWhysData={handleSetFiveWhysData}
           ctmData={ctmData}
           onSetCtmData={handleSetCtmData}
           identifiedRootCauses={identifiedRootCauses}
