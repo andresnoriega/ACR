@@ -91,7 +91,7 @@ const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onC
         </div>
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline" disabled={isProcessing}>Cancelar</Button>
+            <Button type="button" variant="outline" disabled={isProcessing}>Cancelar</Button>
           </DialogClose>
           <Button onClick={handleConfirmClick} disabled={!method.trim() || isProcessing}>
             {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
