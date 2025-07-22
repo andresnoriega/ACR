@@ -1,4 +1,3 @@
-
 'use client';
 import type { FC } from 'react';
 import { FiveWhysData, FiveWhyBecause, FiveWhyEntry } from '@/types/rca';
@@ -148,26 +147,25 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
   const handleRemove = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    let parent: any = newData;
-
+    let current: any = newData;
+    
     // Traverse to the parent array.
     for (let i = 0; i < path.length - 1; i++) {
-        const key = path[i];
-        // Check if current level is valid before proceeding
-        if (parent && typeof parent === 'object' && key in parent) {
-            parent = parent[key];
-        } else {
-            console.error("Invalid path for remove operation at segment:", key, "Full path:", path);
-            return;
-        }
+      const key = path[i];
+      if (current && typeof current === 'object' && key in current) {
+        current = current[key];
+      } else {
+        console.error("Invalid path for remove operation at segment:", key, "Full path:", path);
+        return;
+      }
     }
     
     const indexToRemove = path[path.length - 1];
 
-    if (Array.isArray(parent) && typeof indexToRemove === 'number') {
-        parent.splice(indexToRemove, 1);
+    if (Array.isArray(current) && typeof indexToRemove === 'number') {
+      current.splice(indexToRemove, 1);
     } else {
-       console.error("Error on handleRemove: Parent is not an array or key is not a number for splice.", { path, parent });
+       console.error("Error on handleRemove: Parent is not an array or key is not a number for splice.", { path, parent: current });
     }
     onSetFiveWhysData(newData);
   };
