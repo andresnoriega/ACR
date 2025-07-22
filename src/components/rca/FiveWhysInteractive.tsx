@@ -1,7 +1,6 @@
-
 'use client';
 import { FC, useState, useEffect } from 'react';
-import { FiveWhysData, FiveWhyBecause, FiveWhyEntry } from '@/types/rca';
+import { FiveWhyBecause, FiveWhyEntry } from '@/types/rca';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -22,8 +21,8 @@ import { useToast } from '@/hooks/use-toast';
 
 interface FiveWhysInteractiveProps {
   focusEventDescription: string;
-  fiveWhysData: FiveWhysData;
-  onSetFiveWhysData: (data: FiveWhysData) => void;
+  fiveWhysData: FiveWhyEntry[];
+  onSetFiveWhysData: (data: FiveWhyEntry[]) => void;
 }
 
 const generateId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -122,13 +121,14 @@ const FiveWhysRecursiveRenderer: FC<{
           {(entry.becauses || []).map((because, becauseIndex) => {
             const becausePath = [...path, 'becauses', becauseIndex];
             const isRejected = because.status === 'rejected';
+            const isAccepted = because.status === 'accepted';
             const becauseNumber = `${currentNumber}.${becauseIndex + 1}`;
             return (
               <div 
                 key={because.id} 
                 className={cn(
                     "flex-1 min-w-[250px] p-3 rounded-lg border",
-                    because.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' :
+                    isAccepted ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' :
                     isRejected ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 opacity-80' :
                     'bg-background/50'
                 )}
@@ -138,8 +138,8 @@ const FiveWhysRecursiveRenderer: FC<{
                       <MessageCircle className="mr-1.5 h-4 w-4" /> Porque... {becauseNumber}
                     </Label>
                     <div className="flex items-center gap-1">
-                      <Button size="icon" variant={because.status === 'accepted' ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => onOpenValidationDialog(becausePath, 'accepted')}><Check className="h-3.5 w-3.5 text-green-600"/></Button>
-                      <Button size="icon" variant={because.status === 'rejected' ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => onOpenValidationDialog(becausePath, 'rejected')}><X className="h-3.5 w-3.5 text-destructive"/></Button>
+                      <Button size="icon" variant={isAccepted ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => onOpenValidationDialog(becausePath, 'accepted')}><Check className="h-3.5 w-3.5 text-green-600"/></Button>
+                      <Button size="icon" variant={isRejected ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => onOpenValidationDialog(becausePath, 'rejected')}><X className="h-3.5 w-3.5 text-destructive"/></Button>
                       <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => onRemove(becausePath)}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                     </div>
                   </div>
@@ -164,7 +164,7 @@ const FiveWhysRecursiveRenderer: FC<{
                               key={subWhy.id}
                               entry={subWhy}
                               level={level + 1}
-                              parentNumber={currentNumber}
+                              parentNumber={becauseNumber}
                               path={[...becausePath, 'subWhys', subWhyIndex]}
                               onUpdate={onUpdate}
                               onAdd={onAdd}
@@ -174,7 +174,7 @@ const FiveWhysRecursiveRenderer: FC<{
                       ))}
                   </div>
                   
-                  {!isRejected && (
+                  {isAccepted && (
                     <Button size="sm" variant="outline" className="text-xs h-7 mt-3" onClick={() => onAdd(becausePath, 'why')}>
                         <PlusCircle className="mr-1 h-3 w-3" /> Añadir Siguiente ¿Por qué?
                     </Button>
@@ -197,6 +197,16 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   onSetFiveWhysData,
 }) => {
   const [validationState, setValidationState] = useState<{path: (string|number)[], status: 'accepted' | 'rejected'} | null>(null);
+  
+  // Effect to initialize the first "Why" if data is empty and focus event exists
+  useEffect(() => {
+    if ((!fiveWhysData || fiveWhysData.length === 0) && focusEventDescription) {
+       const whyText = `¿Por qué ocurrió: "${focusEventDescription.substring(0,70)}${focusEventDescription.length > 70 ? "..." : ""}"?`;
+       onSetFiveWhysData([{ id: generateId('why'), why: whyText, becauses: [] }]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusEventDescription]);
+
 
   const handleUpdate = (path: (string | number)[], value: any, field: string = 'description') => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
@@ -228,20 +238,9 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     onSetFiveWhysData(newData);
   };
   
-  const handleAddToRoot = () => {
-    const newData = JSON.parse(JSON.stringify(fiveWhysData || []));
-    const whyText = focusEventDescription ? `¿Por qué ocurrió: "${focusEventDescription.substring(0,70)}..."?` : '¿Por qué ocurrió el evento?';
-    newData.push({
-      id: generateId('why'),
-      why: whyText,
-      becauses: [],
-    });
-    onSetFiveWhysData(newData);
-  };
 
   const handleRemove = (path: (string | number)[]) => {
     if (path.length === 0) return;
-
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     let parent: any = newData;
     
@@ -251,16 +250,16 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     }
     
     const indexToRemove = path[path.length - 1] as number;
+    const finalKey = path[path.length - 2];
 
-    // Check if the parent is an array (top level or subWhys) or an object (becauses)
-    if (Array.isArray(parent)) {
-        parent.splice(indexToRemove, 1);
-    } else if (parent && parent.becauses && Array.isArray(parent.becauses)) {
-        parent.becauses.splice(indexToRemove, 1);
-    } else if (parent && parent.subWhys && Array.isArray(parent.subWhys)) {
-        parent.subWhys.splice(indexToRemove, 1);
+    if (finalKey === 'becauses') {
+      parent.becauses.splice(indexToRemove, 1);
+    } else if (finalKey === 'subWhys') {
+      parent.subWhys.splice(indexToRemove, 1);
+    } else if (path.length === 1) { // Root level removal
+      newData.splice(indexToRemove, 1);
     } else {
-        console.error("Error on handleRemove: Could not find array to splice from.", { path, parent });
+        console.error("Error on handleRemove: Could not determine array to splice from.", { path, parent });
     }
     
     onSetFiveWhysData(newData);
@@ -324,11 +323,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                 onOpenValidationDialog={openValidationDialog}
               />
           ))}
-          <div className="text-center pt-2">
-              <Button onClick={handleAddToRoot} variant="outline">
-                  <PlusCircle className="mr-2 h-4 w-4" /> Iniciar nueva línea de análisis de Porqués
-              </Button>
-          </div>
         </div>
       </div>
       {validationState && (
