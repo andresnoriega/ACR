@@ -1,3 +1,4 @@
+
 'use client';
 import { FC, useState, useEffect } from 'react';
 import type { FiveWhyEntry, FiveWhyBecause } from '@/types/rca';
@@ -94,7 +95,7 @@ const FiveWhysRecursiveRenderer: FC<{
   onRemove: (path: (string | number)[]) => void;
   onOpenValidationDialog: (path: (string | number)[], statusToSet: 'accepted' | 'rejected') => void;
 }> = ({ entry, parentNumber, path, onUpdate, onAdd, onRemove, onOpenValidationDialog }) => {
-  const currentNumber = parentNumber ? `${parentNumber}.${path[path.length - 1] + 1}` : `${path[path.length - 1] + 1}`;
+  const currentNumber = parentNumber ? `${parentNumber}${path[path.length-1]}` : `${path[path.length - 1] + 1}`;
 
   return (
     <Card className="bg-secondary/30 w-full">
@@ -238,32 +239,32 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     onSetFiveWhysData(newData);
   };
   
-
   const handleRemove = (path: (string | number)[]) => {
     if (path.length === 0) return;
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     let parent: any = newData;
     
     // Traverse to the parent array/object
-    for (let i = 0; i < path.length - 1; i++) {
+    for (let i = 0; i < path.length - 2; i++) {
       parent = parent[path[i] as any];
     }
     
     const indexToRemove = path[path.length - 1] as number;
     const finalKey = path[path.length - 2];
 
-    if (finalKey === 'becauses') {
-      parent.becauses.splice(indexToRemove, 1);
-    } else if (finalKey === 'subWhys') {
-      parent.subWhys.splice(indexToRemove, 1);
-    } else if (path.length === 1) { // Root level removal
+    if (path.length === 1) { // Root level removal
       newData.splice(indexToRemove, 1);
+    } else if (finalKey === 'becauses' && parent && Array.isArray(parent.becauses)) {
+      parent.becauses.splice(indexToRemove, 1);
+    } else if (finalKey === 'subWhys' && parent && Array.isArray(parent.subWhys)) {
+      parent.subWhys.splice(indexToRemove, 1);
     } else {
         console.error("Error on handleRemove: Could not determine array to splice from.", { path, parent });
     }
     
     onSetFiveWhysData(newData);
   };
+
 
   const openValidationDialog = (path: (string|number)[], statusToSet: 'accepted' | 'rejected') => {
     setValidationState({ path, status: statusToSet });
