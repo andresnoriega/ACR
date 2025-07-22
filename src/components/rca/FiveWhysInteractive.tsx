@@ -1,4 +1,3 @@
-
 'use client';
 import { FC, useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { FiveWhyEntry, FiveWhyNode } from '@/types/rca';
@@ -104,12 +103,49 @@ const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onC
 };
 
 const getNodeByPath = (data: any[], path: (string | number)[]): any => {
-    let current: any = data;
+    let current: any = { responses: data };
     for (const key of path) {
-        if (current === undefined || current === null) return null;
-        current = Array.isArray(current) ? current[key as number] : current[key];
+      if (current === undefined || current === null) return null;
+      if(current.responses) {
+        current = current.responses[key as number];
+      } else if (current.subAnalysis) {
+        current = current.subAnalysis;
+        // if subAnalysis, the next key is 'responses' so we need to handle that.
+        if (path[path.indexOf(key) + 1] === 'responses') {
+           // Do nothing, the next loop will handle it.
+        } else {
+           // if it's not responses, it's a direct property access on subAnalysis
+           current = current[path[path.indexOf(key) + 1]];
+           // to avoid processing the next key twice
+           path.splice(path.indexOf(key) + 1, 1);
+        }
+      } else {
+         return null;
+      }
     }
     return current;
+};
+
+// Helper to get the parent array and the index of the node to modify.
+const getParentArrayAndIndex = (data: any[], path: (string | number)[]): { parentArray: any[], index: number } | null => {
+    if (path.length === 0) return null;
+    let current = { responses: data };
+    for (let i = 0; i < path.length - 1; i++) {
+        const key = path[i];
+        if (current === undefined || current === null) return null;
+        if (current.responses) {
+            current = current.responses[key as number];
+        } else if (current.subAnalysis) {
+            current = current.subAnalysis;
+        } else {
+            return null;
+        }
+    }
+    const lastKey = path[path.length - 1];
+    if (current && Array.isArray(current.responses) && typeof lastKey === 'number') {
+        return { parentArray: current.responses, index: lastKey };
+    }
+    return null;
 };
 
 
@@ -282,23 +318,56 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fiveWhysData, onSetFiveWhysData, initialWhyText]);
 
-  const handleUpdate = useCallback((path: (string|number)[], value: any, field: keyof FiveWhyNode | 'why' | 'isCollapsed' | 'width') => {
+ const handleUpdate = useCallback((path: (string|number)[], value: any, field: keyof FiveWhyNode | 'why' | 'isCollapsed' | 'width') => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    const nodeToUpdate = getNodeByPath(newData, path);
-
-    if (nodeToUpdate) {
-        nodeToUpdate[field] = value;
+    let current = { responses: newData };
+    
+    // Traverse to parent object/array
+    for (let i = 0; i < path.length; i++) {
+        const key = path[i];
+        if (i === path.length - 1) { // Last element in path is the key of the property to update
+            (current as any)[key] = { ...(current as any)[key], [field]: value };
+            if(field === 'why') { // Special case for top-level why property
+                (current.responses[key as number] as any)[field] = value;
+            }
+        } else {
+             if (key === 'subAnalysis') {
+                current = (current as any).subAnalysis;
+            } else if (Array.isArray(current.responses)) {
+                current = current.responses[key as number];
+            } else {
+                console.error("Invalid path structure", path);
+                return;
+            }
+        }
     }
+    
+    let nodeToUpdate: any;
+    if (path.length === 1 && field === 'why') { // Top level 'why'
+       nodeToUpdate = newData[path[0] as number];
+    } else { // Nested property
+        let parent = newData;
+        for(let i=0; i<path.length-1; i++) {
+            parent = parent[path[i] as any];
+        }
+        nodeToUpdate = parent[path[path.length - 1] as any];
+    }
+
+    if(nodeToUpdate) {
+       nodeToUpdate[field] = value;
+    }
+
+
     onSetFiveWhysData(newData);
-  }, [fiveWhysData, onSetFiveWhysData]);
+}, [fiveWhysData, onSetFiveWhysData]);
 
 
   const handleSetStatus = useCallback((path: (string | number)[], status: FiveWhyNode['status']) => {
-      const nodeToCheck = getNodeByPath(fiveWhysData, path);
-      if (nodeToCheck && nodeToCheck.status === status) {
+      const newData = JSON.parse(JSON.stringify(fiveWhysData));
+      const nodeToUpdate = getNodeByPath(newData, path);
+
+      if (nodeToUpdate && nodeToUpdate.status === status) {
         // Toggle back to pending if clicking the same status
-        const newData = JSON.parse(JSON.stringify(fiveWhysData));
-        const nodeToUpdate = getNodeByPath(newData, path);
         nodeToUpdate.status = 'pending';
         nodeToUpdate.validationMethod = undefined;
         onSetFiveWhysData(newData);
@@ -342,15 +411,16 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   }, [fiveWhysData, onSetFiveWhysData]);
 
 
-  const handleRemoveNode = useCallback((path: (string|number)[]) => {
+ const handleRemoveNode = useCallback((path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    const parentArray = getNodeByPath(newData, path.slice(0, -1));
-    const indexToRemove = path[path.length - 1] as number;
-    if (parentArray && Array.isArray(parentArray)) {
-        parentArray.splice(indexToRemove, 1);
+    const result = getParentArrayAndIndex(newData, path);
+    if (result) {
+        result.parentArray.splice(result.index, 1);
+        onSetFiveWhysData(newData);
+    } else {
+        console.error("Could not remove node at path:", path);
     }
-    onSetFiveWhysData(newData);
-  }, [fiveWhysData, onSetFiveWhysData]);
+}, [fiveWhysData, onSetFiveWhysData]);
 
 
   const handleAddSubAnalysis = useCallback((path: (string|number)[]) => {
@@ -368,7 +438,8 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   }, [fiveWhysData, onSetFiveWhysData]);
   
   const handleSetRootCause = useCallback((path: (string | number)[]) => {
-    const nodeToCheck = getNodeByPath(fiveWhysData, path);
+    const newData = JSON.parse(JSON.stringify(fiveWhysData));
+    const nodeToCheck = getNodeByPath(newData, path);
 
     if (nodeToCheck && nodeToCheck.status === 'rejected') {
         toast({
