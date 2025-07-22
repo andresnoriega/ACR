@@ -100,7 +100,7 @@ const FiveWhysRecursiveRenderer: FC<{
           const nodePath = [...basePath, 'responses', nodeIndex];
           return (
             <Card key={node.id} className={cn(
-                "p-3 space-y-2 flex-grow min-w-[300px] w-full sm:w-auto",
+                "p-3 space-y-2 flex-grow basis-full md:basis-[48%]", // Adjusted width classes
                 node.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' :
                 node.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 opacity-70' :
                 'bg-card',
@@ -151,7 +151,7 @@ const FiveWhysRecursiveRenderer: FC<{
             </Card>
           );
         })}
-         <Button size="sm" variant="outline" className="text-muted-foreground self-center h-full min-h-[120px] w-full sm:w-auto" onClick={() => onAddNode([...basePath, 'responses'])}>
+         <Button size="sm" variant="outline" className="text-muted-foreground self-center h-full min-h-[120px] w-full md:w-auto" onClick={() => onAddNode([...basePath, 'responses'])}>
             <PlusCircle className="mr-2 h-4 w-4" /> Añadir Causa Paralela
         </Button>
       </div>
@@ -305,23 +305,31 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
  const handleSetRootCause = useCallback((path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     let nodeToUpdate: FiveWhyNode | null = null;
-    let parentOfNode: any = newData;
 
-    for (let i = 0; i < path.length - 1; i++) {
-      parentOfNode = parentOfNode[path[i]];
+    const findNode = (p: (string | number)[], current: any): FiveWhyNode | null => {
+      let target = current;
+      for (const key of p) {
+        if (target === undefined) return null;
+        target = target[key];
+      }
+      return target;
+    };
+    
+    nodeToUpdate = findNode(path, newData);
+
+    if (!nodeToUpdate) {
+      console.error("Could not find node to update for root cause.", path);
+      return;
     }
-    const finalKey = path[path.length - 1];
-    nodeToUpdate = parentOfNode[finalKey];
-
-    if (!nodeToUpdate) return;
 
     const newIsRootCauseState = !nodeToUpdate.isRootCause;
     
-    // Function to recursively clear all other root causes
     const clearOtherRootCauses = (entry: FiveWhyEntry) => {
       if (!entry.responses) return;
       (entry.responses || []).forEach(node => {
-        node.isRootCause = false;
+        if (node.id !== (nodeToUpdate as FiveWhyNode).id) {
+          node.isRootCause = false;
+        }
         if (node.subAnalysis) {
           clearOtherRootCauses(node.subAnalysis);
         }
@@ -332,20 +340,10 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       newData.forEach(clearOtherRootCauses);
     }
     
-    const findAndSet = (entry: FiveWhyEntry) => {
-        if (!entry.responses) return;
-        (entry.responses || []).forEach(node => {
-            if (node.id === (nodeToUpdate as FiveWhyNode).id) {
-                node.isRootCause = newIsRootCauseState;
-                 if (newIsRootCauseState && node.status !== 'accepted') {
-                   node.status = 'accepted';
-                 }
-            } else if (node.subAnalysis) {
-                findAndSet(node.subAnalysis);
-            }
-        });
-    };
-    newData.forEach(findAndSet);
+    nodeToUpdate.isRootCause = newIsRootCauseState;
+    if (newIsRootCauseState && nodeToUpdate.status !== 'accepted') {
+        nodeToUpdate.status = 'accepted';
+    }
 
     onSetFiveWhysData(newData);
   }, [fiveWhysData, onSetFiveWhysData]);
