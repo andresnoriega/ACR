@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { PlusCircle, Trash2, HelpCircle, ArrowRight, MessageCircle } from 'lucide-react';
+import { PlusCircle, Trash2, HelpCircle, MessageCircle } from 'lucide-react';
 
 interface FiveWhysInteractiveProps {
   focusEventDescription: string;
@@ -31,7 +31,7 @@ const FiveWhysRecursiveRenderer: FC<{
           <CardHeader className="p-3">
             <div className="flex justify-between items-center">
               <CardTitle className="text-base font-semibold text-primary flex items-center">
-                <HelpCircle className="mr-1.5 h-4 w-4" /> Porque #{level}
+                <HelpCircle className="mr-1.5 h-4 w-4" /> ¿Por qué? #{level}
               </CardTitle>
               <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRemove([...basePath, entryIndex])}>
                 <Trash2 className="h-4 w-4 text-destructive" />
@@ -50,7 +50,7 @@ const FiveWhysRecursiveRenderer: FC<{
               <div key={because.id} className="pl-4 border-l-2 border-primary/30 ml-4 space-y-2 py-2">
                 <div className="flex justify-between items-center">
                   <Label htmlFor={`because-${because.id}`} className="text-sm font-semibold flex items-center text-foreground">
-                    <MessageCircle className="mr-1.5 h-4 w-4" /> Sub-Porque {level}.{becauseIndex + 1}
+                    <MessageCircle className="mr-1.5 h-4 w-4" /> Porque...
                   </Label>
                   <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRemove([...basePath, entryIndex, 'becauses', becauseIndex])}>
                     <Trash2 className="h-4 w-4 text-destructive" />
@@ -82,7 +82,7 @@ const FiveWhysRecursiveRenderer: FC<{
               </div>
             ))}
             <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => onAdd([...basePath, entryIndex], 'because')}>
-              <PlusCircle className="mr-1 h-3 w-3" /> Añadir Sub-Porque
+              <PlusCircle className="mr-1 h-3 w-3" /> Añadir 'Porque...'
             </Button>
           </CardContent>
         </Card>
@@ -103,8 +103,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     for (let i = 0; i < path.length - 1; i++) {
         const key = path[i];
         if (current[key] === undefined) {
-          // This logic is tricky. If the next key is a number, we need an array.
-          // Otherwise, an object. This might not be robust enough for all cases.
           current[key] = isNaN(Number(path[i+1])) ? {} : [];
         }
         current = current[key];
@@ -147,26 +145,22 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
   const handleRemove = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    let current: any = newData;
     
-    // Traverse to the parent array.
+    // Find the parent array and the index to remove
+    let parent = newData;
     for (let i = 0; i < path.length - 1; i++) {
-      const key = path[i];
-      if (current && typeof current === 'object' && key in current) {
-        current = current[key];
-      } else {
-        console.error("Invalid path for remove operation at segment:", key, "Full path:", path);
-        return;
-      }
+      parent = parent[path[i] as any];
     }
     
-    const indexToRemove = path[path.length - 1];
+    const indexToRemove = path[path.length - 1] as number;
 
-    if (Array.isArray(current) && typeof indexToRemove === 'number') {
-      current.splice(indexToRemove, 1);
+    // Check if parent is an array before splicing
+    if (Array.isArray(parent)) {
+        parent.splice(indexToRemove, 1);
     } else {
-       console.error("Error on handleRemove: Parent is not an array or key is not a number for splice.", { path, parent: current });
+        console.error("Error on handleRemove: Could not find parent array for path:", path);
     }
+    
     onSetFiveWhysData(newData);
   };
 
@@ -191,10 +185,10 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
               key={rootWhy.id}
               entries={[rootWhy]}
               level={1}
-              basePath={[index]}
+              basePath={[]} // The root entries are directly in the main array
               onUpdate={handleUpdate}
               onAdd={handleAdd}
-              onRemove={handleRemove}
+              onRemove={() => handleRemove([index])} // Pass the root index to remove
             />
         ))}
         <div className="text-center pt-2">
