@@ -23,16 +23,19 @@ const FiveWhysRecursiveRenderer: FC<{
   onUpdate: (path: (string | number)[], value: string, field: 'why' | 'because') => void;
   onAdd: (path: (string | number)[], type: 'why' | 'because') => void;
   onRemove: (path: (string | number)[]) => void;
-}> = ({ entries, level, onUpdate, onAdd, onRemove }) => {
+  isRoot?: boolean;
+}> = ({ entries, level, onUpdate, onAdd, onRemove, isRoot = false }) => {
   return (
     <div className={`space-y-4 ${level > 0 ? 'pl-4 border-l-2 ml-4' : ''}`}>
-      {entries.map((entry, entryIndex) => (
+      {(entries || []).map((entry, entryIndex) => (
         <Card key={entry.id} className="p-3 bg-secondary/30 shadow-sm">
           <div className="flex justify-between items-center mb-2">
             <Label htmlFor={`why-${entry.id}`} className="font-semibold flex items-center text-primary">
               <HelpCircle className="mr-2 h-4 w-4" /> ¿Por qué?
             </Label>
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRemove(['entries', entryIndex])}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+             {!isRoot && (
+              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRemove(['entries', entryIndex])}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+            )}
           </div>
           <Textarea
             id={`why-${entry.id}`}
@@ -40,6 +43,7 @@ const FiveWhysRecursiveRenderer: FC<{
             onChange={(e) => onUpdate(['entries', entryIndex], e.target.value, 'why')}
             placeholder="Describa el 'porqué' aquí..."
             rows={2}
+            disabled={isRoot && entryIndex === 0}
           />
           <div className="mt-3 space-y-2">
             {(entry.becauses || []).map((because, becauseIndex) => (
@@ -177,6 +181,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
           onUpdate={handleRootUpdate}
           onAdd={handleRootAdd}
           onRemove={handleRootRemove}
+          isRoot={true}
        />
 
       <Button onClick={handleAddRootWhy} variant="outline" className="w-full mt-4">
