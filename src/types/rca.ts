@@ -88,6 +88,7 @@ export interface FiveWhyBecause {
   status: 'pending' | 'accepted' | 'rejected';
   validationMethod?: string;
   subWhys?: FiveWhyEntry[];
+  isCollapsed?: boolean;
 }
 
 export interface FiveWhyEntry {
