@@ -1533,7 +1533,7 @@ function RCAAnalysisPageComponent() {
           fiveWhysData={fiveWhysData}
           onSetFiveWhysData={setFiveWhysData}
           ctmData={ctmData}
-          onSetCtmData={setCtmData}
+          onSetCtmData={handleSetCtmData}
           identifiedRootCauses={identifiedRootCauses}
           onAddIdentifiedRootCause={handleAddIdentifiedRootCause}
           onUpdateIdentifiedRootCause={handleUpdateIdentifiedRootCause}
@@ -1652,4 +1652,3 @@ export default function RCAAnalysisPage() {
     </Suspense>
   );
 }
-
