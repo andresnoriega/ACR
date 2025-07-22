@@ -1,3 +1,4 @@
+
 'use client';
 import { FC, useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { FiveWhyEntry, FiveWhyNode } from '@/types/rca';
@@ -317,7 +318,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
           parent[finalKey] = value;
       }
     });
-  }, [fiveWhysData, onSetFiveWhysData]);
+  }, [modifyData]);
 
 
   const handleConfirmValidation = useCallback((method: string) => {
@@ -335,7 +336,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
     setIsProcessingValidation(false);
     setValidationState(null);
-  }, [validationState, fiveWhysData, onSetFiveWhysData]);
+  }, [validationState, modifyData]);
 
 
   const handleAddNode = useCallback((path: (string | number)[]) => {
@@ -352,7 +353,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
             });
         }
      });
-  }, [fiveWhysData, onSetFiveWhysData]);
+  }, [modifyData]);
 
 
   const handleRemoveNode = useCallback((path: (string|number)[]) => {
@@ -363,7 +364,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
             parentArray.splice(indexToRemove, 1);
         }
     });
-  }, [fiveWhysData, onSetFiveWhysData]);
+  }, [modifyData]);
 
 
   const handleAddSubAnalysis = useCallback((path: (string|number)[]) => {
@@ -378,7 +379,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
             node.isCollapsed = false;
         }
     });
-  }, [fiveWhysData, onSetFiveWhysData]);
+  }, [modifyData]);
   
   const handleSetRootCause = useCallback((path: (string | number)[]) => {
     const nodeToCheck = getNodeByPath(fiveWhysData, path);
@@ -435,7 +436,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
     setIsProcessingRootCause(false);
     setRootCauseConfirmation(null);
-  }, [rootCauseConfirmation, fiveWhysData, onSetFiveWhysData]);
+  }, [rootCauseConfirmation, modifyData]);
 
 
   
