@@ -81,27 +81,24 @@ export interface IshikawaCategory {
 export type IshikawaData = IshikawaCategory[];
 
 
-// --- Tree Structure for 5 Whys ---
-export interface FiveWhyCause {
-  description: string;
-  validationMethod?: string;
-}
-
-export interface FiveWhyBecause {
+// --- NEW Tree Structure for 5 Whys ---
+export interface FiveWhyNode {
   id: string;
-  cause: FiveWhyCause;
-  status: 'pending' | 'accepted' | 'rejected' | 'root-cause';
-  subWhys?: FiveWhyEntry[];
-  isCollapsed?: boolean;
+  description: string;
+  isRootCause: boolean;
+  isCollapsed: boolean;
+  status: 'pending' | 'accepted' | 'rejected';
+  validationMethod?: string;
+  subAnalysis?: FiveWhyEntry; // A node can have a subsequent "Why?" analysis
 }
 
 export interface FiveWhyEntry {
   id: string;
   why: string;
-  becauses: FiveWhyBecause[];
+  responses: FiveWhyNode[];
 }
 
-export type FiveWhysData = FiveWhyEntry[];
+export type FiveWhysData = FiveWhyEntry[]; // It will always be an array with one root entry.
 
 
 export interface LatentCause {
