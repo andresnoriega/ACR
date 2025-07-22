@@ -1,3 +1,4 @@
+
 'use client';
 import { FC, useState, useEffect, useCallback } from 'react';
 import type { FiveWhyEntry, FiveWhyBecause } from '@/types/rca';
@@ -247,10 +248,11 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
  const handleRemove = useCallback((path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
 
-    if (path.length === 1) {
+    if (path.length === 1) { // Root level removal
         newData.splice(path[0] as number, 1);
     } else {
         let parent: any = newData;
+        // Traverse to the parent of the target array
         for (let i = 0; i < path.length - 2; i++) {
             parent = parent[path[i]];
         }
@@ -258,9 +260,11 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         const arrayKey = path[path.length - 2] as string;
         const indexToRemove = path[path.length - 1] as number;
 
+        // Check if the parent and the array to modify exist
         if (parent && parent[arrayKey] && Array.isArray(parent[arrayKey])) {
             parent[arrayKey].splice(indexToRemove, 1);
         } else {
+             // This case should be less likely with the corrected traversal
              console.error("Error on handleRemove: Could not find array to remove from.", { path, parent });
         }
     }
@@ -278,7 +282,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         {fiveWhysData.map((entry, index) => (
           <div key={entry.id} className="p-3 border rounded-md bg-secondary/30">
             <div className="flex justify-between items-center mb-1">
-                <Label htmlFor={`why-root-${entry.id}`} className="font-medium text-base">¿Por qué? #1</Label>
+                <Label htmlFor={`why-root-${entry.id}`} className="font-medium text-base">¿Por qué? #{index + 1}</Label>
                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleRemove([index])}><Trash2 className="h-4 w-4 text-destructive" /></Button>
             </div>
             <Textarea
@@ -292,7 +296,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
               {entry.becauses.map((because, becauseIndex) => (
                 <Card key={because.id} className={cn("p-3 space-y-2 flex-1 min-w-[280px]", because.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' : because.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700' : 'bg-card')}>
                   <div className="flex justify-between items-center">
-                    <Label className="font-medium text-sm">¿Por qué? #1.{becauseIndex + 1}</Label>
+                    <Label className="font-medium text-sm">¿Por qué? #{index + 1}.{becauseIndex + 1}</Label>
                      <div className="flex items-center">
                         <Button size="icon" variant={because.status === 'accepted' ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => handleUpdate([index, 'becauses', becauseIndex], 'accepted', 'status')}><Check className="h-4 w-4 text-green-600"/></Button>
                         <Button size="icon" variant={because.status === 'rejected' ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => handleUpdate([index, 'becauses', becauseIndex], 'rejected', 'status')}><X className="h-4 w-4 text-destructive" /></Button>
@@ -321,7 +325,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                       level={2}
                       basePath={[index, 'becauses', becauseIndex, 'subWhys']}
                       onRemove={handleRemove}
-                      onAddSubWhy={onAddSubWhy}
+                      onAddSubWhy={handleAddSubWhy}
                       onAddBecause={handleAddBecause}
                       handleUpdate={handleUpdate}
                     />
