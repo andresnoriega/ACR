@@ -177,7 +177,7 @@ const FiveWhysRecursiveRenderer: FC<{
                     'bg-card',
                     node.isRootCause && 'ring-2 ring-amber-400 border-amber-400'
                 )}
-                style={{ width: node.width || 'auto', flexBasis: '48%', flexGrow: 1 }}
+                style={{ width: node.width || 'auto', flexBasis: 'auto', flexGrow: 1 }}
             >
               <div className="flex justify-between items-center">
                 <Label className="font-medium text-sm">Porque... #{level}.{nodeIndex + 1}</Label>
@@ -232,7 +232,7 @@ const FiveWhysRecursiveRenderer: FC<{
             </Card>
           );
         })}
-        <Button size="sm" variant="outline" className="text-muted-foreground self-center min-h-[120px] md:basis-[48%] flex-grow" onClick={() => onAddNode([...basePath, 'responses'])}>
+        <Button size="sm" variant="outline" className="text-muted-foreground self-center min-h-[120px] flex-grow" onClick={() => onAddNode([...basePath, 'responses'])}>
             <PlusCircle className="mr-2 h-4 w-4" /> Añadir Causa Paralela
         </Button>
       </div>
@@ -560,5 +560,3 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     </Card>
   );
 };
-
-    
