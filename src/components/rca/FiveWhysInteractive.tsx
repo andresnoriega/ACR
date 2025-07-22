@@ -13,6 +13,39 @@ import { useToast } from "@/hooks/use-toast";
 
 const generateId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
+// --- RootCauseConfirmationDialog Component ---
+interface RootCauseConfirmationDialogProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+  isProcessing: boolean;
+}
+
+const RootCauseConfirmationDialog: FC<RootCauseConfirmationDialogProps> = ({ isOpen, onOpenChange, onConfirm, isProcessing }) => {
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Confirmar Causa Raíz</DialogTitle>
+          <DialogDescription>
+            ¿Es posible aplicar una solución definitiva y factible para esta causa?
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isProcessing}>
+            No
+          </Button>
+          <Button onClick={onConfirm} disabled={isProcessing}>
+            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Sí
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+
 // --- ValidationDialog Component ---
 interface ValidationDialogProps {
   isOpen: boolean;
@@ -144,7 +177,7 @@ const FiveWhysRecursiveRenderer: FC<{
                     'bg-card',
                     node.isRootCause && 'ring-2 ring-amber-400 border-amber-400'
                 )}
-                style={{ width: node.width || 'auto', flexGrow: 1, flexBasis: '48%' }}
+                style={{ width: node.width || 'auto', flexBasis: '48%', flexGrow: 1 }}
             >
               <div className="flex justify-between items-center">
                 <Label className="font-medium text-sm">Porque... #{level}.{nodeIndex + 1}</Label>
@@ -222,6 +255,8 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   const { toast } = useToast();
   const [validationState, setValidationState] = useState<{ path: (string | number)[]; status: FiveWhyNode['status'] } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
+  const [rootCauseConfirmation, setRootCauseConfirmation] = useState<{ path: (string | number)[] } | null>(null);
+  const [isProcessingRootCause, setIsProcessingRootCause] = useState(false);
 
   const initialWhyText = useMemo(() => {
     return focusEventDescription ? `¿Por qué ocurrió: "${focusEventDescription.substring(0,70)}${focusEventDescription.length > 70 ? "..." : ""}"?` : '¿Por qué ocurrió el evento?';
@@ -353,6 +388,43 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   }, [fiveWhysData, onSetFiveWhysData]);
   
   const handleSetRootCause = useCallback((path: (string | number)[]) => {
+    const findNode = (p: (string | number)[], current: any): FiveWhyNode | null => {
+      let target = current;
+      for (const key of p) {
+        if (target === undefined || target === null) return null;
+        target = target[key];
+      }
+      return target;
+    };
+    const nodeToCheck = findNode([...path], fiveWhysData);
+
+    if (nodeToCheck && nodeToCheck.status === 'rejected') {
+        toast({
+            title: "Acción no permitida",
+            description: "No se puede establecer una causa rechazada como causa raíz.",
+            variant: "destructive"
+        });
+        return;
+    }
+    if (nodeToCheck && nodeToCheck.status !== 'accepted') {
+        toast({
+            title: "Validación Requerida",
+            description: "Una causa debe ser validada antes de poder ser designada como causa raíz.",
+            variant: "destructive"
+        });
+        return;
+    }
+    
+    // If we get here, the node is valid to be considered. Open the dialog.
+    setRootCauseConfirmation({ path });
+    
+  }, [fiveWhysData, toast]);
+
+  const confirmSetRootCause = useCallback(() => {
+    if (!rootCauseConfirmation) return;
+    setIsProcessingRootCause(true);
+    const path = rootCauseConfirmation.path;
+
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     
     const findNode = (p: (string | number)[], current: any): FiveWhyNode | null => {
@@ -364,28 +436,20 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       return target;
     };
     
-    let nodeToCheck = findNode([...path], newData);
-    if (nodeToCheck && nodeToCheck.status === 'rejected') {
-        toast({
-            title: "Acción no permitida",
-            description: "No se puede establecer una causa rechazada como causa raíz.",
-            variant: "destructive"
-        });
-        return; 
-    }
-
-    // Continue with the original logic if not rejected
     let nodeToUpdate: FiveWhyNode | null = null;
     let pathForTraversal = [...path];
     nodeToUpdate = findNode(pathForTraversal, newData);
 
     if (!nodeToUpdate) {
       console.error("Could not find node to update for root cause.", path);
+      setIsProcessingRootCause(false);
+      setRootCauseConfirmation(null);
       return;
     }
     
     const newIsRootCauseState = !nodeToUpdate.isRootCause;
 
+    // Clear all other root causes first if we are setting a new one.
     if (newIsRootCauseState) {
         const clearOtherRootCauses = (entry: FiveWhyEntry) => {
             if (!entry.responses) return;
@@ -399,16 +463,21 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         newData.forEach(clearOtherRootCauses);
     }
 
+    // Now find the node again in the modified data and set its state.
     nodeToUpdate = findNode(pathForTraversal, newData);
     if(nodeToUpdate){
       nodeToUpdate.isRootCause = newIsRootCauseState;
+      // Ensure it remains 'accepted' if marked as root cause.
       if (newIsRootCauseState && nodeToUpdate.status !== 'accepted') {
           nodeToUpdate.status = 'accepted';
       }
     }
 
     onSetFiveWhysData(newData);
-  }, [fiveWhysData, onSetFiveWhysData, toast]);
+    setIsProcessingRootCause(false);
+    setRootCauseConfirmation(null);
+  }, [rootCauseConfirmation, fiveWhysData, onSetFiveWhysData]);
+
 
   
   const handleAddWhyInvestigation = () => {
@@ -478,7 +547,18 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
             isProcessing={isProcessingValidation}
           />
         )}
+        
+        {rootCauseConfirmation && (
+          <RootCauseConfirmationDialog
+            isOpen={!!rootCauseConfirmation}
+            onOpenChange={() => setRootCauseConfirmation(null)}
+            onConfirm={confirmSetRootCause}
+            isProcessing={isProcessingRootCause}
+          />
+        )}
       </CardContent>
     </Card>
   );
 };
+
+    
