@@ -104,6 +104,8 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     for (let i = 0; i < path.length - 1; i++) {
         const key = path[i];
         if (current[key] === undefined) {
+          // This logic is tricky. If the next key is a number, we need an array.
+          // Otherwise, an object. This might not be robust enough for all cases.
           current[key] = isNaN(Number(path[i+1])) ? {} : [];
         }
         current = current[key];
@@ -146,27 +148,26 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
   const handleRemove = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    let current: any = newData;
-    
-    // Traverse to the parent array/object
+    let parent: any = newData;
+
+    // Traverse to the parent array.
     for (let i = 0; i < path.length - 1; i++) {
-        if (current === undefined) return; // Path is invalid
-        current = current[path[i]];
+        const key = path[i];
+        // Check if current level is valid before proceeding
+        if (parent && typeof parent === 'object' && key in parent) {
+            parent = parent[key];
+        } else {
+            console.error("Invalid path for remove operation at segment:", key, "Full path:", path);
+            return;
+        }
     }
     
-    const finalKey = path[path.length - 1];
+    const indexToRemove = path[path.length - 1];
 
-    if (typeof finalKey === 'string') { // e.g., 'becauses' or 'subWhys'
-      // This case should ideally not be hit if we are removing an item from an array
-      // But if it is, we would need to check if current[finalKey] is the array we want to splice from
-      console.error("Attempted to remove from an object property directly, expected array index.");
-      return;
-    }
-
-    if (Array.isArray(current) && typeof finalKey === 'number') {
-        current.splice(finalKey, 1);
+    if (Array.isArray(parent) && typeof indexToRemove === 'number') {
+        parent.splice(indexToRemove, 1);
     } else {
-       console.error("Error on handleRemove: Parent is not an array or key is not a number for splice.", { path, current });
+       console.error("Error on handleRemove: Parent is not an array or key is not a number for splice.", { path, parent });
     }
     onSetFiveWhysData(newData);
   };
