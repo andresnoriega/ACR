@@ -104,7 +104,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     for (let i = 0; i < path.length - 1; i++) {
         const key = path[i];
         if (current[key] === undefined) {
-          // If path doesn't exist, create it (e.g., becauses array)
           current[key] = isNaN(Number(path[i+1])) ? {} : [];
         }
         current = current[key];
@@ -149,16 +148,17 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     let parent: any = newData;
     
+    // Traverse to the parent array/object
     for (let i = 0; i < path.length - 1; i++) {
-        if (parent === undefined) return;
+        if (parent === undefined) return; // Path is invalid
         parent = parent[path[i]];
     }
     
     const finalKey = path[path.length - 1];
     if (Array.isArray(parent) && typeof finalKey === 'number') {
         parent.splice(finalKey, 1);
-    } else if (typeof parent === 'object' && parent !== null) {
-        delete parent[finalKey];
+    } else {
+       console.error("Error on handleRemove: Parent is not an array or key is not a number for splice", { path, parent });
     }
     onSetFiveWhysData(newData);
   };
