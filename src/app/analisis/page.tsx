@@ -1408,6 +1408,10 @@ function RCAAnalysisPageComponent() {
     }
     setIsSaving(false);
   };
+  
+  const handleSetIshikawaData = (data: IshikawaData) => {
+    setIshikawaData(data);
+  };
 
   useEffect(() => {
     if (step > maxCompletedStep) {
@@ -1519,7 +1523,7 @@ function RCAAnalysisPageComponent() {
           ishikawaData={ishikawaData}
           onSetIshikawaData={setIshikawaData}
           fiveWhysData={fiveWhysData}
-          onSetFiveWhysData={handleSetFiveWhysData}
+          onSetFiveWhysData={setFiveWhysData}
           ctmData={ctmData}
           onSetCtmData={handleSetCtmData}
           identifiedRootCauses={identifiedRootCauses}
