@@ -42,7 +42,7 @@ const FiveWhysRecursiveRenderer: FC<{
             rows={2}
           />
           <div className="mt-3 space-y-2">
-            {entry.becauses.map((because, becauseIndex) => (
+            {(entry.becauses || []).map((because, becauseIndex) => (
               <div key={because.id} className="pl-4 border-l-2 border-gray-300 ml-4 space-y-2">
                 <div className="flex justify-between items-center">
                   <Label htmlFor={`because-${because.id}`} className="text-sm font-semibold flex items-center text-gray-700 dark:text-gray-300">
@@ -59,7 +59,7 @@ const FiveWhysRecursiveRenderer: FC<{
                   className="text-sm"
                 />
                 <FiveWhysRecursiveRenderer
-                  entries={because.subWhys}
+                  entries={because.subWhys || []}
                   level={level + 1}
                   onUpdate={(subPath, value, field) => onUpdate(['entries', entryIndex, 'becauses', becauseIndex, 'subWhys', ...subPath], value, field)}
                   onAdd={(subPath, type) => onAdd(['entries', entryIndex, 'becauses', becauseIndex, 'subWhys', ...subPath], type)}
@@ -89,12 +89,15 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   const handleUpdate = (path: (string | number)[], value: string, field: 'why' | 'because') => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     let current = newData;
-    for (let i = 0; i < path.length - 1; i++) {
-      current = current[path[i]];
+    for (let i = 1; i < path.length - 1; i++) { // Start from 1 to skip 'entries'
+        current = current[path[i]];
     }
     const target = current[path[path.length - 1]];
-    if(field === 'why') target.why = value;
-    else if(field === 'because') target.description = value;
+    if(field === 'why') {
+        target.why = value;
+    } else if(field === 'because') {
+        target.description = value;
+    }
 
     onSetFiveWhysData(newData);
   };
@@ -102,13 +105,10 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   const handleAdd = (path: (string | number)[], type: 'why' | 'because') => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     let current = newData;
-    let parent = null;
-    let lastKey = null;
-
-    for (const key of path) {
-      parent = current;
-      lastKey = key;
-      current = current[key];
+    
+    // Start from 1 to skip the initial 'entries' string in the path
+    for (let i = 1; i < path.length; i++) {
+      current = current[path[i]];
     }
     
     if (type === 'why') { // Adding a sub-why to a 'because'
@@ -124,7 +124,8 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   const handleRemove = (path: (string | number)[]) => {
       const newData = JSON.parse(JSON.stringify(fiveWhysData));
       let current = newData;
-      for (let i = 0; i < path.length - 1; i++) {
+      // Navigate to the parent array
+      for (let i = 1; i < path.length - 1; i++) {
         current = current[path[i]];
       }
       const indexToRemove = path[path.length - 1] as number;
@@ -133,23 +134,24 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   };
   
   const handleAddRootWhy = () => {
-    onSetFiveWhysData([...fiveWhysData, { id: generateId('why'), why: '', becauses: [] }]);
+    onSetFiveWhysData([...(fiveWhysData || []), { id: generateId('why'), why: '', becauses: [] }]);
   }
 
   const handleRootUpdate = (path: (string|number)[], value: string, field: 'why' | 'because') => {
       const index = path[1] as number;
-      const newData = fiveWhysData.map((item, i) => i === index ? {...item, why: value} : item);
+      const newData = [...(fiveWhysData || [])].map((item, i) => i === index ? {...item, why: value} : item);
       onSetFiveWhysData(newData);
   }
 
   const handleRootRemove = (path: (string|number)[]) => {
       const index = path[1] as number;
-      onSetFiveWhysData(fiveWhysData.filter((_, i) => i !== index));
+      onSetFiveWhysData([...(fiveWhysData || [])].filter((_, i) => i !== index));
   }
   
   const handleRootAdd = (path: (string|number)[], type: 'why' | 'because') => {
       const index = path[1] as number;
-      const newData = JSON.parse(JSON.stringify(fiveWhysData));
+      const newData = JSON.parse(JSON.stringify(fiveWhysData || []));
+      if (!newData[index].becauses) newData[index].becauses = [];
       newData[index].becauses.push({ id: generateId('because'), description: '', subWhys: [] });
       onSetFiveWhysData(newData);
   }
@@ -170,7 +172,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       </Card>
       
       <FiveWhysRecursiveRenderer
-          entries={fiveWhysData}
+          entries={fiveWhysData || []}
           level={0}
           onUpdate={handleRootUpdate}
           onAdd={handleRootAdd}
