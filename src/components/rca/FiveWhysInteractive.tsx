@@ -110,7 +110,7 @@ const FiveWhysRecursiveRenderer: FC<FiveWhysRecursiveRendererProps> = ({
               {entry.becauses.map((because, becauseIndex) => (
                 <Card key={because.id} className={cn("p-3 space-y-2 flex-1 min-w-[280px]", because.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' : because.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700' : 'bg-card')}>
                   <div className="flex justify-between items-center">
-                    <Label className="font-medium text-sm">Porque... {currentWhyNumber}.{becauseIndex + 1}</Label>
+                    <Label className="font-medium text-sm">¿Por qué? #{currentWhyNumber}.{becauseIndex + 1}</Label>
                     <div className="flex items-center">
                       <Button size="icon" variant={because.status === 'accepted' ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => onUpdate([...currentWhyPath, 'becauses', becauseIndex], 'accepted', 'status')}><Check className="h-4 w-4 text-green-600" /></Button>
                       <Button size="icon" variant={because.status === 'rejected' ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => onUpdate([...currentWhyPath, 'becauses', becauseIndex], 'rejected', 'status')}><X className="h-4 w-4 text-destructive" /></Button>
@@ -241,8 +241,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         const parentBecauseDescription = current.description || '';
         if (!current.subWhys) current.subWhys = [];
         current.subWhys.push({ id: generateId('why'), why: `¿Por qué: "${parentBecauseDescription.substring(0,50)}..."?`, becauses: [] });
-    } else {
-         newData.push({ id: generateId('why'), why: '', becauses: [] });
     }
     
     onSetFiveWhysData(newData);
@@ -250,27 +248,28 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
   const handleRemove = useCallback((path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    if (path.length === 1) { // Removing a root-level "why"
+    let parent: any = newData;
+    
+    if (path.length === 1) { // Root level removal
       newData.splice(path[0] as number, 1);
     } else {
-      let parent = newData;
-      // Navigate to the parent array
+      // Navigate to the parent object
       for (let i = 0; i < path.length - 2; i++) {
         parent = parent[path[i]];
       }
-
-      // The last part of the path is the index to remove, the second to last is the key of the array
+      
       const keyOfArray = path[path.length - 2];
       const indexToRemove = path[path.length - 1] as number;
 
-      if (Array.isArray(parent[keyOfArray])) {
+      if (parent && Array.isArray(parent[keyOfArray])) {
         parent[keyOfArray].splice(indexToRemove, 1);
       } else {
-        console.error("Error on handleRemove: Could not find the array to remove from.", { path, parent });
+        console.error("Error on handleRemove: Parent or array not found.", { path, parent });
       }
     }
+
     onSetFiveWhysData(newData);
-  }, [fiveWhysData, onSetFiveWhysData]);
+}, [fiveWhysData, onSetFiveWhysData]);
   
   return (
     <Card className="mt-4 shadow-sm">
@@ -295,7 +294,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
               {entry.becauses.map((because, becauseIndex) => (
                 <Card key={because.id} className={cn("p-3 space-y-2 flex-1 min-w-[280px]", because.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' : because.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700' : 'bg-card')}>
                   <div className="flex justify-between items-center">
-                    <Label className="font-medium text-sm">Porque... {index + 1}.{becauseIndex + 1}</Label>
+                    <Label className="font-medium text-sm">¿Por qué? #{index + 1}.{becauseIndex + 1}</Label>
                      <div className="flex items-center">
                         <Button size="icon" variant={because.status === 'accepted' ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => handleUpdate([index, 'becauses', becauseIndex], 'accepted', 'status')}><Check className="h-4 w-4 text-green-600"/></Button>
                         <Button size="icon" variant={because.status === 'rejected' ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => handleUpdate([index, 'becauses', becauseIndex], 'rejected', 'status')}><X className="h-4 w-4 text-destructive" /></Button>
@@ -314,7 +313,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                         </div>
                      )}
                    {because.status === 'accepted' && (
-                       <Button size="sm" variant="outline" className="text-xs h-7 mt-2" onClick={() => handleAdd([index, 'becauses', becauseIndex])}>
+                       <Button size="sm" variant="outline" className="text-xs h-7 mt-2" onClick={() => handleAdd([index, 'becauses', becauseIndex, 'subWhys'])}>
                            <PlusCircle className="mr-1 h-3 w-3" /> Añadir Siguiente ¿Por qué?
                        </Button>
                    )}
@@ -325,7 +324,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                       parentNumber={`${index + 1}.${becauseIndex + 1}`}
                       onUpdate={handleUpdate}
                       onAdd={handleAdd}
-                      onRemove={handleRemove}
+                      onRemove={onRemove}
                     />
                   )}
                 </Card>
@@ -338,11 +337,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
             </div>
           </div>
         ))}
-         <div className="pt-4">
-             <Button size="sm" variant="outline" onClick={() => handleAdd([])}>
-                <PlusCircle className="mr-2 h-4 w-4" /> Iniciar nueva línea de análisis de Porqués
-             </Button>
-        </div>
 
 
         {validationState && (
