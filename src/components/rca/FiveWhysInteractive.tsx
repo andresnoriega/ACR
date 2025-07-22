@@ -20,26 +20,27 @@ const generateId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().
 const FiveWhysRecursiveRenderer: FC<{
   entries: FiveWhyEntry[];
   level: number;
+  basePath: (string | number)[];
   onUpdate: (path: (string | number)[], value: any) => void;
   onAdd: (path: (string | number)[], type: 'why' | 'because') => void;
   onRemove: (path: (string | number)[]) => void;
-}> = ({ entries, level, onUpdate, onAdd, onRemove }) => {
+}> = ({ entries, level, basePath, onUpdate, onAdd, onRemove }) => {
   return (
     <div className="space-y-4">
-      {entries.map((entry, entryIndex) => (
+      {(entries || []).map((entry, entryIndex) => (
         <Card key={entry.id} className="bg-secondary/30">
           <CardHeader className="p-3">
             <div className="flex justify-between items-center">
               <CardTitle className="text-base font-semibold text-primary flex items-center">
                 <HelpCircle className="mr-1.5 h-4 w-4" /> Porque #{level}
               </CardTitle>
-              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRemove(['entries', entryIndex])}>
+              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRemove([...basePath, entryIndex])}>
                 <Trash2 className="h-4 w-4 text-destructive" />
               </Button>
             </div>
             <Textarea
               value={entry.why}
-              onChange={(e) => onUpdate(['entries', entryIndex, 'why'], e.target.value)}
+              onChange={(e) => onUpdate([...basePath, entryIndex, 'why'], e.target.value)}
               placeholder={`¿Por qué ocurrió el evento anterior?`}
               rows={2}
               className="text-sm bg-background"
@@ -52,14 +53,14 @@ const FiveWhysRecursiveRenderer: FC<{
                   <Label htmlFor={`because-${because.id}`} className="text-sm font-semibold flex items-center text-foreground">
                     <MessageCircle className="mr-1.5 h-4 w-4" /> Sub-Porque {level}.{becauseIndex + 1}
                   </Label>
-                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRemove(['entries', entryIndex, 'becauses', becauseIndex])}>
+                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRemove([...basePath, entryIndex, 'becauses', becauseIndex])}>
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </div>
                 <Textarea
                   id={`because-${because.id}`}
                   value={because.description}
-                  onChange={(e) => onUpdate(['entries', entryIndex, 'becauses', becauseIndex, 'description'], e.target.value)}
+                  onChange={(e) => onUpdate([...basePath, entryIndex, 'becauses', becauseIndex, 'description'], e.target.value)}
                   placeholder="Describa la razón..."
                   rows={2}
                   className="text-sm bg-background"
@@ -68,19 +69,20 @@ const FiveWhysRecursiveRenderer: FC<{
                 <FiveWhysRecursiveRenderer
                   entries={because.subWhys || []}
                   level={level + 1}
-                  onUpdate={(subPath, value) => onUpdate(['entries', entryIndex, 'becauses', becauseIndex, 'subWhys', ...subPath], value)}
-                  onAdd={(subPath, type) => onAdd(['entries', entryIndex, 'becauses', becauseIndex, 'subWhys', ...subPath], type)}
-                  onRemove={(subPath) => onRemove(['entries', entryIndex, 'becauses', becauseIndex, 'subWhys', ...subPath])}
+                  basePath={[...basePath, entryIndex, 'becauses', becauseIndex, 'subWhys']}
+                  onUpdate={onUpdate}
+                  onAdd={onAdd}
+                  onRemove={onRemove}
                 />
 
                 {(because.subWhys || []).length === 0 && (
-                   <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => onAdd(['entries', entryIndex, 'becauses', becauseIndex], 'why')}>
+                   <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => onAdd([...basePath, entryIndex, 'becauses', becauseIndex], 'why')}>
                      <PlusCircle className="mr-1 h-3 w-3" /> Añadir Siguiente ¿Por qué?
                    </Button>
                 )}
               </div>
             ))}
-            <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => onAdd(['entries', entryIndex], 'because')}>
+            <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => onAdd([...basePath, entryIndex], 'because')}>
               <PlusCircle className="mr-1 h-3 w-3" /> Añadir Sub-Porque
             </Button>
           </CardContent>
@@ -98,45 +100,27 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 }) => {
   const handleUpdate = (path: (string | number)[], value: any) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    let current = newData;
+    let current: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
-        current = current[path[i]];
+        const key = path[i];
+        if (current[key] === undefined) {
+          // If path doesn't exist, create it (e.g., becauses array)
+          current[key] = isNaN(Number(path[i+1])) ? {} : [];
+        }
+        current = current[key];
     }
     const finalKey = path[path.length - 1];
-    if (typeof finalKey === 'string' && typeof current === 'object' && current !== null && finalKey in current) {
-      current[finalKey] = value;
-    } else if (typeof finalKey === 'number' && Array.isArray(current)) {
-      current[finalKey] = { ...current[finalKey], ...value };
-    }
+    current[finalKey] = value;
     onSetFiveWhysData(newData);
   };
   
-  const handlePathUpdate = (fullPath: (string | number)[], value: any) => {
-    const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    let current: any = { root: newData }; // Wrap in a root object to handle top-level array
-    const path = ['root', ...fullPath];
-
-    for (let i = 0; i < path.length - 1; i++) {
-      if (current === undefined) return; // Path is invalid, abort
-      current = current[path[i]];
-    }
-
-    const finalKey = path[path.length - 1];
-    if(typeof current === 'object' && current !== null && finalKey in current) {
-        current[finalKey] = value;
-    }
-    onSetFiveWhysData(newData);
-  };
-
-
   const handleAdd = (path: (string | number)[], type: 'why' | 'because') => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    let parent: any = { root: newData };
-    const fullPath = ['root', ...path];
+    let parent: any = newData;
 
-    for (let i = 0; i < fullPath.length; i++) {
+    for (let i = 0; i < path.length; i++) {
         if(parent === undefined) return;
-        parent = parent[fullPath[i]];
+        parent = parent[path[i]];
     }
 
     if (type === 'because') {
@@ -163,17 +147,18 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
   const handleRemove = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    let parent: any = { root: newData };
-    const fullPath = ['root', ...path];
+    let parent: any = newData;
     
-    for (let i = 0; i < fullPath.length - 1; i++) {
+    for (let i = 0; i < path.length - 1; i++) {
         if (parent === undefined) return;
-        parent = parent[fullPath[i]];
+        parent = parent[path[i]];
     }
     
-    const finalKey = fullPath[fullPath.length-1];
+    const finalKey = path[path.length - 1];
     if (Array.isArray(parent) && typeof finalKey === 'number') {
         parent.splice(finalKey, 1);
+    } else if (typeof parent === 'object' && parent !== null) {
+        delete parent[finalKey];
     }
     onSetFiveWhysData(newData);
   };
@@ -199,18 +184,17 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
               key={rootWhy.id}
               entries={[rootWhy]}
               level={1}
-              onUpdate={(path, value) => handlePathUpdate([index, ...path.slice(1)], value)}
-              onAdd={(path, type) => handleAdd([index, ...path.slice(1)], type)}
-              onRemove={(path) => handleRemove([index, ...path.slice(1)])}
+              basePath={[index]}
+              onUpdate={handleUpdate}
+              onAdd={handleAdd}
+              onRemove={handleRemove}
             />
         ))}
-        {(!fiveWhysData || fiveWhysData.length === 0) && (
-            <div className="text-center py-4">
-                <Button onClick={handleAddToRoot} variant="outline">
-                    <PlusCircle className="mr-2 h-4 w-4" /> Iniciar Análisis del Porqué
-                </Button>
-            </div>
-        )}
+        <div className="text-center pt-2">
+            <Button onClick={handleAddToRoot} variant="outline">
+                <PlusCircle className="mr-2 h-4 w-4" /> Iniciar nueva línea de análisis de Porqués
+            </Button>
+        </div>
       </div>
     </div>
   );
