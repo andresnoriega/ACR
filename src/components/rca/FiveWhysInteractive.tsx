@@ -1,6 +1,6 @@
 
 'use client';
-import { FC, useState } from 'react';
+import { FC, useState, useEffect } from 'react';
 import { FiveWhysData, FiveWhyBecause, FiveWhyEntry } from '@/types/rca';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -44,10 +44,15 @@ const ValidationDialog: FC<{
       return;
     }
     onConfirm(method);
-    onClose();
-    setMethod('');
   };
   
+  // Clear state when dialog closes
+  useEffect(() => {
+    if (!isOpen) {
+      setMethod('');
+    }
+  }, [isOpen]);
+
   return (
       <AlertDialog open={isOpen} onOpenChange={onClose}>
         <AlertDialogContent>
@@ -84,18 +89,21 @@ const ValidationDialog: FC<{
 const FiveWhysRecursiveRenderer: FC<{
   entry: FiveWhyEntry;
   level: number;
+  parentNumber: string;
   path: (string | number)[];
   onUpdate: (path: (string | number)[], value: any, field?: string) => void;
   onAdd: (path: (string | number)[], type: 'why' | 'because') => void;
   onRemove: (path: (string | number)[]) => void;
   onOpenValidationDialog: (path: (string | number)[], statusToSet: 'accepted' | 'rejected') => void;
-}> = ({ entry, level, path, onUpdate, onAdd, onRemove, onOpenValidationDialog }) => {
+}> = ({ entry, level, parentNumber, path, onUpdate, onAdd, onRemove, onOpenValidationDialog }) => {
+  const currentNumber = `${parentNumber}${level > 1 ? '.' : ''}${path[path.length - 1] + 1}`;
+
   return (
     <Card className="bg-secondary/30 w-full">
       <CardHeader className="p-3">
         <div className="flex justify-between items-center">
           <CardTitle className="text-base font-semibold text-primary flex items-center">
-            <HelpCircle className="mr-1.5 h-4 w-4" /> ¿Por qué? #{level}
+            <HelpCircle className="mr-1.5 h-4 w-4" /> ¿Por qué? #{currentNumber}
           </CardTitle>
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRemove(path)}>
             <Trash2 className="h-4 w-4 text-destructive" />
@@ -114,6 +122,7 @@ const FiveWhysRecursiveRenderer: FC<{
           {(entry.becauses || []).map((because, becauseIndex) => {
             const becausePath = [...path, 'becauses', becauseIndex];
             const isRejected = because.status === 'rejected';
+            const becauseNumber = `${currentNumber}.${becauseIndex + 1}`;
             return (
               <div 
                 key={because.id} 
@@ -126,7 +135,7 @@ const FiveWhysRecursiveRenderer: FC<{
               >
                  <div className="flex justify-between items-center mb-1">
                     <Label htmlFor={`because-${because.id}`} className="text-sm font-semibold flex items-center text-foreground">
-                      <MessageCircle className="mr-1.5 h-4 w-4" /> Porque...
+                      <MessageCircle className="mr-1.5 h-4 w-4" /> Porque... {becauseNumber}
                     </Label>
                     <div className="flex items-center gap-1">
                       <Button size="icon" variant={because.status === 'accepted' ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => onOpenValidationDialog(becausePath, 'accepted')}><Check className="h-3.5 w-3.5 text-green-600"/></Button>
@@ -150,11 +159,12 @@ const FiveWhysRecursiveRenderer: FC<{
                   )}
 
                   <div className="mt-3 space-y-3">
-                      {because.subWhys?.map((subWhy, subWhyIndex) => (
+                      {(because.subWhys || []).map((subWhy, subWhyIndex) => (
                           <FiveWhysRecursiveRenderer
                               key={subWhy.id}
                               entry={subWhy}
                               level={level + 1}
+                              parentNumber={currentNumber}
                               path={[...becausePath, 'subWhys', subWhyIndex]}
                               onUpdate={onUpdate}
                               onAdd={onAdd}
@@ -165,7 +175,7 @@ const FiveWhysRecursiveRenderer: FC<{
                   </div>
                   
                   {!isRejected && (
-                    <Button size="sm" variant="outline" className="text-xs h-7 mt-3" onClick={() => onAdd([...path, 'becauses', becauseIndex], 'why')}>
+                    <Button size="sm" variant="outline" className="text-xs h-7 mt-3" onClick={() => onAdd(becausePath, 'why')}>
                         <PlusCircle className="mr-1 h-3 w-3" /> Añadir Siguiente ¿Por qué?
                     </Button>
                   )}
@@ -233,19 +243,24 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     if (path.length === 0) return;
 
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    let current = newData;
-
-    // Traverse to the parent array
+    let parent: any = newData;
+    
+    // Traverse to the parent array/object
     for (let i = 0; i < path.length - 1; i++) {
-        current = current[path[i] as any];
+      parent = parent[path[i] as any];
     }
+    
+    const indexToRemove = path[path.length - 1] as number;
 
-    const finalKey = path[path.length - 1];
-
-    if (Array.isArray(current) && typeof finalKey === 'number') {
-        current.splice(finalKey, 1);
+    // Check if the parent is an array (top level or subWhys) or an object (becauses)
+    if (Array.isArray(parent)) {
+        parent.splice(indexToRemove, 1);
+    } else if (parent && parent.becauses && Array.isArray(parent.becauses)) {
+        parent.becauses.splice(indexToRemove, 1);
+    } else if (parent && parent.subWhys && Array.isArray(parent.subWhys)) {
+        parent.subWhys.splice(indexToRemove, 1);
     } else {
-        console.error("Error on handleRemove: Parent is not an array or key is not a number for splice.", { path, current });
+        console.error("Error on handleRemove: Could not find array to splice from.", { path, parent });
     }
     
     onSetFiveWhysData(newData);
@@ -301,6 +316,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                 key={rootWhy.id}
                 entry={rootWhy}
                 level={1}
+                parentNumber="" // Top level has no parent number
                 path={[index]} 
                 onUpdate={handleUpdate}
                 onAdd={handleAdd}
@@ -326,4 +342,3 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     </>
   );
 };
-
