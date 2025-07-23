@@ -87,6 +87,8 @@ export interface FiveWhyEntry {
   id: string;
   why: string;
   because: string;
+  status?: 'pending' | 'accepted' | 'rejected';
+  validationMethod?: string;
 }
 
 export type FiveWhysData = FiveWhyEntry[];
@@ -244,7 +246,7 @@ export interface RCAAnalysisDocument {
   analysisTechnique: AnalysisTechnique;
   analysisTechniqueNotes: string;
   ishikawaData: IshikawaData;
-  fiveWhysData: FiveWhysData;
+  fiveWhysData: FiveWhyEntry[];
   ctmData: CTMData;
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
