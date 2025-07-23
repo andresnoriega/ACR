@@ -29,6 +29,12 @@ interface ValidationDialogProps {
 const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onConfirm, isProcessing }) => {
   const [method, setMethod] = useState('');
 
+  const handleConfirmClick = () => {
+    if (method.trim()) {
+      onConfirm(method);
+    }
+  };
+  
   useEffect(() => {
     if (isOpen) {
       setMethod('');
@@ -56,7 +62,7 @@ const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onC
         </div>
         <DialogFooter>
           <DialogClose asChild><Button variant="outline" disabled={isProcessing}>Cancelar</Button></DialogClose>
-          <Button onClick={() => onConfirm(method)} disabled={!method.trim() || isProcessing}>
+          <Button onClick={handleConfirmClick} disabled={!method.trim() || isProcessing}>
             {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Confirmar
           </Button>
@@ -79,17 +85,14 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   eventFocusDescription,
 }) => {
     const { toast } = useToast();
-    const [internalData, setInternalData] = useState<FiveWhyEntry[]>(fiveWhysData || []);
+    const [internalData, setInternalData] = useState<FiveWhyEntry[]>([]);
     const [validationState, setValidationState] = useState<{ id: string; status: 'accepted' | 'rejected' } | null>(null);
     const [isProcessingValidation, setIsProcessingValidation] = useState(false);
     const [isRootCauseConfirmOpen, setIsRootCauseConfirmOpen] = useState(false);
     const [rootCauseCandidateId, setRootCauseCandidateId] = useState<string | null>(null);
 
     useEffect(() => {
-        if (JSON.stringify(fiveWhysData) !== JSON.stringify(internalData)) {
-            setInternalData(fiveWhysData || []);
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      setInternalData(fiveWhysData || []);
     }, [fiveWhysData]);
 
     const hasRootCause = internalData.some(e => e.isRootCause);
@@ -193,28 +196,31 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                     <Label htmlFor={`because-${entry.id}`} className="font-semibold text-primary/90">Porque...</Label>
                     <Textarea id={`because-${entry.id}`} value={entry.because} onChange={(e) => handleUpdateEntry(entry.id, 'because', e.target.value)} placeholder="Describa la razón o causa..." rows={2} />
                 </div>
-                <div className="flex flex-col gap-1 ml-2">
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveEntry(entry.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                  <Button variant={entry.status === 'accepted' ? 'secondary' : 'ghost'} size="icon" className="h-7 w-7" onClick={() => handleToggleStatus(entry.id, 'accepted')}><Check className="h-4 w-4 text-green-600"/></Button>
-                  <Button variant={entry.status === 'rejected' ? 'secondary' : 'ghost'} size="icon" className="h-7 w-7" onClick={() => handleToggleStatus(entry.id, 'rejected')}><X className="h-4 w-4 text-destructive"/></Button>
+                 <div className="flex flex-col gap-1 ml-2">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveEntry(entry.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                 </div>
+              </div>
+
+               <div className="pt-2 border-t mt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                    <Button variant={entry.status === 'accepted' ? 'secondary' : 'ghost'} size="sm" className="h-8" onClick={() => handleToggleStatus(entry.id, 'accepted')}><Check className="mr-1 h-4 w-4 text-green-600"/> Aceptar</Button>
+                    <Button variant={entry.status === 'rejected' ? 'secondary' : 'ghost'} size="sm" className="h-8" onClick={() => handleToggleStatus(entry.id, 'rejected')}><X className="mr-1 h-4 w-4 text-destructive"/> Rechazar</Button>
                 </div>
+                {entry.isRootCause ? (
+                    <Button onClick={() => handleUnsetRootCause(entry.id)} variant="destructive" size="sm" className="w-full sm:w-auto">
+                       <SearchCheck className="mr-2 h-4 w-4" /> Anular Causa Raíz
+                    </Button>
+                 ) : (
+                    <Button onClick={() => { setRootCauseCandidateId(entry.id); setIsRootCauseConfirmOpen(true); }} variant="outline" size="sm" className="w-full sm:w-auto" disabled={entry.status !== 'accepted'}>
+                       <SearchCheck className="mr-2 h-4 w-4" /> Marcar como Causa Raíz
+                    </Button>
+                 )}
               </div>
               {entry.validationMethod && (
                 <div className="text-xs text-muted-foreground pt-2 mt-2 border-t">
                   <span className="font-semibold">Justificación V/R:</span> {entry.validationMethod}
                 </div>
               )}
-               <div className="pt-2 border-t mt-2">
-                 {entry.isRootCause ? (
-                    <Button onClick={() => handleUnsetRootCause(entry.id)} variant="destructive" size="sm" className="w-full">
-                       <SearchCheck className="mr-2 h-4 w-4" /> Anular Causa Raíz
-                    </Button>
-                 ) : (
-                    <Button onClick={() => setRootCauseCandidateId(entry.id)} variant="outline" size="sm" className="w-full" disabled={entry.status !== 'accepted'}>
-                       <SearchCheck className="mr-2 h-4 w-4" /> Causa Raíz
-                    </Button>
-                 )}
-              </div>
             </Card>
           ))}
           <Button onClick={handleAddEntry} variant="outline" className="w-full" disabled={hasRootCause || lastEntryStatus === 'rejected'}>
@@ -230,7 +236,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
           isProcessing={isProcessingValidation}
         />
       )}
-      <AlertDialog open={isRootCauseConfirmOpen || !!rootCauseCandidateId} onOpenChange={ (open) => { if(!open) { setIsRootCauseConfirmOpen(false); setRootCauseCandidateId(null); } }}>
+      <AlertDialog open={isRootCauseConfirmOpen} onOpenChange={ (open) => { if(!open) { setIsRootCauseConfirmOpen(false); setRootCauseCandidateId(null); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Causa Raíz</AlertDialogTitle>
@@ -239,7 +245,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setRootCauseCandidateId(null)}>No</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => { setIsRootCauseConfirmOpen(false); setRootCauseCandidateId(null); }}>No</AlertDialogCancel>
             <AlertDialogAction onClick={handleSetRootCause}>Sí</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
