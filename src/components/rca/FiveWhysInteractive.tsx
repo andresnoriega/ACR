@@ -1,6 +1,7 @@
+
 'use client';
 import type { FC } from 'react';
-import { useState, useEffect, useId } from 'react';
+import { useState, useEffect } from 'react';
 import type { FiveWhyEntry } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -32,7 +33,6 @@ const ValidationDialog: FC<ValidationDialogProps> = ({
   isProcessing
 }) => {
   const [method, setMethod] = useState('');
-  const validationId = useId();
 
   const handleConfirmClick = () => {
     if (method.trim()) {
@@ -47,7 +47,7 @@ const ValidationDialog: FC<ValidationDialogProps> = ({
   }, [isOpen]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={(open) => {if(!isProcessing) onOpenChange(open)}}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Confirmar Validación/Rechazo de Causa</DialogTitle>
@@ -57,11 +57,11 @@ const ValidationDialog: FC<ValidationDialogProps> = ({
         </DialogHeader>
 
         <div className="py-4">
-          <Label htmlFor={validationId}>
+          <Label htmlFor="five-why-validation-method">
             Método de Validación/Rechazo <span className="text-destructive">*</span>
           </Label>
           <Textarea
-            id={validationId}
+            id="five-why-validation-method"
             value={method}
             onChange={(e) => setMethod(e.target.value)}
             placeholder="Ej: Revisión de bitácora, entrevista con operador, evidencia física encontrada, etc."
@@ -70,11 +70,9 @@ const ValidationDialog: FC<ValidationDialogProps> = ({
         </div>
 
         <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline" disabled={isProcessing}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isProcessing}>
               Cancelar
-            </Button>
-          </DialogClose>
+          </Button>
           <Button
               onClick={handleConfirmClick}
               disabled={!method.trim() || isProcessing}
