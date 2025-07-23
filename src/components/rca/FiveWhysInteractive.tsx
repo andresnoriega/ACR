@@ -120,22 +120,40 @@ const getNodeByPath = (data: any[], path: (string | number)[]): any => {
     return current;
 };
 
-const getParentArrayAndIndex = (data: any[], path: (string | number)[]): { parent: any[] | null, index: number | null } => {
-  if (path.length === 0) return { parent: null, index: null };
+const getParentArrayAndIndex = (data: any[], path: (string | number)[]): { parentArray: any[] | null, index: number | null } => {
+  if (path.length === 0) return { parentArray: null, index: null };
+  
   const parentPath = path.slice(0, -1);
   const index = path[path.length - 1] as number;
-  let parent = { responses: data };
-  let current = parent;
+  
+  // If the path has only one element, the parent is the root data array
+  if (parentPath.length === 0) {
+      if (typeof index === 'number') {
+          return { parentArray: data, index };
+      }
+      return { parentArray: null, index: null };
+  }
+
+  // Navigate to the parent object
+  let parentObject: any = { responses: data }; // Start with a wrapper for consistent access
   for (const key of parentPath) {
-    if(typeof key === 'number' && Array.isArray(current.responses)) {
-      current = current.responses[key];
-    } else if (typeof key === 'string' && typeof current === 'object' && !Array.isArray(current)) {
-      current = current[key];
+    if (parentObject === undefined || parentObject === null) return { parentArray: null, index: null };
+
+    if (typeof key === 'number' && Array.isArray(parentObject.responses)) {
+        parentObject = parentObject.responses[key];
+    } else if (typeof key === 'string' && typeof parentObject === 'object' && !Array.isArray(parentObject)) {
+        parentObject = parentObject[key];
     } else {
-      return { parent: null, index: null };
+      return { parentArray: null, index: null };
     }
   }
-  return { parent: current.responses, index };
+
+  // After navigating, the target array should be in 'responses' property of the parentObject
+  if (parentObject && Array.isArray(parentObject.responses) && typeof index === 'number') {
+    return { parentArray: parentObject.responses, index };
+  }
+
+  return { parentArray: null, index: null };
 };
 
 
@@ -364,9 +382,10 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
   const handleRemoveNode = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    const { parent, index } = getParentArrayAndIndex(newData, path);
-    if(parent && index !== null) {
-        parent.splice(index, 1);
+    const { parentArray, index } = getParentArrayAndIndex(newData, path);
+    
+    if(parentArray && index !== null && index >= 0 && index < parentArray.length) {
+        parentArray.splice(index, 1);
         onSetFiveWhysData(newData);
     } else {
         console.error("Could not remove node at path:", path);
