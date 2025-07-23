@@ -195,6 +195,10 @@ function RCAAnalysisPageComponent() {
 
 
   const loadAnalysisData = useCallback(async (id: string): Promise<boolean> => {
+    if (!userProfile) { // Guard clause to prevent running on logout
+      setIsLoadingPage(false);
+      return false;
+    }
     setIsLoadingPage(true);
     try {
       const analysisDocRef = doc(db, "rcaAnalyses", id);
@@ -1553,7 +1557,7 @@ function RCAAnalysisPageComponent() {
           ishikawaData={ishikawaData}
           onSetIshikawaData={handleSetIshikawaData}
           fiveWhysData={fiveWhysData}
-          onSetFiveWhysData={handleSetFiveWhysData}
+          onSetFiveWhysData={setFiveWhysData}
           ctmData={ctmData}
           onSetCtmData={handleSetCtmData}
           identifiedRootCauses={identifiedRootCauses}
