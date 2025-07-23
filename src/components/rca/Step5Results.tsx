@@ -2,7 +2,7 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useEffect } from 'react';
-import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile, PreservedFact, Site } from '@/types/rca'; // Added PreservedFact
+import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile, PreservedFact, Site, InvestigationSession } from '@/types/rca'; // Added PreservedFact, InvestigationSession
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -18,21 +18,24 @@ import { cn } from "@/lib/utils";
 import { sendEmailAction } from '@/app/actions';
 import { generateRcaInsights, type GenerateRcaInsightsInput } from '@/ai/flows/generate-rca-insights';
 import { useAuth } from '@/contexts/AuthContext';
+import { format, parseISO } from 'date-fns';
 
 interface Step5ResultsProps {
   eventId: string;
   eventData: RCAEventData;
   availableSites: Site[];
+  projectLeader: string;
+  investigationSessions: InvestigationSession[]; // <-- Added Prop
   detailedFacts: DetailedFacts;
   analysisDetails: string;
   analysisTechnique: AnalysisTechnique;
   analysisTechniqueNotes: string;
   ishikawaData: IshikawaData;
-  fiveWhysData: FiveWhysData;
+  fiveWhysData: FiveWhyEntry[];
   ctmData: CTMData;
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
-  preservedFacts: PreservedFact[]; // Added preservedFacts prop
+  preservedFacts: PreservedFact[];
   finalComments: string;
   onFinalCommentsChange: (value: string) => void;
   onPrintReport: () => void;
@@ -61,6 +64,8 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   eventId,
   eventData,
   availableSites,
+  projectLeader,
+  investigationSessions, // <-- Destructure prop
   detailedFacts,
   analysisDetails,
   analysisTechnique,
@@ -413,7 +418,31 @@ export const Step5Results: FC<Step5ResultsProps> = ({
               <p className="pl-2 mb-2">{eventData.place || "No definido."}</p>
               <p className="font-medium mb-1 flex items-center"><HardHat className="mr-1.5 h-4 w-4 text-primary"/>Equipo Involucrado:</p>
               <p className="pl-2 mb-2">{eventData.equipo || "No definido."}</p>
-              <p className="font-medium mb-1">Descripción Detallada del Fenómeno:</p>
+              
+              <p className="font-medium mt-2 mb-1">Líder del Proyecto:</p>
+              <p className="pl-2 mb-2">{projectLeader || "No asignado."}</p>
+              
+              {investigationSessions && investigationSessions.length > 0 && (
+                <>
+                  <p className="font-medium mt-2 mb-1">Equipo de Investigación:</p>
+                  <div className="pl-2 mb-2 space-y-2">
+                    {investigationSessions.map((session, index) => (
+                      <div key={session.id} className="text-xs border rounded-md p-2 bg-secondary/30">
+                        <p className="font-semibold text-primary">Sesión #{index + 1} - Fecha: {format(parseISO(session.sessionDate), 'dd/MM/yyyy')}</p>
+                        <ul className="list-disc pl-5 mt-1">
+                          {session.members.map(member => (
+                            <li key={member.id}>
+                              {member.name} ({member.position}, {member.site}) - Rol: {member.role}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <p className="font-medium mt-2 mb-1">Descripción Detallada del Fenómeno:</p>
               <p className="pl-2 whitespace-pre-line">{formatDetailedFacts()}</p>
               
               {preservedFacts && preservedFacts.length > 0 && (

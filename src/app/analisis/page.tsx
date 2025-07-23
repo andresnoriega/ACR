@@ -1,7 +1,7 @@
 
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhyEntry, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -1584,6 +1584,8 @@ function RCAAnalysisPageComponent() {
           eventId={analysisDocumentId || eventData.id}
           eventData={eventData}
           availableSites={availableSitesFromDB}
+          projectLeader={projectLeader}
+          investigationSessions={investigationSessions}
           detailedFacts={detailedFacts}
           analysisDetails={analysisDetails}
           analysisTechnique={analysisTechnique}
