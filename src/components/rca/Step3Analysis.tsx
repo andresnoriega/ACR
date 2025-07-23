@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
 import { CTMInteractive } from './CTMInteractive';
 import { FiveWhysInteractive } from './FiveWhysInteractive'; 
+import { FiveWhys2Interactive } from './FiveWhys2Interactive';
 import TimelineComponent from './TimelineComponent';
 import { useToast } from "@/hooks/use-toast";
 import { sendEmailAction } from '@/app/actions';
@@ -171,6 +172,8 @@ interface Step3AnalysisProps {
   onSetFiveWhysData: (data: FiveWhyEntry[]) => void;
   ctmData: CTMData;
   onSetCtmData: (data: CTMData) => void;
+  whyWhy2Data: CTMData; // Using CTMData structure
+  onSetWhyWhy2Data: (data: CTMData) => void;
   identifiedRootCauses: IdentifiedRootCause[];
   onAddIdentifiedRootCause: () => void;
   onUpdateIdentifiedRootCause: (id: string, description: string) => void;
@@ -205,6 +208,8 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   onSetFiveWhysData,
   ctmData,
   onSetCtmData,
+  whyWhy2Data,
+  onSetWhyWhy2Data,
   identifiedRootCauses,
   onAddIdentifiedRootCause,
   onUpdateIdentifiedRootCause,
@@ -703,6 +708,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                   <SelectItem value="Ishikawa"><div className="flex items-center"><Fish className="mr-2 h-4 w-4" />Ishikawa</div></SelectItem>
                   <SelectItem value="WhyWhy"><div className="flex items-center"><HelpCircle className="mr-2 h-4 w-4" />5 Porqués</div></SelectItem>
                   <SelectItem value="CTM"><div className="flex items-center"><CtmIcon className="mr-2 h-4 w-4" />Árbol de Causas (CTM)</div></SelectItem>
+                  <SelectItem value="WhyWhy2"><div className="flex items-center"><HelpCircle className="mr-2 h-4 w-4" />5 Porqués 2.0</div></SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -725,6 +731,10 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
 
             {analysisTechnique === 'CTM' && (
               <CTMInteractive ctmData={ctmData} onSetCtmData={onSetCtmData} />
+            )}
+
+            {analysisTechnique === 'WhyWhy2' && (
+              <FiveWhys2Interactive whyWhy2Data={whyWhy2Data} onSetWhyWhy2Data={onSetWhyWhy2Data} />
             )}
             
             {(analysisTechnique === '' || analysisTechniqueNotes.trim() !== '') && (

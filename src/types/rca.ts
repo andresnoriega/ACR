@@ -66,7 +66,7 @@ export interface Validation {
   rejectedAt?: string;
 }
 
-export type AnalysisTechnique = '' | 'Ishikawa' | 'WhyWhy' | 'CTM';
+export type AnalysisTechnique = '' | 'Ishikawa' | 'WhyWhy' | 'CTM' | 'WhyWhy2';
 
 export interface IshikawaCause {
   id: string;
@@ -257,7 +257,7 @@ export interface RCAAnalysisDocument {
   // From Step 2
   projectLeader: string;
   detailedFacts: DetailedFacts;
-  investigationObjective?: string; // <-- NUEVO CAMPO
+  investigationObjective?: string;
   investigationSessions?: InvestigationSession[]; 
   analysisDetails: string;
   preservedFacts: PreservedFact[];
@@ -267,8 +267,9 @@ export interface RCAAnalysisDocument {
   analysisTechnique: AnalysisTechnique;
   analysisTechniqueNotes: string;
   ishikawaData: IshikawaData;
-  fiveWhysData: FiveWhyEntry[];
+  fiveWhysData: FiveWhysData;
   ctmData: CTMData;
+  whyWhy2Data?: CTMData; // New field for 5 Whys 2.0, reusing CTM structure
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
   // From Step 4
