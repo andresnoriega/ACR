@@ -24,30 +24,15 @@ interface ValidationDialogProps {
   onOpenChange: (open: boolean) => void;
   onConfirm: (method: string) => void;
   isProcessing: boolean;
-  setIsProcessing: (processing: boolean) => void;
 }
 
-const ValidationDialog: FC<ValidationDialogProps> = ({
-  isOpen,
-  onOpenChange,
-  onConfirm,
-  isProcessing,
-  setIsProcessing
-}) => {
+const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onConfirm, isProcessing }) => {
   const [method, setMethod] = useState('');
 
   const handleConfirmClick = () => {
-    if (!method.trim()) {
-      return;
+    if (method.trim()) {
+      onConfirm(method);
     }
-    setIsProcessing(true);
-    onConfirm(method);
-
-    // Force close dialog after 3 seconds as requested
-    setTimeout(() => {
-      onOpenChange(false);
-      setIsProcessing(false);
-    }, 3000);
   };
 
   useEffect(() => {
@@ -65,11 +50,8 @@ const ValidationDialog: FC<ValidationDialogProps> = ({
             Por favor, ingrese el método o justificación utilizado para validar o rechazar esta causa.
           </DialogDescription>
         </DialogHeader>
-
         <div className="py-4">
-          <Label htmlFor="five-why-validation-method">
-            Método de Validación/Rechazo <span className="text-destructive">*</span>
-          </Label>
+          <Label htmlFor="five-why-validation-method">Método de Validación/Rechazo <span className="text-destructive">*</span></Label>
           <Textarea
             id="five-why-validation-method"
             value={method}
@@ -78,15 +60,11 @@ const ValidationDialog: FC<ValidationDialogProps> = ({
             className="mt-1"
           />
         </div>
-
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isProcessing}>
-            Cancelar
-          </Button>
-          <Button
-            onClick={handleConfirmClick}
-            disabled={!method.trim() || isProcessing}
-          >
+          <DialogClose asChild>
+            <Button variant="outline" disabled={isProcessing}>Cancelar</Button>
+          </DialogClose>
+          <Button onClick={handleConfirmClick} disabled={!method.trim() || isProcessing}>
             {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Confirmar
           </Button>
@@ -164,6 +142,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     
     const handleConfirmValidation = (method: string) => {
       if (!validationState) return;
+      setIsProcessingValidation(true);
 
       const { id, status } = validationState;
   
@@ -181,6 +160,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       
       setInternalData(newData);
       onSetFiveWhysData(newData);
+      setIsProcessingValidation(false);
       setValidationState(null);
     };
     
@@ -256,7 +236,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
           onOpenChange={(open) => { if (!open) setValidationState(null); }}
           onConfirm={handleConfirmValidation}
           isProcessing={isProcessingValidation}
-          setIsProcessing={setIsProcessingValidation}
         />
       )}
       
