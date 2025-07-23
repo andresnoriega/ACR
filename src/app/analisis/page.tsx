@@ -1229,17 +1229,20 @@ function RCAAnalysisPageComponent() {
 
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);
-    setAnalysisTechniqueNotes('');
-    if (value === 'Ishikawa') {
-      setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
-    } else if (value === 'WhyWhy') {
-       const newFiveWhysData = JSON.parse(JSON.stringify(initialFiveWhysData));
-       if (eventData.focusEventDescription) {
-         newFiveWhysData[0].why = `¿Por qué ocurrió: "${eventData.focusEventDescription.substring(0,70)}${eventData.focusEventDescription.length > 70 ? "..." : ""}"?`;
-       }
-      setFiveWhysData(newFiveWhysData);
-    } else if (value === 'CTM') {
-      setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
+    // Do not clear notes automatically
+    // onSetAnalysisTechniqueNotes('');
+
+    // Do not reset data. If data doesn't exist, initialize it.
+    if (value === 'Ishikawa' && (!ishikawaData || ishikawaData.length === 0)) {
+        setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
+    } else if (value === 'WhyWhy' && (!fiveWhysData || fiveWhysData.length === 0)) {
+        const newFiveWhysData = JSON.parse(JSON.stringify(initialFiveWhysData));
+        if (eventData.focusEventDescription) {
+            newFiveWhysData[0].why = `¿Por qué ocurrió: "${eventData.focusEventDescription.substring(0, 70)}${eventData.focusEventDescription.length > 70 ? "..." : ""}"?`;
+        }
+        setFiveWhysData(newFiveWhysData);
+    } else if (value === 'CTM' && (!ctmData || ctmData.length === 0)) {
+        setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
     }
   };
   
