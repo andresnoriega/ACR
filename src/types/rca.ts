@@ -135,6 +135,8 @@ export type CTMData = FailureMode[];
 export interface WhyBecausePair {
     id: string;
     because: string; // The "causa" or reason text
+    status?: 'pending' | 'accepted' | 'rejected'; // Status of this specific cause
+    validationMethod?: string; // Justification for the status
     nextWhy?: WhyNode; // The nested "Why" that asks why this "because" happened
 }
 
