@@ -64,12 +64,10 @@ const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onC
           <DialogClose asChild>
             <Button variant="outline" disabled={isProcessing}>Cancelar</Button>
           </DialogClose>
-          <DialogClose asChild>
-            <Button onClick={handleConfirmClick} disabled={!method.trim() || isProcessing}>
+          <Button onClick={handleConfirmClick} disabled={!method.trim() || isProcessing}>
               {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Confirmar
-            </Button>
-          </DialogClose>
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -89,14 +87,16 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   eventFocusDescription,
 }) => {
     const { toast } = useToast();
-    const [internalData, setInternalData] = useState<FiveWhyEntry[]>([]);
+    const [internalData, setInternalData] = useState<FiveWhyEntry[]>(() => fiveWhysData || []);
     const [validationState, setValidationState] = useState<{ id: string; status: 'accepted' | 'rejected' } | null>(null);
     const [isProcessingValidation, setIsProcessingValidation] = useState(false);
     const [isRootCauseConfirmOpen, setIsRootCauseConfirmOpen] = useState(false);
     const [rootCauseCandidateId, setRootCauseCandidateId] = useState<string | null>(null);
 
     useEffect(() => {
-      setInternalData(fiveWhysData || []);
+        if (fiveWhysData) {
+            setInternalData(fiveWhysData);
+        }
     }, [fiveWhysData]);
 
     const hasRootCause = internalData.some(e => e.isRootCause);
@@ -160,12 +160,12 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         return e;
       });
       
-      onSetFiveWhysData(newData);
       setInternalData(newData);
+      onSetFiveWhysData(newData);
       
       setIsProcessingValidation(false);
       setValidationState(null);
-    }, [internalData, onSetFiveWhysData, validationState]);
+    }, [validationState, internalData, onSetFiveWhysData]);
     
     const handleSetRootCause = useCallback(() => {
         if (!rootCauseCandidateId) return;
@@ -235,6 +235,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         
         {validationState && (
           <ValidationDialog
+            key={validationState.id}
             isOpen={!!validationState}
             onOpenChange={(open) => { if (!open) setValidationState(null); }}
             onConfirm={handleConfirmValidation}
