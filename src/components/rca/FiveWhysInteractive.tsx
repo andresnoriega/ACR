@@ -236,6 +236,20 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
     toast({ title: "Causa Raíz Identificada", description: "Se ha marcado una causa como la causa raíz principal." });
   };
 
+  const handleToggleRootCause = (index: number) => {
+    const isCurrentlyRoot = internalData[index]?.isRootCause;
+    if (isCurrentlyRoot) {
+        // If it's already the root cause, unset it directly
+        const newData = [...internalData];
+        newData[index].isRootCause = false;
+        setInternalData(newData);
+        toast({ title: "Causa Raíz Anulada", description: "Se ha quitado la marca de causa raíz.", variant: "default" });
+    } else {
+        // If it's not the root cause, open the confirmation dialog
+        setRootCauseCandidateIndex(index);
+    }
+  };
+
 
   return (
     <>
@@ -251,7 +265,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
             const status = entry.status || 'pending';
             const isRootCause = entry.isRootCause || false;
             return (
-            <Card key={entry.id} className={cn("p-3 space-y-2 transition-colors", 
+            <Card key={entry.id} className={cn("p-3 space-y-2 transition-all duration-300", 
                 isRootCause ? 'border-2 border-primary' :
                 status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' 
                 : status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 opacity-70' 
@@ -307,14 +321,14 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
                 <div className="pt-2 mt-2 border-t border-dashed border-border">
                      <Button
                         size="sm"
-                        variant={isRootCause ? "default" : "outline"}
-                        className={cn("text-xs h-7", isRootCause && "w-full font-bold")}
-                        onClick={() => setRootCauseCandidateIndex(index)}
+                        variant={isRootCause ? "destructive" : "outline"}
+                        className={cn("text-xs h-7", isRootCause && "w-full font-bold border-destructive text-destructive hover:bg-destructive/10")}
+                        onClick={() => handleToggleRootCause(index)}
                         disabled={status !== 'accepted'}
-                        title={status !== 'accepted' ? "Debe validar esta causa como 'aceptada' para poder marcarla como Causa Raíz." : "Marcar esta causa como la Causa Raíz principal."}
+                        title={status !== 'accepted' ? "Debe validar esta causa como 'aceptada' para poder marcarla como Causa Raíz." : isRootCause ? "Anular esta causa como la Causa Raíz" : "Marcar esta causa como la Causa Raíz principal."}
                       >
                         <Target className="mr-1 h-3 w-3" />
-                        {isRootCause ? 'Identificada como Causa Raíz' : 'Marcar como Causa Raíz'}
+                        {isRootCause ? 'Anular Causa Raíz' : 'Marcar como Causa Raíz'}
                       </Button>
                 </div>
             </Card>
