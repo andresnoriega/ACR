@@ -149,7 +149,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         if (entry?.status === status) {
             const newData = internalData.map(e => {
               if (e.id === id) {
-                return { ...e, status: 'pending', isRootCause: false };
+                return { ...e, status: 'pending', isRootCause: false }; // No borramos validationMethod
               }
               return e;
             });
