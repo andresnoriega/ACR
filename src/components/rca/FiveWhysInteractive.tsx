@@ -1,4 +1,3 @@
-
 'use client';
 import type { FC } from 'react';
 import { useState, useEffect, useId } from 'react';
@@ -147,7 +146,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     const handleToggleStatus = (id: string, status: 'accepted' | 'rejected') => {
         const entry = internalData.find(e => e.id === id);
         if (entry?.status === status) {
-            const newData = internalData.map(e => e.id === id ? { ...e, status: 'pending', isRootCause: false, validationMethod: e.validationMethod } : e);
+            const newData = internalData.map(e => e.id === id ? { ...e, status: 'pending', isRootCause: false, validationMethod: undefined } : e);
             setInternalData(newData);
             onSetFiveWhysData(newData);
         } else {
@@ -175,10 +174,8 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       
       setInternalData(newData);
       onSetFiveWhysData(newData);
-      
-      // Close dialog by resetting state
-      setValidationState(null);
       setIsProcessingValidation(false);
+      setValidationState(null);
     };
     
     const handleSetRootCause = () => {
@@ -247,12 +244,14 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         </CardContent>
       </Card>
       
-      <ValidationDialog
-        isOpen={!!validationState}
-        onOpenChange={(open) => { if (!open) setValidationState(null); }}
-        onConfirm={handleConfirmValidation}
-        isProcessing={isProcessingValidation}
-      />
+      {validationState && (
+        <ValidationDialog
+          isOpen={!!validationState}
+          onOpenChange={(open) => { if (!open) setValidationState(null); }}
+          onConfirm={handleConfirmValidation}
+          isProcessing={isProcessingValidation}
+        />
+      )}
       
       <AlertDialog open={isRootCauseConfirmOpen} onOpenChange={ (open) => { if(!open) { setIsRootCauseConfirmOpen(false); setRootCauseCandidateId(null); } }}>
         <AlertDialogContent>
