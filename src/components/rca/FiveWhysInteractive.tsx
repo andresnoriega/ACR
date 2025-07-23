@@ -106,11 +106,11 @@ const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onC
 
 
 const getNodeByPath = (data: any[], path: (string | number)[]): any => {
-    let current: any = data;
+    let current: any = { responses: data };
     for (const key of path) {
         if (current === undefined || current === null) return null;
-        if(typeof key === 'number' && Array.isArray(current)) {
-            current = current[key];
+        if(typeof key === 'number' && Array.isArray(current.responses)) {
+            current = current.responses[key];
         } else if (typeof key === 'string' && typeof current === 'object' && !Array.isArray(current)) {
             current = current[key];
         } else {
@@ -119,6 +119,25 @@ const getNodeByPath = (data: any[], path: (string | number)[]): any => {
     }
     return current;
 };
+
+const getParentArrayAndIndex = (data: any[], path: (string | number)[]): { parent: any[] | null, index: number | null } => {
+  if (path.length === 0) return { parent: null, index: null };
+  const parentPath = path.slice(0, -1);
+  const index = path[path.length - 1] as number;
+  let parent = { responses: data };
+  let current = parent;
+  for (const key of parentPath) {
+    if(typeof key === 'number' && Array.isArray(current.responses)) {
+      current = current.responses[key];
+    } else if (typeof key === 'string' && typeof current === 'object' && !Array.isArray(current)) {
+      current = current[key];
+    } else {
+      return { parent: null, index: null };
+    }
+  }
+  return { parent: current.responses, index };
+};
+
 
 const FiveWhysRecursiveRenderer: FC<{
   entry: FiveWhyEntry,
@@ -148,23 +167,21 @@ const FiveWhysRecursiveRenderer: FC<{
     }
   };
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
+  const handleMouseMove = (e: MouseEvent) => {
     if (resizingNodeIndex.current === null) return;
     
     const dx = e.clientX - startX.current;
     const newWidth = Math.max(280, startWidth.current + dx); // Minimum width
     const nodePath = [...basePath, 'responses', resizingNodeIndex.current];
     onUpdate(nodePath, `${newWidth}px`, 'width');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  };
 
-  const handleMouseUp = useCallback(() => {
+  const handleMouseUp = () => {
     document.body.style.cursor = 'default';
     window.removeEventListener('mousemove', handleMouseMove);
     window.removeEventListener('mouseup', handleMouseUp);
     resizingNodeIndex.current = null;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  };
 
   return (
     <div className="ml-4 pl-4 border-l-2 border-gray-300 space-y-3 mt-2">
@@ -187,7 +204,7 @@ const FiveWhysRecursiveRenderer: FC<{
           return (
             <Card
                 key={node.id}
-                ref={el => cardRefs.current[nodeIndex] = el}
+                ref={el => { if(el) cardRefs.current[nodeIndex] = el; }}
                 className={cn(
                     "relative p-3 space-y-2 flex-grow min-w-[280px]",
                     node.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' :
@@ -347,12 +364,9 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
   const handleRemoveNode = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    const parentPath = path.slice(0, -1);
-    const indexToRemove = path[path.length - 1] as number;
-    const parentArray = getNodeByPath(newData, parentPath)
-
-    if(parentArray && Array.isArray(parentArray.responses) && indexToRemove >= 0) {
-        parentArray.responses.splice(indexToRemove, 1);
+    const { parent, index } = getParentArrayAndIndex(newData, path);
+    if(parent && index !== null) {
+        parent.splice(index, 1);
         onSetFiveWhysData(newData);
     } else {
         console.error("Could not remove node at path:", path);
