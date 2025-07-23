@@ -143,6 +143,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     const handleConfirmValidation = useCallback((method: string) => {
       if (!validationState) return;
       setIsProcessingValidation(true);
+      
       const { id, status } = validationState;
   
       const newData = internalData.map(e => {
@@ -159,11 +160,12 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       
       onSetFiveWhysData(newData);
       setInternalData(newData);
+      
       setIsProcessingValidation(false);
       setValidationState(null); 
     }, [internalData, onSetFiveWhysData, validationState]);
     
-    const handleSetRootCause = () => {
+    const handleSetRootCause = useCallback(() => {
         if (!rootCauseCandidateId) return;
         const newData = internalData.map(e =>
             e.id === rootCauseCandidateId ? { ...e, isRootCause: true } : e
@@ -172,7 +174,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         setInternalData(newData);
         setIsRootCauseConfirmOpen(false);
         setRootCauseCandidateId(null);
-    };
+    }, [rootCauseCandidateId, internalData, onSetFiveWhysData]);
     
     const handleUnsetRootCause = (id: string) => {
         const newData = internalData.map(e =>
