@@ -103,8 +103,25 @@ const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onC
   );
 };
 
+// Helper to get a parent array and index by path.
+const getParentArrayAndIndex = (data: FiveWhyEntry[], path: (string | number)[]): { parent: any[], index: number } | null => {
+    if (path.length === 0) return null;
+
+    let current: any = data;
+    for (let i = 0; i < path.length - 1; i++) {
+        if (current === undefined || current === null) return null;
+        current = current[path[i]];
+    }
+    
+    const index = path[path.length - 1];
+    
+    if (Array.isArray(current) && typeof index === 'number') {
+        return { parent: current, index };
+    }
+    return null;
+};
+
 // Helper to get a node by path from the data structure.
-// The path is an array of indices and keys.
 const getNodeByPath = (data: FiveWhyEntry[], path: (string | number)[]): any => {
     let current: any = data;
     for (const key of path) {
@@ -344,12 +361,10 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
   const handleRemoveNode = useCallback((path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    const parentPath = path.slice(0, -1);
-    const indexToRemove = path[path.length - 1] as number;
-    const parentNode = getNodeByPath(newData, parentPath);
+    const result = getParentArrayAndIndex(newData, path);
 
-    if (parentNode && Array.isArray(parentNode)) {
-        parentNode.splice(indexToRemove, 1);
+    if (result) {
+        result.parent.splice(result.index, 1);
         onSetFiveWhysData(newData);
     } else {
         console.error("Could not remove node at path:", path);
@@ -394,7 +409,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     
     setRootCauseConfirmation({ path });
     
-  }, [fiveWhysData, onSetFiveWhysData, toast]);
+  }, [fiveWhysData, toast]);
 
   const confirmSetRootCause = useCallback(() => {
     if (!rootCauseConfirmation) return;
