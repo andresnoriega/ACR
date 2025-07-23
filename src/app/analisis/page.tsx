@@ -45,7 +45,7 @@ const initialIshikawaData: IshikawaData = [
 ];
 
 const initialFiveWhysData: FiveWhyEntry[] = [
-  { id: generateClientSideId('5why'), why: '', because: '' }
+  { id: generateClientSideId('5why'), why: '', because: '', status: 'pending', isRootCause: false }
 ];
 
 
