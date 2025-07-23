@@ -38,6 +38,7 @@ const ValidationDialog: FC<ValidationDialogProps> = ({
   const handleConfirmClick = () => {
     if (method.trim()) {
       onConfirm(method);
+      onOpenChange(false); // Close dialog on confirm
     }
   };
 
@@ -76,15 +77,13 @@ const ValidationDialog: FC<ValidationDialogProps> = ({
               Cancelar
             </Button>
           </DialogClose>
-          <DialogClose asChild>
-            <Button
-                onClick={handleConfirmClick}
-                disabled={!method.trim() || isProcessing}
-            >
-                {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Confirmar
-            </Button>
-          </DialogClose>
+          <Button
+              onClick={handleConfirmClick}
+              disabled={!method.trim() || isProcessing}
+          >
+              {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirmar
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -149,7 +148,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     const handleToggleStatus = (id: string, status: 'accepted' | 'rejected') => {
         const entry = internalData.find(e => e.id === id);
         if (entry?.status === status) {
-            const newData = internalData.map(e => e.id === id ? { ...e, status: 'pending', isRootCause: false } : e);
+            const newData = internalData.map(e => e.id === id ? { ...e, status: 'pending', isRootCause: false, validationMethod: e.validationMethod } : e);
             setInternalData(newData);
             onSetFiveWhysData(newData);
         } else {
@@ -177,9 +176,10 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       
       setInternalData(newData);
       onSetFiveWhysData(newData);
-  
-      setIsProcessingValidation(false);
+      
+      // Close dialog by resetting state
       setValidationState(null);
+      setIsProcessingValidation(false);
     };
     
     const handleSetRootCause = () => {
