@@ -33,18 +33,17 @@ const ValidationDialog: FC<ValidationDialogProps> = ({
   isProcessing
 }) => {
   const [method, setMethod] = useState('');
-  const validationId = useId(); 
+  const validationId = useId();
 
   const handleConfirmClick = () => {
     if (method.trim()) {
       onConfirm(method);
-      onOpenChange(false); // Close dialog on confirm
     }
   };
 
   useEffect(() => {
     if (isOpen) {
-      setMethod(''); 
+      setMethod('');
     }
   }, [isOpen]);
 
