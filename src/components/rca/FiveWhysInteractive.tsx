@@ -322,7 +322,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
                      <Button
                         size="sm"
                         variant={isRootCause ? "destructive" : "outline"}
-                        className={cn("text-xs h-7", isRootCause && "w-full font-bold border-destructive text-destructive hover:bg-destructive/10")}
+                        className={cn("text-xs h-7", isRootCause ? "w-full font-bold" : "")}
                         onClick={() => handleToggleRootCause(index)}
                         disabled={status !== 'accepted'}
                         title={status !== 'accepted' ? "Debe validar esta causa como 'aceptada' para poder marcarla como Causa Raíz." : isRootCause ? "Anular esta causa como la Causa Raíz" : "Marcar esta causa como la Causa Raíz principal."}
