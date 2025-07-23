@@ -401,7 +401,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     const hasPlannedActions = uniquePlannedActions.length > 0;
 
     const isIshikawaEdited = ishikawaData.some(cat => cat.causes.some(c => c.description.trim() !== ''));
-    const isFiveWhysEdited = fiveWhysData && fiveWhysData.length > 0 && fiveWhysData.some(e => e.why.trim() !== '' || e.because.trim() !== '');
+    const isFiveWhysEdited = fiveWhysData && fiveWhysData.length > 0 && fiveWhysData.some(e => e.why.trim() !== '' || e.causes.some(c => c.description.trim() !== ''));
     const isCtmEdited = ctmData.length > 0 && ctmData.some(fm => 
         fm.description.trim() !== '' || 
         fm.hypotheses.some(h => h.description.trim() !== '' || 

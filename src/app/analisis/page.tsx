@@ -1210,7 +1210,7 @@ function RCAAnalysisPageComponent() {
     } else if (value === 'WhyWhy') {
        const newFiveWhysData = JSON.parse(JSON.stringify(initialFiveWhysData));
        if (eventData.focusEventDescription) {
-         newFiveWhysData[0] = { id: `5why-${Date.now()}`, why: `¿Por qué ocurrió: "${eventData.focusEventDescription.substring(0,70)}${eventData.focusEventDescription.length > 70 ? "..." : ""}"?`, because: '' };
+         newFiveWhysData[0] = { id: `5why-${Date.now()}`, why: `¿Por qué ocurrió: "${eventData.focusEventDescription.substring(0,70)}${eventData.focusEventDescription.length > 70 ? "..." : ""}"?`, causes: [] };
        }
       setFiveWhysData(newFiveWhysData);
     } else if (value === 'CTM') {
@@ -1528,7 +1528,7 @@ function RCAAnalysisPageComponent() {
           ishikawaData={ishikawaData}
           onSetIshikawaData={handleSetIshikawaData}
           fiveWhysData={fiveWhysData}
-          onSetFiveWhysData={handleSetFiveWhysData}
+          onSetFiveWhysData={setFiveWhysData}
           ctmData={ctmData}
           onSetCtmData={handleSetCtmData}
           identifiedRootCauses={identifiedRootCauses}

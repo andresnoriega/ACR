@@ -1,23 +1,18 @@
 
 'use client';
 import { FC, useCallback, useMemo, useState, useEffect } from 'react';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
-import type { FiveWhyEntry } from '@/types/rca';
+import type { FiveWhyEntry, FiveWhyCause } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { PlusCircle, Trash2, Check, X, HelpCircle, Loader2, Target } from 'lucide-react';
+import { PlusCircle, Trash2, Check, X, HelpCircle, Loader2, Target, CornerDownRight } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 
+// --- DIALOGS (kept from previous version) ---
 
 interface FiveWhysValidationDialogProps {
   isOpen: boolean;
@@ -106,6 +101,8 @@ const RootCauseConfirmationDialog: FC<RootCauseConfirmationDialogProps> = ({ isO
 };
 
 
+// --- MAIN COMPONENT ---
+
 interface FiveWhysInteractiveProps {
   fiveWhysData: FiveWhyEntry[];
   onSetFiveWhysData: (data: FiveWhyEntry[]) => void;
@@ -116,62 +113,104 @@ const generateId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().
 
 export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData, onSetFiveWhysData, eventFocusDescription }) => {
   const { toast } = useToast();
-  const [validationState, setValidationState] = useState<{ index: number; status: NonNullable<FiveWhyEntry['status']> } | null>(null);
+  const [validationState, setValidationState] = useState<{ whyIndex: number; causeIndex: number; status: 'accepted' | 'rejected' } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
-  const [rootCauseCandidateIndex, setRootCauseCandidateIndex] = useState<number | null>(null);
+  const [rootCauseCandidate, setRootCauseCandidate] = useState<{ whyIndex: number; causeIndex: number } | null>(null);
 
   const [internalData, setInternalData] = useState<FiveWhyEntry[]>(() => {
     if (fiveWhysData && fiveWhysData.length > 0) return fiveWhysData;
     const initialWhy = eventFocusDescription
       ? `¿Por qué ocurrió: "${eventFocusDescription.substring(0, 70)}${eventFocusDescription.length > 70 ? '...' : ''}"?`
       : '';
-    return [{ id: generateId('5why'), why: initialWhy, because: '', status: 'pending', isRootCause: false }];
+    return [{ id: generateId('why'), why: initialWhy, causes: [] }];
   });
 
-  const hasIdentifiedRootCause = useMemo(() => internalData.some(entry => entry.isRootCause), [internalData]);
+  const hasIdentifiedRootCause = useMemo(() => internalData.some(entry => entry.causes.some(cause => cause.isRootCause)), [internalData]);
 
   useEffect(() => {
-      onSetFiveWhysData(internalData);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [internalData]);
+    onSetFiveWhysData(internalData);
+  }, [internalData, onSetFiveWhysData]);
 
 
-  const handleUpdate = (index: number, field: 'why' | 'because', value: string) => {
+  const updateWhyDescription = (whyIndex: number, value: string) => {
     const newData = [...internalData];
-    newData[index] = { ...newData[index], [field]: value };
+    newData[whyIndex].why = value;
     setInternalData(newData);
   };
 
-  const handleToggleStatus = (index: number, status: 'accepted' | 'rejected') => {
-      const itemToUpdate = internalData[index];
-      
-      if (itemToUpdate.status === status) {
-        // Toggle back to pending
+  const updateCauseDescription = (whyIndex: number, causeIndex: number, value: string) => {
+    const newData = [...internalData];
+    newData[whyIndex].causes[causeIndex].description = value;
+    setInternalData(newData);
+  };
+  
+  const addWhyEntry = () => {
+    if (hasIdentifiedRootCause) {
+        toast({ title: "Causa Raíz ya Identificada", description: "No se puede añadir un nuevo 'porqué' una vez que la causa raíz ha sido establecida.", variant: "default" });
+        return;
+    }
+    
+    const lastEntry = internalData[internalData.length - 1];
+    const firstAcceptedCause = lastEntry?.causes.find(c => c.status === 'accepted');
+
+    if (!firstAcceptedCause) {
+        toast({ title: "Acción Requerida", description: "Debe validar al menos una causa como 'aceptada' en el último nivel para añadir el siguiente 'Porqué'.", variant: "destructive" });
+        return;
+    }
+
+    const newWhyText = `¿Por qué: "${firstAcceptedCause.description.substring(0, 70)}${firstAcceptedCause.description.length > 70 ? '...' : ''}"?`;
+    setInternalData([...internalData, { id: generateId('why'), why: newWhyText, causes: [] }]);
+  };
+
+  const removeWhyEntry = (whyIndex: number) => {
+    if (internalData.length <= 1) return;
+    setInternalData(internalData.filter((_, index) => index !== whyIndex));
+  };
+  
+  const addCauseToWhy = (whyIndex: number) => {
+    const newData = [...internalData];
+    newData[whyIndex].causes.push({
+      id: generateId('cause'),
+      description: '',
+      status: 'pending',
+      isRootCause: false
+    });
+    setInternalData(newData);
+  };
+
+  const removeCauseFromWhy = (whyIndex: number, causeIndex: number) => {
+    const newData = [...internalData];
+    newData[whyIndex].causes = newData[whyIndex].causes.filter((_, index) => index !== causeIndex);
+    setInternalData(newData);
+  };
+
+  const handleToggleStatus = (whyIndex: number, causeIndex: number, status: 'accepted' | 'rejected') => {
+      const causeToUpdate = internalData[whyIndex].causes[causeIndex];
+      if (causeToUpdate.status === status) {
         const newData = [...internalData];
-        newData[index].status = 'pending';
-        newData[index].validationMethod = undefined;
-        // If it was accepted and now is pending, it cannot be a root cause anymore
+        newData[whyIndex].causes[causeIndex].status = 'pending';
+        newData[whyIndex].causes[causeIndex].validationMethod = undefined;
         if (status === 'accepted') {
-          newData[index].isRootCause = false;
+          newData[whyIndex].causes[causeIndex].isRootCause = false;
         }
         setInternalData(newData);
       } else {
-        // Open dialog to confirm new status
-        setValidationState({ index, status });
+        setValidationState({ whyIndex, causeIndex, status });
       }
   };
 
   const handleConfirmValidation = useCallback((method: string) => {
     if (!validationState) return;
     setIsProcessingValidation(true);
-    const { index, status } = validationState;
+    const { whyIndex, causeIndex, status } = validationState;
     
     const newData = [...internalData];
-    newData[index].status = status;
-    newData[index].validationMethod = method;
-    // If a cause is rejected, it cannot be a root cause
+    const causeToUpdate = newData[whyIndex].causes[causeIndex];
+    causeToUpdate.status = status;
+    causeToUpdate.validationMethod = method;
+
     if (status === 'rejected') {
-      newData[index].isRootCause = false;
+      causeToUpdate.isRootCause = false;
     }
 
     setInternalData(newData);
@@ -179,178 +218,120 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
     setValidationState(null);
   }, [internalData, validationState]);
 
-  const handleAddEntry = () => {
-    if (hasIdentifiedRootCause) {
-        toast({
-            title: "Causa Raíz ya Identificada",
-            description: "No se puede añadir un nuevo 'porqué' una vez que la causa raíz ha sido establecida.",
-            variant: "default"
-        });
-        return;
-    }
-    
-    const lastEntry = internalData.length > 0 ? internalData[internalData.length - 1] : null;
 
-    if (lastEntry && lastEntry.status !== 'accepted') {
-        toast({
-            title: "Acción Requerida",
-            description: "Debe validar la causa anterior como 'aceptada' antes de añadir el siguiente 'Porqué'.",
-            variant: "destructive"
-        });
-        return;
-    }
-
-    const newWhy = lastEntry?.because
-      ? `¿Por qué: "${lastEntry.because.substring(0, 70)}${lastEntry.because.length > 70 ? '...' : ''}"?`
-      : '';
-
-    const newEntry: FiveWhyEntry = {
-      id: generateId('5why'),
-      why: newWhy,
-      because: '',
-      status: 'pending',
-      isRootCause: false,
-    };
-    const newData = [...internalData, newEntry];
-    setInternalData(newData);
-  };
-
-  const handleRemoveEntry = (indexToRemove: number) => {
-    if (internalData.length <= 1) return;
-    const newData = internalData.filter((_, index) => index !== indexToRemove);
-    setInternalData(newData);
-  };
-  
-  const handleConfirmRootCause = () => {
-    if (rootCauseCandidateIndex === null) return;
-    const newData = [...internalData];
-    // Unset any other root cause
-    newData.forEach((entry, index) => {
-        if (index !== rootCauseCandidateIndex) {
-            entry.isRootCause = false;
-        }
-    });
-    newData[rootCauseCandidateIndex].isRootCause = true;
-    setInternalData(newData);
-    setRootCauseCandidateIndex(null);
-    toast({ title: "Causa Raíz Identificada", description: "Se ha marcado una causa como la causa raíz principal." });
-  };
-
-  const handleToggleRootCause = (index: number) => {
-    const isCurrentlyRoot = internalData[index]?.isRootCause;
+  const handleToggleRootCause = (whyIndex: number, causeIndex: number) => {
+    const isCurrentlyRoot = internalData[whyIndex].causes[causeIndex].isRootCause;
     if (isCurrentlyRoot) {
-        // If it's already the root cause, unset it directly
         const newData = [...internalData];
-        newData[index].isRootCause = false;
+        newData[whyIndex].causes[causeIndex].isRootCause = false;
         setInternalData(newData);
-        toast({ title: "Causa Raíz Anulada", description: "Se ha quitado la marca de causa raíz.", variant: "default" });
+        toast({ title: "Causa Raíz Anulada", variant: "default" });
     } else {
-        // If it's not the root cause, open the confirmation dialog
-        setRootCauseCandidateIndex(index);
+        setRootCauseCandidate({ whyIndex, causeIndex });
     }
+  };
+
+  const handleConfirmRootCause = () => {
+    if (rootCauseCandidate === null) return;
+    const { whyIndex, causeIndex } = rootCauseCandidate;
+    const newData = [...internalData];
+    // Unset any other root cause globally
+    newData.forEach(entry => {
+        entry.causes.forEach(cause => {
+            cause.isRootCause = false;
+        });
+    });
+    // Set the new root cause
+    newData[whyIndex].causes[causeIndex].isRootCause = true;
+    setInternalData(newData);
+    setRootCauseCandidate(null);
+    toast({ title: "Causa Raíz Identificada" });
   };
 
 
   return (
     <>
-    <Card className="shadow-lg">
-      <CardHeader>
-        <CardTitle className="text-xl font-semibold font-headline text-primary flex items-center">
-          <HelpCircle className="mr-2 h-6 w-6" />
-          5 Porqués (con Validación)
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {internalData.map((entry, index) => {
-            const status = entry.status || 'pending';
-            const isRootCause = entry.isRootCause || false;
-            return (
-            <Card key={entry.id} className={cn("p-3 space-y-2 transition-all duration-300", 
-                isRootCause ? 'border-2 border-primary' :
-                status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' 
-                : status === 'rejected' ? 'border-destructive opacity-70' 
-                : 'bg-secondary/30'
-            )}>
-                <div className="flex justify-between items-center">
-                <Label htmlFor={`why-${entry.id}`} className={cn("font-semibold text-primary")}>
-                    #{index + 1} ¿Por qué?
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-xl font-semibold font-headline text-primary flex items-center">
+            <HelpCircle className="mr-2 h-6 w-6" />
+            5 Porqués (Análisis de Causas Múltiples)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {internalData.map((entry, whyIndex) => (
+            <div key={entry.id} className="p-3 space-y-2 border rounded-lg bg-secondary/20">
+              <div className="flex justify-between items-center">
+                <Label htmlFor={`why-${entry.id}`} className="font-semibold text-primary">
+                  #{whyIndex + 1} ¿Por qué?
                 </Label>
                 {internalData.length > 1 && (
-                    <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => handleRemoveEntry(index)}
-                    >
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => removeWhyEntry(whyIndex)}>
                     <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                  </Button>
                 )}
-                </div>
-                <Textarea
-                id={`why-${entry.id}`}
-                value={entry.why}
-                onChange={(e) => handleUpdate(index, 'why', e.target.value)}
-                placeholder="Describa el 'porqué'..."
-                rows={2}
-                disabled={status === 'rejected' || isRootCause}
-                />
-                <div className="pl-4">
-                    <div className="flex justify-between items-center">
-                        <Label htmlFor={`because-${entry.id}`} className="font-semibold text-foreground">
-                            Porque... (Causa)
-                        </Label>
-                        <div className="flex gap-1">
-                             <Button size="icon" variant={status === 'accepted' ? 'secondary' : 'ghost'} className={cn("h-7 w-7", isRootCause && "hidden")} onClick={() => handleToggleStatus(index, 'accepted')} disabled={status === 'rejected'}><Check className="h-4 w-4 text-green-600"/></Button>
-                             <Button size="icon" variant={status === 'rejected' ? 'secondary' : 'ghost'} className={cn("h-7 w-7", isRootCause && "hidden")} onClick={() => handleToggleStatus(index, 'rejected')}><X className="h-4 w-4 text-destructive" /></Button>
-                        </div>
+              </div>
+              <Textarea id={`why-${entry.id}`} value={entry.why} onChange={(e) => updateWhyDescription(whyIndex, e.target.value)} rows={2}/>
+              
+              <div className="pl-4 space-y-3 pt-2 border-t">
+                {entry.causes.map((cause, causeIndex) => (
+                  <Card key={cause.id} className={cn(
+                    "p-3", 
+                    cause.isRootCause ? 'border-2 border-primary' : 
+                    cause.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20' : 
+                    cause.status === 'rejected' ? 'opacity-70 border-destructive' : 'bg-card'
+                  )}>
+                    <div className="flex items-start gap-2">
+                       <CornerDownRight className="h-4 w-4 text-muted-foreground mt-2.5 flex-shrink-0"/>
+                       <div className="flex-grow space-y-2">
+                          <div className="flex justify-between items-center">
+                            <Label htmlFor={`cause-${cause.id}`} className="text-sm font-semibold">Causa #{whyIndex + 1}.{causeIndex + 1}</Label>
+                            <div className="flex items-center gap-1">
+                               <Button size="icon" variant={cause.status === 'accepted' ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => handleToggleStatus(whyIndex, causeIndex, 'accepted')} disabled={cause.status === 'rejected'}><Check className="h-4 w-4 text-green-600"/></Button>
+                               <Button size="icon" variant={cause.status === 'rejected' ? 'secondary' : 'ghost'} className="h-6 w-6" onClick={() => handleToggleStatus(whyIndex, causeIndex, 'rejected')}><X className="h-4 w-4 text-destructive"/></Button>
+                               <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeCauseFromWhy(whyIndex, causeIndex)}><Trash2 className="h-4 w-4 text-destructive/70" /></Button>
+                            </div>
+                          </div>
+                          <Textarea id={`cause-${cause.id}`} value={cause.description} onChange={(e) => updateCauseDescription(whyIndex, causeIndex, e.target.value)} placeholder="Describa la causa o razón..." rows={2} disabled={cause.status === 'rejected' || cause.isRootCause} />
+                          {cause.validationMethod && (
+                            <div className="text-xs pt-1 mt-1 border-t text-muted-foreground">
+                                <span className="font-semibold">Justificación:</span> {cause.validationMethod}
+                            </div>
+                           )}
+                           <div className="pt-2 mt-2 border-t border-dashed">
+                              <Button size="sm" variant={cause.isRootCause ? "destructive" : "outline"} className={cn("text-xs h-7 w-full")} onClick={() => handleToggleRootCause(whyIndex, causeIndex)} disabled={cause.status !== 'accepted'} title={cause.status !== 'accepted' ? "Debe validar esta causa como 'aceptada' para poder marcarla como Causa Raíz." : cause.isRootCause ? "Anular esta causa como la Causa Raíz" : "Marcar esta causa como la Causa Raíz principal."}>
+                                  <Target className="mr-1 h-3 w-3" />
+                                  {cause.isRootCause ? 'Anular Causa Raíz' : 'Marcar como Causa Raíz'}
+                              </Button>
+                           </div>
+                       </div>
                     </div>
-                <Textarea
-                    id={`because-${entry.id}`}
-                    value={entry.because}
-                    onChange={(e) => handleUpdate(index, 'because', e.target.value)}
-                    placeholder="Describa la causa o razón..."
-                    rows={2}
-                    disabled={status === 'rejected' || isRootCause}
-                />
-                </div>
-                 {entry.validationMethod && (
-                    <div className="text-xs pt-2 mt-2 border-t text-muted-foreground border-border">
-                        <span className="font-semibold">Justificación V/R:</span> {entry.validationMethod}
-                    </div>
-                )}
-                <div className="pt-2 mt-2 border-t border-dashed border-border">
-                     <Button
-                        size="sm"
-                        variant={isRootCause ? "destructive" : "outline"}
-                        className={cn("text-xs h-7", isRootCause ? "w-full font-bold" : "")}
-                        onClick={() => handleToggleRootCause(index)}
-                        disabled={status !== 'accepted'}
-                        title={status !== 'accepted' ? "Debe validar esta causa como 'aceptada' para poder marcarla como Causa Raíz." : isRootCause ? "Anular esta causa como la Causa Raíz" : "Marcar esta causa como la Causa Raíz principal."}
-                      >
-                        <Target className="mr-1 h-3 w-3" />
-                        {isRootCause ? 'Anular Causa Raíz' : 'Marcar como Causa Raíz'}
-                      </Button>
-                </div>
-            </Card>
-            )
-        })}
-        <Button onClick={handleAddEntry} variant="outline" className="w-full" disabled={hasIdentifiedRootCause}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Añadir Siguiente ¿Por qué?
-        </Button>
-      </CardContent>
-    </Card>
+                  </Card>
+                ))}
+                <Button onClick={() => addCauseToWhy(whyIndex)} variant="outline" size="sm" className="w-full text-xs h-8 mt-2">
+                  <PlusCircle className="mr-2 h-4 w-4" /> Añadir Causa a este "Porqué"
+                </Button>
+              </div>
+            </div>
+          ))}
+          <Button onClick={addWhyEntry} variant="outline" className="w-full" disabled={hasIdentifiedRootCause}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Añadir Siguiente Nivel de ¿Por qué?
+          </Button>
+        </CardContent>
+      </Card>
+
       {validationState && (
         <FiveWhysValidationDialog
           isOpen={!!validationState}
           onOpenChange={() => setValidationState(null)}
-          onConfirm={handleConfirmValidation}
+          onConfirm={(method) => handleConfirmValidation(method)}
           isProcessing={isProcessingValidation}
         />
       )}
-      {rootCauseCandidateIndex !== null && (
+      {rootCauseCandidate !== null && (
         <RootCauseConfirmationDialog
-            isOpen={rootCauseCandidateIndex !== null}
-            onOpenChange={() => setRootCauseCandidateIndex(null)}
+            isOpen={rootCauseCandidate !== null}
+            onOpenChange={() => setRootCauseCandidate(null)}
             onConfirm={handleConfirmRootCause}
             isProcessing={false}
         />
