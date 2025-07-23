@@ -12,7 +12,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription }
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
-import { Calendar as CalendarIcon, PlusCircle, Trash2, FileText, Paperclip, UserCircle, Save, Loader2, ExternalLink, Users, Target } from 'lucide-react';
+import { Calendar as CalendarIcon, PlusCircle, Trash2, FileText, Paperclip, UserCircle, Save, Loader2, ExternalLink, Users, Target, ClipboardList } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
@@ -313,53 +313,62 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
           availableSites={availableSites}
           isSaving={isSaving}
         />
+        
+        <Card className="shadow-inner bg-secondary/20">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold flex items-center">
+              <ClipboardList className="mr-2 h-5 w-5 text-primary"/>
+              Hechos Detallados
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="como">CÓMO (ocurrió la desviación) <span className="text-destructive">*</span></Label>
+                <Input id="como" value={detailedFacts.como} onChange={(e) => handleInputChange(e, 'como')} placeholder="Ej: Durante operación normal" />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="que">QUÉ (ocurrió) <span className="text-destructive">*</span></Label>
+                <Textarea id="que" value={detailedFacts.que} onChange={(e) => handleInputChange(e, 'que')} placeholder="Ej: Trip por alta Temperatura Descanso 1" rows={2} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="donde">DÓNDE (ocurrió) <span className="text-destructive">*</span></Label>
+                <Input id="donde" value={detailedFacts.donde} onChange={(e) => handleInputChange(e, 'donde')} placeholder="Ej: Planta Teno, Sistema Calcinación, Horno" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cuando-input">CUÁNDO (Fecha y Hora) <span className="text-destructive">*</span></Label>
+                <Input 
+                    id="cuando-input" 
+                    type="datetime-local"
+                    value={detailedFacts.cuando} 
+                    onChange={(e) => handleInputChange(e, 'cuando')}
+                    max={clientSideMaxDateTime}
+                    className="flex-grow"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cualCuanto">CUÁL/CUÁNTO (tendencia e impacto) <span className="text-destructive">*</span></Label>
+                <Input id="cualCuanto" value={detailedFacts.cualCuanto} onChange={(e) => handleInputChange(e, 'cualCuanto')} placeholder="Ej: Evento único / 2 Días de detención" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="quien">QUIÉN <span className="text-destructive">*</span></Label>
+                <Input id="quien" value={detailedFacts.quien} onChange={(e) => handleInputChange(e, 'quien')} placeholder="Personas o equipos implicados (Ej: N/A, Operador Turno A)" />
+              </div>
+            </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
-          <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="como">CÓMO (ocurrió la desviación) <span className="text-destructive">*</span></Label>
-            <Input id="como" value={detailedFacts.como} onChange={(e) => handleInputChange(e, 'como')} placeholder="Ej: Durante operación normal" />
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="que">QUÉ (ocurrió) <span className="text-destructive">*</span></Label>
-            <Textarea id="que" value={detailedFacts.que} onChange={(e) => handleInputChange(e, 'que')} placeholder="Ej: Trip por alta Temperatura Descanso 1" rows={2} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="donde">DÓNDE (ocurrió) <span className="text-destructive">*</span></Label>
-            <Input id="donde" value={detailedFacts.donde} onChange={(e) => handleInputChange(e, 'donde')} placeholder="Ej: Planta Teno, Sistema Calcinación, Horno" />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="cuando-input">CUÁNDO (Fecha y Hora) <span className="text-destructive">*</span></Label>
-            <Input 
-                id="cuando-input" 
-                type="datetime-local"
-                value={detailedFacts.cuando} 
-                onChange={(e) => handleInputChange(e, 'cuando')}
-                max={clientSideMaxDateTime}
-                className="flex-grow"
-            />
-          </div>
+            <div className="space-y-2 pt-4">
+              <Label className="font-semibold">DESCRIPCIÓN DEL FENÓMENO (Auto-generado)</Label>
+              <Alert variant="default" className="bg-background">
+                <AlertDescription className="whitespace-pre-line">
+                  {detailedFacts.como || detailedFacts.que || detailedFacts.donde || detailedFacts.cuando || detailedFacts.cualCuanto || detailedFacts.quien ? 
+                  constructedPhenomenonDescription : 
+                  "Complete los campos anteriores para generar la descripción."}
+                </AlertDescription>
+              </Alert>
+            </div>
+          </CardContent>
+        </Card>
 
-          <div className="space-y-2">
-            <Label htmlFor="cualCuanto">CUÁL/CUÁNTO (tendencia e impacto) <span className="text-destructive">*</span></Label>
-            <Input id="cualCuanto" value={detailedFacts.cualCuanto} onChange={(e) => handleInputChange(e, 'cualCuanto')} placeholder="Ej: Evento único / 2 Días de detención" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="quien">QUIÉN <span className="text-destructive">*</span></Label>
-            <Input id="quien" value={detailedFacts.quien} onChange={(e) => handleInputChange(e, 'quien')} placeholder="Personas o equipos implicados (Ej: N/A, Operador Turno A)" />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label className="font-semibold">DESCRIPCIÓN DEL FENÓMENO (Auto-generado)</Label>
-          <Alert variant="default" className="bg-secondary/30">
-            <AlertDescription className="whitespace-pre-line">
-              {detailedFacts.como || detailedFacts.que || detailedFacts.donde || detailedFacts.cuando || detailedFacts.cualCuanto || detailedFacts.quien ? 
-               constructedPhenomenonDescription : 
-               "Complete los campos anteriores para generar la descripción."}
-            </AlertDescription>
-          </Alert>
-        </div>
 
         <div className="space-y-4 pt-4 border-t">
             <div className="space-y-2">
@@ -387,10 +396,12 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
               />
             </div>
             
-            <h3 className="text-lg font-semibold font-headline flex items-center pt-4"><FileText className="mr-2 h-5 w-5 text-primary" />Preservación de los Hechos</h3>
-            <Button onClick={() => setIsAddFactDialogOpen(true)} variant="outline">
-                <PlusCircle className="mr-2 h-4 w-4" /> Añadir Hecho Preservado
-            </Button>
+            <div className="pt-4">
+              <h3 className="text-lg font-semibold font-headline flex items-center mb-3"><FileText className="mr-2 h-5 w-5 text-primary" />Preservación de los Hechos</h3>
+              <Button onClick={() => setIsAddFactDialogOpen(true)} variant="outline">
+                  <PlusCircle className="mr-2 h-4 w-4" /> Añadir Hecho Preservado
+              </Button>
+            </div>
             <PreservedFactDialog 
                 open={isAddFactDialogOpen} 
                 onOpenChange={setIsAddFactDialogOpen} 
