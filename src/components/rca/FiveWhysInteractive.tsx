@@ -109,7 +109,12 @@ interface FiveWhysInteractiveProps {
   eventFocusDescription: string;
 }
 
-const generateId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+const generateId = (prefix: string) => {
+    const randomPart = Math.random().toString(36).substring(2, 9);
+    const timePart = Date.now().toString(36);
+    return `${prefix}-${timePart}-${randomPart}`;
+};
+
 
 export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData, onSetFiveWhysData, eventFocusDescription }) => {
   const { toast } = useToast();
@@ -127,22 +132,22 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
 
   const hasIdentifiedRootCause = useMemo(() => internalData.some(entry => entry.causes && entry.causes.some(cause => cause.isRootCause)), [internalData]);
 
-
-  useEffect(() => {
-    onSetFiveWhysData(internalData);
-  }, [internalData, onSetFiveWhysData]);
+  const updateParentState = (newData: FiveWhyEntry[]) => {
+    onSetFiveWhysData(newData);
+    setInternalData(newData);
+  };
 
 
   const updateWhyDescription = (whyIndex: number, value: string) => {
     const newData = [...internalData];
     newData[whyIndex].why = value;
-    setInternalData(newData);
+    updateParentState(newData);
   };
 
   const updateCauseDescription = (whyIndex: number, causeIndex: number, value: string) => {
     const newData = [...internalData];
     newData[whyIndex].causes[causeIndex].description = value;
-    setInternalData(newData);
+    updateParentState(newData);
   };
   
   const addNestedWhy = (parentWhyIndex: number, parentCauseDescription: string) => {
@@ -155,7 +160,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
     
     const newData = [...internalData];
     newData.splice(parentWhyIndex + 1, 0, newEntry);
-    setInternalData(newData);
+    updateParentState(newData);
   };
 
 
@@ -164,7 +169,8 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
         toast({ title: "Acción no permitida", description: "No se puede eliminar la pregunta inicial del problema.", variant: "destructive" });
         return;
     }
-    setInternalData(internalData.filter((_, index) => index !== whyIndex));
+    const newData = internalData.filter((_, index) => index !== whyIndex);
+    updateParentState(newData);
   };
   
   const addCauseToWhy = (whyIndex: number) => {
@@ -178,13 +184,13 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
       status: 'pending',
       isRootCause: false
     });
-    setInternalData(newData);
+    updateParentState(newData);
   };
 
   const removeCauseFromWhy = (whyIndex: number, causeIndex: number) => {
     const newData = [...internalData];
     newData[whyIndex].causes = newData[whyIndex].causes.filter((_, index) => index !== causeIndex);
-    setInternalData(newData);
+    updateParentState(newData);
   };
 
   const handleToggleStatus = (whyIndex: number, causeIndex: number, status: 'accepted' | 'rejected') => {
@@ -196,7 +202,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
         if (status === 'accepted') {
           newData[whyIndex].causes[causeIndex].isRootCause = false;
         }
-        setInternalData(newData);
+        updateParentState(newData);
       } else {
         setValidationState({ whyIndex, causeIndex, status });
       }
@@ -216,10 +222,10 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
       causeToUpdate.isRootCause = false;
     }
 
-    setInternalData(newData);
+    updateParentState(newData);
     setIsProcessingValidation(false);
     setValidationState(null);
-  }, [internalData, validationState]);
+  }, [internalData, validationState, onSetFiveWhysData]);
 
 
   const handleToggleRootCause = (whyIndex: number, causeIndex: number) => {
@@ -227,7 +233,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
     if (isCurrentlyRoot) {
         const newData = [...internalData];
         newData[whyIndex].causes[causeIndex].isRootCause = false;
-        setInternalData(newData);
+        updateParentState(newData);
         toast({ title: "Causa Raíz Anulada", variant: "default" });
     } else {
         setRootCauseCandidate({ whyIndex, causeIndex });
@@ -248,7 +254,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
     });
     // Set the new root cause
     newData[whyIndex].causes[causeIndex].isRootCause = true;
-    setInternalData(newData);
+    updateParentState(newData);
     setRootCauseCandidate(null);
     toast({ title: "Causa Raíz Identificada" });
   };
