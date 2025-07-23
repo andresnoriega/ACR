@@ -12,12 +12,13 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription }
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
-import { Calendar as CalendarIcon, PlusCircle, Trash2, FileText, Paperclip, UserCircle, Save, Loader2, ExternalLink, Users, Target, ClipboardList } from 'lucide-react';
+import { Calendar as CalendarIcon, PlusCircle, Trash2, FileText, Paperclip, UserCircle, Save, Loader2, ExternalLink, Users, Target, ClipboardList, Sparkles } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
 import { InvestigationTeamManager } from './InvestigationTeamManager';
+import { paraphrasePhenomenon, type ParaphrasePhenomenonInput } from '@/ai/flows/paraphrase-phenomenon';
 
 interface Step2FactsProps {
   eventData: RCAEventData;
@@ -187,6 +188,7 @@ export const Step2Facts: FC<Step2FactsProps> = ({
   const { toast } = useToast();
   const [clientSideMaxDateTime, setClientSideMaxDateTime] = useState<string | undefined>(undefined);
   const { userProfile } = useAuth();
+  const [isParaphrasing, setIsParaphrasing] = useState(false);
 
   const usersForDropdown = useMemo(() => {
     if (userProfile?.role === 'Super User') {
@@ -281,6 +283,34 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     onNext();
   };
 
+  const handleParaphrasePhenomenon = async () => {
+    setIsParaphrasing(true);
+    try {
+      const input: ParaphrasePhenomenonInput = {
+        quien: detailedFacts.quien || undefined,
+        que: detailedFacts.que || undefined,
+        donde: detailedFacts.donde || undefined,
+        cuando: detailedFacts.cuando || undefined,
+        cualCuanto: detailedFacts.cualCuanto || undefined,
+        como: detailedFacts.como || undefined,
+      };
+
+      const result = await paraphrasePhenomenon(input);
+
+      if (result && result.paraphrasedText) {
+        onDetailedFactChange('que', result.paraphrasedText);
+        toast({ title: "Asistente IA", description: "El campo 'QUÉ' ha sido actualizado con la descripción parafraseada." });
+      } else {
+        toast({ title: "Error de IA", description: "No se pudo obtener una respuesta de la IA.", variant: "destructive" });
+      }
+    } catch (error) {
+      console.error("Error paraphrasing phenomenon:", error);
+      toast({ title: "Error de IA", description: `Ocurrió un error al contactar la IA: ${(error as Error).message}`, variant: "destructive" });
+    } finally {
+      setIsParaphrasing(false);
+    }
+  };
+
 
   return (
     <Card>
@@ -357,7 +387,13 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
             </div>
 
             <div className="space-y-2 pt-4">
-              <Label className="font-semibold">DESCRIPCIÓN DEL FENÓMENO (Auto-generado)</Label>
+              <div className="flex justify-between items-center">
+                <Label className="font-semibold">DESCRIPCIÓN DEL FENÓMENO (Auto-generado)</Label>
+                <Button variant="outline" size="sm" onClick={handleParaphrasePhenomenon} disabled={isParaphrasing || isSaving}>
+                  {isParaphrasing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                  Parafrasear con IA
+                </Button>
+              </div>
               <Alert variant="default" className="bg-background">
                 <AlertDescription className="whitespace-pre-line">
                   {detailedFacts.como || detailedFacts.que || detailedFacts.donde || detailedFacts.cuando || detailedFacts.cualCuanto || detailedFacts.quien ? 
