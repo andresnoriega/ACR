@@ -157,8 +157,8 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         return e;
       });
       
-      setInternalData(newData);
       onSetFiveWhysData(newData);
+      setInternalData(newData);
       setIsProcessingValidation(false);
       setValidationState(null); 
     }, [internalData, onSetFiveWhysData, validationState]);
@@ -168,8 +168,8 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         const newData = internalData.map(e =>
             e.id === rootCauseCandidateId ? { ...e, isRootCause: true } : e
         );
-        setInternalData(newData);
         onSetFiveWhysData(newData);
+        setInternalData(newData);
         setIsRootCauseConfirmOpen(false);
         setRootCauseCandidateId(null);
     };
@@ -178,8 +178,8 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         const newData = internalData.map(e =>
             e.id === id ? { ...e, isRootCause: false } : e
         );
-        setInternalData(newData);
         onSetFiveWhysData(newData);
+        setInternalData(newData);
     };
 
   return (
