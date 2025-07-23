@@ -170,8 +170,8 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         );
         setInternalData(newData);
         onSetFiveWhysData(newData);
-        setRootCauseCandidateId(null);
         setIsRootCauseConfirmOpen(false);
+        setRootCauseCandidateId(null);
     };
     
     const handleUnsetRootCause = (id: string) => {
@@ -238,7 +238,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         />
       )}
       
-      <AlertDialog open={isRootCauseConfirmOpen} onOpenChange={ (open) => { if(!open) { setIsRootCauseConfirmOpen(false); setRootCauseCandidateId(null); } }}>
+      <AlertDialog open={isRootCauseConfirmOpen} onOpenChange={setIsRootCauseConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Causa Raíz</AlertDialogTitle>
@@ -247,8 +247,8 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => { setIsRootCauseConfirmOpen(false); setRootCauseCandidateId(null); }}>No</AlertDialogCancel>
-            <AlertDialogAction onClick={handleSetRootCause}>Sí</AlertDialogAction>
+            <AlertDialogCancel onClick={() => setRootCauseCandidateId(null)}>No</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSetRootCause}>Sí, es la Causa Raíz</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
