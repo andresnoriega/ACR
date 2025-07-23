@@ -229,12 +229,24 @@ export const Step2Facts: FC<Step2FactsProps> = ({
     return dateTimeLocalString; // Fallback
   };
   
-  const constructedPhenomenonDescription = `La desviación ocurrió de la siguiente manera: "${detailedFacts.como || 'CÓMO (no especificado)'}".
+  const constructedPhenomenonDescription = useMemo(() => {
+    return `La desviación ocurrió de la siguiente manera: "${detailedFacts.como || 'CÓMO (no especificado)'}".
 El evento identificado fue: "${detailedFacts.que || 'QUÉ (no especificado)'}".
 Esto tuvo lugar en: "${detailedFacts.donde || 'DÓNDE (no especificado)'}".
 Sucedió el: "${formatDateTimeLocalForDisplay(detailedFacts.cuando)}".
 El impacto o tendencia fue: "${detailedFacts.cualCuanto || 'CUÁL/CUÁNTO (no especificado)'}".
 Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no especificado)'}".`;
+  }, [detailedFacts]);
+
+  useEffect(() => {
+    // Only update analysisDetails if it's empty or still contains the old auto-generated text structure.
+    // This prevents overwriting user's manual edits or AI-paraphrased content.
+    if (!analysisDetails || analysisDetails.startsWith("La desviación ocurrió de la siguiente manera:")) {
+        onAnalysisDetailsChange(constructedPhenomenonDescription);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [constructedPhenomenonDescription]);
+
 
   const validateFieldsForNext = (): boolean => {
     const missingFields = [];
@@ -298,8 +310,8 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
       const result = await paraphrasePhenomenon(input);
 
       if (result && result.paraphrasedText) {
-        onDetailedFactChange('que', result.paraphrasedText);
-        toast({ title: "Asistente IA", description: "El campo 'QUÉ' ha sido actualizado con la descripción parafraseada." });
+        onAnalysisDetailsChange(result.paraphrasedText);
+        toast({ title: "Asistente IA", description: "La descripción del fenómeno ha sido actualizada con la versión parafraseada." });
       } else {
         toast({ title: "Error de IA", description: "No se pudo obtener una respuesta de la IA.", variant: "destructive" });
       }
@@ -388,19 +400,20 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
 
             <div className="space-y-2 pt-4">
               <div className="flex justify-between items-center">
-                <Label className="font-semibold">DESCRIPCIÓN DEL FENÓMENO (Auto-generado)</Label>
+                <Label className="font-semibold">DESCRIPCIÓN DEL FENÓMENO</Label>
                 <Button variant="outline" size="sm" onClick={handleParaphrasePhenomenon} disabled={isParaphrasing || isSaving}>
                   {isParaphrasing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                   Parafrasear con IA
                 </Button>
               </div>
-              <Alert variant="default" className="bg-background">
-                <AlertDescription className="whitespace-pre-line">
-                  {detailedFacts.como || detailedFacts.que || detailedFacts.donde || detailedFacts.cuando || detailedFacts.cualCuanto || detailedFacts.quien ? 
-                  constructedPhenomenonDescription : 
-                  "Complete los campos anteriores para generar la descripción."}
-                </AlertDescription>
-              </Alert>
+               <Textarea
+                id="analysisDetails"
+                value={analysisDetails}
+                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onAnalysisDetailsChange(e.target.value)}
+                placeholder="La descripción del fenómeno aparecerá aquí. Puede editarla manualmente o usar la IA."
+                rows={4}
+                className="bg-background"
+              />
             </div>
           </CardContent>
         </Card>
@@ -421,17 +434,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="analysisDetails">Análisis Realizado (Técnicas Usadas y Hallazgos)</Label>
-              <Textarea
-                id="analysisDetails"
-                value={analysisDetails}
-                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onAnalysisDetailsChange(e.target.value)}
-                placeholder="Describa el análisis efectuado, qué técnicas se usaron (ej: entrevistas, revisión de logs, etc.) y los hallazgos preliminares..."
-                rows={5}
-              />
-            </div>
-            
             <div className="pt-4">
               <h3 className="text-lg font-semibold font-headline flex items-center mb-3"><FileText className="mr-2 h-5 w-5 text-primary" />Preservación de los Hechos</h3>
               <Button onClick={() => setIsAddFactDialogOpen(true)} variant="outline">
