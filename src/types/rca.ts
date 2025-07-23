@@ -257,7 +257,8 @@ export interface RCAAnalysisDocument {
   // From Step 2
   projectLeader: string;
   detailedFacts: DetailedFacts;
-  investigationSessions?: InvestigationSession[]; // <-- NUEVO CAMPO
+  investigationObjective?: string; // <-- NUEVO CAMPO
+  investigationSessions?: InvestigationSession[]; 
   analysisDetails: string;
   preservedFacts: PreservedFact[];
   // From Step 3

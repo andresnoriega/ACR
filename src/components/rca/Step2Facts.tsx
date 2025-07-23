@@ -12,7 +12,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription }
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
-import { Calendar as CalendarIcon, PlusCircle, Trash2, FileText, Paperclip, UserCircle, Save, Loader2, ExternalLink, Users } from 'lucide-react';
+import { Calendar as CalendarIcon, PlusCircle, Trash2, FileText, Paperclip, UserCircle, Save, Loader2, ExternalLink, Users, Target } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
@@ -27,6 +27,8 @@ interface Step2FactsProps {
   availableUsers: FullUserProfile[]; 
   detailedFacts: DetailedFacts;
   onDetailedFactChange: (field: keyof DetailedFacts, value: string) => void;
+  investigationObjective: string;
+  onInvestigationObjectiveChange: (value: string) => void;
   investigationSessions: InvestigationSession[];
   onSetInvestigationSessions: (sessions: InvestigationSession[]) => void;
   analysisDetails: string;
@@ -167,6 +169,8 @@ export const Step2Facts: FC<Step2FactsProps> = ({
   availableUsers,
   detailedFacts,
   onDetailedFactChange,
+  investigationObjective,
+  onInvestigationObjectiveChange,
   investigationSessions,
   onSetInvestigationSessions,
   analysisDetails,
@@ -357,19 +361,32 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
           </Alert>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="analysisDetails">Análisis Realizado (Técnicas Usadas y Hallazgos)</Label>
-          <Textarea
-            id="analysisDetails"
-            value={analysisDetails}
-            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onAnalysisDetailsChange(e.target.value)}
-            placeholder="Describa el análisis efectuado, qué técnicas se usaron (ej: entrevistas, revisión de logs, etc.) y los hallazgos preliminares..."
-            rows={5}
-          />
-        </div>
-
         <div className="space-y-4 pt-4 border-t">
-            <h3 className="text-lg font-semibold font-headline flex items-center"><FileText className="mr-2 h-5 w-5 text-primary" />Preservación de los Hechos</h3>
+          <h3 className="text-lg font-semibold font-headline flex items-center"><FileText className="mr-2 h-5 w-5 text-primary" />Preservación de los Hechos</h3>
+            <div className="space-y-2">
+              <Label htmlFor="investigationObjective" className="flex items-center">
+                <Target className="mr-2 h-4 w-4 text-primary" />
+                Objetivo de la Investigación
+              </Label>
+              <Textarea
+                id="investigationObjective"
+                value={investigationObjective}
+                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onInvestigationObjectiveChange(e.target.value)}
+                placeholder="Defina el alcance y el objetivo principal de este análisis de causa raíz..."
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="analysisDetails">Análisis Realizado (Técnicas Usadas y Hallazgos)</Label>
+              <Textarea
+                id="analysisDetails"
+                value={analysisDetails}
+                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onAnalysisDetailsChange(e.target.value)}
+                placeholder="Describa el análisis efectuado, qué técnicas se usaron (ej: entrevistas, revisión de logs, etc.) y los hallazgos preliminares..."
+                rows={5}
+              />
+            </div>
             <Button onClick={() => setIsAddFactDialogOpen(true)} variant="outline">
                 <PlusCircle className="mr-2 h-4 w-4" /> Añadir Hecho Preservado
             </Button>
