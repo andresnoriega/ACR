@@ -108,7 +108,13 @@ const getNodeByPath = (data: any[], path: (string | number)[]): any => {
     let current: any = data;
     for (const key of path) {
         if (current === undefined || current === null) return null;
-        current = current[key];
+        if(typeof key === 'number' && Array.isArray(current)) {
+            current = current[key];
+        } else if (typeof key === 'string' && typeof current === 'object' && !Array.isArray(current)) {
+            current = current[key];
+        } else {
+            return null;
+        }
     }
     return current;
 };
@@ -118,26 +124,23 @@ const getParentArrayAndIndex = (data: any[], path: (string | number)[]): { paren
     
     const parentPath = path.slice(0, -1);
     const index = path[path.length - 1] as number;
-    let parent = data;
-
-    if(parentPath.length > 0) {
-      let current: any = data;
-      for (const key of parentPath) {
-          if (current === undefined || current === null) return { parentArray: null, index: null };
-          current = current[key];
-      }
-      parent = current;
+    
+    let parent: any = data;
+    for (const key of parentPath) {
+        if (parent === undefined || parent === null) return { parentArray: null, index: null };
+        if(typeof key === 'number' && Array.isArray(parent)) {
+            parent = parent[key];
+        } else if (typeof key === 'string' && typeof parent === 'object' && !Array.isArray(parent)) {
+            parent = parent[key];
+        } else {
+            return { parentArray: null, index: null };
+        }
     }
-
+    
     if (Array.isArray(parent)) {
         return { parentArray: parent, index: index };
     }
     
-    // Fallback for nested structures like 'responses'
-    if (parent && Array.isArray(parent.responses)) {
-        return { parentArray: parent.responses, index: index };
-    }
-
     return { parentArray: null, index: null };
 };
 
@@ -170,22 +173,23 @@ const FiveWhysRecursiveRenderer: FC<{
     }
   };
 
-  const handleMouseMove = (e: MouseEvent) => {
+  const handleMouseMove = useCallback((e: MouseEvent) => {
     if (resizingNodeIndex.current === null) return;
     
     const dx = e.clientX - startX.current;
     const newWidth = Math.max(280, startWidth.current + dx); // Minimum width
     const nodePath = [...basePath, 'responses', resizingNodeIndex.current];
     onUpdate(nodePath, `${newWidth}px`, 'width');
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [basePath, onUpdate]);
 
-  const handleMouseUp = () => {
+  const handleMouseUp = useCallback(() => {
     document.body.style.cursor = 'default';
     window.removeEventListener('mousemove', handleMouseMove);
     window.removeEventListener('mouseup', handleMouseUp);
     resizingNodeIndex.current = null;
-  };
-
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="ml-4 pl-4 border-l-2 border-gray-300 space-y-3 mt-2">
@@ -351,7 +355,8 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
   const handleAddNode = (path: (string | number)[]) => {
      const newData = JSON.parse(JSON.stringify(fiveWhysData));
-     const parentNode = getNodeByPath(newData, path.slice(0, -1));
+     const parentNode = getNodeByPath(newData, path.slice(0,-1));
+     
      if(parentNode && Array.isArray(parentNode.responses)) {
         parentNode.responses.push({
             id: generateId('node'),
