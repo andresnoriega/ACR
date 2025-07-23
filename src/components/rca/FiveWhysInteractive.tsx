@@ -25,41 +25,66 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   onSetFiveWhysData,
   eventFocusDescription,
 }) => {
-
-  // Initialize the first entry safely after the component mounts.
-  useEffect(() => {
-    if (!fiveWhysData || fiveWhysData.length === 0) {
-      const initialWhyText = eventFocusDescription
-        ? `¿Por qué ocurrió: "${eventFocusDescription.substring(0, 70)}${eventFocusDescription.length > 70 ? '...' : ''}"?`
-        : '';
-      onSetFiveWhysData([{ id: generateStableId(), why: initialWhyText, because: '' }]);
+  // Use a lazy initializer for useState. This runs ONLY ONCE on initial render,
+  // on both the server and the client, ensuring the initial state is identical
+  // and preventing hydration errors.
+  const [localData, setLocalData] = useState<FiveWhysData>(() => {
+    if (fiveWhysData && fiveWhysData.length > 0) {
+      return fiveWhysData;
     }
-  }, []); // Run only once on mount
+    // If the data is empty, create the first entry here.
+    const initialWhyText = eventFocusDescription
+      ? `¿Por qué ocurrió: "${eventFocusDescription.substring(0, 70)}${eventFocusDescription.length > 70 ? '...' : ''}"?`
+      : '';
+    return [{ id: generateStableId(), why: initialWhyText, because: '' }];
+  });
+
+  // Effect to sync parent state with local state when localData changes
+  useEffect(() => {
+    onSetFiveWhysData(localData);
+  }, [localData, onSetFiveWhysData]);
+  
+  // Effect to update local state if parent prop changes (e.g., loading a different analysis)
+  useEffect(() => {
+    // Only update if the parent data is meaningfully different
+    if (JSON.stringify(fiveWhysData) !== JSON.stringify(localData)) {
+      if (fiveWhysData && fiveWhysData.length > 0) {
+        setLocalData(fiveWhysData);
+      } else {
+        const initialWhyText = eventFocusDescription
+          ? `¿Por qué ocurrió: "${eventFocusDescription.substring(0, 70)}${eventFocusDescription.length > 70 ? '...' : ''}"?`
+          : '';
+        setLocalData([{ id: generateStableId(), why: initialWhyText, because: '' }]);
+      }
+    }
+  }, [fiveWhysData, eventFocusDescription]);
+
 
   const handleUpdateEntry = (id: string, field: 'why' | 'because', value: string) => {
-    const newData = fiveWhysData.map(entry =>
-      entry.id === id ? { ...entry, [field]: value } : entry
+    setLocalData(prevData =>
+      prevData.map(entry =>
+        entry.id === id ? { ...entry, [field]: value } : entry
+      )
     );
-    onSetFiveWhysData(newData);
   };
 
   const handleAddEntry = () => {
-    const lastEntry = fiveWhysData.length > 0 ? fiveWhysData[fiveWhysData.length - 1] : null;
-    const initialWhy = lastEntry?.because
-      ? `¿Por qué: "${lastEntry.because.substring(0, 70)}${lastEntry.because.length > 70 ? '...' : ''}"?`
-      : '';
-    const newEntry: FiveWhyEntry = {
-      id: generateStableId(),
-      why: initialWhy,
-      because: '',
-    };
-    onSetFiveWhysData([...fiveWhysData, newEntry]);
+    setLocalData(prevData => {
+      const lastEntry = prevData.length > 0 ? prevData[prevData.length - 1] : null;
+      const initialWhy = lastEntry?.because
+        ? `¿Por qué: "${lastEntry.because.substring(0, 70)}${lastEntry.because.length > 70 ? '...' : ''}"?`
+        : '';
+      const newEntry: FiveWhyEntry = {
+        id: generateStableId(),
+        why: initialWhy,
+        because: '',
+      };
+      return [...prevData, newEntry];
+    });
   };
 
   const handleRemoveEntry = (id: string) => {
-    // Directly filter out the entry by its stable ID.
-    const newData = fiveWhysData.filter(entry => entry.id !== id);
-    onSetFiveWhysData(newData);
+    setLocalData(prevData => prevData.filter(entry => entry.id !== id));
   };
 
   return (
@@ -68,7 +93,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         <HelpCircle className="mr-2 h-5 w-5" /> 5 Porqués
       </h3>
       <div className="space-y-4">
-        {fiveWhysData && fiveWhysData.map((entry, index) => (
+        {localData.map((entry, index) => (
           <Card key={entry.id} className="p-4 bg-secondary/30">
             <div className="flex justify-between items-center mb-2">
               <p className="font-semibold text-primary">Paso #{index + 1}</p>
