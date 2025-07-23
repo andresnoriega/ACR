@@ -71,6 +71,8 @@ export type AnalysisTechnique = '' | 'Ishikawa' | 'WhyWhy' | 'CTM';
 export interface IshikawaCause {
   id: string;
   description: string;
+  status?: 'pending' | 'accepted' | 'rejected';
+  validationMethod?: string;
 }
 
 export interface IshikawaCategory {
