@@ -233,6 +233,22 @@ export interface TimelineEvent {
   datetime: string;
 }
 
+// --- Investigation Team Types ---
+export interface InvestigationTeamMember {
+  id: string;
+  name: string;
+  position: string;
+  site: string;
+  role: string;
+}
+
+export interface InvestigationSession {
+  id: string;
+  sessionDate: string;
+  members: InvestigationTeamMember[];
+}
+
+
 // Document structure for an ACR Analysis in Firestore
 export interface RCAAnalysisDocument {
   // From Step 1
@@ -241,6 +257,7 @@ export interface RCAAnalysisDocument {
   // From Step 2
   projectLeader: string;
   detailedFacts: DetailedFacts;
+  investigationSessions?: InvestigationSession[]; // <-- NUEVO CAMPO
   analysisDetails: string;
   preservedFacts: PreservedFact[];
   // From Step 3

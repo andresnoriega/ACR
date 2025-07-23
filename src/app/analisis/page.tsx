@@ -1,7 +1,7 @@
 
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhyEntry, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -65,6 +65,7 @@ const initialRCAAnalysisState: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedA
   immediateActions: [],
   projectLeader: '',
   detailedFacts: { ...initialDetailedFacts },
+  investigationSessions: [],
   analysisDetails: '',
   preservedFacts: [],
   timelineEvents: [],
@@ -163,6 +164,7 @@ function RCAAnalysisPageComponent() {
 
   const [projectLeader, setProjectLeader] = useState(initialRCAAnalysisState.projectLeader);
   const [detailedFacts, setDetailedFacts] = useState<DetailedFacts>(initialRCAAnalysisState.detailedFacts);
+  const [investigationSessions, setInvestigationSessions] = useState<InvestigationSession[]>(initialRCAAnalysisState.investigationSessions || []);
   const [analysisDetails, setAnalysisDetails] = useState(initialRCAAnalysisState.analysisDetails);
   const [preservedFacts, setPreservedFacts] = useState<PreservedFact[]>(initialRCAAnalysisState.preservedFacts);
 
@@ -251,7 +253,7 @@ function RCAAnalysisPageComponent() {
           loadedDetailedFacts.cuando = convertOldCuandoToDateTimeLocal(loadedDetailedFacts.cuando);
         }
         setDetailedFacts(loadedDetailedFacts);
-
+        setInvestigationSessions(data.investigationSessions || []);
         setAnalysisDetails(data.analysisDetails || '');
         setPreservedFacts(data.preservedFacts || []);
         setTimelineEvents(data.timelineEvents || []);
@@ -304,6 +306,7 @@ function RCAAnalysisPageComponent() {
             setImmediateActionCounter(1);
             setProjectLeader(initialRCAAnalysisState.projectLeader);
             setDetailedFacts(initialRCAAnalysisState.detailedFacts);
+            setInvestigationSessions(initialRCAAnalysisState.investigationSessions || []);
             setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
             setPreservedFacts(initialRCAAnalysisState.preservedFacts);
             setTimelineEvents(initialRCAAnalysisState.timelineEvents || []);
@@ -337,6 +340,7 @@ function RCAAnalysisPageComponent() {
         setImmediateActionCounter(1);
         setProjectLeader(initialRCAAnalysisState.projectLeader);
         setDetailedFacts(initialRCAAnalysisState.detailedFacts);
+        setInvestigationSessions(initialRCAAnalysisState.investigationSessions || []);
         setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
         setPreservedFacts(initialRCAAnalysisState.preservedFacts);
         setTimelineEvents(initialRCAAnalysisState.timelineEvents || []);
@@ -404,6 +408,7 @@ function RCAAnalysisPageComponent() {
             setImmediateActionCounter(1);
             setProjectLeader(initialRCAAnalysisState.projectLeader);
             setDetailedFacts(initialRCAAnalysisState.detailedFacts);
+            setInvestigationSessions(initialRCAAnalysisState.investigationSessions || []);
             setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
             setPreservedFacts(initialRCAAnalysisState.preservedFacts);
             setTimelineEvents(initialRCAAnalysisState.timelineEvents || []);
@@ -550,7 +555,7 @@ function RCAAnalysisPageComponent() {
     }
 
     const rcaDocPayload: Partial<RCAAnalysisDocument> = {
-      eventData: consistentEventData, immediateActions, projectLeader, detailedFacts, analysisDetails,
+      eventData: consistentEventData, immediateActions, projectLeader, detailedFacts, investigationSessions, analysisDetails,
       preservedFacts, timelineEvents, brainstormingIdeas, analysisTechnique, analysisTechniqueNotes, ishikawaData,
       fiveWhysData, ctmData, identifiedRootCauses, 
       plannedActions: (plannedActionsOverride !== undefined) ? plannedActionsOverride : plannedActions,
@@ -1508,6 +1513,8 @@ function RCAAnalysisPageComponent() {
           availableUsers={availableUsersFromDB}
           detailedFacts={detailedFacts}
           onDetailedFactChange={handleDetailedFactChange}
+          investigationSessions={investigationSessions}
+          onSetInvestigationSessions={setInvestigationSessions}
           analysisDetails={analysisDetails}
           onAnalysisDetailsChange={setAnalysisDetails}
           preservedFacts={preservedFacts}
@@ -1538,7 +1545,7 @@ function RCAAnalysisPageComponent() {
           ishikawaData={ishikawaData}
           onSetIshikawaData={handleSetIshikawaData}
           fiveWhysData={fiveWhysData}
-          onSetFiveWhysData={handleSetFiveWhysData}
+          onSetFiveWhysData={setFiveWhysData}
           ctmData={ctmData}
           onSetCtmData={handleSetCtmData}
           identifiedRootCauses={identifiedRootCauses}

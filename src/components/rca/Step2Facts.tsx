@@ -2,7 +2,7 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect, useMemo } from 'react';
-import type { DetailedFacts, PreservedFact, PreservedFactCategory, FullUserProfile, RCAEventData, Site } from '@/types/rca'; 
+import type { DetailedFacts, PreservedFact, PreservedFactCategory, FullUserProfile, RCAEventData, Site, InvestigationSession } from '@/types/rca'; 
 import { PRESERVED_FACT_CATEGORIES } from '@/types/rca';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -12,11 +12,12 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription }
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
-import { Calendar as CalendarIcon, PlusCircle, Trash2, FileText, Paperclip, UserCircle, Save, Loader2, ExternalLink } from 'lucide-react';
+import { Calendar as CalendarIcon, PlusCircle, Trash2, FileText, Paperclip, UserCircle, Save, Loader2, ExternalLink, Users } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
+import { InvestigationTeamManager } from './InvestigationTeamManager';
 
 interface Step2FactsProps {
   eventData: RCAEventData;
@@ -26,6 +27,8 @@ interface Step2FactsProps {
   availableUsers: FullUserProfile[]; 
   detailedFacts: DetailedFacts;
   onDetailedFactChange: (field: keyof DetailedFacts, value: string) => void;
+  investigationSessions: InvestigationSession[];
+  onSetInvestigationSessions: (sessions: InvestigationSession[]) => void;
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
   preservedFacts: PreservedFact[];
@@ -164,6 +167,8 @@ export const Step2Facts: FC<Step2FactsProps> = ({
   availableUsers,
   detailedFacts,
   onDetailedFactChange,
+  investigationSessions,
+  onSetInvestigationSessions,
   analysisDetails,
   onAnalysisDetailsChange,
   preservedFacts,
@@ -251,8 +256,9 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     const hasAnyDetailedFact = Object.values(detailedFacts).some(value => typeof value === 'string' && value.trim() !== '');
     const hasAnalysisDetailsText = analysisDetails.trim() !== '';
     const hasAnyPreservedFacts = preservedFacts.length > 0;
+    const hasInvestigationTeam = investigationSessions.length > 0;
 
-    if (!hasLeader && !hasAnyDetailedFact && !hasAnalysisDetailsText && !hasAnyPreservedFacts) {
+    if (!hasLeader && !hasAnyDetailedFact && !hasAnalysisDetailsText && !hasAnyPreservedFacts && !hasInvestigationTeam) {
       toast({
         title: "Nada que guardar",
         description: "No se ha ingresado información nueva o modificado datos existentes en este paso.",
@@ -295,6 +301,14 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
             </SelectContent>
           </Select>
         </div>
+
+        <InvestigationTeamManager
+          sessions={investigationSessions}
+          onSetSessions={onSetInvestigationSessions}
+          availableUsers={availableUsers}
+          availableSites={availableSites}
+          isSaving={isSaving}
+        />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
           <div className="space-y-2 md:col-span-2">
