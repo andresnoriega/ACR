@@ -3,7 +3,7 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useCallback, useEffect } from 'react'; 
-import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhyEntry, CTMData, IdentifiedRootCause, FullUserProfile, BrainstormIdea, BrainstormIdeaType, TimelineEvent, Site } from '@/types/rca';
+import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhyEntry, CTMData, IdentifiedRootCause, FullUserProfile, BrainstormIdea, BrainstormIdeaType, TimelineEvent, Site, RCAEventData } from '@/types/rca';
 import { BRAINSTORM_IDEA_TYPES } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -168,9 +168,7 @@ interface Step3AnalysisProps {
   ishikawaData: IshikawaData;
   onSetIshikawaData: (data: IshikawaData) => void;
   fiveWhysData: FiveWhyEntry[];
-  onAddFiveWhyEntry: () => void; // Reverted
-  onUpdateFiveWhyEntry: (id: string, field: 'why' | 'because', value: string) => void; // Reverted
-  onRemoveFiveWhyEntry: (id: string) => void; // Reverted
+  onSetFiveWhysData: (data: FiveWhyEntry[]) => void;
   ctmData: CTMData;
   onSetCtmData: (data: CTMData) => void;
   identifiedRootCauses: IdentifiedRootCause[];
@@ -204,9 +202,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   ishikawaData,
   onSetIshikawaData,
   fiveWhysData,
-  onAddFiveWhyEntry,
-  onUpdateFiveWhyEntry,
-  onRemoveFiveWhyEntry,
+  onSetFiveWhysData,
   ctmData,
   onSetCtmData,
   identifiedRootCauses,
@@ -722,9 +718,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
             {analysisTechnique === 'WhyWhy' && (
               <FiveWhysInteractive
                 fiveWhysData={fiveWhysData}
-                onAddEntry={onAddFiveWhyEntry}
-                onUpdateEntry={onUpdateFiveWhyEntry}
-                onRemoveEntry={onRemoveFiveWhyEntry}
+                onSetFiveWhysData={onSetFiveWhysData}
                 eventFocusDescription={eventData.focusEventDescription}
               />
             )}

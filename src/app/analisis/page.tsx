@@ -28,13 +28,12 @@ import { es } from 'date-fns/locale';
 export const dynamic = 'force-dynamic';
 
 const generateClientSideId = (prefix: string) => {
-    // Uses a combination of a random number and a timestamp, but the random part is generated on the client.
-    // This is safer for avoiding hydration issues if somehow an ID is generated during SSR,
-    // though the main logic now avoids this.
+    // This is a safer way to generate client-side IDs to prevent hydration mismatch.
     const randomPart = Math.random().toString(36).substring(2, 9);
     const timePart = Date.now().toString(36);
     return `${prefix}-${timePart}-${randomPart}`;
 };
+
 
 const initialIshikawaData: IshikawaData = [
   { id: 'manpower', name: 'Mano de Obra', causes: [] },
@@ -45,8 +44,8 @@ const initialIshikawaData: IshikawaData = [
   { id: 'environment', name: 'Medio Ambiente', causes: [] },
 ];
 
-const initialFiveWhysData: FiveWhysData = [
-  { id: `5why-${Date.now()}`, why: '', because: '' }
+const initialFiveWhysData: FiveWhyEntry[] = [
+  { id: generateClientSideId('5why'), why: '', because: '', status: 'pending' }
 ];
 
 
@@ -1233,20 +1232,8 @@ function RCAAnalysisPageComponent() {
     setIshikawaData(data);
   };
 
-  const handleAddFiveWhyEntry = () => {
-    setFiveWhysData(prev => {
-      const lastEntry = prev.length > 0 ? prev[prev.length - 1] : null;
-      const initialWhy = lastEntry && lastEntry.because ? `¿Por qué: "${lastEntry.because.substring(0,70)}${lastEntry.because.length > 70 ? "..." : ""}"?` : '';
-      return [...prev, { id: generateClientSideId('5why'), why: initialWhy, because: '' }];
-    });
-  };
-
-  const handleUpdateFiveWhyEntry = (id: string, field: 'why' | 'because', value: string) => {
-    setFiveWhysData(prev => prev.map(entry => entry.id === id ? { ...entry, [field]: value } : entry));
-  };
-
-  const handleRemoveFiveWhyEntry = (id: string) => {
-    setFiveWhysData(prev => prev.filter(entry => entry.id !== id));
+  const handleSetFiveWhysData = (data: FiveWhyEntry[]) => {
+    setFiveWhysData(data);
   };
 
   const handleSetCtmData = (newData: CTMData) => {
@@ -1551,9 +1538,7 @@ function RCAAnalysisPageComponent() {
           ishikawaData={ishikawaData}
           onSetIshikawaData={handleSetIshikawaData}
           fiveWhysData={fiveWhysData}
-          onAddFiveWhyEntry={handleAddFiveWhyEntry}
-          onUpdateFiveWhyEntry={handleUpdateFiveWhyEntry}
-          onRemoveFiveWhyEntry={handleRemoveFiveWhyEntry}
+          onSetFiveWhysData={handleSetFiveWhysData}
           ctmData={ctmData}
           onSetCtmData={handleSetCtmData}
           identifiedRootCauses={identifiedRootCauses}
