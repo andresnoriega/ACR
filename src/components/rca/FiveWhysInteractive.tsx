@@ -32,7 +32,6 @@ const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onC
   const handleConfirmClick = () => {
     if (method.trim()) {
       onConfirm(method);
-      onOpenChange(false); // Forzar el cierre desde el handler
     }
   };
 
@@ -65,10 +64,12 @@ const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onC
           <DialogClose asChild>
             <Button variant="outline" disabled={isProcessing}>Cancelar</Button>
           </DialogClose>
-          <Button onClick={handleConfirmClick} disabled={!method.trim() || isProcessing}>
-            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Confirmar
-          </Button>
+          <DialogClose asChild>
+            <Button onClick={handleConfirmClick} disabled={!method.trim() || isProcessing}>
+              {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirmar
+            </Button>
+          </DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -141,7 +142,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         }
     };
     
-    const handleConfirmValidation = (method: string) => {
+    const handleConfirmValidation = useCallback((method: string) => {
       if (!validationState) return;
       setIsProcessingValidation(true);
       
@@ -163,10 +164,10 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       setInternalData(newData);
       
       setIsProcessingValidation(false);
-      setValidationState(null); // Esto debe estar aquí para que el diálogo se cierre en el componente padre.
-    };
+      setValidationState(null);
+    }, [internalData, onSetFiveWhysData, validationState]);
     
-    const handleSetRootCause = () => {
+    const handleSetRootCause = useCallback(() => {
         if (!rootCauseCandidateId) return;
         const newData = internalData.map(e =>
             e.id === rootCauseCandidateId ? { ...e, isRootCause: true } : { ...e, isRootCause: false }
@@ -175,7 +176,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         setInternalData(newData);
         setIsRootCauseConfirmOpen(false);
         setRootCauseCandidateId(null);
-    };
+    }, [internalData, onSetFiveWhysData, rootCauseCandidateId]);
     
     const handleUnsetRootCause = (id: string) => {
         const newData = internalData.map(e =>
