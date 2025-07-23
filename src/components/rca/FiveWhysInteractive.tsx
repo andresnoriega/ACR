@@ -1,19 +1,71 @@
 
 'use client';
 import type { FC } from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { FiveWhyEntry } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Trash2, HelpCircle } from 'lucide-react';
+import { PlusCircle, Trash2, HelpCircle, Check, X, Loader2, AlertTriangle, SearchCheck } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useToast } from '@/hooks/use-toast';
 
 const generateClientSideId = (prefix: string) => {
     const randomPart = Math.random().toString(36).substring(2, 9);
     const timePart = Date.now().toString(36);
     return `${prefix}-${timePart}-${randomPart}`;
 };
+
+interface ValidationDialogProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: (method: string) => void;
+  isProcessing: boolean;
+}
+
+const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onConfirm, isProcessing }) => {
+  const [method, setMethod] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      setMethod('');
+    }
+  }, [isOpen]);
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Confirmar Validación/Rechazo de Causa</DialogTitle>
+          <DialogDescription>
+            Por favor, ingrese el método o justificación utilizado para validar o rechazar esta causa.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4">
+          <Label htmlFor="validationMethod">Método de Validación/Rechazo <span className="text-destructive">*</span></Label>
+          <Textarea
+            id="validationMethod"
+            value={method}
+            onChange={(e) => setMethod(e.target.value)}
+            placeholder="Ej: Revisión de bitácora, entrevista con operador, evidencia física encontrada, etc."
+            className="mt-1"
+          />
+        </div>
+        <DialogFooter>
+          <DialogClose asChild><Button variant="outline" disabled={isProcessing}>Cancelar</Button></DialogClose>
+          <Button onClick={() => onConfirm(method)} disabled={!method.trim() || isProcessing}>
+            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Confirmar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 
 interface FiveWhysInteractiveProps {
   fiveWhysData: FiveWhyEntry[];
@@ -26,7 +78,12 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   onSetFiveWhysData,
   eventFocusDescription,
 }) => {
+    const { toast } = useToast();
     const [internalData, setInternalData] = useState<FiveWhyEntry[]>(fiveWhysData || []);
+    const [validationState, setValidationState] = useState<{ id: string; status: 'accepted' | 'rejected' } | null>(null);
+    const [isProcessingValidation, setIsProcessingValidation] = useState(false);
+    const [isRootCauseConfirmOpen, setIsRootCauseConfirmOpen] = useState(false);
+    const [rootCauseCandidateId, setRootCauseCandidateId] = useState<string | null>(null);
 
     useEffect(() => {
         if (JSON.stringify(fiveWhysData) !== JSON.stringify(internalData)) {
@@ -35,11 +92,22 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fiveWhysData]);
 
+    const hasRootCause = internalData.some(e => e.isRootCause);
+    const lastEntryStatus = internalData.length > 0 ? internalData[internalData.length - 1].status : 'pending';
 
     const handleAddEntry = () => {
+        if (hasRootCause) {
+            toast({ title: "Análisis Completo", description: "Ya se ha identificado una causa raíz. No se pueden añadir más 'porqués'.", variant: "default"});
+            return;
+        }
+        if (lastEntryStatus === 'rejected') {
+            toast({ title: "Acción Bloqueada", description: "La última causa fue rechazada. No se puede continuar esta línea de análisis.", variant: "destructive"});
+            return;
+        }
+
         const lastEntry = internalData.length > 0 ? internalData[internalData.length - 1] : null;
         const lastWhy = lastEntry?.because ? `¿Por qué: "${lastEntry.because.substring(0, 70)}..."?` : '';
-        const newData = [...internalData, { id: generateClientSideId('5why'), why: lastWhy, because: '' }];
+        const newData = [...internalData, { id: generateClientSideId('5why'), why: lastWhy, because: '', status: 'pending' }];
         setInternalData(newData);
         onSetFiveWhysData(newData);
     };
@@ -55,13 +123,69 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         setInternalData(newData);
         onSetFiveWhysData(newData);
     };
+    
+    const handleToggleStatus = (id: string, status: 'accepted' | 'rejected') => {
+        const entry = internalData.find(e => e.id === id);
+        if (entry?.status === status) {
+            const newData = internalData.map(e => e.id === id ? { ...e, status: 'pending', validationMethod: undefined } : e);
+            setInternalData(newData);
+            onSetFiveWhysData(newData);
+        } else {
+            setValidationState({ id, status });
+        }
+    };
+    
+    const handleConfirmValidation = useCallback((method: string) => {
+        if (!validationState) return;
+        setIsProcessingValidation(true);
+        
+        const { id, status } = validationState;
+        
+        const newData = internalData.map(e => {
+            if (e.id === id) {
+                return {
+                    ...e,
+                    status,
+                    validationMethod: method,
+                    isRootCause: status === 'rejected' ? false : e.isRootCause, // Unset root cause if rejected
+                };
+            }
+            return e;
+        });
+
+        setInternalData(newData);
+        onSetFiveWhysData(newData);
+        
+        setIsProcessingValidation(false);
+        setValidationState(null);
+    }, [internalData, onSetFiveWhysData, validationState]);
+    
+    const handleSetRootCause = () => {
+        if (!rootCauseCandidateId) return;
+        const newData = internalData.map(e =>
+            e.id === rootCauseCandidateId ? { ...e, isRootCause: true } : e
+        );
+        setInternalData(newData);
+        onSetFiveWhysData(newData);
+        setRootCauseCandidateId(null);
+        setIsRootCauseConfirmOpen(false);
+    };
+    
+    const handleUnsetRootCause = (id: string) => {
+        const newData = internalData.map(e =>
+            e.id === id ? { ...e, isRootCause: false } : e
+        );
+        setInternalData(newData);
+        onSetFiveWhysData(newData);
+    };
 
   return (
+      <>
       <Card className="shadow-lg">
         <CardHeader><CardTitle className="text-xl font-semibold font-headline text-primary flex items-center"><HelpCircle className="mr-2 h-6 w-6" />Análisis de los 5 Porqués</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           {internalData.map((entry, index) => (
-            <Card key={entry.id} className="p-4 space-y-2 border-border">
+            <Card key={entry.id} className={cn("p-4 space-y-2", entry.isRootCause ? 'border-2 border-primary' : entry.status === 'accepted' ? 'border-green-200 dark:border-green-700' : entry.status === 'rejected' ? 'border-red-200 dark:border-red-700' : 'border-border')}>
               <div className="flex justify-between items-start">
                 <div className="space-y-1 flex-grow">
                     <Label htmlFor={`why-${entry.id}`} className="font-semibold text-primary">#{index + 1} ¿Por qué?</Label>
@@ -71,14 +195,55 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                 </div>
                 <div className="flex flex-col gap-1 ml-2">
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveEntry(entry.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                  <Button variant={entry.status === 'accepted' ? 'secondary' : 'ghost'} size="icon" className="h-7 w-7" onClick={() => handleToggleStatus(entry.id, 'accepted')}><Check className="h-4 w-4 text-green-600"/></Button>
+                  <Button variant={entry.status === 'rejected' ? 'secondary' : 'ghost'} size="icon" className="h-7 w-7" onClick={() => handleToggleStatus(entry.id, 'rejected')}><X className="h-4 w-4 text-destructive"/></Button>
                 </div>
+              </div>
+              {entry.validationMethod && (
+                <div className="text-xs text-muted-foreground pt-2 mt-2 border-t">
+                  <span className="font-semibold">Justificación V/R:</span> {entry.validationMethod}
+                </div>
+              )}
+               <div className="pt-2 border-t mt-2">
+                 {entry.isRootCause ? (
+                    <Button onClick={() => handleUnsetRootCause(entry.id)} variant="destructive" size="sm" className="w-full">
+                       <SearchCheck className="mr-2 h-4 w-4" /> Anular Causa Raíz
+                    </Button>
+                 ) : (
+                    <Button onClick={() => setRootCauseCandidateId(entry.id)} variant="outline" size="sm" className="w-full" disabled={entry.status !== 'accepted'}>
+                       <SearchCheck className="mr-2 h-4 w-4" /> Causa Raíz
+                    </Button>
+                 )}
               </div>
             </Card>
           ))}
-          <Button onClick={handleAddEntry} variant="outline" className="w-full">
+          <Button onClick={handleAddEntry} variant="outline" className="w-full" disabled={hasRootCause || lastEntryStatus === 'rejected'}>
             <PlusCircle className="mr-2 h-4 w-4" /> Añadir Siguiente ¿Por qué?
           </Button>
         </CardContent>
       </Card>
+      {validationState && (
+        <ValidationDialog
+          isOpen={!!validationState}
+          onOpenChange={() => setValidationState(null)}
+          onConfirm={handleConfirmValidation}
+          isProcessing={isProcessingValidation}
+        />
+      )}
+      <AlertDialog open={isRootCauseConfirmOpen || !!rootCauseCandidateId} onOpenChange={ (open) => { if(!open) { setIsRootCauseConfirmOpen(false); setRootCauseCandidateId(null); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Causa Raíz</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Es posible aplicar una solución definitiva y factible para esta causa? Al confirmar, esta será designada como la causa raíz principal del análisis.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setRootCauseCandidateId(null)}>No</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSetRootCause}>Sí</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      </>
   );
 };

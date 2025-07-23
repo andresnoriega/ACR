@@ -87,6 +87,9 @@ export interface FiveWhyEntry {
   id: string;
   why: string;
   because: string;
+  status?: 'pending' | 'accepted' | 'rejected';
+  validationMethod?: string;
+  isRootCause?: boolean;
 }
 
 export type FiveWhysData = FiveWhyEntry[];
