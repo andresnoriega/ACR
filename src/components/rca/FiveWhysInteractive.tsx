@@ -11,7 +11,8 @@ import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { useToast } from "@/hooks/use-toast";
 
-const generateId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+let idCounter = 0;
+const generateStableId = (prefix: string) => `${prefix}-${idCounter++}`;
 
 // --- RootCauseConfirmationDialog Component ---
 interface RootCauseConfirmationDialogProps {
@@ -103,7 +104,7 @@ const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onC
   );
 };
 
-// Helper to get a node by path from the data structure.
+
 const getNodeByPath = (data: any[], path: (string | number)[]): any => {
     let current: any = data;
     for (const key of path) {
@@ -118,37 +119,6 @@ const getNodeByPath = (data: any[], path: (string | number)[]): any => {
     }
     return current;
 };
-
-const getParentArrayAndIndex = (data: any[], path: (string | number)[]): { parentArray: any[] | null, index: number | null } => {
-    if (path.length === 0) return { parentArray: null, index: null };
-    
-    const parentPath = path.slice(0, -1);
-    const index = path[path.length - 1] as number;
-    
-    let parent: any = data;
-    for (const key of parentPath) {
-        if (parent === undefined || parent === null) return { parentArray: null, index: null };
-        if(typeof key === 'number' && Array.isArray(parent)) {
-            parent = parent[key];
-        } else if (typeof key === 'string' && typeof parent === 'object' && !Array.isArray(parent)) {
-            parent = parent[key];
-        } else {
-            return { parentArray: null, index: null };
-        }
-    }
-    
-    if (Array.isArray(parent)) {
-        return { parentArray: parent, index: index };
-    }
-    
-    // Special case for subAnalysis which is an object, not an array of objects
-    if (parent && typeof parent === 'object' && !Array.isArray(parent) && 'responses' in parent) {
-      return { parentArray: parent.responses, index: index };
-    }
-
-    return { parentArray: null, index: null };
-};
-
 
 const FiveWhysRecursiveRenderer: FC<{
   entry: FiveWhyEntry,
@@ -186,7 +156,7 @@ const FiveWhysRecursiveRenderer: FC<{
     const nodePath = [...basePath, 'responses', resizingNodeIndex.current];
     onUpdate(nodePath, `${newWidth}px`, 'width');
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [basePath, onUpdate]);
+  }, []);
 
   const handleMouseUp = useCallback(() => {
     document.body.style.cursor = 'default';
@@ -314,11 +284,11 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   useEffect(() => {
     if (fiveWhysData.length === 0) {
       onSetFiveWhysData([
-        { id: generateId('why'), why: initialWhyText, responses: [] }
+        { id: generateStableId('why'), why: initialWhyText, responses: [] }
       ]);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fiveWhysData, onSetFiveWhysData, initialWhyText]);
+  }, [fiveWhysData, initialWhyText]);
 
  const handleUpdate = (path: (string|number)[], value: any, field: keyof FiveWhyNode | 'why' | 'isCollapsed' | 'width') => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
@@ -327,7 +297,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         nodeToUpdate[field] = value;
         onSetFiveWhysData(newData);
     }
-};
+  };
 
   const handleSetStatus = (path: (string | number)[], status: FiveWhyNode['status']) => {
       const newData = JSON.parse(JSON.stringify(fiveWhysData));
@@ -364,7 +334,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
      
      if(parentNode && Array.isArray(parentNode.responses)) {
         parentNode.responses.push({
-            id: generateId('node'),
+            id: generateStableId('node'),
             description: '',
             isRootCause: false,
             isCollapsed: false,
@@ -377,10 +347,12 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
   const handleRemoveNode = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    const { parentArray, index } = getParentArrayAndIndex(newData, path);
+    const parentPath = path.slice(0, -1);
+    const indexToRemove = path[path.length - 1] as number;
+    const parentArray = getNodeByPath(newData, parentPath)
 
-    if(parentArray && index !== null && index >= 0 && index < parentArray.length) {
-        parentArray.splice(index, 1);
+    if(parentArray && Array.isArray(parentArray.responses) && indexToRemove >= 0) {
+        parentArray.responses.splice(indexToRemove, 1);
         onSetFiveWhysData(newData);
     } else {
         console.error("Could not remove node at path:", path);
@@ -392,7 +364,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     const node = getNodeByPath(newData, path);
     if (node) {
         node.subAnalysis = {
-          id: generateId('why'),
+          id: generateStableId('why'),
           why: `¿Por qué: "${node.description.substring(0, 50)}..."?`,
           responses: [],
         };
@@ -459,7 +431,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   const handleAddWhyInvestigation = () => {
     onSetFiveWhysData([
       ...fiveWhysData,
-      { id: generateId('why'), why: `¿Por qué ocurrió el evento? (Investigación Paralela #${fiveWhysData.length})`, responses: [] }
+      { id: generateStableId('why'), why: `¿Por qué ocurrió el evento? (Investigación Paralela #${fiveWhysData.length})`, responses: [] }
     ]);
   };
   
