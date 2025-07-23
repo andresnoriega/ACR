@@ -76,7 +76,7 @@ const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onC
         <DialogHeader>
           <DialogTitle>Confirmar Validación/Rechazo</DialogTitle>
           <DialogDescription>
-            Por favor, ingrese el método utilizado para validar o rechazar esta causa como una línea de investigación.
+            Por favor, ingrese el método utilizado para validar o rechazar esta línea de investigación.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
@@ -103,26 +103,8 @@ const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onC
   );
 };
 
-// Helper to get a parent array and index by path.
-const getParentArrayAndIndex = (data: FiveWhyEntry[], path: (string | number)[]): { parent: any[], index: number } | null => {
-    if (path.length === 0) return null;
-
-    let current: any = data;
-    for (let i = 0; i < path.length - 1; i++) {
-        if (current === undefined || current === null) return null;
-        current = current[path[i]];
-    }
-    
-    const index = path[path.length - 1];
-    
-    if (Array.isArray(current) && typeof index === 'number') {
-        return { parent: current, index };
-    }
-    return null;
-};
-
 // Helper to get a node by path from the data structure.
-const getNodeByPath = (data: FiveWhyEntry[], path: (string | number)[]): any => {
+const getNodeByPath = (data: any[], path: (string | number)[]): any => {
     let current: any = data;
     for (const key of path) {
         if (current === undefined || current === null) return null;
@@ -148,7 +130,7 @@ const FiveWhysRecursiveRenderer: FC<{
   const startX = useRef(0);
   const startWidth = useRef(0);
   
-  const handleMouseDown = (e: React.MouseEvent, index: number) => {
+  const handleMouseDown = useCallback((e: React.MouseEvent, index: number) => {
     const cardElement = cardRefs.current[index];
     if (cardElement) {
         resizingNodeIndex.current = index;
@@ -158,7 +140,7 @@ const FiveWhysRecursiveRenderer: FC<{
         window.addEventListener('mousemove', handleMouseMove);
         window.addEventListener('mouseup', handleMouseUp);
     }
-  };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (resizingNodeIndex.current === null) return;
@@ -301,17 +283,17 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fiveWhysData, onSetFiveWhysData, initialWhyText]);
 
- const handleUpdate = useCallback((path: (string|number)[], value: any, field: keyof FiveWhyNode | 'why' | 'isCollapsed' | 'width') => {
+ const handleUpdate = (path: (string|number)[], value: any, field: keyof FiveWhyNode | 'why' | 'isCollapsed' | 'width') => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     const nodeToUpdate = getNodeByPath(newData, path);
     if (nodeToUpdate) {
         nodeToUpdate[field] = value;
         onSetFiveWhysData(newData);
     }
-}, [fiveWhysData, onSetFiveWhysData]);
+};
 
 
-  const handleSetStatus = useCallback((path: (string | number)[], status: FiveWhyNode['status']) => {
+  const handleSetStatus = (path: (string | number)[], status: FiveWhyNode['status']) => {
       const newData = JSON.parse(JSON.stringify(fiveWhysData));
       const nodeToUpdate = getNodeByPath(newData, path);
 
@@ -322,10 +304,10 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       } else {
         setValidationState({ path, status });
       }
-  }, [fiveWhysData, onSetFiveWhysData]);
+  };
 
 
-  const handleConfirmValidation = useCallback((method: string) => {
+  const handleConfirmValidation = (method: string) => {
     if (!validationState) return;
     setIsProcessingValidation(true);
     
@@ -339,13 +321,13 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     onSetFiveWhysData(newData);
     setIsProcessingValidation(false);
     setValidationState(null);
-  }, [validationState, fiveWhysData, onSetFiveWhysData]);
+  };
 
 
-  const handleAddNode = useCallback((path: (string | number)[]) => {
+  const handleAddNode = (path: (string | number)[]) => {
      const newData = JSON.parse(JSON.stringify(fiveWhysData));
      const parentNode = getNodeByPath(newData, path.slice(0, -1));
-     if(parentNode && parentNode.responses) {
+     if(parentNode && Array.isArray(parentNode.responses)) {
         parentNode.responses.push({
             id: generateId('node'),
             description: '',
@@ -356,23 +338,24 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         });
         onSetFiveWhysData(newData);
      }
-  }, [fiveWhysData, onSetFiveWhysData]);
+  };
 
 
-  const handleRemoveNode = useCallback((path: (string | number)[]) => {
+  const handleRemoveNode = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    const result = getParentArrayAndIndex(newData, path);
-
-    if (result) {
-        result.parent.splice(result.index, 1);
+    let parent = getNodeByPath(newData, path.slice(0, -1));
+    const indexToRemove = path[path.length - 1] as number;
+    
+    if(parent && Array.isArray(parent)) {
+        parent.splice(indexToRemove, 1);
         onSetFiveWhysData(newData);
     } else {
         console.error("Could not remove node at path:", path);
     }
-  }, [fiveWhysData, onSetFiveWhysData]);
+  };
 
 
-  const handleAddSubAnalysis = useCallback((path: (string|number)[]) => {
+  const handleAddSubAnalysis = (path: (string|number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     const node = getNodeByPath(newData, path);
     if (node) {
@@ -384,9 +367,9 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         node.isCollapsed = false;
         onSetFiveWhysData(newData);
     }
-  }, [fiveWhysData, onSetFiveWhysData]);
+  };
   
-  const handleSetRootCause = useCallback((path: (string | number)[]) => {
+  const handleSetRootCause = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     const nodeToCheck = getNodeByPath(newData, path);
 
@@ -409,9 +392,9 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     
     setRootCauseConfirmation({ path });
     
-  }, [fiveWhysData, toast]);
+  };
 
-  const confirmSetRootCause = useCallback(() => {
+  const confirmSetRootCause = () => {
     if (!rootCauseConfirmation) return;
     setIsProcessingRootCause(true);
     
@@ -431,15 +414,15 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
     const nodeToUpdate = getNodeByPath(newData, path);
     if(nodeToUpdate){
-      nodeToUpdate.isRootCause = true;
-      if (nodeToUpdate.status !== 'accepted') {
+      nodeToUpdate.isRootCause = !nodeToUpdate.isRootCause; // Toggle
+      if (nodeToUpdate.isRootCause && nodeToUpdate.status !== 'accepted') {
           nodeToUpdate.status = 'accepted';
       }
     }
     onSetFiveWhysData(newData);
     setIsProcessingRootCause(false);
     setRootCauseConfirmation(null);
-  }, [rootCauseConfirmation, fiveWhysData, onSetFiveWhysData]);
+  };
 
 
   
