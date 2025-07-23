@@ -11,7 +11,7 @@ import type { FiveWhyEntry } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { PlusCircle, Trash2, Check, X, HelpCircle, Loader2, Target } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -241,23 +241,23 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
             const isRootCause = entry.isRootCause || false;
             return (
             <Card key={entry.id} className={cn("p-3 space-y-2 transition-colors", 
-                isRootCause ? 'bg-primary/90 border-primary ring-2 ring-primary text-primary-foreground' :
+                isRootCause ? 'border-2 border-primary' :
                 status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' 
                 : status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 opacity-70' 
                 : 'bg-secondary/30'
             )}>
                 <div className="flex justify-between items-center">
-                <Label htmlFor={`why-${entry.id}`} className={cn("font-semibold", isRootCause ? 'text-primary-foreground' : 'text-primary')}>
+                <Label htmlFor={`why-${entry.id}`} className={cn("font-semibold text-primary")}>
                     #{index + 1} ¿Por qué?
                 </Label>
                 {internalData.length > 1 && (
                     <Button
                     variant="ghost"
                     size="icon"
-                    className={cn("h-7 w-7", isRootCause && "text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground")}
+                    className="h-7 w-7"
                     onClick={() => handleRemoveEntry(index)}
                     >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                 )}
                 </div>
@@ -268,11 +268,10 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
                 placeholder="Describa el 'porqué'..."
                 rows={2}
                 disabled={status === 'rejected' || isRootCause}
-                className={cn(isRootCause ? "bg-primary/70 border-primary-foreground/50 placeholder:text-primary-foreground/60" : "")}
                 />
                 <div className="pl-4">
                     <div className="flex justify-between items-center">
-                        <Label htmlFor={`because-${entry.id}`} className={cn("font-semibold", isRootCause ? 'text-primary-foreground' : 'text-foreground')}>
+                        <Label htmlFor={`because-${entry.id}`} className="font-semibold text-foreground">
                             Porque... (Causa)
                         </Label>
                         <div className="flex gap-1">
@@ -287,18 +286,17 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
                     placeholder="Describa la causa o razón..."
                     rows={2}
                     disabled={status === 'rejected' || isRootCause}
-                    className={cn(isRootCause ? "bg-primary/70 border-primary-foreground/50 placeholder:text-primary-foreground/60" : "")}
                 />
                 </div>
                  {entry.validationMethod && (
-                    <div className={cn("text-xs pt-2 mt-2 border-t", isRootCause ? "text-primary-foreground/80 border-primary-foreground/30" : "text-muted-foreground")}>
+                    <div className="text-xs pt-2 mt-2 border-t text-muted-foreground border-border">
                         <span className="font-semibold">Justificación V/R:</span> {entry.validationMethod}
                     </div>
                 )}
-                <div className="pt-2 mt-2 border-t border-dashed border-muted-foreground/30">
+                <div className="pt-2 mt-2 border-t border-dashed border-border">
                      <Button
                         size="sm"
-                        variant={isRootCause ? "secondary" : "outline"}
+                        variant={isRootCause ? "default" : "outline"}
                         className={cn("text-xs h-7", isRootCause && "w-full font-bold")}
                         onClick={() => setRootCauseCandidateIndex(index)}
                         disabled={status !== 'accepted'}
