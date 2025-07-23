@@ -91,11 +91,17 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
   
   const [internalData, setInternalData] = useState<CTMData>(() => whyWhy2Data || []);
-
+  
+  // This useEffect ensures that if the prop from the parent changes (e.g., loading a different analysis),
+  // the internal state of this component is updated to reflect that.
   useEffect(() => {
-      onSetWhyWhy2Data(internalData);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [internalData]);
+    setInternalData(whyWhy2Data || []);
+  }, [whyWhy2Data]);
+
+  const updateParentState = (newData: CTMData) => {
+    setInternalData(newData);
+    onSetWhyWhy2Data(newData);
+  };
 
 
   const handleUpdate = (path: (string | number)[], value: string) => {
@@ -105,7 +111,7 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
       current = current[path[i]];
     }
     current[path[path.length - 1]] = { ...current[path[path.length - 1]], description: value };
-    setInternalData(newData);
+    updateParentState(newData);
   };
 
   const handleToggleStatus = (path: (string | number)[], status: 'accepted' | 'rejected' | 'pending') => {
@@ -119,13 +125,13 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
       if (itemToUpdate.status === status) {
         itemToUpdate.status = 'pending';
         itemToUpdate.validationMethod = undefined;
-        setInternalData(newData);
+        updateParentState(newData);
       } else {
         setValidationState({ path, status });
       }
   };
 
-  const handleConfirmValidation = useCallback((method: string) => {
+  const handleConfirmValidation = (method: string) => {
     if (!validationState) return;
     setIsProcessingValidation(true);
     const { path, status } = validationState;
@@ -141,25 +147,23 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
     itemToUpdate.status = status;
     itemToUpdate.validationMethod = method;
 
-    setInternalData(newData);
+    updateParentState(newData);
     setIsProcessingValidation(false);
     setValidationState(null);
-  }, [internalData, validationState]);
+  };
 
   const handleAdd = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(internalData));
 
-    // Special case for adding the very first "Por qué"
     if (path.length === 0 && newData.length === 0) {
         newData.push({ 
             id: generateClientSideId('fm'), 
             description: `¿Por qué ocurrió: "${focusEventDescription}"?`, 
             hypotheses: [] 
         });
-        setInternalData(newData);
+        updateParentState(newData);
         return;
     }
-
 
     let parent: any = newData;
     let lastKey = path.length > 0 ? path[path.length - 1] : null;
@@ -168,7 +172,7 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
       parent = parent[path[i]];
     }
 
-    if (lastKey === null) { // Adding a new "Por qué" to the root
+    if (lastKey === null) { 
       newData.push({ id: generateClientSideId('fm'), description: 'Nuevo Por qué', hypotheses: [] });
     } else {
       let targetArray;
@@ -202,7 +206,7 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
       }
     }
 
-    setInternalData(newData);
+    updateParentState(newData);
   };
 
   const handleRemove = (path: (string | number)[]) => {
@@ -213,7 +217,7 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
     }
     const indexToRemove = path[path.length - 1] as number;
     current.splice(indexToRemove, 1);
-    setInternalData(newData);
+    updateParentState(newData);
   };
   
   const renderLatentCauses = (latentCauses: LatentCause[] | undefined, path: (string | number)[]) => (
