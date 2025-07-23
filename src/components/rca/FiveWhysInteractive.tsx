@@ -1,7 +1,7 @@
 
 'use client';
 import type { FC } from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { FiveWhyEntry } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -140,7 +140,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         }
     };
     
-    const handleConfirmValidation = (method: string) => {
+    const handleConfirmValidation = useCallback((method: string) => {
       if (!validationState) return;
       setIsProcessingValidation(true);
       const { id, status } = validationState;
@@ -161,7 +161,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       onSetFiveWhysData(newData);
       setIsProcessingValidation(false);
       setValidationState(null); 
-    };
+    }, [internalData, onSetFiveWhysData, validationState]);
     
     const handleSetRootCause = () => {
         if (!rootCauseCandidateId) return;
