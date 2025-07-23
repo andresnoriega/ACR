@@ -1,18 +1,13 @@
-
 'use client';
 import type { FC } from 'react';
 import { useState, useEffect } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import type { FiveWhyEntry, FiveWhysData } from '@/types/rca';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlusCircle, Trash2, HelpCircle } from 'lucide-react';
-import type { FiveWhyEntry, FiveWhysData } from '@/types/rca';
-
-// Use a stable counter for new IDs to avoid hydration mismatch.
-let idCounter = 0;
-const generateStableId = () => `5why-stable-${idCounter++}`;
+import { useToast } from "@/hooks/use-toast";
 
 interface FiveWhysInteractiveProps {
   fiveWhysData: FiveWhysData;
@@ -20,79 +15,90 @@ interface FiveWhysInteractiveProps {
   eventFocusDescription: string;
 }
 
+const generateStableId = (() => {
+  let counter = 0;
+  return () => `5why-stable-${counter++}`;
+})();
+
+
 export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   fiveWhysData,
   onSetFiveWhysData,
   eventFocusDescription,
 }) => {
-  // Use a lazy initializer for useState. This runs ONLY ONCE on initial render,
-  // on both the server and the client, ensuring the initial state is identical
-  // and preventing hydration errors.
+  const { toast } = useToast();
+
+  // Use a lazy initializer for useState to ensure server and client start with the same state.
   const [localData, setLocalData] = useState<FiveWhysData>(() => {
     if (fiveWhysData && fiveWhysData.length > 0) {
       return fiveWhysData;
     }
-    // If the data is empty, create the first entry here.
-    const initialWhyText = eventFocusDescription
-      ? `¿Por qué ocurrió: "${eventFocusDescription.substring(0, 70)}${eventFocusDescription.length > 70 ? '...' : ''}"?`
+    const initialWhy = eventFocusDescription
+      ? `¿Por qué ocurrió: "${eventFocusDescription.slice(0, 70)}${eventFocusDescription.length > 70 ? '...' : ''}"?`
       : '';
-    return [{ id: generateStableId(), why: initialWhyText, because: '' }];
+    return [{ id: generateStableId(), why: initialWhy, because: '' }];
   });
 
-  // Effect to sync parent state with local state when localData changes
+  // Use useEffect to sync props to local state if the external data changes (e.g., loading a new analysis)
   useEffect(() => {
-    onSetFiveWhysData(localData);
-  }, [localData, onSetFiveWhysData]);
-  
-  // Effect to update local state if parent prop changes (e.g., loading a different analysis)
-  useEffect(() => {
-    // Only update if the parent data is meaningfully different
+    // Only update if the incoming data is actually different to prevent infinite loops
     if (JSON.stringify(fiveWhysData) !== JSON.stringify(localData)) {
-      if (fiveWhysData && fiveWhysData.length > 0) {
-        setLocalData(fiveWhysData);
-      } else {
-        const initialWhyText = eventFocusDescription
-          ? `¿Por qué ocurrió: "${eventFocusDescription.substring(0, 70)}${eventFocusDescription.length > 70 ? '...' : ''}"?`
-          : '';
-        setLocalData([{ id: generateStableId(), why: initialWhyText, because: '' }]);
-      }
+       if (fiveWhysData && fiveWhysData.length > 0) {
+           setLocalData(fiveWhysData);
+       } else {
+            const initialWhy = eventFocusDescription
+            ? `¿Por qué ocurrió: "${eventFocusDescription.slice(0, 70)}${eventFocusDescription.length > 70 ? '...' : ''}"?`
+            : '';
+            setLocalData([{ id: generateStableId(), why: initialWhy, because: '' }]);
+       }
     }
-  }, [fiveWhysData, eventFocusDescription]);
+  }, [fiveWhysData, eventFocusDescription, localData]);
 
 
-  const handleUpdateEntry = (id: string, field: 'why' | 'because', value: string) => {
-    setLocalData(prevData =>
-      prevData.map(entry =>
-        entry.id === id ? { ...entry, [field]: value } : entry
-      )
+  const handleUpdate = (id: string, field: 'why' | 'because', value: string) => {
+    const newData = localData.map(entry =>
+      entry.id === id ? { ...entry, [field]: value } : entry
     );
+    setLocalData(newData);
+    onSetFiveWhysData(newData);
   };
 
   const handleAddEntry = () => {
-    setLocalData(prevData => {
-      const lastEntry = prevData.length > 0 ? prevData[prevData.length - 1] : null;
-      const initialWhy = lastEntry?.because
-        ? `¿Por qué: "${lastEntry.because.substring(0, 70)}${lastEntry.because.length > 70 ? '...' : ''}"?`
-        : '';
-      const newEntry: FiveWhyEntry = {
-        id: generateStableId(),
-        why: initialWhy,
-        because: '',
-      };
-      return [...prevData, newEntry];
-    });
+    const lastEntry = localData.length > 0 ? localData[localData.length - 1] : null;
+    const newWhy = lastEntry?.because
+      ? `¿Por qué: "${lastEntry.because.slice(0, 70)}${lastEntry.because.length > 70 ? '...' : ''}"?`
+      : '';
+    const newEntry: FiveWhyEntry = { id: generateStableId(), why: newWhy, because: '' };
+    const newData = [...localData, newEntry];
+    setLocalData(newData);
+    onSetFiveWhysData(newData);
+    toast({ title: 'Nuevo "Porqué" añadido' });
   };
 
   const handleRemoveEntry = (id: string) => {
-    setLocalData(prevData => prevData.filter(entry => entry.id !== id));
+    if (localData.length <= 1) {
+      toast({
+        title: "Acción no permitida",
+        description: "Debe haber al menos una entrada en el análisis.",
+        variant: "destructive"
+      });
+      return;
+    }
+    const newData = localData.filter(entry => entry.id !== id);
+    setLocalData(newData);
+    onSetFiveWhysData(newData);
+    toast({ title: 'Entrada eliminada', variant: "destructive" });
   };
 
   return (
-    <div className="space-y-6 mt-4 p-4 border rounded-lg shadow-sm bg-background">
-      <h3 className="text-lg font-semibold font-headline text-center text-primary flex items-center justify-center">
-        <HelpCircle className="mr-2 h-5 w-5" /> 5 Porqués
-      </h3>
-      <div className="space-y-4">
+    <Card className="shadow-lg mt-4">
+      <CardHeader>
+        <CardTitle className="text-xl font-semibold font-headline text-primary flex items-center">
+          <HelpCircle className="mr-2 h-6 w-6" />
+          Análisis de los 5 Porqués
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
         {localData.map((entry, index) => (
           <Card key={entry.id} className="p-4 bg-secondary/30">
             <div className="flex justify-between items-center mb-2">
@@ -101,8 +107,9 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                 variant="ghost"
                 size="icon"
                 onClick={() => handleRemoveEntry(entry.id)}
-                aria-label="Eliminar paso"
+                aria-label={`Eliminar paso #${index + 1}`}
                 className="h-7 w-7"
+                disabled={localData.length <= 1}
               >
                 <Trash2 className="h-4 w-4 text-destructive" />
               </Button>
@@ -112,26 +119,25 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
               <Input
                 id={`why-${entry.id}`}
                 value={entry.why}
-                onChange={(e) => handleUpdateEntry(entry.id, 'why', e.target.value)}
-                placeholder="Pregunta 'Por qué'..."
+                onChange={(e) => handleUpdate(entry.id, 'why', e.target.value)}
+                placeholder="Describa la pregunta..."
               />
             </div>
             <div className="space-y-2 mt-2">
               <Label htmlFor={`because-${entry.id}`}>Porque...</Label>
-              <Textarea
+              <Input
                 id={`because-${entry.id}`}
                 value={entry.because}
-                onChange={(e) => handleUpdateEntry(entry.id, 'because', e.target.value)}
-                placeholder="Respuesta 'Porque'..."
-                rows={2}
+                onChange={(e) => handleUpdate(entry.id, 'because', e.target.value)}
+                placeholder="Describa la respuesta o causa..."
               />
             </div>
           </Card>
         ))}
-      </div>
-      <Button onClick={handleAddEntry} variant="outline" className="w-full mt-4">
-        <PlusCircle className="mr-2 h-4 w-4" /> Añadir Siguiente Porqué
-      </Button>
-    </div>
+        <Button onClick={handleAddEntry} variant="outline" className="w-full">
+          <PlusCircle className="mr-2 h-4 w-4" /> Añadir Siguiente "Porqué"
+        </Button>
+      </CardContent>
+    </Card>
   );
 };
