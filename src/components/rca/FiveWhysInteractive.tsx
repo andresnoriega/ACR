@@ -1,7 +1,7 @@
 
 'use client';
 import type { FC } from 'react';
-import { useState, useEffect, useCallback, useId } from 'react';
+import { useState, useEffect, useId } from 'react';
 import type { FiveWhyEntry } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -147,12 +147,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     const handleToggleStatus = (id: string, status: 'accepted' | 'rejected') => {
         const entry = internalData.find(e => e.id === id);
         if (entry?.status === status) {
-            const newData = internalData.map(e => {
-              if (e.id === id) {
-                return { ...e, status: 'pending', isRootCause: false }; // No borramos validationMethod
-              }
-              return e;
-            });
+            const newData = internalData.map(e => e.id === id ? { ...e, status: 'pending', isRootCause: false } : e);
             setInternalData(newData);
             onSetFiveWhysData(newData);
         } else {
@@ -177,12 +172,12 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         }
         return e;
       });
-  
+      
       setInternalData(newData);
       onSetFiveWhysData(newData);
   
       setIsProcessingValidation(false);
-      setValidationState(null);
+      setValidationState(null); // Close the dialog
     };
     
     const handleSetRootCause = () => {
@@ -250,14 +245,14 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
           </Button>
         </CardContent>
       </Card>
-      {validationState && (
-        <ValidationDialog
-          isOpen={!!validationState}
-          onOpenChange={(open) => { if (!open) setValidationState(null); }}
-          onConfirm={handleConfirmValidation}
-          isProcessing={isProcessingValidation}
-        />
-      )}
+      
+      <ValidationDialog
+        isOpen={!!validationState}
+        onOpenChange={(open) => { if (!open) setValidationState(null); }}
+        onConfirm={handleConfirmValidation}
+        isProcessing={isProcessingValidation}
+      />
+      
       <AlertDialog open={isRootCauseConfirmOpen} onOpenChange={ (open) => { if(!open) { setIsRootCauseConfirmOpen(false); setRootCauseCandidateId(null); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
