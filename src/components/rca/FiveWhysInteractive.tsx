@@ -28,7 +28,7 @@ const RootCauseConfirmationDialog: FC<RootCauseConfirmationDialogProps> = ({ isO
         <DialogHeader>
           <DialogTitle>Confirmar Causa Raíz</DialogTitle>
           <DialogDescription>
-            ¿Es posible aplicar una solución definitiva y factible para esta causa?
+            ¿Es posible aplicar una solución definitiva y factible para esta causa? Al confirmar, se marcará como la única causa raíz del análisis.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -37,7 +37,7 @@ const RootCauseConfirmationDialog: FC<RootCauseConfirmationDialogProps> = ({ isO
           </Button>
           <Button onClick={onConfirm} disabled={isProcessing}>
             {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Sí
+            Sí, es Causa Raíz
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -343,11 +343,11 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
   const handleRemoveNode = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    let parent = getNodeByPath(newData, path.slice(0, -1));
+    const parentArray = getNodeByPath(newData, path.slice(0, -1));
     const indexToRemove = path[path.length - 1] as number;
     
-    if(parent && Array.isArray(parent)) {
-        parent.splice(indexToRemove, 1);
+    if(Array.isArray(parentArray)) {
+        parentArray.splice(indexToRemove, 1);
         onSetFiveWhysData(newData);
     } else {
         console.error("Could not remove node at path:", path);
