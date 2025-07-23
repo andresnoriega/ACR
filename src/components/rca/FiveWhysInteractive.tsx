@@ -24,20 +24,30 @@ interface ValidationDialogProps {
   onOpenChange: (open: boolean) => void;
   onConfirm: (method: string) => void;
   isProcessing: boolean;
+  setIsProcessing: (processing: boolean) => void;
 }
 
 const ValidationDialog: FC<ValidationDialogProps> = ({
   isOpen,
   onOpenChange,
   onConfirm,
-  isProcessing
+  isProcessing,
+  setIsProcessing
 }) => {
   const [method, setMethod] = useState('');
 
   const handleConfirmClick = () => {
-    if (method.trim()) {
-      onConfirm(method);
+    if (!method.trim()) {
+      return;
     }
+    setIsProcessing(true);
+    onConfirm(method);
+
+    // Force close dialog after 3 seconds as requested
+    setTimeout(() => {
+      onOpenChange(false);
+      setIsProcessing(false);
+    }, 3000);
   };
 
   useEffect(() => {
@@ -70,20 +80,16 @@ const ValidationDialog: FC<ValidationDialogProps> = ({
         </div>
 
         <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline" disabled={isProcessing}>
-                Cancelar
-            </Button>
-          </DialogClose>
-          <DialogClose asChild>
-            <Button
-                onClick={handleConfirmClick}
-                disabled={!method.trim() || isProcessing}
-            >
-                {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Confirmar
-            </Button>
-          </DialogClose>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isProcessing}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleConfirmClick}
+            disabled={!method.trim() || isProcessing}
+          >
+            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Confirmar
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -158,8 +164,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     
     const handleConfirmValidation = (method: string) => {
       if (!validationState) return;
-  
-      setIsProcessingValidation(true);
+
       const { id, status } = validationState;
   
       const newData = internalData.map(e => {
@@ -176,7 +181,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       
       setInternalData(newData);
       onSetFiveWhysData(newData);
-      setIsProcessingValidation(false);
       setValidationState(null);
     };
     
@@ -252,6 +256,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
           onOpenChange={(open) => { if (!open) setValidationState(null); }}
           onConfirm={handleConfirmValidation}
           isProcessing={isProcessingValidation}
+          setIsProcessing={setIsProcessingValidation}
         />
       )}
       
