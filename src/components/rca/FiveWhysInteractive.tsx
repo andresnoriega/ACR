@@ -141,6 +141,11 @@ const getParentArrayAndIndex = (data: any[], path: (string | number)[]): { paren
         return { parentArray: parent, index: index };
     }
     
+    // Special case for subAnalysis which is an object, not an array of objects
+    if (parent && typeof parent === 'object' && !Array.isArray(parent) && 'responses' in parent) {
+      return { parentArray: parent.responses, index: index };
+    }
+
     return { parentArray: null, index: null };
 };
 
