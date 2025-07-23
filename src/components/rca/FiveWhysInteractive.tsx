@@ -125,7 +125,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
     return [{ id: generateId('why'), why: initialWhy, causes: [] }];
   });
 
-  const hasIdentifiedRootCause = useMemo(() => internalData.some(entry => entry.causes.some(cause => cause.isRootCause)), [internalData]);
+  const hasIdentifiedRootCause = useMemo(() => internalData.some(entry => entry.causes && entry.causes.some(cause => cause.isRootCause)), [internalData]);
 
   useEffect(() => {
     onSetFiveWhysData(internalData);
