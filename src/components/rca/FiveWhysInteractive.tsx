@@ -1,14 +1,18 @@
 
 'use client';
 import type { FC } from 'react';
-import { useCallback, useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useEffect } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { PlusCircle, Trash2, HelpCircle } from 'lucide-react';
-import type { FiveWhysData, FiveWhyEntry } from '@/types/rca';
+import type { FiveWhyEntry, FiveWhysData } from '@/types/rca';
+
+// Use a stable counter for new IDs to avoid hydration mismatch.
+let idCounter = 0;
+const generateStableId = () => `5why-stable-${idCounter++}`;
 
 interface FiveWhysInteractiveProps {
   fiveWhysData: FiveWhysData;
@@ -16,23 +20,21 @@ interface FiveWhysInteractiveProps {
   eventFocusDescription: string;
 }
 
-const generateId = () => `5why-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-
 export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   fiveWhysData,
   onSetFiveWhysData,
   eventFocusDescription,
 }) => {
 
-  // Correct way to initialize state to prevent render-time updates
+  // Initialize the first entry safely after the component mounts.
   useEffect(() => {
-    if (fiveWhysData.length === 0) {
+    if (!fiveWhysData || fiveWhysData.length === 0) {
       const initialWhyText = eventFocusDescription
         ? `¿Por qué ocurrió: "${eventFocusDescription.substring(0, 70)}${eventFocusDescription.length > 70 ? '...' : ''}"?`
         : '';
-      onSetFiveWhysData([{ id: generateId(), why: initialWhyText, because: '' }]);
+      onSetFiveWhysData([{ id: generateStableId(), why: initialWhyText, because: '' }]);
     }
-  }, [fiveWhysData, onSetFiveWhysData, eventFocusDescription]);
+  }, []); // Run only once on mount
 
   const handleUpdateEntry = (id: string, field: 'why' | 'because', value: string) => {
     const newData = fiveWhysData.map(entry =>
@@ -47,7 +49,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       ? `¿Por qué: "${lastEntry.because.substring(0, 70)}${lastEntry.because.length > 70 ? '...' : ''}"?`
       : '';
     const newEntry: FiveWhyEntry = {
-      id: generateId(),
+      id: generateStableId(),
       why: initialWhy,
       because: '',
     };
@@ -55,6 +57,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   };
 
   const handleRemoveEntry = (id: string) => {
+    // Directly filter out the entry by its stable ID.
     const newData = fiveWhysData.filter(entry => entry.id !== id);
     onSetFiveWhysData(newData);
   };
@@ -65,7 +68,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         <HelpCircle className="mr-2 h-5 w-5" /> 5 Porqués
       </h3>
       <div className="space-y-4">
-        {fiveWhysData.map((entry, index) => (
+        {fiveWhysData && fiveWhysData.map((entry, index) => (
           <Card key={entry.id} className="p-4 bg-secondary/30">
             <div className="flex justify-between items-center mb-2">
               <p className="font-semibold text-primary">Paso #{index + 1}</p>

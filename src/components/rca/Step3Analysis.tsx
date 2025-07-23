@@ -2,7 +2,7 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useCallback, useEffect } from 'react'; 
-import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhysData, FiveWhyEntry, CTMData, IdentifiedRootCause, FullUserProfile, BrainstormIdea, BrainstormIdeaType, TimelineEvent, Site } from '@/types/rca';
+import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhyEntry, CTMData, IdentifiedRootCause, FullUserProfile, BrainstormIdea, BrainstormIdeaType, TimelineEvent, Site } from '@/types/rca';
 import { BRAINSTORM_IDEA_TYPES } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,7 @@ import { PlusCircle, Trash2, MessageSquare, Network, Link2, Save, Send, Loader2,
 import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
 import { CTMInteractive } from './CTMInteractive';
-import { FiveWhysInteractive } from './FiveWhysInteractive'; // Re-import
+import { FiveWhysInteractive } from './FiveWhysInteractive'; 
 import TimelineComponent from './TimelineComponent';
 import { useToast } from "@/hooks/use-toast";
 import { sendEmailAction } from '@/app/actions';
