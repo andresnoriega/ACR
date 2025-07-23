@@ -109,53 +109,18 @@ const getNodeByPath = (data: any[], path: (string | number)[]): any => {
     let current: any = { responses: data };
     for (const key of path) {
         if (current === undefined || current === null) return null;
-        if(typeof key === 'number' && Array.isArray(current.responses)) {
-            current = current.responses[key];
-        } else if (typeof key === 'string' && typeof current === 'object' && !Array.isArray(current)) {
+        if(typeof key === 'string' && key === 'subAnalysis' && typeof current === 'object'){
+            current = current.subAnalysis;
+        } else if (typeof key === 'string' && key === 'responses' && Array.isArray(current.responses)){
+             current = current.responses;
+        } else if (typeof key === 'number' && Array.isArray(current)){
             current = current[key];
         } else {
-            return null;
+             return null;
         }
     }
     return current;
 };
-
-const getParentArrayAndIndex = (data: any[], path: (string | number)[]): { parentArray: any[] | null, index: number | null } => {
-  if (path.length === 0) return { parentArray: null, index: null };
-  
-  const parentPath = path.slice(0, -1);
-  const index = path[path.length - 1] as number;
-  
-  // If the path has only one element, the parent is the root data array
-  if (parentPath.length === 0) {
-      if (typeof index === 'number') {
-          return { parentArray: data, index };
-      }
-      return { parentArray: null, index: null };
-  }
-
-  // Navigate to the parent object
-  let parentObject: any = { responses: data }; // Start with a wrapper for consistent access
-  for (const key of parentPath) {
-    if (parentObject === undefined || parentObject === null) return { parentArray: null, index: null };
-
-    if (typeof key === 'number' && Array.isArray(parentObject.responses)) {
-        parentObject = parentObject.responses[key];
-    } else if (typeof key === 'string' && typeof parentObject === 'object' && !Array.isArray(parentObject)) {
-        parentObject = parentObject[key];
-    } else {
-      return { parentArray: null, index: null };
-    }
-  }
-
-  // After navigating, the target array should be in 'responses' property of the parentObject
-  if (parentObject && Array.isArray(parentObject.responses) && typeof index === 'number') {
-    return { parentArray: parentObject.responses, index };
-  }
-
-  return { parentArray: null, index: null };
-};
-
 
 const FiveWhysRecursiveRenderer: FC<{
   entry: FiveWhyEntry,
@@ -363,33 +328,36 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     setValidationState(null);
   };
 
-  const handleAddNode = (path: (string | number)[]) => {
-     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-     const parentNode = getNodeByPath(newData, path.slice(0,-1));
-     
-     if(parentNode && Array.isArray(parentNode.responses)) {
-        parentNode.responses.push({
-            id: generateStableId('node'),
-            description: '',
-            isRootCause: false,
-            isCollapsed: false,
-            status: 'pending',
-            width: 'auto'
-        });
-        onSetFiveWhysData(newData);
-     }
-  };
+  const handleAddNode = (path: (string|number)[]) => {
+      const newData = JSON.parse(JSON.stringify(fiveWhysData));
+      const targetArray = getNodeByPath(newData, path);
 
-  const handleRemoveNode = (path: (string | number)[]) => {
-    const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    const { parentArray, index } = getParentArrayAndIndex(newData, path);
-    
-    if(parentArray && index !== null && index >= 0 && index < parentArray.length) {
-        parentArray.splice(index, 1);
-        onSetFiveWhysData(newData);
-    } else {
+      if (Array.isArray(targetArray)) {
+          targetArray.push({
+              id: generateStableId('node'),
+              description: '',
+              isRootCause: false,
+              isCollapsed: false,
+              status: 'pending',
+              width: 'auto',
+          });
+          onSetFiveWhysData(newData);
+      }
+  };
+  
+  const handleRemoveNode = (path: (string|number)[]) => {
+      const newData = JSON.parse(JSON.stringify(fiveWhysData));
+      const parentPath = path.slice(0, -1);
+      const indexToRemove = path[path.length - 1];
+
+      const parentArray = getNodeByPath(newData, parentPath);
+
+      if (Array.isArray(parentArray) && typeof indexToRemove === 'number') {
+          parentArray.splice(indexToRemove, 1);
+          onSetFiveWhysData(newData);
+      } else {
         console.error("Could not remove node at path:", path);
-    }
+      }
   };
 
   const handleAddSubAnalysis = (path: (string|number)[]) => {
