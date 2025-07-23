@@ -1,6 +1,6 @@
 
 'use client';
-import { FC, ChangeEvent, useState } from 'react';
+import { FC, ChangeEvent, useState, useEffect } from 'react';
 import type { IshikawaData, IshikawaCategory, IshikawaCause } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,7 @@ const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onC
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       setMethod('');
     }
