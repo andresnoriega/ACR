@@ -1207,8 +1207,6 @@ function RCAAnalysisPageComponent() {
     setAnalysisTechniqueNotes('');
     if (value === 'Ishikawa') {
       setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
-    } else if (value === 'WhyWhy') {
-      setFiveWhysData([]); // Reset to empty array for the tree structure
     } else if (value === 'CTM') {
       setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
     }

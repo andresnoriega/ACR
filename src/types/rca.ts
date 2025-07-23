@@ -65,7 +65,7 @@ export interface Validation {
   rejectedAt?: string;
 }
 
-export type AnalysisTechnique = '' | 'WhyWhy' | 'Ishikawa' | 'CTM';
+export type AnalysisTechnique = '' | 'Ishikawa' | 'CTM';
 
 export interface IshikawaCause {
   id: string;
@@ -82,6 +82,7 @@ export type IshikawaData = IshikawaCategory[];
 
 
 // --- Tree Structure for 5 Whys ---
+// This has been removed.
 export interface FiveWhyNode {
   id: string;
   description: string;

@@ -13,7 +13,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { PlusCircle, Trash2, MessageSquare, Network, Link2, Save, Send, Loader2, Mail, Sparkles, ClipboardCopy, ChevronLeft, ChevronRight, AlertTriangle, Lightbulb, Edit3, X, HelpCircle, Fish, Share2 as CtmIcon, Wrench, Box, Ruler, Leaf, Users } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
-import { FiveWhysInteractive } from './FiveWhysInteractive';
 import { CTMInteractive } from './CTMInteractive';
 import TimelineComponent from './TimelineComponent'; // Import TimelineComponent
 import { useToast } from "@/hooks/use-toast";
@@ -166,8 +165,6 @@ interface Step3AnalysisProps {
   onAnalysisTechniqueNotesChange: (value: string) => void;
   ishikawaData: IshikawaData;
   onSetIshikawaData: (data: IshikawaData) => void;
-  fiveWhysData: FiveWhyEntry[];
-  onSetFiveWhysData: (data: FiveWhyEntry[]) => void;
   ctmData: CTMData;
   onSetCtmData: (data: CTMData) => void;
   identifiedRootCauses: IdentifiedRootCause[];
@@ -200,8 +197,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   onAnalysisTechniqueNotesChange,
   ishikawaData,
   onSetIshikawaData,
-  fiveWhysData,
-  onSetFiveWhysData,
   ctmData,
   onSetCtmData,
   identifiedRootCauses,
@@ -401,7 +396,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     const hasPlannedActions = uniquePlannedActions.length > 0;
 
     const isIshikawaEdited = ishikawaData.some(cat => cat.causes.some(c => c.description.trim() !== ''));
-    const isFiveWhysEdited = fiveWhysData.some(entry => entry.why.trim() !== '' || entry.responses.length > 0);
     const isCtmEdited = ctmData.length > 0 && ctmData.some(fm => 
         fm.description.trim() !== '' || 
         fm.hypotheses.some(h => h.description.trim() !== '' || 
@@ -421,7 +415,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
       !hasAnyRootCause && 
       !hasPlannedActions &&
       !isIshikawaEdited &&
-      !isFiveWhysEdited &&
       !isCtmEdited
     ) {
       toast({
@@ -552,7 +545,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
         analysisTechnique: analysisTechnique,
         analysisTechniqueNotes: analysisTechniqueNotes || undefined,
         ishikawaData: analysisTechnique === 'Ishikawa' ? ishikawaData : undefined,
-        fiveWhysData: analysisTechnique === 'WhyWhy' ? fiveWhysData : undefined,
         ctmData: analysisTechnique === 'CTM' ? ctmData : undefined,
       };
       const result = await suggestRootCauses(input);
@@ -700,7 +692,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                   <SelectValue placeholder="-- Seleccione una técnica --" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="WhyWhy"><div className="flex items-center"><HelpCircle className="mr-2 h-4 w-4" />5 Porqués</div></SelectItem>
                   <SelectItem value="Ishikawa"><div className="flex items-center"><Fish className="mr-2 h-4 w-4" />Ishikawa</div></SelectItem>
                   <SelectItem value="CTM"><div className="flex items-center"><CtmIcon className="mr-2 h-4 w-4" />Árbol de Causas (CTM)</div></SelectItem>
                 </SelectContent>
@@ -712,14 +703,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                 focusEventDescription={eventData.focusEventDescription || "Evento Foco (no definido en Paso 1)"}
                 ishikawaData={ishikawaData}
                 onSetIshikawaData={onSetIshikawaData}
-              />
-            )}
-
-            {analysisTechnique === 'WhyWhy' && (
-              <FiveWhysInteractive
-                focusEventDescription={eventData.focusEventDescription || "Evento Foco (no definido en Paso 1)"}
-                fiveWhysData={fiveWhysData}
-                onSetFiveWhysData={onSetFiveWhysData}
               />
             )}
 
