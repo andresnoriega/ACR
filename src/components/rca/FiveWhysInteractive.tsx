@@ -106,21 +106,86 @@ const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onC
 
 
 const getNodeByPath = (data: any[], path: (string | number)[]): any => {
-    let current: any = { responses: data };
-    for (const key of path) {
-        if (current === undefined || current === null) return null;
-        if(typeof key === 'string' && key === 'subAnalysis' && typeof current === 'object'){
-            current = current.subAnalysis;
-        } else if (typeof key === 'string' && key === 'responses' && Array.isArray(current.responses)){
-             current = current.responses;
-        } else if (typeof key === 'number' && Array.isArray(current)){
+  let current: any = { responses: data };
+  for (const key of path) {
+    if (current === undefined || current === null) return null;
+    if (typeof key === 'string' && key === 'subAnalysis' && typeof current === 'object') {
+      current = current.subAnalysis;
+    } else if (typeof key === 'string' && key === 'responses' && Array.isArray(current.responses)) {
+      current = current.responses;
+    } else if (typeof key === 'number' && Array.isArray(current)) {
+      current = current[key];
+    } else {
+      return null;
+    }
+  }
+  return current;
+};
+
+const getParentArrayAndIndex = (data: FiveWhyEntry[], path: (string | number)[]): { parentArray: any[], index: number } | null => {
+    if (path.length === 0) return null;
+
+    let current: any = { responses: data }; // Start with a wrapper to handle top-level
+    
+    // Traverse to the parent object/array
+    for (let i = 0; i < path.length - 1; i++) {
+        const key = path[i];
+        
+        if (typeof key === 'number' && Array.isArray(current)) {
+            current = current[key];
+        } else if (typeof key === 'string' && typeof current === 'object' && current !== null && key in current) {
             current = current[key];
         } else {
-             return null;
+             return null; // Invalid path segment
         }
     }
-    return current;
+    
+    // Now, `current` should be the object or array that CONTAINS the array we want to modify.
+    // The last part of the path is the index to be removed from an array inside `current`.
+
+    // Check if the final segment is supposed to be 'responses'
+    const lastKey = path[path.length - 2];
+    const indexToRemove = path[path.length - 1];
+
+    if (typeof indexToRemove !== 'number') return null;
+
+    // The logic needs to be simpler. Let's find the parent array directly.
+    let parent = data;
+    let obj: any = null;
+
+    for (let i = 0; i < path.length -1; i++) {
+        const segment = path[i];
+        if (typeof segment === 'number') {
+            obj = parent[segment];
+        } else if (typeof segment === 'string' && obj) {
+            parent = obj[segment];
+        }
+    }
+    
+    const finalIndex = path[path.length-1];
+
+    if(Array.isArray(parent) && typeof finalIndex === 'number') {
+      // This is for top-level removals
+       return { parentArray: parent, index: finalIndex };
+    }
+
+    if(obj && Array.isArray(obj.responses) && typeof finalIndex === 'number'){
+       return { parentArray: obj.responses, index: finalIndex };
+    }
+    
+    // Fallback for nested subAnalysis
+    let traverser: any = data;
+    for (let i = 0; i < path.length - 1; i++) {
+        if (traverser === undefined) return null;
+        traverser = traverser[path[i]];
+    }
+    if (Array.isArray(traverser) && typeof path[path.length - 1] === 'number') {
+        return { parentArray: traverser, index: path[path.length - 1] as number };
+    }
+
+    return null;
 };
+
 
 const FiveWhysRecursiveRenderer: FC<{
   entry: FiveWhyEntry,
@@ -347,18 +412,17 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   
   const handleRemoveNode = (path: (string|number)[]) => {
       const newData = JSON.parse(JSON.stringify(fiveWhysData));
-      const parentPath = path.slice(0, -1);
-      const indexToRemove = path[path.length - 1];
-
-      const parentArray = getNodeByPath(newData, parentPath);
-
-      if (Array.isArray(parentArray) && typeof indexToRemove === 'number') {
-          parentArray.splice(indexToRemove, 1);
+      
+      const result = getParentArrayAndIndex(newData, path);
+      
+      if (result) {
+          result.parentArray.splice(result.index, 1);
           onSetFiveWhysData(newData);
       } else {
         console.error("Could not remove node at path:", path);
       }
   };
+
 
   const handleAddSubAnalysis = (path: (string|number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
