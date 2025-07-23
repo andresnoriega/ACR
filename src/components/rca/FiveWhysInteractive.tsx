@@ -2,27 +2,19 @@
 import type { FC } from 'react';
 import { useState } from 'react';
 import type { FiveWhyEntry } from '@/types/rca';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlusCircle, Trash2, HelpCircle } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 
-interface FiveWhysInteractiveProps {
+const generateStableId = () => `5why-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+export const FiveWhysInteractive: FC<{
   fiveWhysData: FiveWhyEntry[];
   onSetFiveWhysData: (data: FiveWhyEntry[]) => void;
   eventFocusDescription: string;
-}
-
-const generateStableId = () => `5why-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-
-export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
-  fiveWhysData,
-  onSetFiveWhysData,
-  eventFocusDescription,
-}) => {
-  // Lazy initializer to prevent hydration mismatch. This runs only once.
+}> = ({ fiveWhysData, onSetFiveWhysData, eventFocusDescription }) => {
   const [internalData, setInternalData] = useState<FiveWhyEntry[]>(() => {
     if (fiveWhysData && fiveWhysData.length > 0) {
       return fiveWhysData;
@@ -33,10 +25,9 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     return [{ id: generateStableId(), why: initialWhy, because: '' }];
   });
 
-  const handleUpdate = (id: string, field: 'why' | 'because', value: string) => {
-    const newData = internalData.map((entry) =>
-      entry.id === id ? { ...entry, [field]: value } : entry
-    );
+  const handleUpdate = (index: number, field: 'why' | 'because', value: string) => {
+    const newData = [...internalData];
+    newData[index] = { ...newData[index], [field]: value };
     setInternalData(newData);
     onSetFiveWhysData(newData);
   };
@@ -57,12 +48,9 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     onSetFiveWhysData(newData);
   };
 
-  const handleRemoveEntry = (id: string) => {
-    // Prevent removing the last item if it's the only one
-    if (internalData.length <= 1) {
-      return;
-    }
-    const newData = internalData.filter((entry) => entry.id !== id);
+  const handleRemoveEntry = (indexToRemove: number) => {
+    if (internalData.length <= 1) return;
+    const newData = internalData.filter((_, index) => index !== indexToRemove);
     setInternalData(newData);
     onSetFiveWhysData(newData);
   };
@@ -87,7 +75,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
-                  onClick={() => handleRemoveEntry(entry.id)}
+                  onClick={() => handleRemoveEntry(index)}
                 >
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
@@ -96,7 +84,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
             <Textarea
               id={`why-${entry.id}`}
               value={entry.why}
-              onChange={(e) => handleUpdate(entry.id, 'why', e.target.value)}
+              onChange={(e) => handleUpdate(index, 'why', e.target.value)}
               placeholder="Describa el 'porqué'..."
               rows={2}
             />
@@ -107,7 +95,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
               <Textarea
                 id={`because-${entry.id}`}
                 value={entry.because}
-                onChange={(e) => handleUpdate(entry.id, 'because', e.target.value)}
+                onChange={(e) => handleUpdate(index, 'because', e.target.value)}
                 placeholder="Describa la causa o razón..."
                 rows={2}
               />
