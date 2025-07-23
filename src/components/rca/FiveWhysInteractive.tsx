@@ -1,3 +1,4 @@
+
 'use client';
 import { FC, useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import type { FiveWhyEntry, FiveWhyNode } from '@/types/rca';
@@ -430,7 +431,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     
     setRootCauseConfirmation({ path });
     
-  }, [fiveWhysData, toast]);
+  }, [toast]);
 
   const confirmSetRootCause = useCallback(() => {
     if (!rootCauseConfirmation) return;
@@ -511,9 +512,9 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                       level={1}
                       basePath={[index]}
                       onUpdate={handleUpdate}
-                      onAddNode={onAddNode}
+                      onAddNode={handleAddNode}
                       onRemoveNode={handleRemoveNode}
-                      onAddSubAnalysis={onAddSubAnalysis}
+                      onAddSubAnalysis={handleAddSubAnalysis}
                       onSetRootCause={handleSetRootCause}
                       onSetStatus={handleSetStatus}
                     />
