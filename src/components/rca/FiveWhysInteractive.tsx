@@ -161,7 +161,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       setInternalData(newData);
       onSetFiveWhysData(newData);
       setIsProcessingValidation(false);
-      setValidationState(null);
+      setValidationState(null); // Close the dialog
     };
     
     const handleSetRootCause = () => {
@@ -172,7 +172,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         setInternalData(newData);
         onSetFiveWhysData(newData);
         setRootCauseCandidateId(null);
-        setIsRootCauseConfirmOpen(false);
+        setIsRootCauseConfirmOpen(false); // Close the dialog
     };
     
     const handleUnsetRootCause = (id: string) => {
