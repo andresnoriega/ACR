@@ -1,4 +1,5 @@
 
+
 export type EventType = 'Incidente' | 'Accidente' | 'Falla de Equipo' | 'No Conformidad' | 'Evento Operacional' | '';
 export type PriorityType = 'Alta' | 'Media' | 'Baja' | '';
 
@@ -81,13 +82,8 @@ export interface IshikawaCategory {
 export type IshikawaData = IshikawaCategory[];
 
 
-// --- Simple Structure for 5 Whys ---
-export interface FiveWhyEntry {
-  id: string;
-  why: string;
-  because: string;
-}
-export type FiveWhysData = FiveWhyEntry[];
+// --- Re-aliased 5 Whys data to match CTM's structure for stability ---
+export type FiveWhysData = FailureMode[];
 
 
 // --- Tree Structure for CTM ---
