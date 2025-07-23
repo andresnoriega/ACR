@@ -1,7 +1,7 @@
 
 'use client';
 import type { FC } from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -23,6 +23,16 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   onSetFiveWhysData,
   eventFocusDescription,
 }) => {
+
+  // Correct way to initialize state to prevent render-time updates
+  useEffect(() => {
+    if (fiveWhysData.length === 0) {
+      const initialWhyText = eventFocusDescription
+        ? `¿Por qué ocurrió: "${eventFocusDescription.substring(0, 70)}${eventFocusDescription.length > 70 ? '...' : ''}"?`
+        : '';
+      onSetFiveWhysData([{ id: generateId(), why: initialWhyText, because: '' }]);
+    }
+  }, [fiveWhysData, onSetFiveWhysData, eventFocusDescription]);
 
   const handleUpdateEntry = (id: string, field: 'why' | 'because', value: string) => {
     const newData = fiveWhysData.map(entry =>
@@ -48,14 +58,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     const newData = fiveWhysData.filter(entry => entry.id !== id);
     onSetFiveWhysData(newData);
   };
-
-  // Initialize with one entry if empty
-  if (fiveWhysData.length === 0) {
-    const initialWhyText = eventFocusDescription
-      ? `¿Por qué ocurrió: "${eventFocusDescription.substring(0, 70)}${eventFocusDescription.length > 70 ? '...' : ''}"?`
-      : '';
-    onSetFiveWhysData([{ id: generateId(), why: initialWhyText, because: '' }]);
-  }
 
   return (
     <div className="space-y-6 mt-4 p-4 border rounded-lg shadow-sm bg-background">
