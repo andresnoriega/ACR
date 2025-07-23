@@ -1,4 +1,5 @@
 
+
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useCallback, useEffect } from 'react'; 
@@ -167,7 +168,9 @@ interface Step3AnalysisProps {
   ishikawaData: IshikawaData;
   onSetIshikawaData: (data: IshikawaData) => void;
   fiveWhysData: FiveWhyEntry[];
-  onSetFiveWhysData: (data: FiveWhyEntry[]) => void;
+  onAddFiveWhyEntry: () => void; // Reverted
+  onUpdateFiveWhyEntry: (id: string, field: 'why' | 'because', value: string) => void; // Reverted
+  onRemoveFiveWhyEntry: (id: string) => void; // Reverted
   ctmData: CTMData;
   onSetCtmData: (data: CTMData) => void;
   identifiedRootCauses: IdentifiedRootCause[];
@@ -201,7 +204,9 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   ishikawaData,
   onSetIshikawaData,
   fiveWhysData,
-  onSetFiveWhysData,
+  onAddFiveWhyEntry,
+  onUpdateFiveWhyEntry,
+  onRemoveFiveWhyEntry,
   ctmData,
   onSetCtmData,
   identifiedRootCauses,
@@ -401,7 +406,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     const hasPlannedActions = uniquePlannedActions.length > 0;
 
     const isIshikawaEdited = ishikawaData.some(cat => cat.causes.some(c => c.description.trim() !== ''));
-    const isFiveWhysEdited = fiveWhysData && fiveWhysData.length > 0 && fiveWhysData.some(e => e.why.trim() !== '' || e.causes.some(c => c.description.trim() !== ''));
+    const isFiveWhysEdited = fiveWhysData && fiveWhysData.length > 0 && fiveWhysData.some(e => e.why.trim() !== '' || e.because.trim() !== '');
     const isCtmEdited = ctmData.length > 0 && ctmData.some(fm => 
         fm.description.trim() !== '' || 
         fm.hypotheses.some(h => h.description.trim() !== '' || 
@@ -717,7 +722,9 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
             {analysisTechnique === 'WhyWhy' && (
               <FiveWhysInteractive
                 fiveWhysData={fiveWhysData}
-                onSetFiveWhysData={onSetFiveWhysData}
+                onAddEntry={onAddFiveWhyEntry}
+                onUpdateEntry={onUpdateFiveWhyEntry}
+                onRemoveEntry={onRemoveFiveWhyEntry}
                 eventFocusDescription={eventData.focusEventDescription}
               />
             )}

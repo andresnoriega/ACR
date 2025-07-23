@@ -1,7 +1,7 @@
 
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, FiveWhyEntry, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhyEntry, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -45,7 +45,9 @@ const initialIshikawaData: IshikawaData = [
   { id: 'environment', name: 'Medio Ambiente', causes: [] },
 ];
 
-const initialFiveWhysData: FiveWhyEntry[] = [];
+const initialFiveWhysData: FiveWhysData = [
+  { id: `5why-${Date.now()}`, why: '', because: '' }
+];
 
 
 const initialCTMData: CTMData = [];
@@ -1219,7 +1221,7 @@ function RCAAnalysisPageComponent() {
     } else if (value === 'WhyWhy') {
        const newFiveWhysData = JSON.parse(JSON.stringify(initialFiveWhysData));
        if (eventData.focusEventDescription) {
-         newFiveWhysData[0] = { id: generateClientSideId('5why'), why: `¿Por qué ocurrió: "${eventData.focusEventDescription.substring(0,70)}${eventData.focusEventDescription.length > 70 ? "..." : ""}"?`, causes: [] };
+         newFiveWhysData[0].why = `¿Por qué ocurrió: "${eventData.focusEventDescription.substring(0,70)}${eventData.focusEventDescription.length > 70 ? "..." : ""}"?`;
        }
       setFiveWhysData(newFiveWhysData);
     } else if (value === 'CTM') {
@@ -1231,8 +1233,20 @@ function RCAAnalysisPageComponent() {
     setIshikawaData(data);
   };
 
-  const handleSetFiveWhysData = (newData: FiveWhyEntry[]) => {
-    setFiveWhysData(newData);
+  const handleAddFiveWhyEntry = () => {
+    setFiveWhysData(prev => {
+      const lastEntry = prev.length > 0 ? prev[prev.length - 1] : null;
+      const initialWhy = lastEntry && lastEntry.because ? `¿Por qué: "${lastEntry.because.substring(0,70)}${lastEntry.because.length > 70 ? "..." : ""}"?` : '';
+      return [...prev, { id: generateClientSideId('5why'), why: initialWhy, because: '' }];
+    });
+  };
+
+  const handleUpdateFiveWhyEntry = (id: string, field: 'why' | 'because', value: string) => {
+    setFiveWhysData(prev => prev.map(entry => entry.id === id ? { ...entry, [field]: value } : entry));
+  };
+
+  const handleRemoveFiveWhyEntry = (id: string) => {
+    setFiveWhysData(prev => prev.filter(entry => entry.id !== id));
   };
 
   const handleSetCtmData = (newData: CTMData) => {
@@ -1535,9 +1549,11 @@ function RCAAnalysisPageComponent() {
           analysisTechniqueNotes={analysisTechniqueNotes}
           onAnalysisTechniqueNotesChange={setAnalysisTechniqueNotes}
           ishikawaData={ishikawaData}
-          onSetIshikawaData={handleSetIshikawaData}
+          onSetIshikawaData={onSetIshikawaData}
           fiveWhysData={fiveWhysData}
-          onSetFiveWhysData={setFiveWhysData}
+          onAddFiveWhyEntry={handleAddFiveWhyEntry}
+          onUpdateFiveWhyEntry={handleUpdateFiveWhyEntry}
+          onRemoveFiveWhyEntry={handleRemoveFiveWhyEntry}
           ctmData={ctmData}
           onSetCtmData={handleSetCtmData}
           identifiedRootCauses={identifiedRootCauses}
