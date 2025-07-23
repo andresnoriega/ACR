@@ -12,10 +12,10 @@ import { PlusCircle, Trash2, Edit2, Users, Calendar, Loader2 } from 'lucide-reac
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO, isValid } from 'date-fns';
 
+let idCounter = Date.now();
 const generateClientSideId = (prefix: string) => {
-    const randomPart = Math.random().toString(36).substring(2, 9);
-    const timePart = Date.now().toString(36);
-    return `${prefix}-${timePart}-${randomPart}`;
+    idCounter++;
+    return `${prefix}-${idCounter}`;
 };
 
 const MemberDialog: FC<{

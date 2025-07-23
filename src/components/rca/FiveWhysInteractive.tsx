@@ -13,10 +13,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 
+let idCounter = Date.now();
 const generateClientSideId = (prefix: string) => {
-    const randomPart = Math.random().toString(36).substring(2, 9);
-    const timePart = Date.now().toString(36);
-    return `${prefix}-${timePart}-${randomPart}`;
+    idCounter++;
+    return `${prefix}-${idCounter}`;
 };
 
 interface ValidationDialogProps {
@@ -186,74 +186,74 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
   return (
       <>
-      <Card className="shadow-lg">
-        <CardHeader><CardTitle className="text-xl font-semibold font-headline text-primary flex items-center"><HelpCircle className="mr-2 h-6 w-6" />Análisis de los 5 Porqués</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          {internalData.map((entry, index) => (
-            <Card key={entry.id} className={cn("p-4 space-y-2", entry.isRootCause ? 'border-2 border-primary' : entry.status === 'accepted' ? 'border-green-200 dark:border-green-700' : entry.status === 'rejected' ? 'border-red-200 dark:border-red-700' : 'border-border')}>
-              <div className="flex justify-between items-start">
-                <div className="space-y-1 flex-grow">
-                    <Label htmlFor={`why-${entry.id}`} className="font-semibold text-primary">#{index + 1} ¿Por qué?</Label>
-                    <Textarea id={`why-${entry.id}`} value={entry.why} onChange={(e) => handleUpdateEntry(entry.id, 'why', e.target.value)} placeholder={`Ej: ¿Por qué ocurrió: ${eventFocusDescription.substring(0,50)}...?`} rows={2} />
-                    <Label htmlFor={`because-${entry.id}`} className="font-semibold text-primary/90">Porque...</Label>
-                    <Textarea id={`because-${entry.id}`} value={entry.because} onChange={(e) => handleUpdateEntry(entry.id, 'because', e.target.value)} placeholder="Describa la razón o causa..." rows={2} />
+        <Card className="shadow-lg">
+          <CardHeader><CardTitle className="text-xl font-semibold font-headline text-primary flex items-center"><HelpCircle className="mr-2 h-6 w-6" />Análisis de los 5 Porqués</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            {internalData.map((entry, index) => (
+              <Card key={entry.id} className={cn("p-4 space-y-2", entry.isRootCause ? 'border-2 border-primary' : entry.status === 'accepted' ? 'border-green-200 dark:border-green-700' : entry.status === 'rejected' ? 'border-red-200 dark:border-red-700' : 'border-border')}>
+                <div className="flex justify-between items-start">
+                  <div className="space-y-1 flex-grow">
+                      <Label htmlFor={`why-${entry.id}`} className="font-semibold text-primary">#{index + 1} ¿Por qué?</Label>
+                      <Textarea id={`why-${entry.id}`} value={entry.why} onChange={(e) => handleUpdateEntry(entry.id, 'why', e.target.value)} placeholder={`Ej: ¿Por qué ocurrió: ${eventFocusDescription.substring(0,50)}...?`} rows={2} />
+                      <Label htmlFor={`because-${entry.id}`} className="font-semibold text-primary/90">Porque...</Label>
+                      <Textarea id={`because-${entry.id}`} value={entry.because} onChange={(e) => handleUpdateEntry(entry.id, 'because', e.target.value)} placeholder="Describa la razón o causa..." rows={2} />
+                  </div>
+                   <div className="flex flex-col gap-1 ml-2">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveEntry(entry.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                   </div>
                 </div>
-                 <div className="flex flex-col gap-1 ml-2">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveEntry(entry.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                 </div>
-              </div>
 
-               <div className="pt-2 border-t mt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                    <Button variant={entry.status === 'accepted' ? 'secondary' : 'ghost'} size="sm" className="h-8" onClick={() => handleToggleStatus(entry.id, 'accepted')}><Check className="mr-1 h-4 w-4 text-green-600"/> Aceptar</Button>
-                    <Button variant={entry.status === 'rejected' ? 'secondary' : 'ghost'} size="sm" className="h-8" onClick={() => handleToggleStatus(entry.id, 'rejected')}><X className="mr-1 h-4 w-4 text-destructive"/> Rechazar</Button>
+                 <div className="pt-2 border-t mt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                      <Button variant={entry.status === 'accepted' ? 'secondary' : 'ghost'} size="sm" className="h-8" onClick={() => handleToggleStatus(entry.id, 'accepted')}><Check className="mr-1 h-4 w-4 text-green-600"/> Aceptar</Button>
+                      <Button variant={entry.status === 'rejected' ? 'secondary' : 'ghost'} size="sm" className="h-8" onClick={() => handleToggleStatus(entry.id, 'rejected')}><X className="mr-1 h-4 w-4 text-destructive"/> Rechazar</Button>
+                  </div>
+                  {entry.isRootCause ? (
+                      <Button onClick={() => handleUnsetRootCause(entry.id)} variant="destructive" size="sm" className="w-full sm:w-auto">
+                         <SearchCheck className="mr-2 h-4 w-4" /> Anular Causa Raíz
+                      </Button>
+                   ) : (
+                      <Button onClick={() => { setRootCauseCandidateId(entry.id); setIsRootCauseConfirmOpen(true); }} variant="outline" size="sm" className="w-full sm:w-auto" disabled={entry.status !== 'accepted'}>
+                         <SearchCheck className="mr-2 h-4 w-4" /> Marcar como Causa Raíz
+                      </Button>
+                   )}
                 </div>
-                {entry.isRootCause ? (
-                    <Button onClick={() => handleUnsetRootCause(entry.id)} variant="destructive" size="sm" className="w-full sm:w-auto">
-                       <SearchCheck className="mr-2 h-4 w-4" /> Anular Causa Raíz
-                    </Button>
-                 ) : (
-                    <Button onClick={() => { setRootCauseCandidateId(entry.id); setIsRootCauseConfirmOpen(true); }} variant="outline" size="sm" className="w-full sm:w-auto" disabled={entry.status !== 'accepted'}>
-                       <SearchCheck className="mr-2 h-4 w-4" /> Marcar como Causa Raíz
-                    </Button>
-                 )}
-              </div>
-              {entry.validationMethod && (
-                <div className="text-xs text-muted-foreground pt-2 mt-2 border-t">
-                  <span className="font-semibold">Justificación V/R:</span> {entry.validationMethod}
-                </div>
-              )}
-            </Card>
-          ))}
-          <Button onClick={handleAddEntry} variant="outline" className="w-full" disabled={hasRootCause || lastEntryStatus === 'rejected'}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Añadir Siguiente ¿Por qué?
-          </Button>
-        </CardContent>
-      </Card>
-      
-      {validationState && (
-        <ValidationDialog
-          isOpen={!!validationState}
-          onOpenChange={(open) => { if (!open) setValidationState(null); }}
-          onConfirm={handleConfirmValidation}
-          isProcessing={isProcessingValidation}
-        />
-      )}
-      
-      <AlertDialog open={isRootCauseConfirmOpen} onOpenChange={setIsRootCauseConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Causa Raíz</AlertDialogTitle>
-            <AlertDialogDescription>
-              ¿Es posible aplicar una solución definitiva y factible para esta causa? Al confirmar, esta será designada como la causa raíz principal del análisis.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setRootCauseCandidateId(null)}>No</AlertDialogCancel>
-            <AlertDialogAction onClick={handleSetRootCause}>Sí, es la Causa Raíz</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+                {entry.validationMethod && (
+                  <div className="text-xs text-muted-foreground pt-2 mt-2 border-t">
+                    <span className="font-semibold">Justificación V/R:</span> {entry.validationMethod}
+                  </div>
+                )}
+              </Card>
+            ))}
+            <Button onClick={handleAddEntry} variant="outline" className="w-full" disabled={hasRootCause || lastEntryStatus === 'rejected'}>
+              <PlusCircle className="mr-2 h-4 w-4" /> Añadir Siguiente ¿Por qué?
+            </Button>
+          </CardContent>
+        </Card>
+        
+        {validationState && (
+          <ValidationDialog
+            isOpen={!!validationState}
+            onOpenChange={(open) => { if (!open) setValidationState(null); }}
+            onConfirm={handleConfirmValidation}
+            isProcessing={isProcessingValidation}
+          />
+        )}
+        
+        <AlertDialog open={isRootCauseConfirmOpen} onOpenChange={setIsRootCauseConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Causa Raíz</AlertDialogTitle>
+              <AlertDialogDescription>
+                ¿Es posible aplicar una solución definitiva y factible para esta causa? Al confirmar, esta será designada como la causa raíz principal del análisis.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setRootCauseCandidateId(null)}>No</AlertDialogCancel>
+              <AlertDialogAction onClick={handleSetRootCause}>Sí, es la Causa Raíz</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </>
   );
 };

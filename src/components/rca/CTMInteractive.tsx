@@ -17,11 +17,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 
-const generateId = (prefix: string) => {
-    // This is a safer way to generate client-side IDs to prevent hydration mismatch.
-    const randomPart = Math.random().toString(36).substring(2, 9);
-    const timePart = Date.now().toString(36);
-    return `${prefix}-${timePart}-${randomPart}`;
+let idCounter = Date.now();
+const generateClientSideId = (prefix: string) => {
+    idCounter++;
+    return `${prefix}-${idCounter}`;
 };
 
 
@@ -161,7 +160,7 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
     }
 
     if (lastKey === null) { // Adding a new FailureMode to the root
-      newData.push({ id: generateId('fm'), description: 'Nuevo Modo de Falla', hypotheses: [] });
+      newData.push({ id: generateClientSideId('fm'), description: 'Nuevo Modo de Falla', hypotheses: [] });
     } else {
       let targetArray;
       if (typeof lastKey === 'string') {
@@ -181,16 +180,16 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
 
       if ('latentCauses' in parent) {
         if (!parent.latentCauses) parent.latentCauses = [];
-        parent.latentCauses.push({ id: generateId('lc'), description: 'Nueva Causa Latente' });
+        parent.latentCauses.push({ id: generateClientSideId('lc'), description: 'Nueva Causa Latente' });
       } else if ('humanCauses' in parent) {
         if (!parent.humanCauses) parent.humanCauses = [];
-        parent.humanCauses.push({ id: generateId('hc'), description: 'Nueva Causa Humana', latentCauses: [] });
+        parent.humanCauses.push({ id: generateClientSideId('hc'), description: 'Nueva Causa Humana', latentCauses: [] });
       } else if ('physicalCauses' in parent) {
         if (!parent.physicalCauses) parent.physicalCauses = [];
-        parent.physicalCauses.push({ id: generateId('pc'), description: 'Nueva Causa Física', humanCauses: [] });
+        parent.physicalCauses.push({ id: generateClientSideId('pc'), description: 'Nueva Causa Física', humanCauses: [] });
       } else if ('hypotheses' in parent) {
         if (!parent.hypotheses) parent.hypotheses = [];
-        parent.hypotheses.push({ id: generateId('hyp'), description: 'Nueva Hipótesis', physicalCauses: [], status: 'pending' });
+        parent.hypotheses.push({ id: generateClientSideId('hyp'), description: 'Nueva Hipótesis', physicalCauses: [], status: 'pending' });
       }
     }
 

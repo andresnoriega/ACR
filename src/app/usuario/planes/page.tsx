@@ -25,10 +25,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRouter } from 'next/navigation';
 import { Progress } from '@/components/ui/progress';
 
+let idCounter = Date.now();
 const generateClientSideId = (prefix: string) => {
-    const randomPart = Math.random().toString(36).substring(2, 9);
-    const timePart = Date.now().toString(36);
-    return `${prefix}-${timePart}-${randomPart}`;
+    idCounter++;
+    return `${prefix}-${idCounter}`;
 };
 
 interface ValidationTask {
@@ -655,6 +655,7 @@ export default function UserActionPlansPage() {
                 <div><Label className="font-semibold">Plazo límite:</Label> <p>{selectedPlan.plazoLimite}</p></div>
                 {selectedPlan.userMarkedReadyDate && (selectedPlan.estado === 'En Validación' || selectedPlan.estado === 'Completado') && (<div><Label className="font-semibold flex items-center"><History className="mr-1.5 h-4 w-4 text-blue-600" />Marcado como Listo el:</Label><p className="text-blue-700">{selectedPlan.userMarkedReadyDate}</p></div>)}
                 {selectedPlan.estado === 'Completado' && selectedPlan.validationDate && (<div><Label className="font-semibold flex items-center"><CalendarCheck className="mr-1.5 h-4 w-4 text-green-600" />Fecha de Validación Final:</Label><p className="text-green-700">{selectedPlan.validationDate}</p></div>)}
+                {selectedPlan.estado === 'Rechazado' && selectedPlan.validationDate && (<div><Label className="font-semibold flex items-center"><XCircle className="mr-1.5 h-4 w-4 text-destructive" />Fecha de Rechazo:</Label><p className="text-destructive">{selectedPlan.validationDate}</p></div>)}
                 <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Evidencias Adjuntas]</h4>
                   {selectedPlan.evidencias.length > 0 ? (<ul className="space-y-1.5">
                       {selectedPlan.evidencias.map(ev => (<li key={ev.id} className="flex items-start justify-between text-xs border p-2 rounded-md bg-muted/10">

@@ -489,7 +489,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
             {immediateActions.map((action, index) => (
               <Card key={action.id} className="p-4 space-y-3 bg-secondary/50">
                 <div className="flex justify-between items-center">
-                  <p className="font-medium text-sm text-primary">Acción Inmediata #{index + 1} (ID: {action.id})</p>
+                  <p className="font-medium text-sm text-primary">Acción Inmediata #{index + 1}</p>
                   <Button variant="ghost" size="icon" onClick={() => onRemoveImmediateAction(index)} aria-label="Eliminar acción inmediata">
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
