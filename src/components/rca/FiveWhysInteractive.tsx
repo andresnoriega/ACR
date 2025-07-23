@@ -76,13 +76,15 @@ const ValidationDialog: FC<ValidationDialogProps> = ({
               Cancelar
             </Button>
           </DialogClose>
-          <Button
-            onClick={handleConfirmClick}
-            disabled={!method.trim() || isProcessing}
-          >
-            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Confirmar
-          </Button>
+          <DialogClose asChild>
+            <Button
+                onClick={handleConfirmClick}
+                disabled={!method.trim() || isProcessing}
+            >
+                {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Confirmar
+            </Button>
+          </DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -177,7 +179,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       onSetFiveWhysData(newData);
   
       setIsProcessingValidation(false);
-      setValidationState(null); // Close the dialog
+      setValidationState(null);
     };
     
     const handleSetRootCause = () => {
