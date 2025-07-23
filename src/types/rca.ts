@@ -127,10 +127,25 @@ export interface FailureMode {
   id: string;
   description: string;
   hypotheses: Hypothesis[];
-  nestedWhys?: FailureMode[]; // For recursive 5 Whys 2.0
 }
 
 export type CTMData = FailureMode[];
+
+// --- NEW Data Structure for 5 Whys 2.0 (Nested/Recursive) ---
+export interface WhyBecausePair {
+    id: string;
+    because: string; // The "causa" or reason text
+    nextWhy?: WhyNode; // The nested "Why" that asks why this "because" happened
+}
+
+export interface WhyNode {
+    id: string;
+    why: string; // The "why" question text
+    becauses: WhyBecausePair[];
+}
+
+export type FiveWhys2Data = WhyNode[];
+
 
 export interface DetailedFacts {
   quien: string;
@@ -270,7 +285,7 @@ export interface RCAAnalysisDocument {
   ishikawaData: IshikawaData;
   fiveWhysData: FiveWhysData;
   ctmData: CTMData;
-  whyWhy2Data?: CTMData; // New field for 5 Whys 2.0, reusing CTM structure
+  whyWhy2Data?: FiveWhys2Data; // Changed from CTMData to new type
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
   // From Step 4

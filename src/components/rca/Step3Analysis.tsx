@@ -3,7 +3,7 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useCallback, useEffect } from 'react'; 
-import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhyEntry, CTMData, IdentifiedRootCause, FullUserProfile, BrainstormIdea, BrainstormIdeaType, TimelineEvent, Site, RCAEventData } from '@/types/rca';
+import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhyEntry, CTMData, FiveWhys2Data, IdentifiedRootCause, FullUserProfile, BrainstormIdea, BrainstormIdeaType, TimelineEvent, Site, RCAEventData } from '@/types/rca';
 import { BRAINSTORM_IDEA_TYPES } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -172,8 +172,8 @@ interface Step3AnalysisProps {
   onSetFiveWhysData: (data: FiveWhyEntry[]) => void;
   ctmData: CTMData;
   onSetCtmData: (data: CTMData) => void;
-  whyWhy2Data: CTMData; // Using CTMData structure
-  onSetWhyWhy2Data: (data: CTMData) => void;
+  whyWhy2Data: FiveWhys2Data;
+  onSetWhyWhy2Data: (data: FiveWhys2Data) => void;
   identifiedRootCauses: IdentifiedRootCause[];
   onAddIdentifiedRootCause: () => void;
   onUpdateIdentifiedRootCause: (id: string, description: string) => void;
