@@ -26,19 +26,24 @@ interface ValidationDialogProps {
   isProcessing: boolean;
 }
 
-const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onConfirm, isProcessing }) => {
+const ValidationDialog: FC<ValidationDialogProps> = ({
+  isOpen,
+  onOpenChange,
+  onConfirm,
+  isProcessing
+}) => {
   const [method, setMethod] = useState('');
-  const validationId = useId(); // Generate a unique ID for this instance
+  const validationId = useId(); 
 
   const handleConfirmClick = () => {
     if (method.trim()) {
       onConfirm(method);
     }
   };
-  
+
   useEffect(() => {
     if (isOpen) {
-      setMethod('');
+      setMethod(''); 
     }
   }, [isOpen]);
 
@@ -51,8 +56,11 @@ const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onC
             Por favor, ingrese el método o justificación utilizado para validar o rechazar esta causa.
           </DialogDescription>
         </DialogHeader>
+
         <div className="py-4">
-          <Label htmlFor={validationId}>Método de Validación/Rechazo <span className="text-destructive">*</span></Label>
+          <Label htmlFor={validationId}>
+            Método de Validación/Rechazo <span className="text-destructive">*</span>
+          </Label>
           <Textarea
             id={validationId}
             value={method}
@@ -61,12 +69,18 @@ const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onC
             className="mt-1"
           />
         </div>
+
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline" disabled={isProcessing}>Cancelar</Button>
+            <Button variant="outline" disabled={isProcessing}>
+              Cancelar
+            </Button>
           </DialogClose>
           <DialogClose asChild>
-            <Button onClick={handleConfirmClick} disabled={!method.trim() || isProcessing}>
+             <Button
+                onClick={handleConfirmClick}
+                disabled={!method.trim() || isProcessing}
+              >
               {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Confirmar
             </Button>
@@ -135,7 +149,12 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     const handleToggleStatus = (id: string, status: 'accepted' | 'rejected') => {
         const entry = internalData.find(e => e.id === id);
         if (entry?.status === status) {
-            const newData = internalData.map(e => e.id === id ? { ...e, status: 'pending', validationMethod: undefined } : e);
+            const newData = internalData.map(e => {
+              if (e.id === id) {
+                return { ...e, status: 'pending', isRootCause: false }; // Also unset root cause when toggling back
+              }
+              return e;
+            });
             setInternalData(newData);
             onSetFiveWhysData(newData);
         } else {
@@ -145,8 +164,8 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     
     const handleConfirmValidation = useCallback((method: string) => {
         if (!validationState) return;
-        setIsProcessingValidation(true);
         
+        setIsProcessingValidation(true);
         const { id, status } = validationState;
         
         const newData = internalData.map(e => {
@@ -155,7 +174,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                     ...e,
                     status,
                     validationMethod: method,
-                    isRootCause: status === 'rejected' ? false : e.isRootCause, // Unset root cause if rejected
+                    isRootCause: status === 'rejected' ? false : e.isRootCause,
                 };
             }
             return e;
@@ -163,7 +182,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
         setInternalData(newData);
         onSetFiveWhysData(newData);
-        
+
         setIsProcessingValidation(false);
         setValidationState(null);
     }, [internalData, onSetFiveWhysData, validationState]);
