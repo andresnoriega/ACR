@@ -362,7 +362,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
         </div>
 
         <div className="space-y-4 pt-4 border-t">
-          <h3 className="text-lg font-semibold font-headline flex items-center"><FileText className="mr-2 h-5 w-5 text-primary" />Preservación de los Hechos</h3>
             <div className="space-y-2">
               <Label htmlFor="investigationObjective" className="flex items-center">
                 <Target className="mr-2 h-4 w-4 text-primary" />
@@ -387,6 +386,8 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                 rows={5}
               />
             </div>
+            
+            <h3 className="text-lg font-semibold font-headline flex items-center pt-4"><FileText className="mr-2 h-5 w-5 text-primary" />Preservación de los Hechos</h3>
             <Button onClick={() => setIsAddFactDialogOpen(true)} variant="outline">
                 <PlusCircle className="mr-2 h-4 w-4" /> Añadir Hecho Preservado
             </Button>
@@ -407,7 +408,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                                 <p className="text-xs text-muted-foreground">Categoría: {fact.category}</p>
                                 {fact.fileName && <p className="text-xs text-muted-foreground">Archivo: {fact.fileName} ({fact.fileType}, {fact.fileSize ? (fact.fileSize / 1024).toFixed(2) : 0} KB)</p>}
                                 {fact.description && <p className="text-sm mt-1">{fact.description}</p>}
-                                <p className="text-xs text-muted-foreground mt-1">Cargado: {format(new Date(fact.uploadDate), "dd/MM/yyyy HH:mm", { locale: es })}</p>
+                                <p className="text-xs text-muted-foreground mt-1">Cargado: {format(parseISO(fact.uploadDate), "dd/MM/yyyy HH:mm", { locale: es })}</p>
                                 {fact.downloadURL && (
                                     <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mt-1">
                                         <a href={fact.downloadURL} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar</a>
