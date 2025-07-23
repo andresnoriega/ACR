@@ -1,3 +1,4 @@
+
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useCallback, useEffect } from 'react'; 
@@ -153,8 +154,8 @@ const NotifyTasksDialog: FC<NotifyTasksDialogProps> = ({
 interface Step3AnalysisProps {
   eventData: RCAEventData;
   availableSites: Site[];
-  timelineEvents: TimelineEvent[]; // Added for timeline
-  onSetTimelineEvents: (events: TimelineEvent[]) => void; // Added for timeline
+  timelineEvents: TimelineEvent[];
+  onSetTimelineEvents: (events: TimelineEvent[]) => void;
   brainstormingIdeas: BrainstormIdea[];
   onAddBrainstormIdea: () => void;
   onUpdateBrainstormIdea: (id: string, field: 'type' | 'description', value: string) => void;
@@ -187,8 +188,8 @@ interface Step3AnalysisProps {
 export const Step3Analysis: FC<Step3AnalysisProps> = ({
   eventData,
   availableSites,
-  timelineEvents, // Destructure timeline props
-  onSetTimelineEvents, // Destructure timeline props
+  timelineEvents,
+  onSetTimelineEvents,
   brainstormingIdeas,
   onAddBrainstormIdea,
   onUpdateBrainstormIdea,
@@ -390,18 +391,11 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     return true;
   }
 
- const initialFiveWhysWhyText = (focusEventDesc: string): string => {
-    if (focusEventDesc) {
-      return `¿Por qué ocurrió: "${focusEventDesc.substring(0,70)}${focusEventDesc.length > 70 ? "..." : ""}"?`;
-    }
-    return '';
-  };
-
   const handleSaveProgressLocal = async () => {
     const isTechniqueSelected = analysisTechnique !== '';
     const hasNotes = analysisTechniqueNotes.trim() !== '';
     const hasBrainstorming = brainstormingIdeas.length > 0 && brainstormingIdeas.some(idea => idea.description.trim() !== '');
-    const hasTimelineEvents = timelineEvents.length > 0; // Check for timeline events
+    const hasTimelineEvents = timelineEvents.length > 0;
     
     const hasAnyRootCause = identifiedRootCauses.length > 0 && identifiedRootCauses.some(rc => rc.description.trim() !== '');
     const hasPlannedActions = uniquePlannedActions.length > 0;
@@ -423,7 +417,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
       !isTechniqueSelected &&
       !hasNotes &&
       !hasBrainstorming && 
-      !hasTimelineEvents && // Include timeline events in check
+      !hasTimelineEvents &&
       !hasAnyRootCause && 
       !hasPlannedActions &&
       !isIshikawaEdited &&

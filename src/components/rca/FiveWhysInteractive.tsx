@@ -103,44 +103,15 @@ const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onC
   );
 };
 
-const getNodeByPath = (data: any[], path: (string | number)[]): any => {
-    if (!path || path.length === 0) return { responses: data };
-    let current: any = { responses: data };
+// Helper to get a node by path from the data structure.
+// The path is an array of indices and keys.
+const getNodeByPath = (data: FiveWhyEntry[], path: (string | number)[]): any => {
+    let current: any = data;
     for (const key of path) {
-      if (current === undefined || current === null) return null;
-
-      if (key === 'subAnalysis' && 'subAnalysis' in current) {
-        current = current.subAnalysis;
-      } else if (key === 'responses' && 'responses' in current && Array.isArray(current.responses)) {
-        current = current.responses;
-      } else if (Array.isArray(current)) {
-        current = current[key as number];
-      } else if (Array.isArray(current.responses)) {
-        current = current.responses[key as number];
-      } else {
-        return null;
-      }
+        if (current === undefined || current === null) return null;
+        current = current[key];
     }
     return current;
-};
-
-// Helper to get the parent array and the index of the node to modify.
-const getParentArrayAndIndex = (data: any[], path: (string | number)[]): { parentArray: any[], index: number } | null => {
-    if (!path || path.length < 1) return null;
-    
-    const parentPath = path.slice(0, -1);
-    const lastKey = path[path.length - 1];
-    
-    if (typeof lastKey !== 'number') return null;
-
-    const parentNode = getNodeByPath(data, parentPath);
-    
-    // The parent node could be the root (which is an array) or an object with a 'responses' array.
-    if (Array.isArray(parentNode)) {
-        return { parentArray: parentNode, index: lastKey };
-    }
-    
-    return null;
 };
 
 
@@ -316,12 +287,9 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
  const handleUpdate = useCallback((path: (string|number)[], value: any, field: keyof FiveWhyNode | 'why' | 'isCollapsed' | 'width') => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     const nodeToUpdate = getNodeByPath(newData, path);
-
     if (nodeToUpdate) {
         nodeToUpdate[field] = value;
         onSetFiveWhysData(newData);
-    } else {
-        console.error("Could not find node to update at path:", path);
     }
 }, [fiveWhysData, onSetFiveWhysData]);
 
@@ -331,7 +299,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       const nodeToUpdate = getNodeByPath(newData, path);
 
       if (nodeToUpdate && nodeToUpdate.status === status) {
-        // Toggle back to pending if clicking the same status
         nodeToUpdate.status = 'pending';
         nodeToUpdate.validationMethod = undefined;
         onSetFiveWhysData(newData);
@@ -360,9 +327,9 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
   const handleAddNode = useCallback((path: (string | number)[]) => {
      const newData = JSON.parse(JSON.stringify(fiveWhysData));
-     const parentResponsesArray = getNodeByPath(newData, path);
-     if (parentResponsesArray && Array.isArray(parentResponsesArray)) {
-        parentResponsesArray.push({
+     const parentNode = getNodeByPath(newData, path.slice(0, -1));
+     if(parentNode && parentNode.responses) {
+        parentNode.responses.push({
             id: generateId('node'),
             description: '',
             isRootCause: false,
@@ -375,17 +342,19 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   }, [fiveWhysData, onSetFiveWhysData]);
 
 
- const handleRemoveNode = useCallback((path: (string | number)[]) => {
+  const handleRemoveNode = useCallback((path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    const result = getParentArrayAndIndex(newData, path);
+    const parentPath = path.slice(0, -1);
+    const indexToRemove = path[path.length - 1] as number;
+    const parentNode = getNodeByPath(newData, parentPath);
 
-    if (result) {
-        result.parentArray.splice(result.index, 1);
+    if (parentNode && Array.isArray(parentNode)) {
+        parentNode.splice(indexToRemove, 1);
         onSetFiveWhysData(newData);
     } else {
         console.error("Could not remove node at path:", path);
     }
-}, [fiveWhysData, onSetFiveWhysData]);
+  }, [fiveWhysData, onSetFiveWhysData]);
 
 
   const handleAddSubAnalysis = useCallback((path: (string|number)[]) => {
@@ -425,7 +394,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     
     setRootCauseConfirmation({ path });
     
-  }, [toast]);
+  }, [fiveWhysData, onSetFiveWhysData, toast]);
 
   const confirmSetRootCause = useCallback(() => {
     if (!rootCauseConfirmation) return;
@@ -434,7 +403,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
     const path = rootCauseConfirmation.path;
     
-    // Function to clear all other root causes
     const clearOtherRootCauses = (entryOrNode: any) => {
         if(entryOrNode.isRootCause !== undefined) entryOrNode.isRootCause = false;
         if (entryOrNode.responses) {
@@ -446,7 +414,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     };
     newData.forEach(clearOtherRootCauses);
 
-    // Set the new root cause
     const nodeToUpdate = getNodeByPath(newData, path);
     if(nodeToUpdate){
       nodeToUpdate.isRootCause = true;
