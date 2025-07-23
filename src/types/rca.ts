@@ -65,7 +65,7 @@ export interface Validation {
   rejectedAt?: string;
 }
 
-export type AnalysisTechnique = '' | 'Ishikawa' | 'CTM';
+export type AnalysisTechnique = '' | 'Ishikawa' | 'WhyWhy' | 'CTM';
 
 export interface IshikawaCause {
   id: string;
@@ -81,25 +81,12 @@ export interface IshikawaCategory {
 export type IshikawaData = IshikawaCategory[];
 
 
-// --- Tree Structure for 5 Whys ---
-// This has been removed.
-export interface FiveWhyNode {
-  id: string;
-  description: string;
-  isRootCause: boolean;
-  isCollapsed: boolean;
-  status: 'pending' | 'accepted' | 'rejected';
-  validationMethod?: string;
-  subAnalysis?: FiveWhyEntry; // A node can have a subsequent "Why?" analysis
-  width?: string;
-}
-
+// --- Simple Structure for 5 Whys ---
 export interface FiveWhyEntry {
   id: string;
   why: string;
-  responses: FiveWhyNode[];
+  because: string;
 }
-
 export type FiveWhysData = FiveWhyEntry[];
 
 

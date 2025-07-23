@@ -2,7 +2,7 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useCallback, useEffect } from 'react'; 
-import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhyEntry, RCAEventData, CTMData, IdentifiedRootCause, FullUserProfile, BrainstormIdea, BrainstormIdeaType, TimelineEvent, Site } from '@/types/rca';
+import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhysData, FiveWhyEntry, CTMData, IdentifiedRootCause, FullUserProfile, BrainstormIdea, BrainstormIdeaType, TimelineEvent, Site } from '@/types/rca';
 import { BRAINSTORM_IDEA_TYPES } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,8 @@ import { PlusCircle, Trash2, MessageSquare, Network, Link2, Save, Send, Loader2,
 import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
 import { CTMInteractive } from './CTMInteractive';
-import TimelineComponent from './TimelineComponent'; // Import TimelineComponent
+import { FiveWhysInteractive } from './FiveWhysInteractive'; // Re-import
+import TimelineComponent from './TimelineComponent';
 import { useToast } from "@/hooks/use-toast";
 import { sendEmailAction } from '@/app/actions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -165,6 +166,8 @@ interface Step3AnalysisProps {
   onAnalysisTechniqueNotesChange: (value: string) => void;
   ishikawaData: IshikawaData;
   onSetIshikawaData: (data: IshikawaData) => void;
+  fiveWhysData: FiveWhyEntry[];
+  onSetFiveWhysData: (data: FiveWhyEntry[]) => void;
   ctmData: CTMData;
   onSetCtmData: (data: CTMData) => void;
   identifiedRootCauses: IdentifiedRootCause[];
@@ -197,6 +200,8 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   onAnalysisTechniqueNotesChange,
   ishikawaData,
   onSetIshikawaData,
+  fiveWhysData,
+  onSetFiveWhysData,
   ctmData,
   onSetCtmData,
   identifiedRootCauses,
@@ -396,6 +401,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     const hasPlannedActions = uniquePlannedActions.length > 0;
 
     const isIshikawaEdited = ishikawaData.some(cat => cat.causes.some(c => c.description.trim() !== ''));
+    const isFiveWhysEdited = fiveWhysData.length > 0 && fiveWhysData.some(e => e.why.trim() !== '' || e.because.trim() !== '');
     const isCtmEdited = ctmData.length > 0 && ctmData.some(fm => 
         fm.description.trim() !== '' || 
         fm.hypotheses.some(h => h.description.trim() !== '' || 
@@ -415,6 +421,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
       !hasAnyRootCause && 
       !hasPlannedActions &&
       !isIshikawaEdited &&
+      !isFiveWhysEdited &&
       !isCtmEdited
     ) {
       toast({
@@ -693,6 +700,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Ishikawa"><div className="flex items-center"><Fish className="mr-2 h-4 w-4" />Ishikawa</div></SelectItem>
+                  <SelectItem value="WhyWhy"><div className="flex items-center"><HelpCircle className="mr-2 h-4 w-4" />5 Porqués</div></SelectItem>
                   <SelectItem value="CTM"><div className="flex items-center"><CtmIcon className="mr-2 h-4 w-4" />Árbol de Causas (CTM)</div></SelectItem>
                 </SelectContent>
               </Select>
@@ -703,6 +711,14 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                 focusEventDescription={eventData.focusEventDescription || "Evento Foco (no definido en Paso 1)"}
                 ishikawaData={ishikawaData}
                 onSetIshikawaData={onSetIshikawaData}
+              />
+            )}
+            
+            {analysisTechnique === 'WhyWhy' && (
+              <FiveWhysInteractive
+                fiveWhysData={fiveWhysData}
+                onSetFiveWhysData={onSetFiveWhysData}
+                eventFocusDescription={eventData.focusEventDescription}
               />
             )}
 

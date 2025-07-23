@@ -1207,19 +1207,29 @@ function RCAAnalysisPageComponent() {
     setAnalysisTechniqueNotes('');
     if (value === 'Ishikawa') {
       setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
+    } else if (value === 'WhyWhy') {
+       const newFiveWhysData = JSON.parse(JSON.stringify(initialFiveWhysData));
+       if (eventData.focusEventDescription) {
+         newFiveWhysData[0] = { id: `5why-${Date.now()}`, why: `¿Por qué ocurrió: "${eventData.focusEventDescription.substring(0,70)}${eventData.focusEventDescription.length > 70 ? "..." : ""}"?`, because: '' };
+       }
+      setFiveWhysData(newFiveWhysData);
     } else if (value === 'CTM') {
       setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
     }
+  };
+  
+  const handleSetIshikawaData = (data: IshikawaData) => {
+    setIshikawaData(data);
+  };
+
+  const handleSetFiveWhysData = (newData: FiveWhyEntry[]) => {
+    setFiveWhysData(newData);
   };
 
   const handleSetCtmData = (newData: CTMData) => {
     setCtmData(newData);
   };
   
-  const handleSetFiveWhysData = (newData: FiveWhyEntry[]) => {
-    setFiveWhysData(newData);
-  };
-
   const handleAddIdentifiedRootCause = () => {
     setIdentifiedRootCauses(prev => [...prev, { id: `rc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, description: '' }]);
   };
@@ -1407,9 +1417,6 @@ function RCAAnalysisPageComponent() {
     setIsSaving(false);
   };
   
-  const handleSetIshikawaData = (data: IshikawaData) => {
-    setIshikawaData(data);
-  };
 
   useEffect(() => {
     if (step > maxCompletedStep) {
@@ -1519,9 +1526,9 @@ function RCAAnalysisPageComponent() {
           analysisTechniqueNotes={analysisTechniqueNotes}
           onAnalysisTechniqueNotesChange={setAnalysisTechniqueNotes}
           ishikawaData={ishikawaData}
-          onSetIshikawaData={setIshikawaData}
+          onSetIshikawaData={onSetIshikawaData}
           fiveWhysData={fiveWhysData}
-          onSetFiveWhysData={setFiveWhysData}
+          onSetFiveWhysData={handleSetFiveWhysData}
           ctmData={ctmData}
           onSetCtmData={handleSetCtmData}
           identifiedRootCauses={identifiedRootCauses}
