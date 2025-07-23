@@ -43,7 +43,7 @@ const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onC
   }, [isOpen]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={(open) => {if(!isProcessing) onOpenChange(open)}}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Confirmar Validación/Rechazo de Causa</DialogTitle>
@@ -142,23 +142,26 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         }
     };
     
-    const handleConfirmValidation = useCallback((method: string) => {
+    const handleConfirmValidation = (method: string) => {
         if (!validationState) return;
         setIsProcessingValidation(true);
-        const { entryId, status } = validationState;
         
-        const newData = internalData.map(entry => {
-            if (entry.id === entryId) {
-                return { ...entry, status, validationMethod: method };
-            }
-            return entry;
+        // Using a function for setState to ensure we have the latest state
+        setInternalData(currentData => {
+            const { entryId, status } = validationState;
+            const newData = currentData.map(entry => 
+                entry.id === entryId 
+                    ? { ...entry, status, validationMethod: method } 
+                    : entry
+            );
+            updateParentState(newData); // Propagate change to parent
+            return newData; // Return new state for internal state update
         });
-        
-        setInternalData(newData);
-        updateParentState(newData);
-        setIsProcessingValidation(false);
+
+        // Close dialog and reset processing state
         setValidationState(null);
-    }, [internalData, validationState, updateParentState]);
+        setIsProcessingValidation(false);
+    };
 
     const handleSetRootCause = (entry: FiveWhyEntry) => {
         if (entry.isRootCause) { // Anular
