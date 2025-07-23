@@ -112,8 +112,6 @@ const getNodeByPath = (data: any[], path: (string | number)[]): any => {
       if (key === 'subAnalysis' && 'subAnalysis' in current) {
         current = current.subAnalysis;
       } else if (key === 'responses' && 'responses' in current && Array.isArray(current.responses)) {
-        // This case is tricky, usually responses is followed by an index.
-        // It means we are referring to the array itself.
         current = current.responses;
       } else if (Array.isArray(current)) {
         current = current[key as number];
@@ -137,7 +135,8 @@ const getParentArrayAndIndex = (data: any[], path: (string | number)[]): { paren
 
     const parentNode = getNodeByPath(data, parentPath);
     
-    if (parentNode && Array.isArray(parentNode)) {
+    // The parent node could be the root (which is an array) or an object with a 'responses' array.
+    if (Array.isArray(parentNode)) {
         return { parentArray: parentNode, index: lastKey };
     }
     
@@ -378,18 +377,13 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
  const handleRemoveNode = useCallback((path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(fiveWhysData));
-    // The path to the parent array is all but the last element.
-    const parentPath = path.slice(0, -1);
-    const nodeIndexToRemove = path[path.length - 1] as number;
+    const result = getParentArrayAndIndex(newData, path);
 
-    const parentNodeOrArray = getNodeByPath(newData, parentPath);
-    
-    // Check if the parent is an array and the index is valid
-    if (Array.isArray(parentNodeOrArray) && nodeIndexToRemove >= 0 && nodeIndexToRemove < parentNodeOrArray.length) {
-      parentNodeOrArray.splice(nodeIndexToRemove, 1);
-      onSetFiveWhysData(newData);
+    if (result) {
+        result.parentArray.splice(result.index, 1);
+        onSetFiveWhysData(newData);
     } else {
-      console.error("Could not remove node at path:", path);
+        console.error("Could not remove node at path:", path);
     }
 }, [fiveWhysData, onSetFiveWhysData]);
 
