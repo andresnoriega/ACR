@@ -86,15 +86,15 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   eventFocusDescription,
 }) => {
     const { toast } = useToast();
-    const [internalData, setInternalData] = useState<FiveWhyEntry[]>([]);
+    const [internalData, setInternalData] = useState<FiveWhyEntry[]>(fiveWhysData);
     const [validationState, setValidationState] = useState<{ entryId: string; status: 'accepted' | 'rejected' } | null>(null);
     const [isProcessingValidation, setIsProcessingValidation] = useState(false);
     const [rootCauseCandidate, setRootCauseCandidate] = useState<FiveWhyEntry | null>(null);
 
+    // Sync internal state if props change from outside
     useEffect(() => {
-        const initialData = (fiveWhysData && fiveWhysData.length > 0) ? fiveWhysData : [{ id: generateClientSideId('5why'), why: `¿Por qué ocurrió: "${eventFocusDescription.substring(0,70)}..."?`, because: '', status: 'pending', isRootCause: false }];
-        setInternalData(initialData);
-    }, [fiveWhysData, eventFocusDescription]);
+        setInternalData(fiveWhysData);
+    }, [fiveWhysData]);
     
     const lastEntry = internalData.length > 0 ? internalData[internalData.length - 1] : null;
     const hasIdentifiedRootCause = useMemo(() => internalData.some(entry => entry.isRootCause), [internalData]);
@@ -139,28 +139,27 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     };
     
     const handleConfirmValidation = useCallback((method: string) => {
-        if (!validationState) return;
-        setIsProcessingValidation(true);
-        
-        setInternalData(currentData => {
-            const { entryId, status } = validationState;
-            const newData = currentData.map(entry => 
-                entry.id === entryId 
-                    ? { ...entry, status, validationMethod: method } 
-                    : entry
-            );
-            onSetFiveWhysData(newData);
-            
-            // This needs to be inside the callback to ensure it happens after state update
-            // Using a short timeout to allow React to process the state update before closing the dialog
-            setTimeout(() => {
-                setIsProcessingValidation(false);
-                setValidationState(null);
-            }, 50);
+      if (!validationState) return;
+      setIsProcessingValidation(true);
 
-            return newData;
-        });
-    }, [validationState, onSetFiveWhysData]);
+      const { entryId, status } = validationState;
+      const newData = internalData.map(entry =>
+          entry.id === entryId
+              ? { ...entry, status, validationMethod: method }
+              : entry
+      );
+
+      // Separate state updates to avoid race conditions and invalid update calls
+      setInternalData(newData);
+      onSetFiveWhysData(newData);
+
+      // Close the dialog after updates are dispatched
+      setTimeout(() => {
+          setIsProcessingValidation(false);
+          setValidationState(null);
+      }, 50);
+
+  }, [validationState, internalData, onSetFiveWhysData]);
 
     const handleSetRootCause = (entry: FiveWhyEntry) => {
         if (entry.isRootCause) { // Anular
