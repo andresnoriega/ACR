@@ -136,8 +136,8 @@ const WhyNodeComponent: FC<WhyNodeComponentProps> = ({
                         {becausePair.validationMethod && (
                             <p className="text-xs text-muted-foreground italic pl-6 pt-1">Justificación: {becausePair.validationMethod}</p>
                         )}
-                        <div className="pl-8 mt-2">
-                            {becausePair.nextWhy && (
+                        <div className="pl-8 mt-2 space-y-2">
+                            {becausePair.nextWhy ? (
                                 <WhyNodeComponent 
                                     node={becausePair.nextWhy}
                                     level={level + 1}
@@ -150,6 +150,15 @@ const WhyNodeComponent: FC<WhyNodeComponentProps> = ({
                                     onRemoveNode={onRemoveNode}
                                     onToggleBecauseStatus={onToggleBecauseStatus}
                                 />
+                            ) : (
+                                becausePair.status === 'accepted' && (
+                                    <Button
+                                        size="xs" variant="ghost" className="text-xs h-6"
+                                        onClick={() => onAddNextWhy(path, becauseIndex)}
+                                    >
+                                        <PlusCircle className="mr-1 h-3 w-3" /> Añadir Siguiente Porqué
+                                    </Button>
+                                )
                             )}
                         </div>
                     </Card>
@@ -285,17 +294,7 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
     becauseToUpdate.status = status;
     becauseToUpdate.validationMethod = method;
     
-    // Si la causa es aceptada y no tiene un "siguiente porqué", se lo añadimos
-    if (status === 'accepted' && !becauseToUpdate.nextWhy) {
-        if(becauseToUpdate.because.trim()){
-            becauseToUpdate.nextWhy = {
-                id: generateClientSideId('why'),
-                why: `¿Por qué: "${becauseToUpdate.because}"?`,
-                becauses: [{ id: generateClientSideId('bc'), because: '', status: 'pending', nextWhy: undefined }]
-            };
-        }
-    }
-
+    // Logic to add next why is now manual via a button, not automatic on validation.
 
     updateParentState(newData);
     
