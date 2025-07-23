@@ -32,6 +32,7 @@ const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onC
   const handleConfirmClick = () => {
     if (method.trim()) {
       onConfirm(method);
+      onOpenChange(false); // Forzar el cierre desde el handler
     }
   };
 
@@ -162,7 +163,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       setInternalData(newData);
       
       setIsProcessingValidation(false);
-      setValidationState(null); 
+      setValidationState(null); // Esto debe estar aquí para que el diálogo se cierre en el componente padre.
     };
     
     const handleSetRootCause = () => {
