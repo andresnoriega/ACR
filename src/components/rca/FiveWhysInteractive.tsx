@@ -127,6 +127,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
 
   const hasIdentifiedRootCause = useMemo(() => internalData.some(entry => entry.causes && entry.causes.some(cause => cause.isRootCause)), [internalData]);
 
+
   useEffect(() => {
     onSetFiveWhysData(internalData);
   }, [internalData, onSetFiveWhysData]);
@@ -169,6 +170,9 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
   
   const addCauseToWhy = (whyIndex: number) => {
     const newData = [...internalData];
+    if (!newData[whyIndex].causes) {
+      newData[whyIndex].causes = [];
+    }
     newData[whyIndex].causes.push({
       id: generateId('cause'),
       description: '',
@@ -237,9 +241,11 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
     const newData = [...internalData];
     // Unset any other root cause globally
     newData.forEach(entry => {
-        entry.causes.forEach(cause => {
-            cause.isRootCause = false;
-        });
+        if (entry.causes) {
+          entry.causes.forEach(cause => {
+              cause.isRootCause = false;
+          });
+        }
     });
     // Set the new root cause
     newData[whyIndex].causes[causeIndex].isRootCause = true;
@@ -255,7 +261,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
         <CardHeader>
           <CardTitle className="text-xl font-semibold font-headline text-primary flex items-center">
             <HelpCircle className="mr-2 h-6 w-6" />
-            5 Porqués (Análisis de Causas Múltiples)
+            5 Porqués (con Validación)
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -274,12 +280,12 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
               <Textarea id={`why-${entry.id}`} value={entry.why} onChange={(e) => updateWhyDescription(whyIndex, e.target.value)} rows={2}/>
               
               <div className="pl-4 space-y-3 pt-2 border-t">
-                {entry.causes.map((cause, causeIndex) => (
+                {(entry.causes || []).map((cause, causeIndex) => (
                   <Card key={cause.id} className={cn(
                     "p-3", 
                     cause.isRootCause ? 'border-2 border-primary' : 
                     cause.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20' : 
-                    cause.status === 'rejected' ? 'opacity-70 border-destructive' : 'bg-card'
+                    cause.status === 'rejected' ? 'border-destructive' : 'bg-card'
                   )}>
                     <div className="flex items-start gap-2">
                        <CornerDownRight className="h-4 w-4 text-muted-foreground mt-2.5 flex-shrink-0"/>
