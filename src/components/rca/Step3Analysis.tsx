@@ -734,7 +734,11 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
             )}
 
             {analysisTechnique === 'WhyWhy2' && (
-              <FiveWhys2Interactive whyWhy2Data={whyWhy2Data} onSetWhyWhy2Data={onSetWhyWhy2Data} />
+              <FiveWhys2Interactive 
+                whyWhy2Data={whyWhy2Data} 
+                onSetWhyWhy2Data={onSetWhyWhy2Data}
+                focusEventDescription={eventData.focusEventDescription || "Evento no definido"}
+              />
             )}
             
             {(analysisTechnique === '' || analysisTechniqueNotes.trim() !== '') && (

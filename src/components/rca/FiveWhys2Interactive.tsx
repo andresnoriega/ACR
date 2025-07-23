@@ -82,10 +82,11 @@ const CtmValidationDialog: FC<CtmValidationDialogProps> = ({ isOpen, onOpenChang
 interface FiveWhys2InteractiveProps {
   whyWhy2Data: CTMData;
   onSetWhyWhy2Data: (data: CTMData) => void;
+  focusEventDescription: string;
 }
 
 
-export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Data, onSetWhyWhy2Data }) => {
+export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Data, onSetWhyWhy2Data, focusEventDescription }) => {
   const [validationState, setValidationState] = useState<{ path: (string | number)[]; status: Hypothesis['status'] } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
   
@@ -147,6 +148,19 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
 
   const handleAdd = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(internalData));
+
+    // Special case for adding the very first "Por qué"
+    if (path.length === 0 && newData.length === 0) {
+        newData.push({ 
+            id: generateClientSideId('fm'), 
+            description: `¿Por qué ocurrió: "${focusEventDescription}"?`, 
+            hypotheses: [] 
+        });
+        setInternalData(newData);
+        return;
+    }
+
+
     let parent: any = newData;
     let lastKey = path.length > 0 ? path[path.length - 1] : null;
     
@@ -154,7 +168,7 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
       parent = parent[path[i]];
     }
 
-    if (lastKey === null) {
+    if (lastKey === null) { // Adding a new "Por qué" to the root
       newData.push({ id: generateClientSideId('fm'), description: 'Nuevo Por qué', hypotheses: [] });
     } else {
       let targetArray;
@@ -290,37 +304,37 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
           <h3 className="text-lg font-semibold font-headline text-primary flex items-center">
             <HelpCircle className="mr-2 h-5 w-5" /> 5 Porqués 2.0 (Basado en CTM)
           </h3>
-          <Button onClick={() => handleAdd([])} variant="outline" size="sm">
-              <PlusCircle className="mr-2 h-4 w-4" /> Añadir Por qué
-          </Button>
         </div>
-        <div className="flex space-x-4 overflow-x-auto py-2">
+        <div className="space-y-4">
           {internalData.map((fm, fmIndex) => (
-            <div key={fm.id} className="min-w-[20rem] flex-shrink-0">
+            <Card key={fm.id} className="p-4">
               <Accordion type="single" collapsible defaultValue="item-1">
                 <AccordionItem value="item-1">
                   <div className="flex items-center w-full">
                     <AccordionTrigger className="flex-grow">
-                      <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> Por qué #{fmIndex + 1}</span>
+                      <span className="font-semibold flex items-center text-lg"><GitBranchPlus className="mr-2 h-5 w-5" /> Por qué #{fmIndex + 1}</span>
                     </AccordionTrigger>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 ml-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemove([fmIndex]);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 ml-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemove([fmIndex]);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </div>
-                  <AccordionContent className="pl-2">
+                  <AccordionContent className="pl-2 pt-2">
                     <div className="space-y-2 p-2 border-l-2">
                       <Label>Descripción del Por qué</Label>
-                      <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex], e.target.value)} className="text-sm"/>
+                      <Textarea value={fm.description} onChange={(e) => handleUpdate([fmIndex], e.target.value)} className="text-sm" rows={2}/>
                       {renderHypotheses(fm.hypotheses, [fmIndex, 'hypotheses'])}
                     </div>
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>
-            </div>
+            </Card>
           ))}
           {internalData.length === 0 && (
             <div className="text-center text-muted-foreground italic py-4 w-full">
-              Haga clic en "Añadir Por qué" para comenzar a construir el árbol.
+              Haga clic en "Añadir Por qué" para comenzar. El primero se basará en la Descripción del Evento Foco.
             </div>
           )}
+           <Button onClick={() => handleAdd([])} variant="outline" className="w-full">
+              <PlusCircle className="mr-2 h-4 w-4" /> Añadir Por qué
+          </Button>
         </div>
       </div>
       {validationState && (
