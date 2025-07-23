@@ -47,7 +47,7 @@ const ValidationDialog: FC<ValidationDialogProps> = ({
   }, [isOpen]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => {if(!isProcessing) onOpenChange(open)}}>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Confirmar Validación/Rechazo de Causa</DialogTitle>
@@ -70,16 +70,20 @@ const ValidationDialog: FC<ValidationDialogProps> = ({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isProcessing}>
-              Cancelar
-          </Button>
-          <Button
-              onClick={handleConfirmClick}
-              disabled={!method.trim() || isProcessing}
-          >
-              {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Confirmar
-          </Button>
+          <DialogClose asChild>
+            <Button variant="outline" disabled={isProcessing}>
+                Cancelar
+            </Button>
+          </DialogClose>
+          <DialogClose asChild>
+            <Button
+                onClick={handleConfirmClick}
+                disabled={!method.trim() || isProcessing}
+            >
+                {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Confirmar
+            </Button>
+          </DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>
