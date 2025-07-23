@@ -1,4 +1,3 @@
-
 'use client';
 import { FC, useCallback, useMemo, useState, useEffect } from 'react';
 import {
@@ -156,7 +155,7 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
     }
 
     if (lastKey === null) {
-      newData.push({ id: generateClientSideId('fm'), description: 'Nuevo Problema Inicial', hypotheses: [] });
+      newData.push({ id: generateClientSideId('fm'), description: 'Nuevo Por qué', hypotheses: [] });
     } else {
       let targetArray;
       if (typeof lastKey === 'string') {
@@ -292,7 +291,7 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
             <HelpCircle className="mr-2 h-5 w-5" /> 5 Porqués 2.0 (Basado en CTM)
           </h3>
           <Button onClick={() => handleAdd([])} variant="outline" size="sm">
-              <PlusCircle className="mr-2 h-4 w-4" /> Añadir Problema Inicial
+              <PlusCircle className="mr-2 h-4 w-4" /> Añadir Por qué
           </Button>
         </div>
         <div className="flex space-x-4 overflow-x-auto py-2">
@@ -302,13 +301,13 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
                 <AccordionItem value="item-1">
                   <div className="flex items-center w-full">
                     <AccordionTrigger className="flex-grow">
-                      <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> Problema Inicial #{fmIndex + 1}</span>
+                      <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> Por qué #{fmIndex + 1}</span>
                     </AccordionTrigger>
                     <Button size="icon" variant="ghost" className="h-7 w-7 ml-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemove([fmIndex]);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </div>
                   <AccordionContent className="pl-2">
                     <div className="space-y-2 p-2 border-l-2">
-                      <Label>Descripción del Problema</Label>
+                      <Label>Descripción del Por qué</Label>
                       <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex], e.target.value)} className="text-sm"/>
                       {renderHypotheses(fm.hypotheses, [fmIndex, 'hypotheses'])}
                     </div>
@@ -319,7 +318,7 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
           ))}
           {internalData.length === 0 && (
             <div className="text-center text-muted-foreground italic py-4 w-full">
-              Haga clic en "Añadir Problema Inicial" para comenzar a construir el árbol.
+              Haga clic en "Añadir Por qué" para comenzar a construir el árbol.
             </div>
           )}
         </div>
