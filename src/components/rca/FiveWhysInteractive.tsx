@@ -268,7 +268,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
             <Card key={entry.id} className={cn("p-3 space-y-2 transition-all duration-300", 
                 isRootCause ? 'border-2 border-primary' :
                 status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' 
-                : status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 opacity-70' 
+                : status === 'rejected' ? 'border-destructive opacity-70' 
                 : 'bg-secondary/30'
             )}>
                 <div className="flex justify-between items-center">
