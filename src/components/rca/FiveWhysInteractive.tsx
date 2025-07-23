@@ -128,6 +128,8 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
     return [{ id: generateId('5why'), why: initialWhy, because: '', status: 'pending', isRootCause: false }];
   });
 
+  const hasIdentifiedRootCause = useMemo(() => internalData.some(entry => entry.isRootCause), [internalData]);
+
   useEffect(() => {
       onSetFiveWhysData(internalData);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -178,6 +180,15 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
   }, [internalData, validationState]);
 
   const handleAddEntry = () => {
+    if (hasIdentifiedRootCause) {
+        toast({
+            title: "Causa Raíz ya Identificada",
+            description: "No se puede añadir un nuevo 'porqué' una vez que la causa raíz ha sido establecida.",
+            variant: "default"
+        });
+        return;
+    }
+    
     const lastEntry = internalData.length > 0 ? internalData[internalData.length - 1] : null;
 
     if (lastEntry && lastEntry.status !== 'accepted') {
@@ -309,7 +320,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
             </Card>
             )
         })}
-        <Button onClick={handleAddEntry} variant="outline" className="w-full">
+        <Button onClick={handleAddEntry} variant="outline" className="w-full" disabled={hasIdentifiedRootCause}>
           <PlusCircle className="mr-2 h-4 w-4" /> Añadir Siguiente ¿Por qué?
         </Button>
       </CardContent>
