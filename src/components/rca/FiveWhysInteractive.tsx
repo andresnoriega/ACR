@@ -95,10 +95,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         const initialData = (fiveWhysData && fiveWhysData.length > 0) ? fiveWhysData : [{ id: generateClientSideId('5why'), why: `¿Por qué ocurrió: "${eventFocusDescription.substring(0,70)}..."?`, because: '', status: 'pending', isRootCause: false }];
         setInternalData(initialData);
     }, [fiveWhysData, eventFocusDescription]);
-
-    const updateParentState = (newData: FiveWhyEntry[]) => {
-        onSetFiveWhysData(newData);
-    };
     
     const lastEntry = internalData.length > 0 ? internalData[internalData.length - 1] : null;
     const hasIdentifiedRootCause = useMemo(() => internalData.some(entry => entry.isRootCause), [internalData]);
@@ -116,19 +112,19 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         const lastWhy = lastEntry?.because ? `¿Por qué: "${lastEntry.because.substring(0, 70)}..."?` : '';
         const newData = [...internalData, { id: generateClientSideId('5why'), why: lastWhy, because: '', status: 'pending', isRootCause: false }];
         setInternalData(newData);
-        updateParentState(newData);
+        onSetFiveWhysData(newData);
     };
 
     const handleUpdateEntry = (id: string, field: 'why' | 'because', value: string) => {
         const newData = internalData.map(entry => entry.id === id ? { ...entry, [field]: value } : entry);
         setInternalData(newData);
-        updateParentState(newData);
+        onSetFiveWhysData(newData);
     };
 
     const handleRemoveEntry = (id: string) => {
         const newData = internalData.filter(entry => entry.id !== id);
         setInternalData(newData);
-        updateParentState(newData);
+        onSetFiveWhysData(newData);
     };
 
     const handleToggleStatus = (entryId: string, status: 'accepted' | 'rejected') => {
@@ -136,17 +132,16 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         if (entry && entry.status === status) { // If clicking the same button again
             const newData = internalData.map(e => e.id === entryId ? { ...e, status: 'pending', validationMethod: undefined } : e);
             setInternalData(newData);
-            updateParentState(newData);
+            onSetFiveWhysData(newData);
         } else {
             setValidationState({ entryId, status });
         }
     };
     
-    const handleConfirmValidation = (method: string) => {
+    const handleConfirmValidation = useCallback((method: string) => {
         if (!validationState) return;
         setIsProcessingValidation(true);
         
-        // Using a function for setState to ensure we have the latest state
         setInternalData(currentData => {
             const { entryId, status } = validationState;
             const newData = currentData.map(entry => 
@@ -154,20 +149,24 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                     ? { ...entry, status, validationMethod: method } 
                     : entry
             );
-            updateParentState(newData); // Propagate change to parent
-            return newData; // Return new state for internal state update
-        });
+            onSetFiveWhysData(newData);
+            
+            // This needs to be inside the callback to ensure it happens after state update
+            // Using a short timeout to allow React to process the state update before closing the dialog
+            setTimeout(() => {
+                setIsProcessingValidation(false);
+                setValidationState(null);
+            }, 50);
 
-        // Close dialog and reset processing state
-        setValidationState(null);
-        setIsProcessingValidation(false);
-    };
+            return newData;
+        });
+    }, [validationState, onSetFiveWhysData]);
 
     const handleSetRootCause = (entry: FiveWhyEntry) => {
         if (entry.isRootCause) { // Anular
             const newData = internalData.map(e => e.id === entry.id ? { ...e, isRootCause: false } : e);
             setInternalData(newData);
-            updateParentState(newData);
+            onSetFiveWhysData(newData);
             toast({ title: "Causa Raíz Anulada" });
         } else if (entry.status === 'accepted') {
             setRootCauseCandidate(entry); // Open confirmation dialog
@@ -181,7 +180,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
             isRootCause: e.id === rootCauseCandidate.id,
         }));
         setInternalData(newData);
-        updateParentState(newData);
+        onSetFiveWhysData(newData);
         toast({ title: "Causa Raíz Identificada", className: "bg-primary text-primary-foreground" });
         setRootCauseCandidate(null);
     };
