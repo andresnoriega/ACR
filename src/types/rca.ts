@@ -82,8 +82,14 @@ export interface IshikawaCategory {
 export type IshikawaData = IshikawaCategory[];
 
 
-// --- Re-aliased 5 Whys data to match CTM's structure for stability ---
-export type FiveWhysData = FailureMode[];
+// --- 5 Whys Data Structure ---
+export interface FiveWhyEntry {
+  id: string;
+  why: string;
+  because: string;
+}
+
+export type FiveWhysData = FiveWhyEntry[];
 
 
 // --- Tree Structure for CTM ---

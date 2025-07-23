@@ -84,19 +84,28 @@ const generateId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().
 export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData }) => {
   const [validationState, setValidationState] = useState<{ path: (string | number)[]; status: Hypothesis['status'] } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
+  
+  // Lazy state initialization to prevent hydration issues
+  const [internalData, setInternalData] = useState<CTMData>(() => ctmData || []);
+
+  useEffect(() => {
+      onSetCtmData(internalData);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [internalData]);
+
 
   const handleUpdate = (path: (string | number)[], value: string) => {
-    const newData = JSON.parse(JSON.stringify(ctmData));
+    const newData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
       current = current[path[i]];
     }
     current[path[path.length - 1]] = { ...current[path[path.length - 1]], description: value };
-    onSetCtmData(newData);
+    setInternalData(newData);
   };
 
   const handleToggleStatus = (path: (string | number)[], status: 'accepted' | 'rejected' | 'pending') => {
-      const newData = JSON.parse(JSON.stringify(ctmData));
+      const newData = JSON.parse(JSON.stringify(internalData));
       let current: any = newData;
       for (let i = 0; i < path.length - 1; i++) {
         current = current[path[i]];
@@ -107,7 +116,7 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
         // If clicking the same status button, toggle back to pending
         itemToUpdate.status = 'pending';
         itemToUpdate.validationMethod = undefined;
-        onSetCtmData(newData);
+        setInternalData(newData);
       } else {
         // Otherwise, open dialog to confirm new status
         setValidationState({ path, status });
@@ -119,7 +128,7 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
     setIsProcessingValidation(true);
     const { path, status } = validationState;
     
-    const newData = JSON.parse(JSON.stringify(ctmData));
+    const newData = JSON.parse(JSON.stringify(internalData));
     let parent: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
         parent = parent[path[i]];
@@ -130,13 +139,13 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
     itemToUpdate.status = status;
     itemToUpdate.validationMethod = method;
 
-    onSetCtmData(newData);
+    setInternalData(newData);
     setIsProcessingValidation(false);
     setValidationState(null);
-  }, [ctmData, onSetCtmData, validationState]);
+  }, [internalData, validationState]);
 
   const handleAdd = (path: (string | number)[]) => {
-    const newData = JSON.parse(JSON.stringify(ctmData));
+    const newData = JSON.parse(JSON.stringify(internalData));
     let parent: any = newData;
     let lastKey = path.length > 0 ? path[path.length - 1] : null;
     
@@ -179,18 +188,18 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
       }
     }
 
-    onSetCtmData(newData);
+    setInternalData(newData);
   };
 
   const handleRemove = (path: (string | number)[]) => {
-    const newData = JSON.parse(JSON.stringify(ctmData));
+    const newData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
         current = current[path[i]];
     }
     const indexToRemove = path[path.length - 1] as number;
     current.splice(indexToRemove, 1);
-    onSetCtmData(newData);
+    setInternalData(newData);
   };
   
   const renderLatentCauses = (latentCauses: LatentCause[] | undefined, path: (string | number)[]) => (
@@ -286,7 +295,7 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
           </Button>
         </div>
         <div className="flex space-x-4 overflow-x-auto py-2">
-          {ctmData.map((fm, fmIndex) => (
+          {internalData.map((fm, fmIndex) => (
             <div key={fm.id} className="min-w-[20rem] flex-shrink-0">
               <Accordion type="single" collapsible defaultValue="item-1">
                 <AccordionItem value="item-1">
@@ -307,7 +316,7 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
               </Accordion>
             </div>
           ))}
-          {ctmData.length === 0 && (
+          {internalData.length === 0 && (
             <div className="text-center text-muted-foreground italic py-4 w-full">
               Haga clic en "Añadir Modo de Falla" para comenzar a construir el árbol.
             </div>
