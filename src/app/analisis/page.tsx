@@ -27,6 +27,15 @@ import { es } from 'date-fns/locale';
 
 export const dynamic = 'force-dynamic';
 
+const generateClientSideId = (prefix: string) => {
+    // Uses a combination of a random number and a timestamp, but the random part is generated on the client.
+    // This is safer for avoiding hydration issues if somehow an ID is generated during SSR,
+    // though the main logic now avoids this.
+    const randomPart = Math.random().toString(36).substring(2, 9);
+    const timePart = Date.now().toString(36);
+    return `${prefix}-${timePart}-${randomPart}`;
+};
+
 const initialIshikawaData: IshikawaData = [
   { id: 'manpower', name: 'Mano de Obra', causes: [] },
   { id: 'method', name: 'Método', causes: [] },
@@ -1134,7 +1143,7 @@ function RCAAnalysisPageComponent() {
 
       const newFact: PreservedFact = {
         ...factMetadata,
-        id: `${currentEventId}-pf-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        id: generateClientSideId('pf'),
         uploadDate: new Date().toISOString(),
         eventId: currentEventId,
         downloadURL: downloadURL,
@@ -1210,7 +1219,7 @@ function RCAAnalysisPageComponent() {
     } else if (value === 'WhyWhy') {
        const newFiveWhysData = JSON.parse(JSON.stringify(initialFiveWhysData));
        if (eventData.focusEventDescription) {
-         newFiveWhysData[0] = { id: `5why-${Date.now()}`, why: `¿Por qué ocurrió: "${eventData.focusEventDescription.substring(0,70)}${eventData.focusEventDescription.length > 70 ? "..." : ""}"?`, causes: [] };
+         newFiveWhysData[0] = { id: generateClientSideId('5why'), why: `¿Por qué ocurrió: "${eventData.focusEventDescription.substring(0,70)}${eventData.focusEventDescription.length > 70 ? "..." : ""}"?`, causes: [] };
        }
       setFiveWhysData(newFiveWhysData);
     } else if (value === 'CTM') {
@@ -1231,7 +1240,7 @@ function RCAAnalysisPageComponent() {
   };
   
   const handleAddIdentifiedRootCause = () => {
-    setIdentifiedRootCauses(prev => [...prev, { id: `rc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, description: '' }]);
+    setIdentifiedRootCauses(prev => [...prev, { id: generateClientSideId('rc'), description: '' }]);
   };
 
   const handleUpdateIdentifiedRootCause = (id: string, description: string) => {
@@ -1278,7 +1287,7 @@ function RCAAnalysisPageComponent() {
   };
 
   const handleAddBrainstormIdea = () => {
-    setBrainstormingIdeas(prev => [...prev, { id: `bi-${Date.now()}`, type: '', description: '' }]);
+    setBrainstormingIdeas(prev => [...prev, { id: generateClientSideId('bi'), type: '', description: '' }]);
   };
 
   const handleUpdateBrainstormIdea = (id: string, field: 'type' | 'description', value: string) => {

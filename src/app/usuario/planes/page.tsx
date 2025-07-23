@@ -25,6 +25,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRouter } from 'next/navigation';
 import { Progress } from '@/components/ui/progress';
 
+const generateClientSideId = (prefix: string) => {
+    const randomPart = Math.random().toString(36).substring(2, 9);
+    const timePart = Date.now().toString(36);
+    return `${prefix}-${timePart}-${randomPart}`;
+};
 
 interface ValidationTask {
   id: string; // Combination of RCA ID and Action ID for uniqueness
@@ -414,7 +419,7 @@ export default function UserActionPlansPage() {
         });
 
         newEvidencePayload = {
-          id: `ev-${Date.now()}`,
+          id: generateClientSideId('ev'),
           nombre: fileToUpload.name,
           tipo: (fileToUpload.type.split('/')[1] as FirestoreEvidence['tipo']) || 'other',
           comment: evidenceComment.trim() || undefined,

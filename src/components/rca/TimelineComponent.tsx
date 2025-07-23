@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useMemo, type FC } from "react";
 import type { TimelineEvent } from "@/types/rca";
@@ -10,6 +11,12 @@ import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { PlusCircle, Edit2, Trash2, CalendarClock, Loader2 } from "lucide-react";
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
+
+const generateClientSideId = (): number => {
+    // A simple client-safe ID generator using a random number.
+    // This is sufficient for temporary client-side state before saving to a DB with a real ID.
+    return Math.floor(Math.random() * 10000000);
+};
 
 interface TimelineComponentProps {
   events: TimelineEvent[];
@@ -118,7 +125,7 @@ const TimelineComponent: FC<TimelineComponentProps> = ({ events, onSetEvents }) 
     if (!validateDateTime(dateTimeValue)) return;
 
     const newEvent: TimelineEvent = {
-      id: Date.now(),
+      id: generateClientSideId(),
       description,
       datetime: dateTimeValue, 
     };

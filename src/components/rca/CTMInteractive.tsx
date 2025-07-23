@@ -17,6 +17,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 
+const generateId = (prefix: string) => {
+    // This is a safer way to generate client-side IDs to prevent hydration mismatch.
+    const randomPart = Math.random().toString(36).substring(2, 9);
+    const timePart = Date.now().toString(36);
+    return `${prefix}-${timePart}-${randomPart}`;
+};
+
 
 interface CtmValidationDialogProps {
   isOpen: boolean;
@@ -79,7 +86,6 @@ interface CTMInteractiveProps {
   onSetCtmData: (data: CTMData) => void;
 }
 
-const generateId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
 export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData }) => {
   const [validationState, setValidationState] = useState<{ path: (string | number)[]; status: Hypothesis['status'] } | null>(null);
