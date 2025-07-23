@@ -237,7 +237,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
           <ValidationDialog
             key={validationState.id}
             isOpen={!!validationState}
-            onOpenChange={(open) => { if (!open) setValidationState(null); }}
+            onOpenChange={() => setValidationState(null)}
             onConfirm={handleConfirmValidation}
             isProcessing={isProcessingValidation}
           />
