@@ -1,7 +1,7 @@
 
 'use client';
 import type { FC } from 'react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useId } from 'react';
 import type { FiveWhyEntry } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -28,6 +28,7 @@ interface ValidationDialogProps {
 
 const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onConfirm, isProcessing }) => {
   const [method, setMethod] = useState('');
+  const validationId = useId(); // Generate a unique ID for this instance
 
   const handleConfirmClick = () => {
     if (method.trim()) {
@@ -51,9 +52,9 @@ const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onC
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
-          <Label htmlFor="validationMethod">Método de Validación/Rechazo <span className="text-destructive">*</span></Label>
+          <Label htmlFor={validationId}>Método de Validación/Rechazo <span className="text-destructive">*</span></Label>
           <Textarea
-            id="validationMethod"
+            id={validationId}
             value={method}
             onChange={(e) => setMethod(e.target.value)}
             placeholder="Ej: Revisión de bitácora, entrevista con operador, evidencia física encontrada, etc."
@@ -61,11 +62,15 @@ const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onC
           />
         </div>
         <DialogFooter>
-          <DialogClose asChild><Button variant="outline" disabled={isProcessing}>Cancelar</Button></DialogClose>
-          <Button onClick={handleConfirmClick} disabled={!method.trim() || isProcessing}>
-            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Confirmar
-          </Button>
+          <DialogClose asChild>
+            <Button variant="outline" disabled={isProcessing}>Cancelar</Button>
+          </DialogClose>
+          <DialogClose asChild>
+            <Button onClick={handleConfirmClick} disabled={!method.trim() || isProcessing}>
+              {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirmar
+            </Button>
+          </DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>
