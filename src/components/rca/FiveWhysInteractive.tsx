@@ -20,6 +20,7 @@ interface FiveWhysInteractiveProps {
 }
 
 const generateId = (prefix: string): string => {
+    // This is a safer way to generate client-side IDs to prevent hydration mismatch.
     const randomPart = Math.random().toString(36).substring(2, 9);
     const timePart = Date.now().toString(36);
     return `${prefix}-${timePart}-${randomPart}`;
@@ -123,6 +124,11 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   }, [fiveWhysData, internalData]);
 
   const hasIdentifiedRootCause = useMemo(() => internalData.some(entry => entry.isRootCause), [internalData]);
+  const isLastEntryRejected = useMemo(() => {
+    if (internalData.length === 0) return false;
+    const lastEntry = internalData[internalData.length - 1];
+    return lastEntry.status === 'rejected';
+  }, [internalData]);
 
   const updateParentState = (newData: FiveWhyEntry[]) => {
       onSetFiveWhysData(newData);
@@ -133,6 +139,14 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         toast({
             title: "Acción no permitida",
             description: "La Causa Raíz ya ha sido identificada. No se pueden añadir más 'Porqués'.",
+            variant: "destructive"
+        });
+        return;
+    }
+    if (isLastEntryRejected) {
+        toast({
+            title: "Acción no permitida",
+            description: "No se puede añadir un nuevo 'Porqué' si la causa anterior fue rechazada.",
             variant: "destructive"
         });
         return;
@@ -279,7 +293,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
               </div>
             </Card>
           ))}
-          <Button onClick={handleAddEntry} variant="outline" className="w-full" disabled={hasIdentifiedRootCause}>
+          <Button onClick={handleAddEntry} variant="outline" className="w-full" disabled={hasIdentifiedRootCause || isLastEntryRejected}>
             <PlusCircle className="mr-2 h-4 w-4" /> Añadir Siguiente ¿Por qué?
           </Button>
         </CardContent>
