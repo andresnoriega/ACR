@@ -127,6 +127,7 @@ export interface FailureMode {
   id: string;
   description: string;
   hypotheses: Hypothesis[];
+  nestedWhys?: FailureMode[]; // For recursive 5 Whys 2.0
 }
 
 export type CTMData = FailureMode[];
