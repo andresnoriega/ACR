@@ -76,15 +76,13 @@ const ValidationDialog: FC<ValidationDialogProps> = ({
               Cancelar
             </Button>
           </DialogClose>
-          <DialogClose asChild>
-             <Button
-                onClick={handleConfirmClick}
-                disabled={!method.trim() || isProcessing}
-              >
-              {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Confirmar
-            </Button>
-          </DialogClose>
+          <Button
+            onClick={handleConfirmClick}
+            disabled={!method.trim() || isProcessing}
+          >
+            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Confirmar
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -115,7 +113,8 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     }, [fiveWhysData]);
 
     const hasRootCause = internalData.some(e => e.isRootCause);
-    const lastEntryStatus = internalData.length > 0 ? internalData[internalData.length - 1].status : 'pending';
+    const lastEntry = internalData.length > 0 ? internalData[internalData.length - 1] : null;
+    const lastEntryStatus = lastEntry?.status;
 
     const handleAddEntry = () => {
         if (hasRootCause) {
@@ -127,7 +126,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
             return;
         }
 
-        const lastEntry = internalData.length > 0 ? internalData[internalData.length - 1] : null;
         const lastWhy = lastEntry?.because ? `¿Por qué: "${lastEntry.because.substring(0, 70)}..."?` : '';
         const newData = [...internalData, { id: generateClientSideId('5why'), why: lastWhy, because: '', status: 'pending' }];
         setInternalData(newData);
