@@ -151,7 +151,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         if (entry?.status === status) {
             const newData = internalData.map(e => {
               if (e.id === id) {
-                return { ...e, status: 'pending', isRootCause: false }; // Also unset root cause when toggling back
+                return { ...e, status: 'pending', isRootCause: false };
               }
               return e;
             });
@@ -162,30 +162,30 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         }
     };
     
-    const handleConfirmValidation = useCallback((method: string) => {
-        if (!validationState) return;
-        
-        setIsProcessingValidation(true);
-        const { id, status } = validationState;
-        
-        const newData = internalData.map(e => {
-            if (e.id === id) {
-                return {
-                    ...e,
-                    status,
-                    validationMethod: method,
-                    isRootCause: status === 'rejected' ? false : e.isRootCause,
-                };
-            }
-            return e;
-        });
-
-        setInternalData(newData);
-        onSetFiveWhysData(newData);
-
-        setIsProcessingValidation(false);
-        setValidationState(null);
-    }, [internalData, onSetFiveWhysData, validationState]);
+    const handleConfirmValidation = (method: string) => {
+      if (!validationState) return;
+  
+      setIsProcessingValidation(true);
+      const { id, status } = validationState;
+  
+      const newData = internalData.map(e => {
+        if (e.id === id) {
+          return {
+            ...e,
+            status,
+            validationMethod: method,
+            isRootCause: status === 'rejected' ? false : e.isRootCause,
+          };
+        }
+        return e;
+      });
+  
+      setInternalData(newData);
+      onSetFiveWhysData(newData);
+  
+      setIsProcessingValidation(false);
+      setValidationState(null);
+    };
     
     const handleSetRootCause = () => {
         if (!rootCauseCandidateId) return;
