@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PlusCircle, Trash2, Check, X, HelpCircle, Loader2 } from 'lucide-react';
+import { PlusCircle, Trash2, Check, X, HelpCircle, Loader2, Target } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -74,6 +74,37 @@ const FiveWhysValidationDialog: FC<FiveWhysValidationDialogProps> = ({ isOpen, o
   );
 };
 
+interface RootCauseConfirmationDialogProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+  isProcessing: boolean;
+}
+
+const RootCauseConfirmationDialog: FC<RootCauseConfirmationDialogProps> = ({ isOpen, onOpenChange, onConfirm, isProcessing }) => {
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Confirmar como Causa Raíz</DialogTitle>
+          <DialogDescription>
+            ¿Es posible aplicar una solución definitiva y factible para esta causa?
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isProcessing}>
+            No
+          </Button>
+          <Button onClick={onConfirm} disabled={isProcessing}>
+            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Sí
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 
 interface FiveWhysInteractiveProps {
   fiveWhysData: FiveWhyEntry[];
@@ -87,13 +118,14 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
   const { toast } = useToast();
   const [validationState, setValidationState] = useState<{ index: number; status: NonNullable<FiveWhyEntry['status']> } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
-  
+  const [rootCauseCandidateIndex, setRootCauseCandidateIndex] = useState<number | null>(null);
+
   const [internalData, setInternalData] = useState<FiveWhyEntry[]>(() => {
     if (fiveWhysData && fiveWhysData.length > 0) return fiveWhysData;
     const initialWhy = eventFocusDescription
       ? `¿Por qué ocurrió: "${eventFocusDescription.substring(0, 70)}${eventFocusDescription.length > 70 ? '...' : ''}"?`
       : '';
-    return [{ id: generateId('5why'), why: initialWhy, because: '', status: 'pending' }];
+    return [{ id: generateId('5why'), why: initialWhy, because: '', status: 'pending', isRootCause: false }];
   });
 
   useEffect(() => {
@@ -116,6 +148,10 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
         const newData = [...internalData];
         newData[index].status = 'pending';
         newData[index].validationMethod = undefined;
+        // If it was accepted and now is pending, it cannot be a root cause anymore
+        if (status === 'accepted') {
+          newData[index].isRootCause = false;
+        }
         setInternalData(newData);
       } else {
         // Open dialog to confirm new status
@@ -131,6 +167,10 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
     const newData = [...internalData];
     newData[index].status = status;
     newData[index].validationMethod = method;
+    // If a cause is rejected, it cannot be a root cause
+    if (status === 'rejected') {
+      newData[index].isRootCause = false;
+    }
 
     setInternalData(newData);
     setIsProcessingValidation(false);
@@ -157,7 +197,8 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
       id: generateId('5why'),
       why: newWhy,
       because: '',
-      status: 'pending'
+      status: 'pending',
+      isRootCause: false,
     };
     const newData = [...internalData, newEntry];
     setInternalData(newData);
@@ -168,6 +209,22 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
     const newData = internalData.filter((_, index) => index !== indexToRemove);
     setInternalData(newData);
   };
+  
+  const handleConfirmRootCause = () => {
+    if (rootCauseCandidateIndex === null) return;
+    const newData = [...internalData];
+    // Unset any other root cause
+    newData.forEach((entry, index) => {
+        if (index !== rootCauseCandidateIndex) {
+            entry.isRootCause = false;
+        }
+    });
+    newData[rootCauseCandidateIndex].isRootCause = true;
+    setInternalData(newData);
+    setRootCauseCandidateIndex(null);
+    toast({ title: "Causa Raíz Identificada", description: "Se ha marcado una causa como la causa raíz principal." });
+  };
+
 
   return (
     <>
@@ -181,24 +238,26 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
       <CardContent className="space-y-4">
         {internalData.map((entry, index) => {
             const status = entry.status || 'pending';
+            const isRootCause = entry.isRootCause || false;
             return (
-            <Card key={entry.id} className={cn("p-3 space-y-2", 
+            <Card key={entry.id} className={cn("p-3 space-y-2 transition-colors", 
+                isRootCause ? 'bg-primary/90 border-primary ring-2 ring-primary text-primary-foreground' :
                 status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' 
                 : status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 opacity-70' 
                 : 'bg-secondary/30'
             )}>
                 <div className="flex justify-between items-center">
-                <Label htmlFor={`why-${entry.id}`} className="font-semibold text-primary">
+                <Label htmlFor={`why-${entry.id}`} className={cn("font-semibold", isRootCause ? 'text-primary-foreground' : 'text-primary')}>
                     #{index + 1} ¿Por qué?
                 </Label>
                 {internalData.length > 1 && (
                     <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7"
+                    className={cn("h-7 w-7", isRootCause && "text-primary-foreground hover:bg-primary/80 hover:text-primary-foreground")}
                     onClick={() => handleRemoveEntry(index)}
                     >
-                    <Trash2 className="h-4 w-4 text-destructive" />
+                    <Trash2 className="h-4 w-4" />
                     </Button>
                 )}
                 </div>
@@ -208,16 +267,17 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
                 onChange={(e) => handleUpdate(index, 'why', e.target.value)}
                 placeholder="Describa el 'porqué'..."
                 rows={2}
-                disabled={status === 'rejected'}
+                disabled={status === 'rejected' || isRootCause}
+                className={cn(isRootCause ? "bg-primary/70 border-primary-foreground/50 placeholder:text-primary-foreground/60" : "")}
                 />
                 <div className="pl-4">
                     <div className="flex justify-between items-center">
-                        <Label htmlFor={`because-${entry.id}`} className="font-semibold">
+                        <Label htmlFor={`because-${entry.id}`} className={cn("font-semibold", isRootCause ? 'text-primary-foreground' : 'text-foreground')}>
                             Porque... (Causa)
                         </Label>
                         <div className="flex gap-1">
-                             <Button size="icon" variant={status === 'accepted' ? 'secondary' : 'ghost'} className="h-7 w-7" onClick={() => handleToggleStatus(index, 'accepted')} disabled={status === 'rejected'}><Check className="h-4 w-4 text-green-600"/></Button>
-                             <Button size="icon" variant={status === 'rejected' ? 'secondary' : 'ghost'} className="h-7 w-7" onClick={() => handleToggleStatus(index, 'rejected')}><X className="h-4 w-4 text-destructive" /></Button>
+                             <Button size="icon" variant={status === 'accepted' ? 'secondary' : 'ghost'} className={cn("h-7 w-7", isRootCause && "hidden")} onClick={() => handleToggleStatus(index, 'accepted')} disabled={status === 'rejected'}><Check className="h-4 w-4 text-green-600"/></Button>
+                             <Button size="icon" variant={status === 'rejected' ? 'secondary' : 'ghost'} className={cn("h-7 w-7", isRootCause && "hidden")} onClick={() => handleToggleStatus(index, 'rejected')}><X className="h-4 w-4 text-destructive" /></Button>
                         </div>
                     </div>
                 <Textarea
@@ -226,14 +286,28 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
                     onChange={(e) => handleUpdate(index, 'because', e.target.value)}
                     placeholder="Describa la causa o razón..."
                     rows={2}
-                    disabled={status === 'rejected'}
+                    disabled={status === 'rejected' || isRootCause}
+                    className={cn(isRootCause ? "bg-primary/70 border-primary-foreground/50 placeholder:text-primary-foreground/60" : "")}
                 />
                 </div>
                  {entry.validationMethod && (
-                    <div className="text-xs text-muted-foreground pt-2 mt-2 border-t">
+                    <div className={cn("text-xs pt-2 mt-2 border-t", isRootCause ? "text-primary-foreground/80 border-primary-foreground/30" : "text-muted-foreground")}>
                         <span className="font-semibold">Justificación V/R:</span> {entry.validationMethod}
                     </div>
                 )}
+                <div className="pt-2 mt-2 border-t border-dashed border-muted-foreground/30">
+                     <Button
+                        size="sm"
+                        variant={isRootCause ? "secondary" : "outline"}
+                        className={cn("text-xs h-7", isRootCause && "w-full font-bold")}
+                        onClick={() => setRootCauseCandidateIndex(index)}
+                        disabled={status !== 'accepted'}
+                        title={status !== 'accepted' ? "Debe validar esta causa como 'aceptada' para poder marcarla como Causa Raíz." : "Marcar esta causa como la Causa Raíz principal."}
+                      >
+                        <Target className="mr-1 h-3 w-3" />
+                        {isRootCause ? 'Identificada como Causa Raíz' : 'Marcar como Causa Raíz'}
+                      </Button>
+                </div>
             </Card>
             )
         })}
@@ -248,6 +322,14 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
           onOpenChange={() => setValidationState(null)}
           onConfirm={handleConfirmValidation}
           isProcessing={isProcessingValidation}
+        />
+      )}
+      {rootCauseCandidateIndex !== null && (
+        <RootCauseConfirmationDialog
+            isOpen={rootCauseCandidateIndex !== null}
+            onOpenChange={() => setRootCauseCandidateIndex(null)}
+            onConfirm={handleConfirmRootCause}
+            isProcessing={false}
         />
       )}
     </>
