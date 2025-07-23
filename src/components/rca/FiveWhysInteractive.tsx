@@ -5,8 +5,8 @@ import type { FiveWhyEntry, FiveWhyCause } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { PlusCircle, Trash2, Check, X, HelpCircle, Loader2, Target, CornerDownRight } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PlusCircle, Trash2, Check, X, HelpCircle, Loader2, Target, CornerDownRight, GitBranchPlus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -145,26 +145,25 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
     setInternalData(newData);
   };
   
-  const addWhyEntry = () => {
+  const addNestedWhy = (parentWhyIndex: number, parentCauseDescription: string) => {
     if (hasIdentifiedRootCause) {
-        toast({ title: "Causa Raíz ya Identificada", description: "No se puede añadir un nuevo 'porqué' una vez que la causa raíz ha sido establecida.", variant: "default" });
-        return;
+      toast({ title: "Causa Raíz ya Identificada", description: "No se puede añadir un nuevo 'porqué' una vez que la causa raíz ha sido establecida.", variant: "default" });
+      return;
     }
+    const newWhyText = `¿Por qué: "${parentCauseDescription.substring(0, 70)}${parentCauseDescription.length > 70 ? '...' : ''}"?`;
+    const newEntry: FiveWhyEntry = { id: generateId('why'), why: newWhyText, causes: [] };
     
-    const lastEntry = internalData[internalData.length - 1];
-    const firstAcceptedCause = lastEntry?.causes.find(c => c.status === 'accepted');
-
-    if (!firstAcceptedCause) {
-        toast({ title: "Acción Requerida", description: "Debe validar al menos una causa como 'aceptada' en el último nivel para añadir el siguiente 'Porqué'.", variant: "destructive" });
-        return;
-    }
-
-    const newWhyText = `¿Por qué: "${firstAcceptedCause.description.substring(0, 70)}${firstAcceptedCause.description.length > 70 ? '...' : ''}"?`;
-    setInternalData([...internalData, { id: generateId('why'), why: newWhyText, causes: [] }]);
+    const newData = [...internalData];
+    newData.splice(parentWhyIndex + 1, 0, newEntry);
+    setInternalData(newData);
   };
 
+
   const removeWhyEntry = (whyIndex: number) => {
-    if (internalData.length <= 1) return;
+    if (internalData.length <= 1 && whyIndex === 0) {
+        toast({ title: "Acción no permitida", description: "No se puede eliminar la pregunta inicial del problema.", variant: "destructive" });
+        return;
+    }
     setInternalData(internalData.filter((_, index) => index !== whyIndex));
   };
   
@@ -285,7 +284,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
                     "p-3", 
                     cause.isRootCause ? 'border-2 border-primary' : 
                     cause.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20' : 
-                    cause.status === 'rejected' ? 'border-destructive' : 'bg-card'
+                    cause.status === 'rejected' ? 'border-destructive/30' : 'bg-card'
                   )}>
                     <div className="flex items-start gap-2">
                        <CornerDownRight className="h-4 w-4 text-muted-foreground mt-2.5 flex-shrink-0"/>
@@ -304,10 +303,20 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
                                 <span className="font-semibold">Justificación:</span> {cause.validationMethod}
                             </div>
                            )}
-                           <div className="pt-2 mt-2 border-t border-dashed">
-                              <Button size="sm" variant={cause.isRootCause ? "destructive" : "outline"} className={cn("text-xs h-7 w-full")} onClick={() => handleToggleRootCause(whyIndex, causeIndex)} disabled={cause.status !== 'accepted'} title={cause.status !== 'accepted' ? "Debe validar esta causa como 'aceptada' para poder marcarla como Causa Raíz." : cause.isRootCause ? "Anular esta causa como la Causa Raíz" : "Marcar esta causa como la Causa Raíz principal."}>
+                           <div className="pt-2 mt-2 border-t border-dashed flex flex-wrap gap-2">
+                              <Button size="sm" variant={cause.isRootCause ? "destructive" : "outline"} className={cn("text-xs h-7 flex-grow")} onClick={() => handleToggleRootCause(whyIndex, causeIndex)} disabled={cause.status !== 'accepted'} title={cause.status !== 'accepted' ? "Debe validar esta causa como 'aceptada' para poder marcarla como Causa Raíz." : cause.isRootCause ? "Anular esta causa como la Causa Raíz" : "Marcar esta causa como la Causa Raíz principal."}>
                                   <Target className="mr-1 h-3 w-3" />
                                   {cause.isRootCause ? 'Anular Causa Raíz' : 'Marcar como Causa Raíz'}
+                              </Button>
+                               <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7 flex-grow"
+                                disabled={cause.status !== 'accepted' || hasIdentifiedRootCause}
+                                onClick={() => addNestedWhy(whyIndex, cause.description)}
+                                title={cause.status !== 'accepted' ? "Debe validar esta causa como 'aceptada' para poder continuar la cadena." : hasIdentifiedRootCause ? "Ya se identificó la causa raíz final." : "Añadir un nuevo nivel de 'Porqué' a partir de esta causa."}
+                              >
+                                <GitBranchPlus className="mr-1 h-3 w-3" /> Añadir ¿Por qué?
                               </Button>
                            </div>
                        </div>
@@ -320,9 +329,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({ fiveWhysData
               </div>
             </div>
           ))}
-          <Button onClick={addWhyEntry} variant="outline" className="w-full" disabled={hasIdentifiedRootCause}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Añadir Siguiente Nivel de ¿Por qué?
-          </Button>
         </CardContent>
       </Card>
 
