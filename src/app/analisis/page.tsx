@@ -267,7 +267,23 @@ function RCAAnalysisPageComponent() {
         setAnalysisTechnique(data.analysisTechnique || '');
         setAnalysisTechniqueNotes(data.analysisTechniqueNotes || '');
         setIshikawaData(data.ishikawaData || JSON.parse(JSON.stringify(initialIshikawaData)));
-        setFiveWhysData(data.fiveWhysData || JSON.parse(JSON.stringify(initialFiveWhysData)));
+        
+        // --- DATA MIGRATION FOR 5 WHYS ---
+        const loadedFiveWhys = data.fiveWhysData;
+        if (loadedFiveWhys && Array.isArray(loadedFiveWhys)) {
+          // Check if it's the old format (array of objects) instead of array of arrays
+          if (loadedFiveWhys.length > 0 && !Array.isArray(loadedFiveWhys[0])) {
+            // It's the old format, wrap it in an array to migrate
+            setFiveWhysData([loadedFiveWhys as unknown as FiveWhy[]]);
+          } else {
+            // It's already the new format or empty
+            setFiveWhysData(loadedFiveWhys);
+          }
+        } else {
+          // No data, use initial state
+          setFiveWhysData(JSON.parse(JSON.stringify(initialFiveWhysData)));
+        }
+
         setCtmData(data.ctmData || JSON.parse(JSON.stringify(initialCTMData)));
         setIdentifiedRootCauses(data.identifiedRootCauses || []);
 
@@ -1125,8 +1141,8 @@ function RCAAnalysisPageComponent() {
     setProjectLeader(value);
   };
 
-  const handleDetailedFactChange = (field: keyof DetailedFacts, value: string) => {
-    onDetailedFactChange(field, value);
+  const onDetailedFactChange = (field: keyof DetailedFacts, value: string) => {
+    setDetailedFacts(prev => ({ ...prev, [field]: value }));
   };
 
   const handleAddPreservedFact = async (
