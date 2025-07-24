@@ -2,7 +2,7 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useCallback, useEffect } from 'react'; 
-import type { PlannedAction, AnalysisTechnique, IshikawaData, CTMData, IdentifiedRootCause, FullUserProfile, BrainstormIdea, BrainstormIdeaType, TimelineEvent, Site, RCAEventData, FiveWhysData } from '@/types/rca';
+import type { PlannedAction, AnalysisTechnique, IshikawaData, CTMData, IdentifiedRootCause, FullUserProfile, BrainstormIdea, BrainstormIdeaType, TimelineEvent, Site, RCAEventData, FiveWhysData, FiveWhy } from '@/types/rca';
 import { BRAINSTORM_IDEA_TYPES } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -167,9 +167,9 @@ interface Step3AnalysisProps {
   ishikawaData: IshikawaData;
   onSetIshikawaData: (data: IshikawaData) => void;
   fiveWhysData: FiveWhysData;
-  onAddFiveWhyEntry: (investigationIndex: number) => void;
-  onUpdateFiveWhyEntry: (investigationIndex: number, entryId: string, field: keyof FiveWhy, value: any) => void;
-  onRemoveFiveWhyEntry: (investigationIndex: number, entryId: string) => void;
+  onAddFiveWhyEntry: () => void;
+  onUpdateFiveWhyEntry: (entryId: string, field: keyof FiveWhy, value: any) => void;
+  onRemoveFiveWhyEntry: (entryId: string) => void;
   onStartNewInvestigation: () => void;
   ctmData: CTMData;
   onSetCtmData: (data: CTMData) => void;
@@ -724,7 +724,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                     onAddFiveWhyEntry={onAddFiveWhyEntry}
                     onUpdateFiveWhyEntry={onUpdateFiveWhyEntry}
                     onRemoveFiveWhyEntry={onRemoveFiveWhyEntry}
-                    onStartNewInvestigation={onStartNewInvestigation}
                 />
             )}
 
