@@ -1528,9 +1528,9 @@ function RCAAnalysisPageComponent() {
           analysisTechniqueNotes={analysisTechniqueNotes}
           onAnalysisTechniqueNotesChange={setAnalysisTechniqueNotes}
           ishikawaData={ishikawaData}
-          onSetIshikawaData={handleSetIshikawaData}
+          onSetIshikawaData={setIshikawaData}
           ctmData={ctmData}
-          onSetCtmData={handleSetCtmData}
+          onSetCtmData={setCtmData}
           identifiedRootCauses={identifiedRootCauses}
           onAddIdentifiedRootCause={handleAddIdentifiedRootCause}
           onUpdateIdentifiedRootCause={handleUpdateIdentifiedRootCause}
