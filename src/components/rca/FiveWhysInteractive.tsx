@@ -1,6 +1,6 @@
 
 'use client';
-import { FC, ChangeEvent, useState, useEffect } from 'react';
+import { FC, ChangeEvent, useState, useEffect, useMemo } from 'react';
 import type { FiveWhysData } from '@/types/rca';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -100,6 +100,15 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     onUpdateFiveWhyEntry(entryId, 'validationMethod', method);
     setValidationState(null);
   };
+  
+  const canAddNextWhy = useMemo(() => {
+    if (fiveWhysData.length === 0) {
+      return true; // Puede añadir el primero
+    }
+    const lastEntry = fiveWhysData[fiveWhysData.length - 1];
+    // Solo puede añadir el siguiente si la causa anterior fue aceptada.
+    return lastEntry && lastEntry.status === 'accepted';
+  }, [fiveWhysData]);
 
   return (
     <>
@@ -151,10 +160,10 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                     Porque... (Causa)
                   </label>
                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="sm" className="h-6 px-1" onClick={() => handleToggleStatus(entry.id, 'accepted')}>
+                      <Button variant="ghost" size="sm" className="h-6 px-1" onClick={() => handleToggleStatus(entry.id, 'accepted')} disabled={!entry.because.trim()}>
                           <Check className={cn("h-3 w-3", entry.status === 'accepted' ? "text-green-600" : "text-muted-foreground")} />
                       </Button>
-                      <Button variant="ghost" size="sm" className="h-6 px-1" onClick={() => handleToggleStatus(entry.id, 'rejected')}>
+                      <Button variant="ghost" size="sm" className="h-6 px-1" onClick={() => handleToggleStatus(entry.id, 'rejected')} disabled={!entry.because.trim()}>
                           <X className={cn("h-3 w-3", entry.status === 'rejected' ? "text-red-600" : "text-muted-foreground")} />
                       </Button>
                    </div>
@@ -175,9 +184,11 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
             </CardContent>
           </Card>
         ))}
-        <Button onClick={onAddFiveWhyEntry} variant="outline" className="w-full">
-          <PlusCircle className="mr-2 h-4 w-4" /> Añadir Siguiente Porqué
-        </Button>
+         {canAddNextWhy && (
+            <Button onClick={onAddFiveWhyEntry} variant="outline" className="w-full">
+                <PlusCircle className="mr-2 h-4 w-4" /> Añadir Siguiente Porqué
+            </Button>
+        )}
       </div>
 
       {validationState && (
@@ -185,7 +196,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
           isOpen={!!validationState}
           onOpenChange={() => setValidationState(null)}
           onConfirm={handleConfirmValidation}
-          isProcessing={false} // Assuming this is a quick operation
+          isProcessing={false}
         />
       )}
     </>
