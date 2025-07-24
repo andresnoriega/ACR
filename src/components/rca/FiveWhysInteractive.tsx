@@ -175,15 +175,15 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   };
   
   const canAddNextWhy = (investigation: FiveWhy[]): boolean => {
-    if (investigation.length === 0) {
-      return true;
+    if (!investigation || investigation.length === 0) {
+      return true; // Can always add to an empty investigation.
     }
     const lastEntry = investigation[investigation.length - 1];
     return lastEntry && lastEntry.status === 'accepted' && !lastEntry.isRootCause;
   };
 
-  const lastInvestigation = fiveWhysData[fiveWhysData.length - 1] || [];
-  const lastEntryOfLastInvestigation = lastInvestigation[lastInvestigation.length - 1];
+  const lastInvestigation = fiveWhysData.length > 0 ? fiveWhysData[fiveWhysData.length - 1] : [];
+  const lastEntryOfLastInvestigation = lastInvestigation.length > 0 ? lastInvestigation[lastInvestigation.length - 1] : null;
   const canStartNewInvestigation = lastEntryOfLastInvestigation && lastEntryOfLastInvestigation.status === 'rejected';
 
   return (
