@@ -1,3 +1,4 @@
+
 export type EventType = 'Incidente' | 'Accidente' | 'Falla de Equipo' | 'No Conformidad' | 'Evento Operacional' | '';
 export type PriorityType = 'Alta' | 'Media' | 'Baja' | '';
 
@@ -123,6 +124,7 @@ export interface FiveWhy {
   because: string;
   status?: 'pending' | 'accepted' | 'rejected';
   validationMethod?: string;
+  isRootCause?: boolean; // To mark the final root cause
 }
 export type FiveWhysData = FiveWhy[];
 

@@ -5,12 +5,13 @@ import type { FiveWhysData } from '@/types/rca';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { PlusCircle, Trash2, HelpCircle, Check, X, Loader2 } from 'lucide-react';
+import { PlusCircle, Trash2, HelpCircle, Check, X, Loader2, Award } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
+// --- Validation Dialog ---
 interface ValidationDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
@@ -66,10 +67,41 @@ const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onC
   );
 };
 
+
+// --- Root Cause Confirmation Dialog ---
+interface RootCauseDialogProps {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}
+
+const RootCauseDialog: FC<RootCauseDialogProps> = ({ isOpen, onOpenChange, onConfirm }) => {
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Confirmar Causa Raíz</DialogTitle>
+          <DialogDescription>
+            ¿Es posible aplicar una solución definitiva y factible para esta causa?
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline">No</Button>
+          </DialogClose>
+          <Button onClick={onConfirm}>Sí</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+
+// --- Main Component ---
 interface FiveWhysInteractiveProps {
   fiveWhysData: FiveWhysData;
   onAddFiveWhyEntry: () => void;
-  onUpdateFiveWhyEntry: (id: string, field: 'why' | 'because' | 'status' | 'validationMethod', value: string | 'pending' | 'accepted' | 'rejected') => void;
+  onUpdateFiveWhyEntry: (id: string, field: 'why' | 'because' | 'status' | 'validationMethod' | 'isRootCause', value: any) => void;
   onRemoveFiveWhyEntry: (id: string) => void;
 }
 
@@ -80,6 +112,8 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   onRemoveFiveWhyEntry,
 }) => {
   const [validationState, setValidationState] = useState<{ entryId: string; status: 'accepted' | 'rejected' } | null>(null);
+  const [rootCauseState, setRootCauseState] = useState<{ entryId: string } | null>(null);
+
 
   const handleToggleStatus = (entryId: string, status: 'accepted' | 'rejected') => {
     const entry = fiveWhysData.find(e => e.id === entryId);
@@ -88,6 +122,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     if (entry.status === status) {
       onUpdateFiveWhyEntry(entryId, 'status', 'pending');
       onUpdateFiveWhyEntry(entryId, 'validationMethod', '');
+      onUpdateFiveWhyEntry(entryId, 'isRootCause', false); // Unset root cause if status is toggled off
     } else {
       setValidationState({ entryId, status });
     }
@@ -98,16 +133,36 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     const { entryId, status } = validationState;
     onUpdateFiveWhyEntry(entryId, 'status', status);
     onUpdateFiveWhyEntry(entryId, 'validationMethod', method);
+    if (status === 'rejected') {
+        onUpdateFiveWhyEntry(entryId, 'isRootCause', false);
+    }
     setValidationState(null);
   };
   
+  const handleMarkAsRootCause = (entryId: string) => {
+    setRootCauseState({ entryId });
+  };
+  
+  const handleConfirmRootCause = () => {
+    if (!rootCauseState) return;
+    const { entryId } = rootCauseState;
+    // Unset any other root cause first
+    fiveWhysData.forEach(entry => {
+        if (entry.id !== entryId && entry.isRootCause) {
+            onUpdateFiveWhyEntry(entry.id, 'isRootCause', false);
+        }
+    });
+    // Set the new root cause
+    onUpdateFiveWhyEntry(entryId, 'isRootCause', true);
+    setRootCauseState(null);
+  };
+
   const canAddNextWhy = useMemo(() => {
     if (fiveWhysData.length === 0) {
-      return true; // Puede añadir el primero
+      return true;
     }
     const lastEntry = fiveWhysData[fiveWhysData.length - 1];
-    // Solo puede añadir el siguiente si la causa anterior fue aceptada.
-    return lastEntry && lastEntry.status === 'accepted';
+    return lastEntry && lastEntry.status === 'accepted' && !lastEntry.isRootCause;
   }, [fiveWhysData]);
 
   return (
@@ -124,9 +179,10 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
           </AlertDescription>
         </Alert>
         {fiveWhysData.map((entry, index) => (
-          <Card key={entry.id} className={cn("p-4 shadow-sm",
+          <Card key={entry.id} className={cn("p-4 shadow-sm transition-all",
             entry.status === 'accepted' && 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700',
-            entry.status === 'rejected' && 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 opacity-70'
+            entry.status === 'rejected' && 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 opacity-70',
+            entry.isRootCause && 'border-blue-600 border-2 ring-2 ring-blue-300'
           )}>
             <CardContent className="p-0 space-y-3">
               <div className="flex justify-between items-center">
@@ -166,6 +222,9 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                       <Button variant="ghost" size="sm" className="h-6 px-1" onClick={() => handleToggleStatus(entry.id, 'rejected')} disabled={!entry.because.trim()}>
                           <X className={cn("h-3 w-3", entry.status === 'rejected' ? "text-red-600" : "text-muted-foreground")} />
                       </Button>
+                      <Button variant="ghost" size="sm" className="h-6 px-1" onClick={() => handleMarkAsRootCause(entry.id)} disabled={entry.status !== 'accepted'}>
+                        <Award className={cn("h-3 w-3", entry.isRootCause ? "text-blue-600" : (entry.status === 'accepted' ? "text-muted-foreground" : "text-muted-foreground/50"))}/>
+                      </Button>
                    </div>
                 </div>
                 <Textarea
@@ -189,6 +248,14 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                 <PlusCircle className="mr-2 h-4 w-4" /> Añadir Siguiente Porqué
             </Button>
         )}
+         {!canAddNextWhy && fiveWhysData.length > 0 && (
+            <div className="text-center text-xs text-muted-foreground pt-2">
+                {fiveWhysData[fiveWhysData.length - 1].status === 'rejected' ? 'Análisis finalizado: la última causa fue rechazada.' :
+                 fiveWhysData[fiveWhysData.length - 1].isRootCause ? 'Análisis finalizado: ha marcado la última causa como Causa Raíz.' :
+                 'Valide la última causa para continuar.'
+                }
+            </div>
+        )}
       </div>
 
       {validationState && (
@@ -197,6 +264,13 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
           onOpenChange={() => setValidationState(null)}
           onConfirm={handleConfirmValidation}
           isProcessing={false}
+        />
+      )}
+      {rootCauseState && (
+        <RootCauseDialog
+            isOpen={!!rootCauseState}
+            onOpenChange={() => setRootCauseState(null)}
+            onConfirm={handleConfirmRootCause}
         />
       )}
     </>
