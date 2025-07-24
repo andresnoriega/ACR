@@ -1,7 +1,7 @@
 
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, FiveWhy, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, FiveWhy, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -1299,33 +1299,38 @@ function RCAAnalysisPageComponent() {
 
   const handleAddFiveWhyEntry = (investigationIndex: number) => {
     setFiveWhysData(prev => {
-        const newInvestigations = [...prev];
+      const newInvestigations = [...prev];
+      if (newInvestigations[investigationIndex]) {
         const targetInvestigation = newInvestigations[investigationIndex];
-        const lastEntry = targetInvestigation.length > 0 ? targetInvestigation[targetInvestigation.length - 1] : null;
+        const lastEntry = targetInvestigation[targetInvestigation.length - 1];
         const initialWhy = lastEntry && lastEntry.because ? `¿Por qué: "${lastEntry.because.substring(0,70)}${lastEntry.because.length > 70 ? "..." : ""}"?` : '';
         targetInvestigation.push({ id: generateClientSideId('5why'), why: initialWhy, because: '' });
-        return newInvestigations;
+      }
+      return newInvestigations;
     });
   };
 
   const handleUpdateFiveWhyEntry = (investigationIndex: number, entryId: string, field: 'why' | 'because' | 'status' | 'validationMethod' | 'isRootCause', value: any) => {
     setFiveWhysData(prev => {
-        const newInvestigations = [...prev];
+      const newInvestigations = [...prev];
+      if (newInvestigations[investigationIndex]) {
         const targetInvestigation = newInvestigations[investigationIndex];
         const entryIndex = targetInvestigation.findIndex(e => e.id === entryId);
         if (entryIndex > -1) {
             (targetInvestigation[entryIndex] as any)[field] = value;
         }
-        return newInvestigations;
+      }
+      return newInvestigations;
     });
   };
 
   const handleRemoveFiveWhyEntry = (investigationIndex: number, entryId: string) => {
     setFiveWhysData(prev => {
-        const newInvestigations = [...prev];
-        const targetInvestigation = newInvestigations[investigationIndex];
-        newInvestigations[investigationIndex] = targetInvestigation.filter(entry => entry.id !== entryId);
-        return newInvestigations;
+      const newInvestigations = [...prev];
+      if (newInvestigations[investigationIndex]) {
+        newInvestigations[investigationIndex] = newInvestigations[investigationIndex].filter(entry => entry.id !== entryId);
+      }
+      return newInvestigations;
     });
   };
   
