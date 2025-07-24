@@ -44,9 +44,9 @@ const initialIshikawaData: IshikawaData = [
   { id: 'environment', name: 'Medio Ambiente', causes: [] },
 ];
 
-const initialFiveWhysData: FiveWhysData = [
+const initialFiveWhysData: FiveWhysData = [[
   { id: `5why-${Date.now()}`, why: '', because: '' }
-];
+]];
 
 const initialCTMData: CTMData = [];
 
@@ -267,7 +267,16 @@ function RCAAnalysisPageComponent() {
         setAnalysisTechnique(data.analysisTechnique || '');
         setAnalysisTechniqueNotes(data.analysisTechniqueNotes || '');
         setIshikawaData(data.ishikawaData || JSON.parse(JSON.stringify(initialIshikawaData)));
-        setFiveWhysData(data.fiveWhysData || JSON.parse(JSON.stringify(initialFiveWhysData)));
+
+        // --- 5 Whys Data Migration Logic ---
+        let loadedFiveWhys = data.fiveWhysData || JSON.parse(JSON.stringify(initialFiveWhysData));
+        if (loadedFiveWhys.length > 0 && !Array.isArray(loadedFiveWhys[0])) {
+          // Data is in the old format (FiveWhy[]), wrap it in an array to migrate
+          loadedFiveWhys = [loadedFiveWhys];
+        }
+        setFiveWhysData(loadedFiveWhys);
+        // --- End Migration Logic ---
+        
         setCtmData(data.ctmData || JSON.parse(JSON.stringify(initialCTMData)));
         setIdentifiedRootCauses(data.identifiedRootCauses || []);
 
@@ -1232,11 +1241,16 @@ function RCAAnalysisPageComponent() {
     if (value === 'Ishikawa') {
       setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
     } else if (value === 'WhyWhy') {
-      const newFiveWhysData = JSON.parse(JSON.stringify(initialFiveWhysData));
-       if (eventData.focusEventDescription) {
-         newFiveWhysData[0].why = `¿Por qué ocurrió: "${eventData.focusEventDescription.substring(0,70)}${eventData.focusEventDescription.length > 70 ? "..." : ""}"?`;
-       }
-      setFiveWhysData(newFiveWhysData);
+      setFiveWhysData(JSON.parse(JSON.stringify(initialFiveWhysData)));
+      if (eventData.focusEventDescription) {
+        setFiveWhysData(prev => {
+          const newInvestigations = [...prev];
+          if(newInvestigations[0] && newInvestigations[0][0]) {
+            newInvestigations[0][0].why = `¿Por qué ocurrió: "${eventData.focusEventDescription.substring(0, 70)}${eventData.focusEventDescription.length > 70 ? "..." : ""}"?`;
+          }
+          return newInvestigations;
+        });
+      }
     } else if (value === 'CTM') {
       setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
     }
@@ -1248,6 +1262,47 @@ function RCAAnalysisPageComponent() {
 
   const handleSetCtmData = (newData: CTMData) => {
     setCtmData(newData);
+  };
+  
+  const handleStartNewFiveWhyInvestigation = () => {
+    setFiveWhysData(prev => [
+      ...prev,
+      [{ id: `5why-${Date.now()}`, why: '¿Por qué? (Nueva línea de investigación)', because: '' }]
+    ]);
+  };
+  
+  const handleAddFiveWhyEntry = (investigationIndex: number) => {
+    setFiveWhysData(prev => {
+      const newInvestigations = [...prev];
+      const targetInvestigation = newInvestigations[investigationIndex] || [];
+      const lastEntry = targetInvestigation.length > 0 ? targetInvestigation[targetInvestigation.length - 1] : null;
+      const initialWhy = lastEntry && lastEntry.because ? `¿Por qué: "${lastEntry.because.substring(0, 70)}${lastEntry.because.length > 70 ? "..." : ""}"?` : '';
+      newInvestigations[investigationIndex] = [...targetInvestigation, { id: `5why-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, why: initialWhy, because: '' }];
+      return newInvestigations;
+    });
+  };
+
+  const handleUpdateFiveWhyEntry = (investigationIndex: number, entryId: string, field: keyof FiveWhy, value: any) => {
+    setFiveWhysData(prev => {
+      const newInvestigations = [...prev];
+      if (newInvestigations[investigationIndex]) {
+        // Create a new array for the specific investigation to update it immutably
+        newInvestigations[investigationIndex] = newInvestigations[investigationIndex].map(entry =>
+          entry.id === entryId ? { ...entry, [field]: value } : entry
+        );
+      }
+      return newInvestigations;
+    });
+  };
+
+  const handleRemoveFiveWhyEntry = (investigationIndex: number, entryId: string) => {
+    setFiveWhysData(prev => {
+      const newInvestigations = [...prev];
+      if (newInvestigations[investigationIndex]) {
+        newInvestigations[investigationIndex] = newInvestigations[investigationIndex].filter(entry => entry.id !== entryId);
+      }
+      return newInvestigations;
+    });
   };
 
   const handleAddIdentifiedRootCause = () => {
@@ -1309,21 +1364,6 @@ function RCAAnalysisPageComponent() {
     setBrainstormingIdeas(prev => prev.filter(idea => idea.id !== id));
   };
 
-  const handleAddFiveWhyEntry = () => {
-    setFiveWhysData(prev => {
-      const lastEntry = prev.length > 0 ? prev[prev.length - 1] : null;
-      const initialWhy = lastEntry && lastEntry.because ? `¿Por qué: "${lastEntry.because.substring(0,70)}${lastEntry.because.length > 70 ? "..." : ""}"?` : '';
-      return [...prev, { id: `5why-${Date.now()}-${Math.random().toString(36).substring(2,7)}`, why: initialWhy, because: '' }];
-    });
-  };
-
-  const handleUpdateFiveWhyEntry = (id: string, field: 'why' | 'because' | 'status' | 'validationMethod' | 'isRootCause', value: any) => {
-    setFiveWhysData(prev => prev.map(entry => entry.id === id ? { ...entry, [field]: value } : entry));
-  };
-
-  const handleRemoveFiveWhyEntry = (id: string) => {
-    setFiveWhysData(prev => prev.filter(entry => entry.id !== id));
-  };
 
   useEffect(() => {
     setValidations(prevValidations => {
@@ -1566,13 +1606,14 @@ function RCAAnalysisPageComponent() {
           analysisTechniqueNotes={analysisTechniqueNotes}
           onAnalysisTechniqueNotesChange={setAnalysisTechniqueNotes}
           ishikawaData={ishikawaData}
-          onSetIshikawaData={setIshikawaData}
+          onSetIshikawaData={onSetIshikawaData}
           fiveWhysData={fiveWhysData}
           onAddFiveWhyEntry={handleAddFiveWhyEntry}
           onUpdateFiveWhyEntry={handleUpdateFiveWhyEntry}
           onRemoveFiveWhyEntry={handleRemoveFiveWhyEntry}
+          onStartNewInvestigation={handleStartNewFiveWhyInvestigation}
           ctmData={ctmData}
-          onSetCtmData={setCtmData}
+          onSetCtmData={onSetCtmData}
           identifiedRootCauses={identifiedRootCauses}
           onAddIdentifiedRootCause={handleAddIdentifiedRootCause}
           onUpdateIdentifiedRootCause={handleUpdateIdentifiedRootCause}
