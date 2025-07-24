@@ -1305,7 +1305,7 @@ function RCAAnalysisPageComponent() {
     });
   };
 
-  const handleUpdateFiveWhyEntry = (id: string, field: 'why' | 'because', value: string) => {
+  const handleUpdateFiveWhyEntry = (id: string, field: 'why' | 'because' | 'status' | 'validationMethod', value: string | 'pending' | 'accepted' | 'rejected') => {
     setFiveWhysData(prev => prev.map(entry => entry.id === id ? { ...entry, [field]: value } : entry));
   };
 
@@ -1521,7 +1521,7 @@ function RCAAnalysisPageComponent() {
           onProjectLeaderChange={handleProjectLeaderChange}
           availableUsers={availableUsersFromDB}
           detailedFacts={detailedFacts}
-          onDetailedFactChange={handleDetailedFactChange}
+          onDetailedFactChange={onDetailedFactChange}
           investigationObjective={investigationObjective}
           onInvestigationObjectiveChange={setInvestigationObjective}
           investigationSessions={investigationSessions}

@@ -121,6 +121,8 @@ export interface FiveWhy {
   id: string;
   why: string;
   because: string;
+  status?: 'pending' | 'accepted' | 'rejected';
+  validationMethod?: string;
 }
 export type FiveWhysData = FiveWhy[];
 
