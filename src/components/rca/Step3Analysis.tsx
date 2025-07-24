@@ -167,9 +167,10 @@ interface Step3AnalysisProps {
   ishikawaData: IshikawaData;
   onSetIshikawaData: (data: IshikawaData) => void;
   fiveWhysData: FiveWhysData;
-  onAddFiveWhyEntry: () => void;
-  onUpdateFiveWhyEntry: (id: string, field: 'why' | 'because' | 'status' | 'validationMethod' | 'isRootCause', value: any) => void;
-  onRemoveFiveWhyEntry: (id: string) => void;
+  onAddFiveWhyEntry: (investigationIndex: number) => void;
+  onUpdateFiveWhyEntry: (investigationIndex: number, entryId: string, field: keyof FiveWhy, value: any) => void;
+  onRemoveFiveWhyEntry: (investigationIndex: number, entryId: string) => void;
+  onStartNewInvestigation: () => void;
   ctmData: CTMData;
   onSetCtmData: (data: CTMData) => void;
   identifiedRootCauses: IdentifiedRootCause[];
@@ -206,6 +207,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   onAddFiveWhyEntry,
   onUpdateFiveWhyEntry,
   onRemoveFiveWhyEntry,
+  onStartNewInvestigation,
   ctmData,
   onSetCtmData,
   identifiedRootCauses,
@@ -722,6 +724,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                     onAddFiveWhyEntry={onAddFiveWhyEntry}
                     onUpdateFiveWhyEntry={onUpdateFiveWhyEntry}
                     onRemoveFiveWhyEntry={onRemoveFiveWhyEntry}
+                    onStartNewInvestigation={onStartNewInvestigation}
                 />
             )}
 
