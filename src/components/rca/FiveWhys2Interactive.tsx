@@ -1,3 +1,4 @@
+
 'use client';
 import { FC, useCallback, useMemo, useState, useEffect } from 'react';
 import {
@@ -6,12 +7,12 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import type { CTMData, FailureMode, Hypothesis } from '@/types/rca';
+import type { CTMData, FailureMode, Hypothesis, PhysicalCause, HumanCause, LatentCause } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Card } from '@/components/ui/card';
-import { PlusCircle, Trash2, Share2, Check, X, BrainCircuit, Loader2 } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { PlusCircle, Trash2, Share2, Check, X, GitBranchPlus, BrainCircuit, Wrench, User, Building, Loader2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -51,7 +52,7 @@ const CtmValidationDialog: FC<CtmValidationDialogProps> = ({ isOpen, onOpenChang
         <DialogHeader>
           <DialogTitle>Confirmar Validación/Rechazo de Hipótesis</DialogTitle>
           <DialogDescription>
-            Por favor, ingrese el método o justificación utilizado para validar o rechazar esta hipótesis.
+            Por favor, ingrese el método o justificación utilizado para validar o rechazar este "Porque".
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
@@ -89,28 +90,20 @@ interface FiveWhys2InteractiveProps {
 export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Data, onSetWhyWhy2Data, focusEventDescription }) => {
   const [validationState, setValidationState] = useState<{ path: (string | number)[]; status: Hypothesis['status'] } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
-  const [internalData, setInternalData] = useState<CTMData>([]);
+  
+  const [internalData, setInternalData] = useState<CTMData>(() => whyWhy2Data || []);
 
   useEffect(() => {
-    // Initialize with the first "Why" if the data is empty and there's a description
-    if ((!whyWhy2Data || whyWhy2Data.length === 0) && focusEventDescription) {
-        const initialData: CTMData = [{
-            id: generateClientSideId('fm'),
-            description: `¿Por qué ocurrió: "${focusEventDescription.substring(0, 50)}..."?`,
-            hypotheses: []
-        }];
-        setInternalData(initialData);
-        onSetWhyWhy2Data(initialData);
-    } else {
-        setInternalData(whyWhy2Data || []);
+    if (whyWhy2Data) {
+      setInternalData(whyWhy2Data);
     }
-  }, [whyWhy2Data, focusEventDescription, onSetWhyWhy2Data]);
-
+  }, [whyWhy2Data]);
 
   const updateParentState = (newData: CTMData) => {
     setInternalData(newData);
     onSetWhyWhy2Data(newData);
   };
+
 
   const handleUpdate = (path: (string | number)[], value: string) => {
     const newData = JSON.parse(JSON.stringify(internalData));
@@ -118,12 +111,12 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
     for (let i = 0; i < path.length - 1; i++) {
       current = current[path[i]];
     }
-    const finalKey = path[path.length - 1];
+    const finalKey = path[path.length-1];
     
     if (current && typeof current[finalKey] === 'object' && current[finalKey] !== null) {
-      current[finalKey].description = value;
+        current[finalKey].description = value;
     } else {
-        console.error("Attempted to update a non-object or null value at path:", path, current);
+        console.error("Error: el objetivo de la actualización no es un objeto válido.", path, current);
     }
     
     updateParentState(newData);
@@ -170,26 +163,28 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
   const handleAdd = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(internalData));
     
-    if (path.length === 0) {
-      newData.push({ id: generateClientSideId('fm'), description: `¿Por qué ocurrió: "${focusEventDescription.substring(0, 50)}..."?`, hypotheses: [] });
+    if (path.length === 0) { // Adding a new FailureMode at the root
+      newData.push({ id: generateClientSideId('fm'), description: 'Nuevo ¿Por qué?', hypotheses: [] });
     } else {
       let parent: any = newData;
       for (let i = 0; i < path.length - 1; i++) {
         parent = parent[path[i]];
       }
-      
-      const containerObject = parent[path[path.length - 1]];
-      if (containerObject && typeof containerObject === 'object') {
+      const containerObject = parent[path[path.length-1]];
+
+      if(containerObject && typeof containerObject === 'object') {
         if (!Array.isArray(containerObject.hypotheses)) {
           containerObject.hypotheses = [];
         }
-        containerObject.hypotheses.push({ id: generateClientSideId('hyp'), description: 'Nuevo Porque', status: 'pending' });
+        containerObject.hypotheses.push({ id: generateClientSideId('hyp'), description: 'Nuevo Porque', physicalCauses: [], status: 'pending' });
       } else {
-        console.error("Error: Could not find the parent element to add a new 'Porque'. Path:", path);
+        console.error("Error: No se pudo encontrar el elemento contenedor para añadir un 'Porque'. Path:", path);
       }
     }
+
     updateParentState(newData);
   };
+
 
   const handleRemove = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(internalData));
@@ -234,33 +229,33 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
       <div className="space-y-4 mt-4 p-4 border rounded-lg shadow-sm bg-background">
         <div className="flex justify-between items-center flex-wrap gap-2">
           <h3 className="text-lg font-semibold font-headline text-primary flex items-center">
-            <Share2 className="mr-2 h-5 w-5" /> 5 Porqués 2.0 (Anidado)
+            <Share2 className="mr-2 h-5 w-5" /> 5 Porqués 2.0
           </h3>
           <Button onClick={() => handleAdd([])} variant="outline" size="sm">
               <PlusCircle className="mr-2 h-4 w-4" /> Añadir ¿Por qué?
           </Button>
         </div>
-        <div className="space-y-4">
+        <div className="flex space-x-4 overflow-x-auto py-2">
           {internalData.map((fm, fmIndex) => (
-            <Card key={fm.id} className="bg-card p-3">
-                <Accordion type="single" collapsible defaultValue="item-1" className="w-full">
-                    <AccordionItem value="item-1" className="border-b-0">
-                        <div className="flex items-center w-full">
-                            <AccordionTrigger className="flex-grow p-2">
-                                <span className="font-semibold flex items-center">¿Por qué? #{fmIndex + 1}</span>
-                            </AccordionTrigger>
-                            <Button size="icon" variant="ghost" className="h-7 w-7 ml-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemove([fmIndex]);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                        </div>
-                        <AccordionContent className="pl-2">
-                            <div className="space-y-2 p-2 border-l-2">
-                                <Label>Porque...</Label>
-                                <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex, 'description'], e.target.value)} className="text-sm"/>
-                                {renderHypotheses(fm.hypotheses, [fmIndex, 'hypotheses'])}
-                            </div>
-                        </AccordionContent>
-                    </AccordionItem>
-                </Accordion>
-            </Card>
+            <div key={fm.id} className="min-w-[20rem] flex-shrink-0">
+              <Accordion type="single" collapsible defaultValue="item-1">
+                <AccordionItem value="item-1">
+                  <div className="flex items-center w-full">
+                    <AccordionTrigger className="flex-grow">
+                      <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> ¿Por qué? #{fmIndex + 1}</span>
+                    </AccordionTrigger>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 ml-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemove([fmIndex]);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                  </div>
+                  <AccordionContent className="pl-2">
+                    <div className="space-y-2 p-2 border-l-2">
+                      <Label>Porque...</Label>
+                      <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex, 'description'], e.target.value)} className="text-sm"/>
+                      {renderHypotheses(fm.hypotheses, [fmIndex, 'hypotheses'])}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
           ))}
           {internalData.length === 0 && (
             <div className="text-center text-muted-foreground italic py-4 w-full">
@@ -281,3 +276,5 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
     </>
   );
 };
+
+    
