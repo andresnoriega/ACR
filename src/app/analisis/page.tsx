@@ -1,7 +1,7 @@
 
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, FiveWhysData } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -44,6 +44,10 @@ const initialIshikawaData: IshikawaData = [
   { id: 'environment', name: 'Medio Ambiente', causes: [] },
 ];
 
+const initialFiveWhysData: FiveWhysData = [
+  { id: `5why-${Date.now()}`, why: '', because: '' }
+];
+
 const initialCTMData: CTMData = [];
 
 const initialDetailedFacts: DetailedFacts = {
@@ -69,6 +73,7 @@ const initialRCAAnalysisState: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedA
   analysisTechnique: '',
   analysisTechniqueNotes: '',
   ishikawaData: JSON.parse(JSON.stringify(initialIshikawaData)),
+  fiveWhysData: JSON.parse(JSON.stringify(initialFiveWhysData)),
   ctmData: JSON.parse(JSON.stringify(initialCTMData)),
   identifiedRootCauses: [],
   plannedActions: [],
@@ -169,6 +174,7 @@ function RCAAnalysisPageComponent() {
   const [analysisTechnique, setAnalysisTechnique] = useState<AnalysisTechnique>(initialRCAAnalysisState.analysisTechnique);
   const [analysisTechniqueNotes, setAnalysisTechniqueNotes] = useState(initialRCAAnalysisState.analysisTechniqueNotes);
   const [ishikawaData, setIshikawaData] = useState<IshikawaData>(initialRCAAnalysisState.ishikawaData);
+  const [fiveWhysData, setFiveWhysData] = useState<FiveWhysData>(initialRCAAnalysisState.fiveWhysData);
   const [ctmData, setCtmData] = useState<CTMData>(initialRCAAnalysisState.ctmData);
   const [identifiedRootCauses, setIdentifiedRootCauses] = useState<IdentifiedRootCause[]>(initialRCAAnalysisState.identifiedRootCauses);
 
@@ -261,6 +267,7 @@ function RCAAnalysisPageComponent() {
         setAnalysisTechnique(data.analysisTechnique || '');
         setAnalysisTechniqueNotes(data.analysisTechniqueNotes || '');
         setIshikawaData(data.ishikawaData || JSON.parse(JSON.stringify(initialIshikawaData)));
+        setFiveWhysData(data.fiveWhysData || JSON.parse(JSON.stringify(initialFiveWhysData)));
         setCtmData(data.ctmData || JSON.parse(JSON.stringify(initialCTMData)));
         setIdentifiedRootCauses(data.identifiedRootCauses || []);
 
@@ -314,6 +321,7 @@ function RCAAnalysisPageComponent() {
             setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
             setAnalysisTechniqueNotes(initialRCAAnalysisState.analysisTechniqueNotes);
             setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
+            setFiveWhysData(JSON.parse(JSON.stringify(initialFiveWhysData)));
             setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
             setIdentifiedRootCauses(initialRCAAnalysisState.identifiedRootCauses);
             setPlannedActions(initialRCAAnalysisState.plannedActions);
@@ -348,6 +356,7 @@ function RCAAnalysisPageComponent() {
         setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
         setAnalysisTechniqueNotes(initialRCAAnalysisState.analysisTechniqueNotes);
         setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
+        setFiveWhysData(JSON.parse(JSON.stringify(initialFiveWhysData)));
         setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
         setIdentifiedRootCauses(initialRCAAnalysisState.identifiedRootCauses);
         setPlannedActions(initialRCAAnalysisState.plannedActions);
@@ -416,6 +425,7 @@ function RCAAnalysisPageComponent() {
             setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
             setAnalysisTechniqueNotes(initialRCAAnalysisState.analysisTechniqueNotes);
             setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
+            setFiveWhysData(JSON.parse(JSON.stringify(initialFiveWhysData)));
             setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
             setIdentifiedRootCauses(initialRCAAnalysisState.identifiedRootCauses);
             setPlannedActions(initialRCAAnalysisState.plannedActions);
@@ -556,7 +566,7 @@ function RCAAnalysisPageComponent() {
     const rcaDocPayload: Partial<RCAAnalysisDocument> = {
       eventData: consistentEventData, immediateActions, projectLeader, detailedFacts, investigationObjective, investigationSessions, analysisDetails,
       preservedFacts, timelineEvents, brainstormingIdeas, analysisTechnique, analysisTechniqueNotes, ishikawaData,
-      ctmData, identifiedRootCauses, 
+      fiveWhysData, ctmData, identifiedRootCauses, 
       plannedActions: (plannedActionsOverride !== undefined) ? plannedActionsOverride : plannedActions,
       validations: (validationsOverride !== undefined) ? validationsOverride : validations,
       finalComments, isFinalized: currentIsFinalized,
@@ -1287,6 +1297,22 @@ function RCAAnalysisPageComponent() {
     setBrainstormingIdeas(prev => prev.filter(idea => idea.id !== id));
   };
 
+  const handleAddFiveWhyEntry = () => {
+    setFiveWhysData(prev => {
+      const lastEntry = prev.length > 0 ? prev[prev.length - 1] : null;
+      const initialWhy = lastEntry && lastEntry.because ? `¿Por qué: "${lastEntry.because.substring(0,70)}${lastEntry.because.length > 70 ? "..." : ""}"?` : '';
+      return [...prev, { id: generateClientSideId('5why'), why: initialWhy, because: '' }];
+    });
+  };
+
+  const handleUpdateFiveWhyEntry = (id: string, field: 'why' | 'because', value: string) => {
+    setFiveWhysData(prev => prev.map(entry => entry.id === id ? { ...entry, [field]: value } : entry));
+  };
+
+  const handleRemoveFiveWhyEntry = (id: string) => {
+    setFiveWhysData(prev => prev.filter(entry => entry.id !== id));
+  };
+
   useEffect(() => {
     setValidations(prevValidations => {
       const newValidations = plannedActions.map(pa => {
@@ -1529,6 +1555,10 @@ function RCAAnalysisPageComponent() {
           onAnalysisTechniqueNotesChange={setAnalysisTechniqueNotes}
           ishikawaData={ishikawaData}
           onSetIshikawaData={setIshikawaData}
+          fiveWhysData={fiveWhysData}
+          onAddFiveWhyEntry={handleAddFiveWhyEntry}
+          onUpdateFiveWhyEntry={handleUpdateFiveWhyEntry}
+          onRemoveFiveWhyEntry={handleRemoveFiveWhyEntry}
           ctmData={ctmData}
           onSetCtmData={setCtmData}
           identifiedRootCauses={identifiedRootCauses}

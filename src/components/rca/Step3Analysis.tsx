@@ -1,9 +1,8 @@
 
-
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useCallback, useEffect } from 'react'; 
-import type { PlannedAction, AnalysisTechnique, IshikawaData, CTMData, IdentifiedRootCause, FullUserProfile, BrainstormIdea, BrainstormIdeaType, TimelineEvent, Site, RCAEventData } from '@/types/rca';
+import type { PlannedAction, AnalysisTechnique, IshikawaData, CTMData, IdentifiedRootCause, FullUserProfile, BrainstormIdea, BrainstormIdeaType, TimelineEvent, Site, RCAEventData, FiveWhysData } from '@/types/rca';
 import { BRAINSTORM_IDEA_TYPES } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -14,6 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { PlusCircle, Trash2, MessageSquare, Network, Link2, Save, Send, Loader2, Mail, Sparkles, ClipboardCopy, ChevronLeft, ChevronRight, AlertTriangle, Lightbulb, Edit3, X, HelpCircle, Fish, Share2 as CtmIcon, Wrench, Box, Ruler, Leaf, Users } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
+import { FiveWhysInteractive } from './FiveWhysInteractive';
 import { CTMInteractive } from './CTMInteractive';
 import TimelineComponent from './TimelineComponent';
 import { useToast } from "@/hooks/use-toast";
@@ -166,6 +166,10 @@ interface Step3AnalysisProps {
   onAnalysisTechniqueNotesChange: (value: string) => void;
   ishikawaData: IshikawaData;
   onSetIshikawaData: (data: IshikawaData) => void;
+  fiveWhysData: FiveWhysData;
+  onAddFiveWhyEntry: () => void;
+  onUpdateFiveWhyEntry: (id: string, field: 'why' | 'because', value: string) => void;
+  onRemoveFiveWhyEntry: (id: string) => void;
   ctmData: CTMData;
   onSetCtmData: (data: CTMData) => void;
   identifiedRootCauses: IdentifiedRootCause[];
@@ -198,6 +202,10 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   onAnalysisTechniqueNotesChange,
   ishikawaData,
   onSetIshikawaData,
+  fiveWhysData,
+  onAddFiveWhyEntry,
+  onUpdateFiveWhyEntry,
+  onRemoveFiveWhyEntry,
   ctmData,
   onSetCtmData,
   identifiedRootCauses,
@@ -694,6 +702,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Ishikawa"><div className="flex items-center"><Fish className="mr-2 h-4 w-4" />Ishikawa</div></SelectItem>
+                  <SelectItem value="WhyWhy"><div className="flex items-center"><HelpCircle className="mr-2 h-4 w-4" />5 Porqués</div></SelectItem>
                   <SelectItem value="CTM"><div className="flex items-center"><CtmIcon className="mr-2 h-4 w-4" />Árbol de Causas (CTM)</div></SelectItem>
                 </SelectContent>
               </Select>
@@ -707,6 +716,15 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
               />
             )}
             
+            {analysisTechnique === 'WhyWhy' && (
+                <FiveWhysInteractive 
+                    fiveWhysData={fiveWhysData}
+                    onAddFiveWhyEntry={onAddFiveWhyEntry}
+                    onUpdateFiveWhyEntry={onUpdateFiveWhyEntry}
+                    onRemoveFiveWhyEntry={onRemoveFiveWhyEntry}
+                />
+            )}
+
             {analysisTechnique === 'CTM' && (
               <CTMInteractive ctmData={ctmData} onSetCtmData={onSetCtmData} />
             )}
