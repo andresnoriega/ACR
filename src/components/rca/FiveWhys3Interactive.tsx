@@ -81,13 +81,13 @@ const CtmValidationDialog: FC<CtmValidationDialogProps> = ({ isOpen, onOpenChang
 };
 
 
-interface CTMInteractiveProps {
+interface FiveWhys3InteractiveProps {
   whyWhy3Data: CTMData;
   onSetWhyWhy3Data: (data: CTMData) => void;
 }
 
 
-export const FiveWhys3Interactive: FC<CTMInteractiveProps> = ({ whyWhy3Data, onSetWhyWhy3Data }) => {
+export const FiveWhys3Interactive: FC<FiveWhys3InteractiveProps> = ({ whyWhy3Data, onSetWhyWhy3Data }) => {
   const [validationState, setValidationState] = useState<{ path: (string | number)[]; status: Hypothesis['status'] } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
   
@@ -96,7 +96,7 @@ export const FiveWhys3Interactive: FC<CTMInteractiveProps> = ({ whyWhy3Data, onS
   useEffect(() => {
       onSetWhyWhy3Data(internalData);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [internalData]);
+  }, [internalData, onSetWhyWhy3Data]);
 
 
   const handleUpdate = (path: (string | number)[], value: string) => {

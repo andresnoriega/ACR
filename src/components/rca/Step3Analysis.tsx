@@ -731,8 +731,8 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
 
             {analysisTechnique === 'WhyWhy3' && (
               <FiveWhys3Interactive 
-                ctmData={whyWhy3Data} 
-                onSetCtmData={onSetWhyWhy3Data} 
+                whyWhy3Data={whyWhy3Data} 
+                onSetWhyWhy3Data={onSetWhyWhy3Data} 
               />
             )}
             
