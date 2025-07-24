@@ -91,12 +91,10 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
   const [validationState, setValidationState] = useState<{ path: (string | number)[]; status: Hypothesis['status'] } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
   
-  const [internalData, setInternalData] = useState<CTMData>(() => whyWhy2Data || []);
+  const [internalData, setInternalData] = useState<CTMData>([]);
 
   useEffect(() => {
-    if (whyWhy2Data) {
-      setInternalData(whyWhy2Data);
-    }
+    setInternalData(whyWhy2Data || []);
   }, [whyWhy2Data]);
 
   const updateParentState = (newData: CTMData) => {
@@ -111,18 +109,17 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
     for (let i = 0; i < path.length - 1; i++) {
       current = current[path[i]];
     }
-    const finalKey = path[path.length-1];
-    
+    const finalKey = path[path.length - 1];
+
     if (current && typeof current[finalKey] === 'object' && current[finalKey] !== null) {
-        current[finalKey].description = value;
+      current[finalKey].description = value;
     } else {
-        console.error("Error: el objetivo de la actualización no es un objeto válido.", path, current);
+      console.error("Error: el objetivo de la actualización no es un objeto válido.", path, current);
     }
-    
     updateParentState(newData);
   };
 
-  const handleToggleStatus = (path: (string | number)[], status: 'accepted' | 'rejected' | 'pending') => {
+  const handleToggleStatus = (path: (string | number)[], status: 'accepted' | 'rejected') => {
       const newData = JSON.parse(JSON.stringify(internalData));
       let current: any = newData;
       for (let i = 0; i < path.length - 1; i++) {
@@ -158,30 +155,36 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
     updateParentState(newData);
     setIsProcessingValidation(false);
     setValidationState(null);
-  }, [internalData, validationState, onSetWhyWhy2Data]);
+  }, [internalData, validationState, onSetWhyWhy2Data, updateParentState]);
 
   const handleAdd = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(internalData));
     
-    if (path.length === 0) { // Adding a new FailureMode at the root
-      newData.push({ id: generateClientSideId('fm'), description: 'Nuevo ¿Por qué?', hypotheses: [] });
-    } else {
-      let parent: any = newData;
-      for (let i = 0; i < path.length - 1; i++) {
-        parent = parent[path[i]];
-      }
-      const containerObject = parent[path[path.length-1]];
-
-      if(containerObject && typeof containerObject === 'object') {
-        if (!Array.isArray(containerObject.hypotheses)) {
-          containerObject.hypotheses = [];
-        }
-        containerObject.hypotheses.push({ id: generateClientSideId('hyp'), description: 'Nuevo Porque', physicalCauses: [], status: 'pending' });
+    if (path.length === 0) {
+      const newWhy = { id: generateClientSideId('fm'), description: `¿Por qué ${focusEventDescription.substring(0,50)}...?`, hypotheses: [] };
+      if (newData.length === 0) {
+        newWhy.description = `¿Por qué ${focusEventDescription.substring(0,50)}...?`;
       } else {
-        console.error("Error: No se pudo encontrar el elemento contenedor para añadir un 'Porque'. Path:", path);
+        const lastWhy = newData[newData.length - 1];
+        const lastBecause = lastWhy.hypotheses.length > 0 ? lastWhy.hypotheses[lastWhy.hypotheses.length -1] : null;
+        if(lastBecause && lastBecause.description) {
+           newWhy.description = `¿Por qué ${lastBecause.description.substring(0,50)}...?`
+        } else {
+           newWhy.description = `Nuevo ¿Por qué? #${newData.length + 1}`;
+        }
+      }
+      newData.push(newWhy);
+    } else {
+      let current = newData;
+      for(let i=0; i<path.length; i++) {
+        current = current[path[i]];
+      }
+      
+      if(current && !Array.isArray(current)) {
+        if (!current.hypotheses) current.hypotheses = [];
+        current.hypotheses.push({ id: generateClientSideId('hyp'), description: 'Nuevo Porque', status: 'pending' });
       }
     }
-
     updateParentState(newData);
   };
 
@@ -235,7 +238,7 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
               <PlusCircle className="mr-2 h-4 w-4" /> Añadir ¿Por qué?
           </Button>
         </div>
-        <div className="flex space-x-4 overflow-x-auto py-2">
+        <div className="flex flex-col space-y-2 overflow-x-auto py-2">
           {internalData.map((fm, fmIndex) => (
             <div key={fm.id} className="min-w-[20rem] flex-shrink-0">
               <Accordion type="single" collapsible defaultValue="item-1">
@@ -276,5 +279,3 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
     </>
   );
 };
-
-    
