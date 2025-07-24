@@ -1,7 +1,8 @@
 
+
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, FiveWhys2Data, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, FiveWhys2Data, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';

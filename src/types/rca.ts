@@ -132,21 +132,7 @@ export interface FailureMode {
 export type CTMData = FailureMode[];
 
 // --- NEW Data Structure for 5 Whys 2.0 (Nested/Recursive) ---
-export interface WhyBecausePair {
-    id: string;
-    because: string; // The "causa" or reason text
-    status?: 'pending' | 'accepted' | 'rejected'; // Status of this specific cause
-    validationMethod?: string; // Justification for the status
-    nextWhy?: WhyNode; // The nested "Why" that asks why this "because" happened
-}
-
-export interface WhyNode {
-    id: string;
-    why: string; // The "why" question text
-    becauses: WhyBecausePair[];
-}
-
-export type FiveWhys2Data = WhyNode[];
+export type FiveWhys2Data = CTMData;
 
 
 export interface DetailedFacts {
