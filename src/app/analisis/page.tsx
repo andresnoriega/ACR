@@ -1548,7 +1548,7 @@ function RCAAnalysisPageComponent() {
           fiveWhysData={fiveWhysData}
           onSetFiveWhysData={setFiveWhysData}
           ctmData={ctmData}
-          onSetCtmData={onSetCtmData}
+          onSetCtmData={setCtmData}
           identifiedRootCauses={identifiedRootCauses}
           onAddIdentifiedRootCause={handleAddIdentifiedRootCause}
           onUpdateIdentifiedRootCause={handleUpdateIdentifiedRootCause}
