@@ -66,7 +66,7 @@ export interface Validation {
   rejectedAt?: string;
 }
 
-export type AnalysisTechnique = '' | 'Ishikawa' | 'WhyWhy' | 'CTM' | 'WhyWhy2';
+export type AnalysisTechnique = '' | 'Ishikawa' | 'WhyWhy' | 'CTM';
 
 export interface IshikawaCause {
   id: string;
@@ -130,10 +130,6 @@ export interface FailureMode {
 }
 
 export type CTMData = FailureMode[];
-
-// --- NEW Data Structure for 5 Whys 2.0 (Nested/Recursive) ---
-export type FiveWhys2Data = CTMData;
-
 
 export interface DetailedFacts {
   quien: string;
@@ -273,7 +269,6 @@ export interface RCAAnalysisDocument {
   ishikawaData: IshikawaData;
   fiveWhysData: FiveWhysData;
   ctmData: CTMData;
-  whyWhy2Data?: FiveWhys2Data; // Changed from CTMData to new type
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
   // From Step 4
