@@ -1,4 +1,5 @@
 
+
 'use client';
 import { FC, useCallback, useMemo, useState, useEffect } from 'react';
 import {
@@ -81,20 +82,19 @@ const CtmValidationDialog: FC<CtmValidationDialogProps> = ({ isOpen, onOpenChang
 
 
 interface CTMInteractiveProps {
-  ctmData: CTMData;
-  onSetCtmData: (data: CTMData) => void;
+  whyWhy3Data: CTMData;
+  onSetWhyWhy3Data: (data: CTMData) => void;
 }
 
 
-export const FiveWhys3Interactive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData }) => {
+export const FiveWhys3Interactive: FC<CTMInteractiveProps> = ({ whyWhy3Data, onSetWhyWhy3Data }) => {
   const [validationState, setValidationState] = useState<{ path: (string | number)[]; status: Hypothesis['status'] } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
   
-  // Lazy state initialization to prevent hydration issues
-  const [internalData, setInternalData] = useState<CTMData>(() => ctmData || []);
+  const [internalData, setInternalData] = useState<CTMData>(() => whyWhy3Data || []);
 
   useEffect(() => {
-      onSetCtmData(internalData);
+      onSetWhyWhy3Data(internalData);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [internalData]);
 
@@ -118,12 +118,10 @@ export const FiveWhys3Interactive: FC<CTMInteractiveProps> = ({ ctmData, onSetCt
       const itemToUpdate = current[path[path.length - 1]];
       
       if (itemToUpdate.status === status) {
-        // If clicking the same status button, toggle back to pending
         itemToUpdate.status = 'pending';
         itemToUpdate.validationMethod = undefined;
         setInternalData(newData);
       } else {
-        // Otherwise, open dialog to confirm new status
         setValidationState({ path, status });
       }
   };
@@ -154,19 +152,18 @@ export const FiveWhys3Interactive: FC<CTMInteractiveProps> = ({ ctmData, onSetCt
     let parent: any = newData;
     let lastKey = path.length > 0 ? path[path.length - 1] : null;
     
-    // Traverse to the parent of the target array
     for (let i = 0; i < path.length - 1; i++) {
       parent = parent[path[i]];
     }
 
-    if (lastKey === null) { // Adding a new FailureMode to the root
+    if (lastKey === null) {
       newData.push({ id: generateClientSideId('fm'), description: 'Nuevo Modo de Falla', hypotheses: [] });
     } else {
       let targetArray;
       if (typeof lastKey === 'string') {
         targetArray = parent[lastKey];
       } else if (typeof lastKey === 'number') {
-        parent = parent[lastKey]; // Move to the object itself
+        parent = parent[lastKey];
         if ('latentCauses' in parent) targetArray = parent.latentCauses;
         else if ('humanCauses' in parent) targetArray = parent.humanCauses;
         else if ('physicalCauses' in parent) targetArray = parent.physicalCauses;
@@ -174,8 +171,7 @@ export const FiveWhys3Interactive: FC<CTMInteractiveProps> = ({ ctmData, onSetCt
       }
       
       if (!Array.isArray(targetArray)) {
-         console.error("Target for adding is not an array", path, parent);
-         return; // Should not happen with corrected logic
+         return;
       }
 
       if ('latentCauses' in parent) {
