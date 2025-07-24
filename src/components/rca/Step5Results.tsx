@@ -2,7 +2,7 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useEffect } from 'react';
-import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile, PreservedFact, Site, InvestigationSession } from '@/types/rca'; // Added PreservedFact, InvestigationSession
+import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile, PreservedFact, Site, InvestigationSession } from '@/types/rca'; // Added PreservedFact, InvestigationSession
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -31,7 +31,6 @@ interface Step5ResultsProps {
   analysisTechnique: AnalysisTechnique;
   analysisTechniqueNotes: string;
   ishikawaData: IshikawaData;
-  fiveWhysData: FiveWhyEntry[];
   ctmData: CTMData;
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
@@ -71,7 +70,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   analysisTechnique,
   analysisTechniqueNotes,
   ishikawaData,
-  fiveWhysData,
   ctmData,
   identifiedRootCauses,
   plannedActions,
@@ -132,16 +130,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     return content;
   };
 
-  const formatFiveWhysForReport = () => {
-    let content = "";
-    fiveWhysData.forEach((entry, index) => {
-      if (entry.why.trim() || entry.because.trim()) {
-        content += `\nNivel ${index + 1}:\n  Por qué?: ${entry.why.trim() || '(No especificado)'}\n  Porque: ${entry.because.trim() || '(No especificado)'}\n`;
-      }
-    });
-    return content;
-  };
-
   const formatCTMForReport = () => {
     const formatLevel = (items: any[], prefix = "", levelName: string): string => {
       let content = "";
@@ -181,7 +169,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     report += `  Análisis Preliminar Realizado:\n  ${analysisDetails || "No se proporcionaron detalles."}\n`;
     report += `  Técnica de Análisis Principal Utilizada: ${analysisTechnique || "No seleccionada"}\n`;
     if (analysisTechnique === 'Ishikawa') report += `  Detalles del Diagrama de Ishikawa:\n${formatIshikawaForReport().replace(/\n/g, '\n  ')}\n`;
-    if (analysisTechnique === 'WhyWhy') report += `  Detalles del Análisis de los 5 Porqués:\n${formatFiveWhysForReport().replace(/\n/g, '\n  ')}\n`;
     if (analysisTechnique === 'CTM') report += `  Detalles del Árbol de Causas (CTM):\n${formatCTMForReport().replace(/\n/g, '\n  ')}\n`;
     if (analysisTechniqueNotes.trim()) report += `  Notas Adicionales del Análisis (${analysisTechnique || 'General'}):\n  ${analysisTechniqueNotes.replace(/\n/g, '\n  ')}\n`;
     report += `\nCAUSAS RAÍZ IDENTIFICADAS:\n`;
@@ -475,12 +462,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                 <>
                   <p className="font-medium mt-2 mb-1">Detalles del Diagrama de Ishikawa:</p>
                   <pre className="pl-2 whitespace-pre-wrap text-xs bg-secondary/30 p-2 rounded-md">{formatIshikawaForReport()}</pre>
-                </>
-              )}
-              {analysisTechnique === 'WhyWhy' && (
-                <>
-                  <p className="font-medium mt-2 mb-1">Detalles del Análisis de los 5 Porqués:</p>
-                  <pre className="pl-2 whitespace-pre-wrap text-xs bg-secondary/30 p-2 rounded-md">{formatFiveWhysForReport()}</pre>
                 </>
               )}
               {analysisTechnique === 'CTM' && (

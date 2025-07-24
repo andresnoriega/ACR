@@ -1,5 +1,4 @@
 
-
 export type EventType = 'Incidente' | 'Accidente' | 'Falla de Equipo' | 'No Conformidad' | 'Evento Operacional' | '';
 export type PriorityType = 'Alta' | 'Media' | 'Baja' | '';
 
@@ -66,7 +65,7 @@ export interface Validation {
   rejectedAt?: string;
 }
 
-export type AnalysisTechnique = '' | 'Ishikawa' | 'WhyWhy' | 'CTM' | 'WhyWhy3';
+export type AnalysisTechnique = '' | 'Ishikawa' | 'CTM';
 
 export interface IshikawaCause {
   id: string;
@@ -82,19 +81,6 @@ export interface IshikawaCategory {
 }
 
 export type IshikawaData = IshikawaCategory[];
-
-
-// --- 5 Whys Data Structure (Linear simple with validation) ---
-export interface FiveWhyEntry {
-  id: string;
-  why: string;
-  because: string;
-  status?: 'pending' | 'accepted' | 'rejected';
-  validationMethod?: string;
-  isRootCause?: boolean;
-}
-
-export type FiveWhysData = FiveWhyEntry[];
 
 
 // --- Tree Structure for CTM ---
@@ -130,7 +116,6 @@ export interface FailureMode {
 }
 
 export type CTMData = FailureMode[];
-export type FiveWhys3Data = CTMData;
 
 
 export interface DetailedFacts {
@@ -269,9 +254,7 @@ export interface RCAAnalysisDocument {
   analysisTechnique: AnalysisTechnique;
   analysisTechniqueNotes: string;
   ishikawaData: IshikawaData;
-  fiveWhysData: FiveWhysData;
   ctmData: CTMData;
-  whyWhy3Data: FiveWhys3Data;
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
   // From Step 4
