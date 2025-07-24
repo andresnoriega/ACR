@@ -1547,7 +1547,7 @@ function RCAAnalysisPageComponent() {
           analysisDetails={analysisDetails}
           onAnalysisDetailsChange={setAnalysisDetails}
           preservedFacts={preservedFacts}
-          onAddPreservedFact={onAddPreservedFact}
+          onAddPreservedFact={handleAddPreservedFact}
           onRemovePreservedFact={handleRemovePreservedFact}
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
