@@ -3,7 +3,7 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useCallback, useEffect } from 'react'; 
-import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhyEntry, CTMData, IdentifiedRootCause, FullUserProfile, BrainstormIdea, BrainstormIdeaType, TimelineEvent, Site, RCAEventData } from '@/types/rca';
+import type { PlannedAction, AnalysisTechnique, IshikawaData, FiveWhyEntry, CTMData, IdentifiedRootCause, FullUserProfile, BrainstormIdea, BrainstormIdeaType, TimelineEvent, Site, RCAEventData, FiveWhys3Data } from '@/types/rca';
 import { BRAINSTORM_IDEA_TYPES } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
 import { CTMInteractive } from './CTMInteractive';
 import { FiveWhysInteractive } from './FiveWhysInteractive'; 
+import { FiveWhys3Interactive } from './FiveWhys3Interactive';
 import TimelineComponent from './TimelineComponent';
 import { useToast } from "@/hooks/use-toast";
 import { sendEmailAction } from '@/app/actions';
@@ -171,6 +172,8 @@ interface Step3AnalysisProps {
   onSetFiveWhysData: (data: FiveWhyEntry[]) => void;
   ctmData: CTMData;
   onSetCtmData: (data: CTMData) => void;
+  whyWhy3Data: FiveWhys3Data;
+  onSetWhyWhy3Data: (data: FiveWhys3Data) => void;
   identifiedRootCauses: IdentifiedRootCause[];
   onAddIdentifiedRootCause: () => void;
   onUpdateIdentifiedRootCause: (id: string, description: string) => void;
@@ -205,6 +208,8 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   onSetFiveWhysData,
   ctmData,
   onSetCtmData,
+  whyWhy3Data,
+  onSetWhyWhy3Data,
   identifiedRootCauses,
   onAddIdentifiedRootCause,
   onUpdateIdentifiedRootCause,
@@ -702,6 +707,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                 <SelectContent>
                   <SelectItem value="Ishikawa"><div className="flex items-center"><Fish className="mr-2 h-4 w-4" />Ishikawa</div></SelectItem>
                   <SelectItem value="WhyWhy"><div className="flex items-center"><HelpCircle className="mr-2 h-4 w-4" />5 Porqués</div></SelectItem>
+                  <SelectItem value="WhyWhy3"><div className="flex items-center"><HelpCircle className="mr-2 h-4 w-4" />5 Porqués 3.0</div></SelectItem>
                   <SelectItem value="CTM"><div className="flex items-center"><CtmIcon className="mr-2 h-4 w-4" />Árbol de Causas (CTM)</div></SelectItem>
                 </SelectContent>
               </Select>
@@ -723,6 +729,13 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
               />
             )}
 
+            {analysisTechnique === 'WhyWhy3' && (
+              <FiveWhys3Interactive 
+                ctmData={whyWhy3Data} 
+                onSetCtmData={onSetWhyWhy3Data} 
+              />
+            )}
+            
             {analysisTechnique === 'CTM' && (
               <CTMInteractive ctmData={ctmData} onSetCtmData={onSetCtmData} />
             )}
