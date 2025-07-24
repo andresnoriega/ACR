@@ -92,8 +92,20 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
   const [internalData, setInternalData] = useState<CTMData>([]);
 
   useEffect(() => {
-    setInternalData(whyWhy2Data || []);
-  }, [whyWhy2Data]);
+    // Initialize with the first "Why" if the data is empty and there's a description
+    if ((!whyWhy2Data || whyWhy2Data.length === 0) && focusEventDescription) {
+        const initialData: CTMData = [{
+            id: generateClientSideId('fm'),
+            description: `¿Por qué ocurrió: "${focusEventDescription.substring(0, 50)}..."?`,
+            hypotheses: []
+        }];
+        setInternalData(initialData);
+        onSetWhyWhy2Data(initialData);
+    } else {
+        setInternalData(whyWhy2Data || []);
+    }
+  }, [whyWhy2Data, focusEventDescription, onSetWhyWhy2Data]);
+
 
   const updateParentState = (newData: CTMData) => {
     setInternalData(newData);
@@ -108,10 +120,10 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
     }
     const finalKey = path[path.length - 1];
     
-    if (typeof current[finalKey] === 'object' && current[finalKey] !== null) {
+    if (current && typeof current[finalKey] === 'object' && current[finalKey] !== null) {
       current[finalKey].description = value;
     } else {
-        console.error("Attempted to update a non-object or null value at path:", path);
+        console.error("Attempted to update a non-object or null value at path:", path, current);
     }
     
     updateParentState(newData);
@@ -161,17 +173,17 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
     if (path.length === 0) {
       newData.push({ id: generateClientSideId('fm'), description: `¿Por qué ocurrió: "${focusEventDescription.substring(0, 50)}..."?`, hypotheses: [] });
     } else {
-      let current: any = newData;
-      // Traverse to the parent object that contains the hypotheses array
-      for (let i = 0; i < path.length; i++) {
-        current = current[path[i]];
+      let parent: any = newData;
+      for (let i = 0; i < path.length - 1; i++) {
+        parent = parent[path[i]];
       }
       
-      if (current && typeof current === 'object') {
-        if (!Array.isArray(current.hypotheses)) {
-          current.hypotheses = [];
+      const containerObject = parent[path[path.length - 1]];
+      if (containerObject && typeof containerObject === 'object') {
+        if (!Array.isArray(containerObject.hypotheses)) {
+          containerObject.hypotheses = [];
         }
-        current.hypotheses.push({ id: generateClientSideId('hyp'), description: 'Nuevo Porque', status: 'pending' });
+        containerObject.hypotheses.push({ id: generateClientSideId('hyp'), description: 'Nuevo Porque', status: 'pending' });
       } else {
         console.error("Error: Could not find the parent element to add a new 'Porque'. Path:", path);
       }
