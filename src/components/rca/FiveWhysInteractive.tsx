@@ -1,4 +1,3 @@
-
 'use client';
 import { FC, ChangeEvent, useState, useEffect, useMemo } from 'react';
 import type { FiveWhysData, FiveWhy } from '@/types/rca';
@@ -118,7 +117,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   const [validationState, setValidationState] = useState<{ investigationIndex: number, entryId: string; status: 'accepted' | 'rejected' } | null>(null);
   const [rootCauseState, setRootCauseState] = useState<{ investigationIndex: number, entryId: string } | null>(null);
 
-
   const handleToggleStatus = (investigationIndex: number, entryId: string, status: 'accepted' | 'rejected') => {
     const investigation = fiveWhysData[investigationIndex];
     if (!investigation) return;
@@ -210,7 +208,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
             {fiveWhysData.map((investigation, investigationIndex) => (
                 <div key={investigationIndex} className="w-[320px] flex-shrink-0 space-y-3">
                     <h4 className="text-sm font-semibold text-center text-muted-foreground border-b pb-1">Investigación #{investigationIndex + 1}</h4>
-                    {investigation.map((entry, entryIndex) => (
+                    {Array.isArray(investigation) && investigation.map((entry, entryIndex) => (
                         <Card key={entry.id} className={cn("p-4 shadow-sm transition-all",
                             entry.status === 'accepted' && 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700',
                             entry.status === 'rejected' && 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 opacity-70',
