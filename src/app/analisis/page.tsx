@@ -1232,16 +1232,20 @@ function RCAAnalysisPageComponent() {
 
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);
-    setAnalysisTechniqueNotes('');
-    if (value === 'Ishikawa') {
-      setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
-    } else if (value === 'WhyWhy') {
+    
+    const isFiveWhysEmpty = !fiveWhysData || fiveWhysData.length === 0 || (fiveWhysData.length === 1 && !fiveWhysData[0].why && !fiveWhysData[0].because);
+    const isIshikawaEmpty = !ishikawaData || ishikawaData.every(cat => cat.causes.length === 0);
+    const isCtmEmpty = !ctmData || ctmData.length === 0;
+
+    if (value === 'WhyWhy' && isFiveWhysEmpty) {
       const newFiveWhysData = JSON.parse(JSON.stringify(initialFiveWhysData));
        if (eventData.focusEventDescription) {
          newFiveWhysData[0].why = `¿Por qué ocurrió: "${eventData.focusEventDescription.substring(0, 70)}${eventData.focusEventDescription.length > 70 ? "..." : ""}"?`;
        }
       setFiveWhysData(newFiveWhysData);
-    } else if (value === 'CTM') {
+    } else if (value === 'Ishikawa' && isIshikawaEmpty) {
+      setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
+    } else if (value === 'CTM' && isCtmEmpty) {
       setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
     }
   };
@@ -1543,7 +1547,7 @@ function RCAAnalysisPageComponent() {
           analysisDetails={analysisDetails}
           onAnalysisDetailsChange={setAnalysisDetails}
           preservedFacts={preservedFacts}
-          onAddPreservedFact={handleAddPreservedFact}
+          onAddPreservedFact={onAddPreservedFact}
           onRemovePreservedFact={handleRemovePreservedFact}
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
