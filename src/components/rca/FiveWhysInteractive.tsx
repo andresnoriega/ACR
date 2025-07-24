@@ -1,4 +1,3 @@
-
 'use client';
 import { FC, ChangeEvent, useState, useEffect } from 'react';
 import type { FiveWhysData, FiveWhy } from '@/types/rca';
@@ -186,7 +185,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
           <HelpCircle className="h-4 w-4" />
           <AlertTitle>¿Cómo usar esta herramienta?</AlertTitle>
           <AlertDescription>
-            Comience preguntando por qué ocurrió el problema. Valide cada causa; si es correcta, continúe con el siguiente "porqué". Si es rechazada, debe corregir o reevaluar la cadena de causalidad.
+            Comience preguntando por qué ocurrió el problema. Valide cada causa; si es correcta, continúe con el siguiente "porqué".
           </AlertDescription>
         </Alert>
         <div className="space-y-3">
