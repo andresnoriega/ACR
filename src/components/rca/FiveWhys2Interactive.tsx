@@ -105,7 +105,16 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
     for (let i = 0; i < path.length - 1; i++) {
       current = current[path[i]];
     }
-    current[path[path.length - 1]] = { ...current[path[path.length - 1]], description: value };
+    const finalKey = path[path.length - 1];
+    
+    // Check if we are updating the description of a FailureMode or a Hypothesis
+    if (typeof current[finalKey] === 'object' && current[finalKey] !== null) {
+      current[finalKey].description = value;
+    } else {
+        // This case should not be hit with correct paths, but as a safeguard.
+        console.error("Attempted to update a non-object or null value at path:", path);
+    }
+    
     setInternalData(newData);
   };
 
@@ -151,18 +160,29 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
 
   const handleAdd = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(internalData));
-    let parent: any = newData;
-    let lastKey = path.length > 0 ? path[path.length - 1] : null;
+    let current: any = newData;
+    const lastKey = path.length > 0 ? path[path.length - 1] : null;
 
     if (lastKey === null) {
       newData.push({ id: generateClientSideId('fm'), description: `¿Por qué ocurrió: "${focusEventDescription.substring(0, 50)}..."?`, hypotheses: [] });
     } else {
-      parent = parent[path[path.length - 1]];
-      if (!parent.hypotheses) parent.hypotheses = [];
-      parent.hypotheses.push({ id: generateClientSideId('hyp'), description: 'Nuevo Porque', physicalCauses: [], status: 'pending' });
+      // Traverse to the parent object
+      for (let i = 0; i < path.length; i++) {
+        current = current[path[i]];
+      }
+      
+      if (current) {
+        if (!current.hypotheses) {
+          current.hypotheses = [];
+        }
+        current.hypotheses.push({ id: generateClientSideId('hyp'), description: 'Nuevo Porque', physicalCauses: [], status: 'pending' });
+      } else {
+        console.error("Error: Could not find the parent element to add a new 'Porque'. Path:", path);
+      }
     }
     setInternalData(newData);
   };
+
 
   const handleRemove = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(internalData));
@@ -183,7 +203,7 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
               <BrainCircuit className="mr-2 h-4 w-4" /> Porque #{hypIndex + 1}
             </Label>
             <div className="flex items-center gap-2 mt-1">
-              <Textarea value={hyp.description} onChange={(e) => handleUpdate([...path, hypIndex], e.target.value)} rows={1} className="text-sm" />
+              <Textarea value={hyp.description} onChange={(e) => handleUpdate([...path, hypIndex, 'description'], e.target.value)} rows={1} className="text-sm" />
               <div className="flex flex-col gap-1">
                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleRemove([...path, hypIndex])}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                 <Button size="icon" variant={hyp.status === 'accepted' ? 'secondary' : 'ghost'} className="h-7 w-7" onClick={() => handleToggleStatus([...path, hypIndex], 'accepted')}><Check className="h-4 w-4 text-green-600"/></Button>
@@ -227,7 +247,7 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
                         <AccordionContent className="pl-2">
                             <div className="space-y-2 p-2 border-l-2">
                                 <Label>Porque...</Label>
-                                <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex], e.target.value)} className="text-sm"/>
+                                <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex, 'description'], e.target.value)} className="text-sm"/>
                                 {renderHypotheses(fm.hypotheses, [fmIndex, 'hypotheses'])}
                             </div>
                         </AccordionContent>
