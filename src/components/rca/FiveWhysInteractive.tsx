@@ -1,6 +1,5 @@
-
 'use client';
-import { FC, ChangeEvent, useState } from 'react';
+import type { FC, ChangeEvent } from 'react';
 import type { FiveWhysData } from '@/types/rca';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
