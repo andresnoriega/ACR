@@ -10,6 +10,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
 
 // --- Validation Dialog ---
 interface ValidationDialogProps {
@@ -140,7 +142,16 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   };
   
   const handleMarkAsRootCause = (entryId: string) => {
-    setRootCauseState({ entryId });
+    const entry = fiveWhysData.find(e => e.id === entryId);
+    if (!entry) return;
+
+    // If it's already a root cause, unmark it directly.
+    if (entry.isRootCause) {
+        onUpdateFiveWhyEntry(entryId, 'isRootCause', false);
+    } else {
+        // Otherwise, open the confirmation dialog.
+        setRootCauseState({ entryId });
+    }
   };
   
   const handleConfirmRootCause = () => {
@@ -166,7 +177,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   }, [fiveWhysData]);
 
   return (
-    <>
+    <TooltipProvider>
       <div className="space-y-4 mt-4 p-4 border rounded-lg shadow-sm bg-background">
         <h3 className="text-lg font-semibold font-headline text-primary">
           Análisis de los 5 Porqués
@@ -216,15 +227,21 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                     Porque... (Causa)
                   </label>
                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="sm" className="h-6 px-1" onClick={() => handleToggleStatus(entry.id, 'accepted')} disabled={!entry.because.trim()}>
-                          <Check className={cn("h-3 w-3", entry.status === 'accepted' ? "text-green-600" : "text-muted-foreground")} />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-6 px-1" onClick={() => handleToggleStatus(entry.id, 'rejected')} disabled={!entry.because.trim()}>
-                          <X className={cn("h-3 w-3", entry.status === 'rejected' ? "text-red-600" : "text-muted-foreground")} />
-                      </Button>
-                      <Button variant="ghost" size="sm" className="h-6 px-1" onClick={() => handleMarkAsRootCause(entry.id)} disabled={entry.status !== 'accepted'}>
-                        <Award className={cn("h-3 w-3", entry.isRootCause ? "text-blue-600" : (entry.status === 'accepted' ? "text-muted-foreground" : "text-muted-foreground/50"))}/>
-                      </Button>
+                      <Tooltip><TooltipTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-6 px-1" onClick={() => handleToggleStatus(entry.id, 'accepted')} disabled={!entry.because.trim()}>
+                            <Check className={cn("h-3 w-3", entry.status === 'accepted' ? "text-green-600" : "text-muted-foreground")} />
+                        </Button>
+                      </TooltipTrigger><TooltipContent><p>Validar Causa</p></TooltipContent></Tooltip>
+                      <Tooltip><TooltipTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-6 px-1" onClick={() => handleToggleStatus(entry.id, 'rejected')} disabled={!entry.because.trim()}>
+                            <X className={cn("h-3 w-3", entry.status === 'rejected' ? "text-red-600" : "text-muted-foreground")} />
+                        </Button>
+                      </TooltipTrigger><TooltipContent><p>Rechazar Causa</p></TooltipContent></Tooltip>
+                      <Tooltip><TooltipTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-6 px-1" onClick={() => handleMarkAsRootCause(entry.id)} disabled={entry.status !== 'accepted'}>
+                          <Award className={cn("h-3 w-3", entry.isRootCause ? "text-blue-600" : (entry.status === 'accepted' ? "text-muted-foreground" : "text-muted-foreground/50"))}/>
+                        </Button>
+                      </TooltipTrigger><TooltipContent><p>{entry.isRootCause ? "Anular Causa Raíz" : "Marcar como Causa Raíz"}</p></TooltipContent></Tooltip>
                    </div>
                 </div>
                 <Textarea
@@ -273,6 +290,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
             onConfirm={handleConfirmRootCause}
         />
       )}
-    </>
+    </TooltipProvider>
   );
 };
