@@ -1280,14 +1280,15 @@ function RCAAnalysisPageComponent() {
 
   const handleUpdateFiveWhyEntry = (investigationIndex: number, entryId: string, field: keyof FiveWhy, value: any) => {
     setFiveWhysData(prev => {
-      const newInvestigations = [...prev];
-      if (newInvestigations[investigationIndex]) {
-        // Create a new array for the specific investigation to update it immutably
-        newInvestigations[investigationIndex] = newInvestigations[investigationIndex].map(entry =>
-          entry.id === entryId ? { ...entry, [field]: value } : entry
-        );
-      }
-      return newInvestigations;
+        return prev.map((investigation, invIndex) => {
+            if (invIndex === investigationIndex) {
+                // Create a new array for the specific investigation to update it immutably
+                return investigation.map(entry => 
+                    entry.id === entryId ? { ...entry, [field]: value } : entry
+                );
+            }
+            return investigation;
+        });
     });
   };
 
@@ -1609,7 +1610,7 @@ function RCAAnalysisPageComponent() {
           onRemoveFiveWhyEntry={handleRemoveFiveWhyEntry}
           onStartNewInvestigation={handleStartNewFiveWhyInvestigation}
           ctmData={ctmData}
-          onSetCtmData={onSetCtmData}
+          onSetCtmData={setCtmData}
           identifiedRootCauses={identifiedRootCauses}
           onAddIdentifiedRootCause={handleAddIdentifiedRootCause}
           onUpdateIdentifiedRootCause={handleUpdateIdentifiedRootCause}
