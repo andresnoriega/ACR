@@ -1,4 +1,3 @@
-
 'use client';
 import { FC, useCallback, useMemo, useState, useEffect } from 'react';
 import {
@@ -7,12 +6,12 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
-import type { CTMData, FailureMode, Hypothesis, PhysicalCause, HumanCause, LatentCause, FiveWhys2Data } from '@/types/rca';
+import type { CTMData, FailureMode, Hypothesis } from '@/types/rca';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
-import { PlusCircle, Trash2, Share2, Check, X, GitBranchPlus, BrainCircuit, Wrench, User, Building, Loader2 } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { PlusCircle, Trash2, Share2, Check, X, BrainCircuit, Loader2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -81,8 +80,8 @@ const CtmValidationDialog: FC<CtmValidationDialogProps> = ({ isOpen, onOpenChang
 
 
 interface FiveWhys2InteractiveProps {
-  whyWhy2Data: FiveWhys2Data;
-  onSetWhyWhy2Data: (data: FiveWhys2Data) => void;
+  whyWhy2Data: CTMData;
+  onSetWhyWhy2Data: (data: CTMData) => void;
   focusEventDescription: string;
 }
 
@@ -90,14 +89,16 @@ interface FiveWhys2InteractiveProps {
 export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Data, onSetWhyWhy2Data, focusEventDescription }) => {
   const [validationState, setValidationState] = useState<{ path: (string | number)[]; status: Hypothesis['status'] } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
-  
-  const [internalData, setInternalData] = useState<CTMData>(() => whyWhy2Data || []);
+  const [internalData, setInternalData] = useState<CTMData>([]);
 
   useEffect(() => {
-    onSetWhyWhy2Data(internalData);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [internalData]);
+    setInternalData(whyWhy2Data || []);
+  }, [whyWhy2Data]);
 
+  const updateParentState = (newData: CTMData) => {
+    setInternalData(newData);
+    onSetWhyWhy2Data(newData);
+  };
 
   const handleUpdate = (path: (string | number)[], value: string) => {
     const newData = JSON.parse(JSON.stringify(internalData));
@@ -107,15 +108,13 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
     }
     const finalKey = path[path.length - 1];
     
-    // Check if we are updating the description of a FailureMode or a Hypothesis
     if (typeof current[finalKey] === 'object' && current[finalKey] !== null) {
       current[finalKey].description = value;
     } else {
-        // This case should not be hit with correct paths, but as a safeguard.
         console.error("Attempted to update a non-object or null value at path:", path);
     }
     
-    setInternalData(newData);
+    updateParentState(newData);
   };
 
   const handleToggleStatus = (path: (string | number)[], status: 'accepted' | 'rejected' | 'pending') => {
@@ -127,12 +126,10 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
       const itemToUpdate = current[path[path.length - 1]];
       
       if (itemToUpdate.status === status) {
-        // If clicking the same status button, toggle back to pending
         itemToUpdate.status = 'pending';
         itemToUpdate.validationMethod = undefined;
-        setInternalData(newData);
+        updateParentState(newData);
       } else {
-        // Otherwise, open dialog to confirm new status
         setValidationState({ path, status });
       }
   };
@@ -153,36 +150,34 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
     itemToUpdate.status = status;
     itemToUpdate.validationMethod = method;
 
-    setInternalData(newData);
+    updateParentState(newData);
     setIsProcessingValidation(false);
     setValidationState(null);
-  }, [internalData, validationState]);
+  }, [internalData, validationState, onSetWhyWhy2Data]);
 
   const handleAdd = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(internalData));
-    let current: any = newData;
-    const lastKey = path.length > 0 ? path[path.length - 1] : null;
-
-    if (lastKey === null) {
+    
+    if (path.length === 0) {
       newData.push({ id: generateClientSideId('fm'), description: `¿Por qué ocurrió: "${focusEventDescription.substring(0, 50)}..."?`, hypotheses: [] });
     } else {
-      // Traverse to the parent object
+      let current: any = newData;
+      // Traverse to the parent object that contains the hypotheses array
       for (let i = 0; i < path.length; i++) {
         current = current[path[i]];
       }
       
-      if (current) {
-        if (!current.hypotheses) {
+      if (current && typeof current === 'object') {
+        if (!Array.isArray(current.hypotheses)) {
           current.hypotheses = [];
         }
-        current.hypotheses.push({ id: generateClientSideId('hyp'), description: 'Nuevo Porque', physicalCauses: [], status: 'pending' });
+        current.hypotheses.push({ id: generateClientSideId('hyp'), description: 'Nuevo Porque', status: 'pending' });
       } else {
         console.error("Error: Could not find the parent element to add a new 'Porque'. Path:", path);
       }
     }
-    setInternalData(newData);
+    updateParentState(newData);
   };
-
 
   const handleRemove = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(internalData));
@@ -192,7 +187,7 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
     }
     const indexToRemove = path[path.length - 1] as number;
     current.splice(indexToRemove, 1);
-    setInternalData(newData);
+    updateParentState(newData);
   };
   
   const renderHypotheses = (hypotheses: Hypothesis[] | undefined, path: (string | number)[]) => (
@@ -227,7 +222,7 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
       <div className="space-y-4 mt-4 p-4 border rounded-lg shadow-sm bg-background">
         <div className="flex justify-between items-center flex-wrap gap-2">
           <h3 className="text-lg font-semibold font-headline text-primary flex items-center">
-            <Share2 className="mr-2 h-5 w-5" /> 5 Porqués 2.0 (Basado en CTM)
+            <Share2 className="mr-2 h-5 w-5" /> 5 Porqués 2.0 (Anidado)
           </h3>
           <Button onClick={() => handleAdd([])} variant="outline" size="sm">
               <PlusCircle className="mr-2 h-4 w-4" /> Añadir ¿Por qué?
@@ -236,11 +231,11 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
         <div className="space-y-4">
           {internalData.map((fm, fmIndex) => (
             <Card key={fm.id} className="bg-card p-3">
-                <Accordion type="single" collapsible defaultValue="item-1">
+                <Accordion type="single" collapsible defaultValue="item-1" className="w-full">
                     <AccordionItem value="item-1" className="border-b-0">
                         <div className="flex items-center w-full">
                             <AccordionTrigger className="flex-grow p-2">
-                                <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> ¿Por qué? #{fmIndex + 1}</span>
+                                <span className="font-semibold flex items-center">¿Por qué? #{fmIndex + 1}</span>
                             </AccordionTrigger>
                             <Button size="icon" variant="ghost" className="h-7 w-7 ml-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemove([fmIndex]);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                         </div>
@@ -264,8 +259,9 @@ export const FiveWhys2Interactive: FC<FiveWhys2InteractiveProps> = ({ whyWhy2Dat
       </div>
       {validationState && (
         <CtmValidationDialog
+          key={validationState.path.join('-')}
           isOpen={!!validationState}
-          onOpenChange={() => setValidationState(null)}
+          onOpenChange={(open) => { if(!open) setValidationState(null); }}
           onConfirm={handleConfirmValidation}
           isProcessing={isProcessingValidation}
         />
