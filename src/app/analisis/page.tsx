@@ -180,7 +180,7 @@ function RCAAnalysisPageComponent() {
   const [ishikawaData, setIshikawaData] = useState<IshikawaData>(initialRCAAnalysisState.ishikawaData);
   const [fiveWhysData, setFiveWhysData] = useState<FiveWhyEntry[]>(initialRCAAnalysisState.fiveWhysData);
   const [ctmData, setCtmData] = useState<CTMData>(initialRCAAnalysisState.ctmData);
-  const [whyWhy3Data, setWhyWhy3Data] = useState<FiveWhys3Data>(initialRCAAnalysisState.whyWhy3Data);
+  const [whyWhy3Data, setWhyWhy3Data] = useState<FiveWhys3Data>(initialRCAAnalysisState.whyWhy3Data || []);
   const [identifiedRootCauses, setIdentifiedRootCauses] = useState<IdentifiedRootCause[]>(initialRCAAnalysisState.identifiedRootCauses);
 
   const [plannedActions, setPlannedActions] = useState<PlannedAction[]>(initialRCAAnalysisState.plannedActions);
