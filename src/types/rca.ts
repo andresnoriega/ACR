@@ -126,7 +126,7 @@ export interface FiveWhy {
   validationMethod?: string;
   isRootCause?: boolean; // To mark the final root cause
 }
-export type FiveWhysData = FiveWhy[][]; // Array of investigations
+export type FiveWhysData = FiveWhy[]; // REVERTED to single array
 
 
 export interface DetailedFacts {
