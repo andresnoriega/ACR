@@ -1286,7 +1286,9 @@ function RCAAnalysisPageComponent() {
 
       if (cause.status === status) {
           // Toggle back to pending if clicking the same status
-          setFiveWhysData(prev => prev.map(c => c.id === causeId ? { ...c, status: 'pending', validationMethod: undefined } : c));
+          const newFiveWhysData = fiveWhysData.map(c => c.id === causeId ? { ...c, status: 'pending', validationMethod: undefined } : c);
+          setFiveWhysData(newFiveWhysData);
+          onSaveAnalysis(false);
       } else {
           setValidationState5Whys({ causeId, status });
       }
@@ -1295,7 +1297,9 @@ function RCAAnalysisPageComponent() {
   const handleConfirm5WhyValidation = (method: string) => {
       if (!validationState5Whys) return;
       const { causeId, status } = validationState5Whys;
-      setFiveWhysData(prev => prev.map(c => c.id === causeId ? { ...c, status, validationMethod: method } : c));
+      const newFiveWhysData = fiveWhysData.map(c => c.id === causeId ? { ...c, status, validationMethod: method } : c);
+      setFiveWhysData(newFiveWhysData);
+      onSaveAnalysis(false);
       setValidationState5Whys(null);
   };
   
@@ -1735,7 +1739,7 @@ function RCAAnalysisPageComponent() {
           isOpen={!!validationState5Whys}
           onOpenChange={() => setValidationState5Whys(null)}
           onConfirm={handleConfirm5WhyValidation}
-          isProcessing={false}
+          isProcessing={isSaving}
         />
       )}
     </>

@@ -724,9 +724,9 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
             {analysisTechnique === 'WhyWhy' && (
                 <FiveWhysInteractive
                   fiveWhysData={fiveWhysData}
-                  onAddFiveWhyEntry={onAddFiveWhyEntry}
-                  onUpdateFiveWhyEntry={onUpdateFiveWhyEntry}
-                  onRemoveFiveWhyEntry={onRemoveFiveWhyEntry}
+                  onAddFiveWhyEntry={handleAddFiveWhyEntry}
+                  onUpdateFiveWhyEntry={handleUpdateFiveWhyEntry}
+                  onRemoveFiveWhyEntry={handleRemoveFiveWhyEntry}
                   onToggleCauseStatus={onToggleCauseStatus}
                   onMarkAsRootCause={onMarkAsRootCause}
                 />
