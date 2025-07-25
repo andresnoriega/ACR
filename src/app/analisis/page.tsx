@@ -1299,7 +1299,7 @@ function RCAAnalysisPageComponent() {
       setValidationState5Whys(null);
   };
   
-  const handleMarkAsRootCause = (description: string) => {
+  const handleMarkAsRootCause = (id: string, description: string) => {
     if (!description || !description.trim()) {
       toast({ title: "Causa Vacía", description: "No se puede añadir una causa raíz sin descripción.", variant: "destructive"});
       return;
@@ -1307,10 +1307,12 @@ function RCAAnalysisPageComponent() {
     const isAlreadyAdded = identifiedRootCauses.some(rc => rc.description === description);
     if (isAlreadyAdded) {
       toast({ title: "Causa Duplicada", description: "Esta causa ya ha sido añadida a la lista de causas raíz.", variant: "default" });
+      setFiveWhysData(prev => prev.map(c => c.id === id ? { ...c, isRootCause: true } : c));
       return;
     }
     const newRootCause = { id: generateClientSideId('rc'), description: description.trim() };
     setIdentifiedRootCauses(prev => [...prev, newRootCause]);
+    setFiveWhysData(prev => prev.map(c => c.id === id ? { ...c, isRootCause: true } : c));
     toast({ title: "Causa Raíz Añadida", description: "La causa ha sido añadida a la lista principal." });
   };
 

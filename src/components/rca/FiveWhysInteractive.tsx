@@ -16,7 +16,7 @@ interface FiveWhysInteractiveProps {
   onUpdateFiveWhyEntry: (id: string, field: keyof Omit<FiveWhy, 'id'>, value: any) => void;
   onRemoveFiveWhyEntry: (id: string) => void;
   onToggleCauseStatus: (id: string, status: 'accepted' | 'rejected') => void;
-  onMarkAsRootCause: (description: string) => void;
+  onMarkAsRootCause: (id: string, description: string) => void;
 }
 
 export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
@@ -30,6 +30,10 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   const canAddNextWhy = (): boolean => {
     if (!fiveWhysData || fiveWhysData.length === 0) return true;
     const lastEntry = fiveWhysData[fiveWhysData.length - 1];
+    // Block adding if the last cause was rejected.
+    if (lastEntry.status === 'rejected') {
+      return false;
+    }
     return lastEntry && lastEntry.because && lastEntry.because.trim() !== '';
   };
   
@@ -50,10 +54,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
         <div className="space-y-3">
             {fiveWhysData.map((entry, entryIndex) => (
-                <Card key={entry.id || entryIndex} className={cn("p-4 shadow-sm transition-all",
-                    entry.status === 'accepted' && 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700',
-                    entry.status === 'rejected' && 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 opacity-70',
-                )}>
+                <Card key={entry.id || entryIndex} className="p-4 shadow-sm transition-all">
                   <CardContent className="p-0 space-y-3">
                       <div className="flex justify-between items-center">
                         <p className="font-semibold text-primary">Paso #{entryIndex + 1}</p>
@@ -71,7 +72,17 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                         <div className="flex justify-between items-center">
                           <label htmlFor={`because-${entry.id}`} className="text-sm font-medium">Porque... (Causa)</label>
                         </div>
-                        <Textarea id={`because-${entry.id}`} value={entry.because} onChange={(e) => onUpdateFiveWhyEntry(entry.id, 'because', e.target.value)} placeholder="Describa la causa..." rows={2} />
+                        <Textarea
+                          id={`because-${entry.id}`}
+                          value={entry.because}
+                          onChange={(e) => onUpdateFiveWhyEntry(entry.id, 'because', e.target.value)}
+                          placeholder="Describa la causa..."
+                          rows={2}
+                          className={cn(
+                            entry.status === 'accepted' && 'bg-green-50 dark:bg-green-900/20',
+                            entry.isRootCause && 'border-blue-500 ring-2 ring-blue-500/50'
+                          )}
+                        />
                         {entry.validationMethod && <p className="text-xs text-muted-foreground italic pt-1">Justificación: {entry.validationMethod}</p>}
                       </div>
                       <div className="flex items-center gap-1 pt-1">
@@ -82,8 +93,8 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                               <X className={cn("h-4 w-4", entry.status === 'rejected' ? "text-red-600" : "text-muted-foreground")} />
                           </Button>
                           {entry.status === 'accepted' && (
-                            <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => onMarkAsRootCause(entry.because)} title="Marcar como Causa Raíz">
-                                <CheckSquare className="h-4 w-4 text-primary" />
+                            <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => onMarkAsRootCause(entry.id, entry.because)} title="Marcar como Causa Raíz">
+                                <CheckSquare className={cn("h-4 w-4", entry.isRootCause ? 'text-blue-600' : 'text-primary')} />
                             </Button>
                           )}
                       </div>
