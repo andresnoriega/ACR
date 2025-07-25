@@ -70,7 +70,7 @@ const BrainstormIdeaSchema = z.object({
 const SuggestRootCausesInputSchema = z.object({
   focusEventDescription: z.string().describe('La descripción principal del evento que se está analizando.'),
   brainstormingIdeas: z.array(BrainstormIdeaSchema).optional().describe('Lista de ideas de lluvia de ideas iniciales, clasificadas por tipo.'), // Changed from brainstormingNotes
-  analysisTechnique: z.enum(['', 'Ishikawa', 'CTM']).describe('La técnica de análisis principal seleccionada.'),
+  analysisTechnique: z.enum(['', 'Ishikawa', 'CTM', 'WhyWhy']).describe('La técnica de análisis principal seleccionada.'),
   analysisTechniqueNotes: z.string().optional().describe('Notas generales o específicas sobre la aplicación de la técnica de análisis.'),
   ishikawaData: IshikawaDataSchema.optional().describe('Datos del diagrama de Ishikawa, si esa fue la técnica utilizada.'),
   ctmData: CTMDataSchema.optional().describe('Datos del Árbol de Causas (CTM), si esa fue la técnica utilizada.'),
