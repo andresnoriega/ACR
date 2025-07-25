@@ -1280,9 +1280,10 @@ function RCAAnalysisPageComponent() {
     setFiveWhysData(prev => {
         const newInvestigations = prev.map((investigation, idx) => {
             if (idx === investigationIndex) {
-                return investigation.map(entry =>
+                const newEntries = investigation.map(entry =>
                     entry.id === entryId ? { ...entry, [field]: value } : entry
                 );
+                return newEntries;
             }
             return investigation;
         });
@@ -1292,11 +1293,19 @@ function RCAAnalysisPageComponent() {
 
   const handleRemoveFiveWhyEntry = (investigationIndex: number, entryId: string) => {
     setFiveWhysData(prev => {
-        const newInvestigations = [...prev];
-        const targetInvestigation = newInvestigations[investigationIndex];
-        if (targetInvestigation) {
-            newInvestigations[investigationIndex] = targetInvestigation.filter(entry => entry.id !== entryId);
+        let newInvestigations = prev.map((investigation, idx) => {
+            if (idx === investigationIndex) {
+                return investigation.filter(entry => entry.id !== entryId);
+            }
+            return investigation;
+        });
+
+        newInvestigations = newInvestigations.filter(investigation => investigation.length > 0);
+
+        if (newInvestigations.length === 0) {
+            return [[]]; // Ensure there's always at least one empty investigation
         }
+        
         return newInvestigations;
     });
   };

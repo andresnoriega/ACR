@@ -200,7 +200,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
           <HelpCircle className="h-4 w-4" />
           <AlertTitle>¿Cómo usar esta herramienta?</AlertTitle>
           <AlertDescription>
-            Comience preguntando por qué ocurrió el problema. Valide cada causa; si es correcta, continúe con el siguiente "porqué". Si una causa es rechazada, puede iniciar una nueva línea de investigación.
+            Comience preguntando por qué ocurrió el problema. Valide cada causa; si es correcta, continúe con el siguiente "porqué".
           </AlertDescription>
         </Alert>
 
