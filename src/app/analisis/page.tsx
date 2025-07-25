@@ -24,6 +24,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { sendEmailAction } from '@/app/actions';
 import { format, parse, isValid, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { ValidationDialog } from '@/components/rca/ValidationDialog';
 
 export const dynamic = 'force-dynamic';
 
@@ -1716,7 +1717,7 @@ function RCAAnalysisPageComponent() {
           isOpen={!!validationState5Whys}
           onOpenChange={() => setValidationState5Whys(null)}
           onConfirm={handleConfirm5WhyValidation}
-          isProcessing={false} // No long running task here
+          isProcessing={false}
         />
       )}
     </>

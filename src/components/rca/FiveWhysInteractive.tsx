@@ -1,74 +1,14 @@
-
 'use client';
-import { FC, useCallback, useState, useEffect } from 'react';
+import type { FC } from 'react';
 import type { FiveWhysData, FiveWhy } from '@/types/rca';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { PlusCircle, Trash2, HelpCircle, Check, X, Loader2 } from 'lucide-react';
+import { PlusCircle, Trash2, HelpCircle, Check, X } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
+import { ValidationDialog } from './ValidationDialog';
 
-// --- Validation Dialog Component (similar to Ishikawa's) ---
-interface ValidationDialogProps {
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
-  onConfirm: (method: string) => void;
-  isProcessing: boolean;
-}
-
-const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onConfirm, isProcessing }) => {
-  const [method, setMethod] = useState('');
-
-  const handleConfirmClick = () => {
-    if (method.trim()) {
-      onConfirm(method);
-    }
-  };
-
-  useEffect(() => {
-    if (isOpen) {
-      setMethod('');
-    }
-  }, [isOpen]);
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Confirmar Validación/Rechazo de Causa</DialogTitle>
-          <DialogDescription>
-            Por favor, ingrese el método o justificación utilizado para validar o rechazar esta causa.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="py-4">
-          <Label htmlFor="whyValidationMethod">Método de Validación/Rechazo <span className="text-destructive">*</span></Label>
-          <Textarea
-            id="whyValidationMethod"
-            value={method}
-            onChange={(e) => setMethod(e.target.value)}
-            placeholder="Ej: Revisión de bitácora, inspección visual, entrevista, etc."
-            className="mt-1"
-          />
-        </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline" disabled={isProcessing}>Cancelar</Button>
-          </DialogClose>
-          <Button onClick={handleConfirmClick} disabled={!method.trim() || isProcessing}>
-            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Confirmar
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-
-// --- Main Component ---
 interface FiveWhysInteractiveProps {
   fiveWhysData: FiveWhysData;
   onAddFiveWhyEntry: () => void;
@@ -84,11 +24,11 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   onRemoveFiveWhyEntry,
   onToggleCauseStatus,
 }) => {
-  const canAddNextWhy = useCallback((): boolean => {
-    if (fiveWhysData.length === 0) return true;
+  const canAddNextWhy = (): boolean => {
+    if (!fiveWhysData || fiveWhysData.length === 0) return true;
     const lastEntry = fiveWhysData[fiveWhysData.length - 1];
     return lastEntry && lastEntry.because && lastEntry.because.trim() !== '';
-  }, [fiveWhysData]);
+  };
   
   return (
       <div className="space-y-4 mt-4 p-4 border rounded-lg shadow-sm bg-background">
