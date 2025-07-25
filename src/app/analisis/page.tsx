@@ -269,11 +269,13 @@ function RCAAnalysisPageComponent() {
         setIshikawaData(data.ishikawaData || JSON.parse(JSON.stringify(initialIshikawaData)));
         
         // Robust handling for fiveWhysData: Check if it's missing or not an array.
+        // THIS IS THE KEY FIX. Ensure it's always a valid array.
         const loadedFiveWhys = data.fiveWhysData;
-        if (!loadedFiveWhys || !Array.isArray(loadedFiveWhys)) {
-          setFiveWhysData(JSON.parse(JSON.stringify(initialFiveWhysData)));
+        if (Array.isArray(loadedFiveWhys)) {
+            setFiveWhysData(loadedFiveWhys);
         } else {
-          setFiveWhysData(loadedFiveWhys);
+            // If it's null, undefined, or not an array, initialize it safely.
+            setFiveWhysData(JSON.parse(JSON.stringify(initialFiveWhysData)));
         }
         
         setCtmData(data.ctmData || JSON.parse(JSON.stringify(initialCTMData)));
@@ -1237,20 +1239,25 @@ function RCAAnalysisPageComponent() {
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);
     
-    const isFiveWhysEmpty = !fiveWhysData || fiveWhysData.length === 0 || (fiveWhysData.length === 1 && !fiveWhysData[0].why && !fiveWhysData[0].because);
-    const isIshikawaEmpty = !ishikawaData || ishikawaData.every(cat => cat.causes.length === 0);
-    const isCtmEmpty = !ctmData || ctmData.length === 0;
-
-    if (value === 'WhyWhy' && isFiveWhysEmpty) {
-      const newFiveWhysData = JSON.parse(JSON.stringify(initialFiveWhysData));
-       if (eventData.focusEventDescription) {
-         newFiveWhysData[0].why = `¿Por qué ocurrió: "${eventData.focusEventDescription.substring(0, 70)}${eventData.focusEventDescription.length > 70 ? "..." : ""}"?`;
-       }
-      setFiveWhysData(newFiveWhysData);
-    } else if (value === 'Ishikawa' && isIshikawaEmpty) {
-      setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
-    } else if (value === 'CTM' && isCtmEmpty) {
-      setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
+    if (value === 'WhyWhy') {
+        const isFiveWhysEmpty = !fiveWhysData || fiveWhysData.length === 0 || (fiveWhysData.length === 1 && !fiveWhysData[0].why && !fiveWhysData[0].because);
+        if (isFiveWhysEmpty) {
+            const newFiveWhysData = JSON.parse(JSON.stringify(initialFiveWhysData));
+            if (eventData.focusEventDescription) {
+                newFiveWhysData[0].why = `¿Por qué ocurrió: "${eventData.focusEventDescription.substring(0, 70)}${eventData.focusEventDescription.length > 70 ? "..." : ""}"?`;
+            }
+            setFiveWhysData(newFiveWhysData);
+        }
+    } else if (value === 'Ishikawa') {
+        const isIshikawaEmpty = !ishikawaData || ishikawaData.every(cat => cat.causes.length === 0);
+        if (isIshikawaEmpty) {
+            setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
+        }
+    } else if (value === 'CTM') {
+        const isCtmEmpty = !ctmData || ctmData.length === 0;
+        if (isCtmEmpty) {
+            setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
+        }
     }
   };
   
