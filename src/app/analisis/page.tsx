@@ -1,7 +1,7 @@
 
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, FiveWhy, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -24,7 +24,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { sendEmailAction } from '@/app/actions';
 import { format, parse, isValid, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ValidationDialog } from '@/components/rca/ValidationDialog';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,10 +42,6 @@ const initialIshikawaData: IshikawaData = [
   { id: 'material', name: 'Material', causes: [] },
   { id: 'measurement', name: 'Medición', causes: [] },
   { id: 'environment', name: 'Medio Ambiente', causes: [] },
-];
-
-const initialFiveWhysData: FiveWhysData = [
-  { id: `5why-0-${Date.now()}`, why: '', because: '', status: 'pending' }
 ];
 
 const initialCTMData: CTMData = [];
@@ -74,7 +69,6 @@ const initialRCAAnalysisState: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedA
   analysisTechnique: '',
   analysisTechniqueNotes: '',
   ishikawaData: JSON.parse(JSON.stringify(initialIshikawaData)),
-  fiveWhysData: JSON.parse(JSON.stringify(initialFiveWhysData)),
   ctmData: JSON.parse(JSON.stringify(initialCTMData)),
   identifiedRootCauses: [],
   plannedActions: [],
@@ -175,7 +169,6 @@ function RCAAnalysisPageComponent() {
   const [analysisTechnique, setAnalysisTechnique] = useState<AnalysisTechnique>(initialRCAAnalysisState.analysisTechnique);
   const [analysisTechniqueNotes, setAnalysisTechniqueNotes] = useState(initialRCAAnalysisState.analysisTechniqueNotes);
   const [ishikawaData, setIshikawaData] = useState<IshikawaData>(JSON.parse(JSON.stringify(initialIshikawaData)));
-  const [fiveWhysData, setFiveWhysData] = useState<FiveWhysData>(JSON.parse(JSON.stringify(initialFiveWhysData)));
   const [ctmData, setCtmData] = useState<CTMData>(JSON.parse(JSON.stringify(initialCTMData)));
   const [identifiedRootCauses, setIdentifiedRootCauses] = useState<IdentifiedRootCause[]>(initialRCAAnalysisState.identifiedRootCauses);
 
@@ -192,8 +185,6 @@ function RCAAnalysisPageComponent() {
   const [currentEventStatus, setCurrentEventStatus] = useState<ReportedEventStatus>('Pendiente');
   const [rejectionDetails, setRejectionDetails] = useState<RejectionDetails | undefined>(initialRCAAnalysisState.rejectionDetails);
   const [createdBy, setCreatedBy] = useState<string | undefined>(initialRCAAnalysisState.createdBy);
-
-  const [validationState5Whys, setValidationState5Whys] = useState<{ causeId: string; status: 'accepted' | 'rejected' } | null>(null);
 
 
   const loadAnalysisData = useCallback(async (id: string): Promise<boolean> => {
@@ -270,17 +261,6 @@ function RCAAnalysisPageComponent() {
         setAnalysisTechnique(data.analysisTechnique || '');
         setAnalysisTechniqueNotes(data.analysisTechniqueNotes || '');
         setIshikawaData(data.ishikawaData || JSON.parse(JSON.stringify(initialIshikawaData)));
-        
-        // Robust handling for fiveWhysData: Check if it's missing or not an array.
-        // THIS IS THE KEY FIX. Ensure it's always a valid array.
-        const loadedFiveWhys = data.fiveWhysData;
-        if (Array.isArray(loadedFiveWhys) && loadedFiveWhys.length > 0) {
-            setFiveWhysData(loadedFiveWhys);
-        } else {
-            // If it's null, undefined, or not an array, initialize it safely.
-            setFiveWhysData(JSON.parse(JSON.stringify(initialFiveWhysData)));
-        }
-        
         setCtmData(data.ctmData || JSON.parse(JSON.stringify(initialCTMData)));
         setIdentifiedRootCauses(data.identifiedRootCauses || []);
 
@@ -334,7 +314,6 @@ function RCAAnalysisPageComponent() {
             setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
             setAnalysisTechniqueNotes(initialRCAAnalysisState.analysisTechniqueNotes);
             setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
-            setFiveWhysData(JSON.parse(JSON.stringify(initialFiveWhysData)));
             setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
             setIdentifiedRootCauses(initialRCAAnalysisState.identifiedRootCauses);
             setPlannedActions(initialRCAAnalysisState.plannedActions);
@@ -369,7 +348,6 @@ function RCAAnalysisPageComponent() {
         setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
         setAnalysisTechniqueNotes(initialRCAAnalysisState.analysisTechniqueNotes);
         setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
-        setFiveWhysData(JSON.parse(JSON.stringify(initialFiveWhysData)));
         setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
         setIdentifiedRootCauses(initialRCAAnalysisState.identifiedRootCauses);
         setPlannedActions(initialRCAAnalysisState.plannedActions);
@@ -438,7 +416,6 @@ function RCAAnalysisPageComponent() {
             setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
             setAnalysisTechniqueNotes(initialRCAAnalysisState.analysisTechniqueNotes);
             setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
-            setFiveWhysData(JSON.parse(JSON.stringify(initialFiveWhysData)));
             setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
             setIdentifiedRootCauses(initialRCAAnalysisState.identifiedRootCauses);
             setPlannedActions(initialRCAAnalysisState.plannedActions);
@@ -579,7 +556,7 @@ function RCAAnalysisPageComponent() {
     const rcaDocPayload: Partial<RCAAnalysisDocument> = {
       eventData: consistentEventData, immediateActions, projectLeader, detailedFacts, investigationObjective, investigationSessions, analysisDetails,
       preservedFacts, timelineEvents, brainstormingIdeas, analysisTechnique, analysisTechniqueNotes, ishikawaData,
-      fiveWhysData, ctmData, identifiedRootCauses, 
+      ctmData, identifiedRootCauses, 
       plannedActions: (plannedActionsOverride !== undefined) ? plannedActionsOverride : plannedActions,
       validations: (validationsOverride !== undefined) ? validationsOverride : validations,
       finalComments, isFinalized: currentIsFinalized,
@@ -1242,16 +1219,7 @@ function RCAAnalysisPageComponent() {
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);
     
-    if (value === 'WhyWhy') {
-        const isFiveWhysEmpty = !fiveWhysData || fiveWhysData.length === 0 || (fiveWhysData.length === 1 && !fiveWhysData[0].why && !fiveWhysData[0].because);
-        if (isFiveWhysEmpty) {
-            const newFiveWhysData = JSON.parse(JSON.stringify(initialFiveWhysData));
-            if (eventData.focusEventDescription) {
-                newFiveWhysData[0].why = `¿Por qué ocurrió: "${eventData.focusEventDescription.substring(0, 70)}${eventData.focusEventDescription.length > 70 ? "..." : ""}"?`;
-            }
-            setFiveWhysData(newFiveWhysData);
-        }
-    } else if (value === 'Ishikawa') {
+    if (value === 'Ishikawa') {
         const isIshikawaEmpty = !ishikawaData || ishikawaData.every(cat => cat.causes.length === 0);
         if (isIshikawaEmpty) {
             setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
@@ -1263,64 +1231,6 @@ function RCAAnalysisPageComponent() {
         }
     }
   };
-  
-  const handleAddFiveWhyEntry = () => {
-    setFiveWhysData(prev => {
-        const lastEntry = prev.length > 0 ? prev[prev.length - 1] : null;
-        const initialWhy = lastEntry && lastEntry.because ? `¿Por qué: "${lastEntry.because.substring(0, 70)}${lastEntry.because.length > 70 ? "..." : ""}"?` : '';
-        return [...prev, { id: generateClientSideId('5why'), why: initialWhy, because: '', status: 'pending' }];
-    });
-  };
-  
-  const handleUpdateFiveWhyEntry = (id: string, field: keyof Omit<FiveWhy, 'id'>, value: any) => {
-    setFiveWhysData(prev => prev.map(entry => (entry.id === id ? { ...entry, [field]: value } : entry)));
-  };
-  
-  const handleRemoveFiveWhyEntry = (id: string) => {
-    setFiveWhysData(prev => prev.filter(entry => entry.id !== id));
-  };
-
-  const handleToggle5WhyStatus = (causeId: string, status: 'accepted' | 'rejected') => {
-      const cause = fiveWhysData.find(c => c.id === causeId);
-      if (!cause) return;
-
-      if (cause.status === status) {
-          const newFiveWhysData = fiveWhysData.map(c => c.id === causeId ? { ...c, status: 'pending', validationMethod: undefined } : c);
-          setFiveWhysData(newFiveWhysData);
-          handleSaveAnalysisData(false);
-      } else {
-          setValidationState5Whys({ causeId, status });
-      }
-  };
-
-  const handleConfirm5WhyValidation = async (method: string) => {
-      if (!validationState5Whys) return;
-      setIsSaving(true);
-      const { causeId, status } = validationState5Whys;
-      const newFiveWhysData = fiveWhysData.map(c => c.id === causeId ? { ...c, status, validationMethod: method } : c);
-      setFiveWhysData(newFiveWhysData);
-      await handleSaveAnalysisData(false);
-      setValidationState5Whys(null);
-      setIsSaving(false);
-  };
-  
-  const handleMarkAsRootCause = (id: string, description: string) => {
-    if (!description || !description.trim()) {
-      toast({ title: "Causa Vacía", description: "No se puede añadir una causa raíz sin descripción.", variant: "destructive"});
-      return;
-    }
-    const isAlreadyAdded = identifiedRootCauses.some(rc => rc.description === description);
-    if (isAlreadyAdded) {
-      toast({ title: "Causa Duplicada", description: "Esta causa ya ha sido añadida a la lista de causas raíz.", variant: "default" });
-      setFiveWhysData(prev => prev.map(c => c.id === id ? { ...c, isRootCause: true } : c));
-      return;
-    }
-    const newRootCause = { id: generateClientSideId('rc'), description: description.trim() };
-    setIdentifiedRootCauses(prev => [...prev, newRootCause]);
-    setFiveWhysData(prev => prev.map(c => c.id === id ? { ...c, isRootCause: true } : c));
-    toast({ title: "Causa Raíz Añadida", description: "La causa ha sido añadida a la lista principal." });
-  };
-
 
   const handleAddIdentifiedRootCause = () => {
     setIdentifiedRootCauses(prev => [...prev, { id: generateClientSideId('rc'), description: '' }]);
@@ -1624,12 +1534,6 @@ function RCAAnalysisPageComponent() {
           onAnalysisTechniqueNotesChange={setAnalysisTechniqueNotes}
           ishikawaData={ishikawaData}
           onSetIshikawaData={setIshikawaData}
-          fiveWhysData={fiveWhysData}
-          onAddFiveWhyEntry={handleAddFiveWhyEntry}
-          onUpdateFiveWhyEntry={handleUpdateFiveWhyEntry}
-          onRemoveFiveWhyEntry={handleRemoveFiveWhyEntry}
-          onToggleCauseStatus={handleToggle5WhyStatus}
-          onMarkAsRootCause={handleMarkAsRootCause}
           ctmData={ctmData}
           onSetCtmData={setCtmData}
           identifiedRootCauses={identifiedRootCauses}
@@ -1735,14 +1639,6 @@ function RCAAnalysisPageComponent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-       {validationState5Whys && (
-        <ValidationDialog
-          isOpen={!!validationState5Whys}
-          onOpenChange={() => setValidationState5Whys(null)}
-          onConfirm={handleConfirm5WhyValidation}
-          isProcessing={isSaving}
-        />
-      )}
     </>
   );
 }

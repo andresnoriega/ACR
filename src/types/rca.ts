@@ -65,7 +65,7 @@ export interface Validation {
   rejectedAt?: string;
 }
 
-export type AnalysisTechnique = '' | 'Ishikawa' | 'CTM' | 'WhyWhy';
+export type AnalysisTechnique = '' | 'Ishikawa' | 'CTM';
 
 export interface IshikawaCause {
   id: string;
@@ -116,18 +116,6 @@ export interface FailureMode {
 }
 
 export type CTMData = FailureMode[];
-
-// --- 5 Whys Structure ---
-export interface FiveWhy {
-  id: string;
-  why: string;
-  because: string;
-  status?: 'pending' | 'accepted' | 'rejected';
-  validationMethod?: string;
-  isRootCause?: boolean; 
-}
-export type FiveWhysData = FiveWhy[];
-
 
 export interface DetailedFacts {
   quien: string;
@@ -265,7 +253,6 @@ export interface RCAAnalysisDocument {
   analysisTechnique: AnalysisTechnique;
   analysisTechniqueNotes: string;
   ishikawaData: IshikawaData;
-  fiveWhysData: FiveWhysData;
   ctmData: CTMData;
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
