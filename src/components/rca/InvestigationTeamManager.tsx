@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, type FC, useMemo } from 'react';
@@ -93,15 +92,15 @@ export const InvestigationTeamManager: FC<InvestigationTeamManagerProps> = ({ se
       sessionDate: new Date().toISOString().split('T')[0],
       members: [],
     };
-    onSetSessions([...sessions, newSession]);
+    onSetSessions([...(sessions || []), newSession]);
   };
 
   const handleUpdateSessionDate = (sessionId: string, date: string) => {
-    onSetSessions(sessions.map(s => s.id === sessionId ? { ...s, sessionDate: date } : s));
+    onSetSessions((sessions || []).map(s => s.id === sessionId ? { ...s, sessionDate: date } : s));
   };
 
   const handleRemoveSession = (sessionId: string) => {
-    onSetSessions(sessions.filter(s => s.id !== sessionId));
+    onSetSessions((sessions || []).filter(s => s.id !== sessionId));
   };
   
   const handleOpenMemberDialog = (sessionId: string, member: InvestigationTeamMember | null = null) => {
@@ -113,7 +112,7 @@ export const InvestigationTeamManager: FC<InvestigationTeamManagerProps> = ({ se
   const handleSaveMember = (memberData: Omit<InvestigationTeamMember, 'id'>) => {
     if (!editingSessionId) return;
 
-    const newSessions = sessions.map(session => {
+    const newSessions = (sessions || []).map(session => {
       if (session.id === editingSessionId) {
         let updatedMembers;
         if (editingMember) {
@@ -132,7 +131,7 @@ export const InvestigationTeamManager: FC<InvestigationTeamManagerProps> = ({ se
   };
 
   const handleRemoveMember = (sessionId: string, memberId: string) => {
-    const newSessions = sessions.map(session => {
+    const newSessions = (sessions || []).map(session => {
         if (session.id === sessionId) {
             const updatedMembers = session.members.filter(m => m.id !== memberId);
             return { ...session, members: updatedMembers };
@@ -141,6 +140,8 @@ export const InvestigationTeamManager: FC<InvestigationTeamManagerProps> = ({ se
     });
     onSetSessions(newSessions);
   };
+  
+  const safeSessions = Array.isArray(sessions) ? sessions : [];
 
   return (
     <div className="space-y-4 pt-4 border-t">
@@ -148,7 +149,7 @@ export const InvestigationTeamManager: FC<InvestigationTeamManagerProps> = ({ se
         <Users className="mr-2 h-5 w-5 text-primary" />
         Equipo de Investigación
       </h3>
-      {sessions.map((session, sessionIndex) => (
+      {safeSessions.map((session, sessionIndex) => (
         <Card key={session.id} className="p-4 bg-secondary/30">
           <div className="flex justify-between items-center mb-3">
              <div className="flex items-center gap-2">
