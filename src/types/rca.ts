@@ -117,7 +117,7 @@ export interface FailureMode {
 
 export type CTMData = FailureMode[];
 
-// --- 5 Whys Structure (Reverted to simple array) ---
+// --- 5 Whys Structure ---
 export interface FiveWhy {
   id: string;
   why: string;
@@ -126,7 +126,7 @@ export interface FiveWhy {
   validationMethod?: string;
   isRootCause?: boolean; // To mark the final root cause
 }
-export type FiveWhysData = FiveWhy[];
+export type FiveWhysData = FiveWhy[][]; // Array of investigations
 
 
 export interface DetailedFacts {

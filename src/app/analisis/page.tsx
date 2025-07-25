@@ -45,7 +45,7 @@ const initialIshikawaData: IshikawaData = [
 ];
 
 const initialFiveWhysData: FiveWhysData = [
-  { id: `5why-${Date.now()}`, why: '', because: '' }
+  [{ id: `5why-0-${Date.now()}`, why: '', because: '' }]
 ];
 
 const initialCTMData: CTMData = [];
@@ -268,9 +268,18 @@ function RCAAnalysisPageComponent() {
         setAnalysisTechniqueNotes(data.analysisTechniqueNotes || '');
         setIshikawaData(data.ishikawaData || JSON.parse(JSON.stringify(initialIshikawaData)));
         
-        // Robust handling for fiveWhysData
-        const loadedFiveWhys = data.fiveWhysData || JSON.parse(JSON.stringify(initialFiveWhysData));
-        setFiveWhysData(loadedFiveWhys);
+        // Robust handling for fiveWhysData: Check if it's the old format and migrate it.
+        const loadedFiveWhys = data.fiveWhysData;
+        if (!loadedFiveWhys || !Array.isArray(loadedFiveWhys) || (loadedFiveWhys.length > 0 && !Array.isArray(loadedFiveWhys[0]))) {
+          // It's either missing, not an array, or is the old format (array of objects).
+          // Wrap it in an array to migrate to the new format (array of arrays).
+          // If it was null/undefined, this results in [[]] or [[...old data...]]
+          const migratedData = loadedFiveWhys ? [loadedFiveWhys as unknown as FiveWhy[]] : [[]];
+          setFiveWhysData(migratedData);
+        } else {
+          // Data is already in the correct format (FiveWhy[][]) or is an empty array [] which is also valid.
+          setFiveWhysData(loadedFiveWhys as FiveWhy[][]);
+        }
         
         setCtmData(data.ctmData || JSON.parse(JSON.stringify(initialCTMData)));
         setIdentifiedRootCauses(data.identifiedRootCauses || []);
@@ -1233,14 +1242,14 @@ function RCAAnalysisPageComponent() {
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);
     
-    const isFiveWhysEmpty = !fiveWhysData || fiveWhysData.length === 0 || (fiveWhysData.length === 1 && !fiveWhysData[0].why && !fiveWhysData[0].because);
+    const isFiveWhysEmpty = !fiveWhysData || fiveWhysData.length === 0 || (fiveWhysData.length === 1 && fiveWhysData[0].length === 0) || (fiveWhysData[0].length === 1 && !fiveWhysData[0][0].why && !fiveWhysData[0][0].because);
     const isIshikawaEmpty = !ishikawaData || ishikawaData.every(cat => cat.causes.length === 0);
     const isCtmEmpty = !ctmData || ctmData.length === 0;
 
     if (value === 'WhyWhy' && isFiveWhysEmpty) {
       const newFiveWhysData = JSON.parse(JSON.stringify(initialFiveWhysData));
        if (eventData.focusEventDescription) {
-         newFiveWhysData[0].why = `¿Por qué ocurrió: "${eventData.focusEventDescription.substring(0, 70)}${eventData.focusEventDescription.length > 70 ? "..." : ""}"?`;
+         newFiveWhysData[0][0].why = `¿Por qué ocurrió: "${eventData.focusEventDescription.substring(0, 70)}${eventData.focusEventDescription.length > 70 ? "..." : ""}"?`;
        }
       setFiveWhysData(newFiveWhysData);
     } else if (value === 'Ishikawa' && isIshikawaEmpty) {
@@ -1254,20 +1263,46 @@ function RCAAnalysisPageComponent() {
     setCtmData(newData);
   };
   
-  const handleAddFiveWhyEntry = () => {
+  const handleAddFiveWhyEntry = (investigationIndex: number) => {
     setFiveWhysData(prev => {
-      const lastEntry = prev.length > 0 ? prev[prev.length - 1] : null;
-      const initialWhy = lastEntry && lastEntry.because ? `¿Por qué: "${lastEntry.because.substring(0, 70)}${lastEntry.because.length > 70 ? "..." : ""}"?` : '';
-      return [...prev, { id: `5why-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, why: initialWhy, because: '' }];
+        const newInvestigations = [...prev];
+        const targetInvestigation = newInvestigations[investigationIndex];
+        if(targetInvestigation) {
+            const lastEntry = targetInvestigation.length > 0 ? targetInvestigation[targetInvestigation.length - 1] : null;
+            const initialWhy = lastEntry && lastEntry.because ? `¿Por qué: "${lastEntry.because.substring(0, 70)}${lastEntry.because.length > 70 ? "..." : ""}"?` : '';
+            targetInvestigation.push({ id: `5why-${investigationIndex}-${Date.now()}`, why: initialWhy, because: '' });
+        }
+        return newInvestigations;
     });
   };
 
-  const handleUpdateFiveWhyEntry = (id: string, field: keyof FiveWhy, value: any) => {
-    setFiveWhysData(prev => prev.map(entry => entry.id === id ? { ...entry, [field]: value } : entry));
+  const handleUpdateFiveWhyEntry = (investigationIndex: number, entryId: string, field: keyof FiveWhy, value: any) => {
+    setFiveWhysData(prev => {
+        const newInvestigations = prev.map((investigation, idx) => {
+            if (idx === investigationIndex) {
+                return investigation.map(entry =>
+                    entry.id === entryId ? { ...entry, [field]: value } : entry
+                );
+            }
+            return investigation;
+        });
+        return newInvestigations;
+    });
   };
 
-  const handleRemoveFiveWhyEntry = (id: string) => {
-    setFiveWhysData(prev => prev.filter(entry => entry.id !== id));
+  const handleRemoveFiveWhyEntry = (investigationIndex: number, entryId: string) => {
+    setFiveWhysData(prev => {
+        const newInvestigations = [...prev];
+        const targetInvestigation = newInvestigations[investigationIndex];
+        if (targetInvestigation) {
+            newInvestigations[investigationIndex] = targetInvestigation.filter(entry => entry.id !== entryId);
+        }
+        return newInvestigations;
+    });
+  };
+  
+  const handleStartNewFiveWhyInvestigation = () => {
+      setFiveWhysData(prev => [...prev, [{ id: `5why-${prev.length}-${Date.now()}`, why: '', because: '' }]]);
   };
 
 
@@ -1577,7 +1612,7 @@ function RCAAnalysisPageComponent() {
           onAddFiveWhyEntry={handleAddFiveWhyEntry}
           onUpdateFiveWhyEntry={handleUpdateFiveWhyEntry}
           onRemoveFiveWhyEntry={handleRemoveFiveWhyEntry}
-          onStartNewInvestigation={() => {}}
+          onStartNewInvestigation={handleStartNewFiveWhyInvestigation}
           ctmData={ctmData}
           onSetCtmData={setCtmData}
           identifiedRootCauses={identifiedRootCauses}
