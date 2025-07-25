@@ -1298,6 +1298,21 @@ function RCAAnalysisPageComponent() {
       setFiveWhysData(prev => prev.map(c => c.id === causeId ? { ...c, status, validationMethod: method } : c));
       setValidationState5Whys(null);
   };
+  
+  const handleMarkAsRootCause = (description: string) => {
+    if (!description || !description.trim()) {
+      toast({ title: "Causa Vacía", description: "No se puede añadir una causa raíz sin descripción.", variant: "destructive"});
+      return;
+    }
+    const isAlreadyAdded = identifiedRootCauses.some(rc => rc.description === description);
+    if (isAlreadyAdded) {
+      toast({ title: "Causa Duplicada", description: "Esta causa ya ha sido añadida a la lista de causas raíz.", variant: "default" });
+      return;
+    }
+    const newRootCause = { id: generateClientSideId('rc'), description: description.trim() };
+    setIdentifiedRootCauses(prev => [...prev, newRootCause]);
+    toast({ title: "Causa Raíz Añadida", description: "La causa ha sido añadida a la lista principal." });
+  };
 
 
   const handleAddIdentifiedRootCause = () => {
@@ -1607,6 +1622,7 @@ function RCAAnalysisPageComponent() {
           onUpdateFiveWhyEntry={handleUpdateFiveWhyEntry}
           onRemoveFiveWhyEntry={handleRemoveFiveWhyEntry}
           onToggleCauseStatus={handleToggle5WhyStatus}
+          onMarkAsRootCause={handleMarkAsRootCause}
           ctmData={ctmData}
           onSetCtmData={setCtmData}
           identifiedRootCauses={identifiedRootCauses}

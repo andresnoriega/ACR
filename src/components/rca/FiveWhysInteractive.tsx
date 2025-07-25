@@ -1,10 +1,11 @@
+
 'use client';
 import type { FC } from 'react';
 import type { FiveWhysData, FiveWhy } from '@/types/rca';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { PlusCircle, Trash2, HelpCircle, Check, X } from 'lucide-react';
+import { PlusCircle, Trash2, HelpCircle, Check, X, CheckSquare } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { ValidationDialog } from './ValidationDialog';
@@ -15,6 +16,7 @@ interface FiveWhysInteractiveProps {
   onUpdateFiveWhyEntry: (id: string, field: keyof Omit<FiveWhy, 'id'>, value: any) => void;
   onRemoveFiveWhyEntry: (id: string) => void;
   onToggleCauseStatus: (id: string, status: 'accepted' | 'rejected') => void;
+  onMarkAsRootCause: (description: string) => void;
 }
 
 export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
@@ -23,6 +25,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   onUpdateFiveWhyEntry,
   onRemoveFiveWhyEntry,
   onToggleCauseStatus,
+  onMarkAsRootCause,
 }) => {
   const canAddNextWhy = (): boolean => {
     if (!fiveWhysData || fiveWhysData.length === 0) return true;
@@ -41,7 +44,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
           <HelpCircle className="h-4 w-4" />
           <AlertTitle>¿Cómo usar esta herramienta?</AlertTitle>
           <AlertDescription>
-            Comience preguntando por qué ocurrió el problema. Valide cada causa; si es correcta, continúe con el siguiente "porqué".
+            Comience preguntando por qué ocurrió el problema. Valide cada causa; si es correcta (✓), puede marcarla como causa raíz (☑) para añadirla a la lista principal.
           </AlertDescription>
         </Alert>
 
@@ -78,6 +81,11 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                           <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => onToggleCauseStatus(entry.id, 'rejected')} title="Rechazar Causa">
                               <X className={cn("h-4 w-4", entry.status === 'rejected' ? "text-red-600" : "text-muted-foreground")} />
                           </Button>
+                          {entry.status === 'accepted' && (
+                            <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => onMarkAsRootCause(entry.because)} title="Marcar como Causa Raíz">
+                                <CheckSquare className="h-4 w-4 text-primary" />
+                            </Button>
+                          )}
                       </div>
                   </CardContent>
                 </Card>
