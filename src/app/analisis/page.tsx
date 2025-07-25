@@ -45,7 +45,7 @@ const initialIshikawaData: IshikawaData = [
 ];
 
 const initialFiveWhysData: FiveWhysData = [
-  { id: `5why-0-${Date.now()}`, why: '', because: '' }
+  { id: `5why-0-${Date.now()}`, why: '', because: '', status: 'pending' }
 ];
 
 const initialCTMData: CTMData = [];
@@ -1265,7 +1265,7 @@ function RCAAnalysisPageComponent() {
     setFiveWhysData(prev => {
         const lastEntry = prev.length > 0 ? prev[prev.length - 1] : null;
         const initialWhy = lastEntry && lastEntry.because ? `¿Por qué: "${lastEntry.because.substring(0, 70)}${lastEntry.because.length > 70 ? "..." : ""}"?` : '';
-        return [...prev, { id: generateClientSideId('5why'), why: initialWhy, because: '' }];
+        return [...prev, { id: generateClientSideId('5why'), why: initialWhy, because: '', status: 'pending' }];
     });
   };
   
@@ -1275,6 +1275,27 @@ function RCAAnalysisPageComponent() {
   
   const handleRemoveFiveWhyEntry = (id: string) => {
     setFiveWhysData(prev => prev.filter(entry => entry.id !== id));
+  };
+
+  const [validationState5Whys, setValidationState5Whys] = useState<{ causeId: string; status: 'accepted' | 'rejected' } | null>(null);
+
+  const handleToggle5WhyStatus = (causeId: string, status: 'accepted' | 'rejected') => {
+      const cause = fiveWhysData.find(c => c.id === causeId);
+      if (!cause) return;
+
+      if (cause.status === status) {
+          // Toggle back to pending if clicking the same status
+          setFiveWhysData(prev => prev.map(c => c.id === causeId ? { ...c, status: 'pending', validationMethod: undefined } : c));
+      } else {
+          setValidationState5Whys({ causeId, status });
+      }
+  };
+
+  const handleConfirm5WhyValidation = (method: string) => {
+      if (!validationState5Whys) return;
+      const { causeId, status } = validationState5Whys;
+      setFiveWhysData(prev => prev.map(c => c.id === causeId ? { ...c, status, validationMethod: method } : c));
+      setValidationState5Whys(null);
   };
 
 
@@ -1584,6 +1605,7 @@ function RCAAnalysisPageComponent() {
           onAddFiveWhyEntry={handleAddFiveWhyEntry}
           onUpdateFiveWhyEntry={handleUpdateFiveWhyEntry}
           onRemoveFiveWhyEntry={handleRemoveFiveWhyEntry}
+          onToggleCauseStatus={handleToggle5WhyStatus}
           ctmData={ctmData}
           onSetCtmData={setCtmData}
           identifiedRootCauses={identifiedRootCauses}
@@ -1689,6 +1711,14 @@ function RCAAnalysisPageComponent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+       {validationState5Whys && (
+        <ValidationDialog
+          isOpen={!!validationState5Whys}
+          onOpenChange={() => setValidationState5Whys(null)}
+          onConfirm={handleConfirm5WhyValidation}
+          isProcessing={false} // No long running task here
+        />
+      )}
     </>
   );
 }

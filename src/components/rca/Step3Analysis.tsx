@@ -170,6 +170,7 @@ interface Step3AnalysisProps {
   onAddFiveWhyEntry: () => void;
   onUpdateFiveWhyEntry: (id: string, field: keyof Omit<FiveWhy, 'id'>, value: any) => void;
   onRemoveFiveWhyEntry: (id: string) => void;
+  onToggleCauseStatus: (id: string, status: 'accepted' | 'rejected') => void;
   ctmData: CTMData;
   onSetCtmData: (data: CTMData) => void;
   identifiedRootCauses: IdentifiedRootCause[];
@@ -206,6 +207,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   onAddFiveWhyEntry,
   onUpdateFiveWhyEntry,
   onRemoveFiveWhyEntry,
+  onToggleCauseStatus,
   ctmData,
   onSetCtmData,
   identifiedRootCauses,
@@ -722,6 +724,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                     onAddFiveWhyEntry={onAddFiveWhyEntry}
                     onUpdateFiveWhyEntry={onUpdateFiveWhyEntry}
                     onRemoveFiveWhyEntry={onRemoveFiveWhyEntry}
+                    onToggleCauseStatus={onToggleCauseStatus}
                 />
             )}
 

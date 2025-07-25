@@ -124,7 +124,6 @@ export interface FiveWhy {
   because: string;
   status?: 'pending' | 'accepted' | 'rejected';
   validationMethod?: string;
-  isRootCause?: boolean; // To mark the final root cause
 }
 export type FiveWhysData = FiveWhy[];
 
