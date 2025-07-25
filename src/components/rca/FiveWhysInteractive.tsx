@@ -201,6 +201,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
           <AlertTitle>¿Cómo usar esta herramienta?</AlertTitle>
           <AlertDescription>
             Comience preguntando por qué ocurrió el problema. Valide cada causa; si es correcta, continúe con el siguiente "porqué".
+            Si es rechazada, puede iniciar una nueva línea de investigación.
           </AlertDescription>
         </Alert>
 
@@ -312,3 +313,5 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     </TooltipProvider>
   );
 };
+
+    

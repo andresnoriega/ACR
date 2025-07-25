@@ -1278,16 +1278,15 @@ function RCAAnalysisPageComponent() {
 
   const handleUpdateFiveWhyEntry = (investigationIndex: number, entryId: string, field: keyof FiveWhy, value: any) => {
     setFiveWhysData(prev => {
-        const newInvestigations = prev.map((investigation, idx) => {
+        return prev.map((investigation, idx) => {
             if (idx === investigationIndex) {
-                const newEntries = investigation.map(entry =>
+                // This was the error: it returned the modified entry instead of the full investigation array
+                return investigation.map(entry =>
                     entry.id === entryId ? { ...entry, [field]: value } : entry
                 );
-                return newEntries;
             }
             return investigation;
         });
-        return newInvestigations;
     });
   };
 
@@ -1743,3 +1742,5 @@ export default function RCAAnalysisPage() {
     </Suspense>
   );
 }
+
+    
