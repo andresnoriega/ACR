@@ -171,7 +171,7 @@ interface Step3AnalysisProps {
   onUpdateFiveWhyEntry: (id: string, field: keyof Omit<FiveWhy, 'id'>, value: any) => void;
   onRemoveFiveWhyEntry: (id: string) => void;
   onToggleCauseStatus: (id: string, status: 'accepted' | 'rejected') => void;
-  onMarkAsRootCause: (description: string) => void; // New prop
+  onMarkAsRootCause: (id: string, description: string) => void;
   ctmData: CTMData;
   onSetCtmData: (data: CTMData) => void;
   identifiedRootCauses: IdentifiedRootCause[];
@@ -559,6 +559,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
         analysisTechniqueNotes: analysisTechniqueNotes || undefined,
         ishikawaData: analysisTechnique === 'Ishikawa' ? ishikawaData : undefined,
         ctmData: analysisTechnique === 'CTM' ? ctmData : undefined,
+        fiveWhysData: analysisTechnique === 'WhyWhy' ? fiveWhysData : undefined,
       };
       const result = await suggestRootCauses(input);
       if (result && result.suggestedRootCauses && result.suggestedRootCauses.length > 0) {
@@ -721,13 +722,13 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
             )}
             
             {analysisTechnique === 'WhyWhy' && (
-                <FiveWhysInteractive 
-                    fiveWhysData={fiveWhysData}
-                    onAddFiveWhyEntry={onAddFiveWhyEntry}
-                    onUpdateFiveWhyEntry={onUpdateFiveWhyEntry}
-                    onRemoveFiveWhyEntry={onRemoveFiveWhyEntry}
-                    onToggleCauseStatus={onToggleCauseStatus}
-                    onMarkAsRootCause={onMarkAsRootCause}
+                <FiveWhysInteractive
+                  fiveWhysData={fiveWhysData}
+                  onAddFiveWhyEntry={onAddFiveWhyEntry}
+                  onUpdateFiveWhyEntry={onUpdateFiveWhyEntry}
+                  onRemoveFiveWhyEntry={onRemoveFiveWhyEntry}
+                  onToggleCauseStatus={onToggleCauseStatus}
+                  onMarkAsRootCause={onMarkAsRootCause}
                 />
             )}
 
