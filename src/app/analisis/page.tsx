@@ -174,9 +174,9 @@ function RCAAnalysisPageComponent() {
   const [brainstormingIdeas, setBrainstormingIdeas] = useState<BrainstormIdea[]>(initialRCAAnalysisState.brainstormingIdeas || []);
   const [analysisTechnique, setAnalysisTechnique] = useState<AnalysisTechnique>(initialRCAAnalysisState.analysisTechnique);
   const [analysisTechniqueNotes, setAnalysisTechniqueNotes] = useState(initialRCAAnalysisState.analysisTechniqueNotes);
-  const [ishikawaData, setIshikawaData] = useState<IshikawaData>(initialRCAAnalysisState.ishikawaData);
-  const [fiveWhysData, setFiveWhysData] = useState<FiveWhysData>(initialRCAAnalysisState.fiveWhysData);
-  const [ctmData, setCtmData] = useState<CTMData>(initialRCAAnalysisState.ctmData);
+  const [ishikawaData, setIshikawaData] = useState<IshikawaData>(JSON.parse(JSON.stringify(initialIshikawaData)));
+  const [fiveWhysData, setFiveWhysData] = useState<FiveWhysData>(JSON.parse(JSON.stringify(initialFiveWhysData)));
+  const [ctmData, setCtmData] = useState<CTMData>(JSON.parse(JSON.stringify(initialCTMData)));
   const [identifiedRootCauses, setIdentifiedRootCauses] = useState<IdentifiedRootCause[]>(initialRCAAnalysisState.identifiedRootCauses);
 
   const [plannedActions, setPlannedActions] = useState<PlannedAction[]>(initialRCAAnalysisState.plannedActions);
@@ -192,6 +192,8 @@ function RCAAnalysisPageComponent() {
   const [currentEventStatus, setCurrentEventStatus] = useState<ReportedEventStatus>('Pendiente');
   const [rejectionDetails, setRejectionDetails] = useState<RejectionDetails | undefined>(initialRCAAnalysisState.rejectionDetails);
   const [createdBy, setCreatedBy] = useState<string | undefined>(initialRCAAnalysisState.createdBy);
+
+  const [validationState5Whys, setValidationState5Whys] = useState<{ causeId: string; status: 'accepted' | 'rejected' } | null>(null);
 
 
   const loadAnalysisData = useCallback(async (id: string): Promise<boolean> => {
@@ -272,7 +274,7 @@ function RCAAnalysisPageComponent() {
         // Robust handling for fiveWhysData: Check if it's missing or not an array.
         // THIS IS THE KEY FIX. Ensure it's always a valid array.
         const loadedFiveWhys = data.fiveWhysData;
-        if (Array.isArray(loadedFiveWhys)) {
+        if (Array.isArray(loadedFiveWhys) && loadedFiveWhys.length > 0) {
             setFiveWhysData(loadedFiveWhys);
         } else {
             // If it's null, undefined, or not an array, initialize it safely.
@@ -1277,8 +1279,6 @@ function RCAAnalysisPageComponent() {
   const handleRemoveFiveWhyEntry = (id: string) => {
     setFiveWhysData(prev => prev.filter(entry => entry.id !== id));
   };
-
-  const [validationState5Whys, setValidationState5Whys] = useState<{ causeId: string; status: 'accepted' | 'rejected' } | null>(null);
 
   const handleToggle5WhyStatus = (causeId: string, status: 'accepted' | 'rejected') => {
       const cause = fiveWhysData.find(c => c.id === causeId);
