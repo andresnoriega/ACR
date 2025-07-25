@@ -1285,7 +1285,6 @@ function RCAAnalysisPageComponent() {
       if (!cause) return;
 
       if (cause.status === status) {
-          // Toggle back to pending if clicking the same status
           const newFiveWhysData = fiveWhysData.map(c => c.id === causeId ? { ...c, status: 'pending', validationMethod: undefined } : c);
           setFiveWhysData(newFiveWhysData);
           handleSaveAnalysisData(false);
@@ -1294,13 +1293,15 @@ function RCAAnalysisPageComponent() {
       }
   };
 
-  const handleConfirm5WhyValidation = (method: string) => {
+  const handleConfirm5WhyValidation = async (method: string) => {
       if (!validationState5Whys) return;
+      setIsSaving(true);
       const { causeId, status } = validationState5Whys;
       const newFiveWhysData = fiveWhysData.map(c => c.id === causeId ? { ...c, status, validationMethod: method } : c);
       setFiveWhysData(newFiveWhysData);
-      handleSaveAnalysisData(false);
+      await handleSaveAnalysisData(false);
       setValidationState5Whys(null);
+      setIsSaving(false);
   };
   
   const handleMarkAsRootCause = (id: string, description: string) => {

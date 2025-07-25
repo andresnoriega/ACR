@@ -1,3 +1,4 @@
+
 'use client';
 import type { FC } from 'react';
 import { useState, useEffect } from 'react';
@@ -41,7 +42,7 @@ export const ValidationDialog: FC<ValidationDialogProps> = ({
   }, [isOpen]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={open => { if(!isProcessing) onOpenChange(open); }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
