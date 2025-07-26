@@ -93,12 +93,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   const [internalData, setInternalData] = useState<CTMData>([]);
   
   useEffect(() => {
-    // Only sync if the external data has fundamentally changed (e.g. loading a new analysis)
-    // This check is simplistic but helps prevent overwrites. A more robust check might involve deep comparison or versioning.
-    if (JSON.stringify(ctm2Data) !== JSON.stringify(internalData)) {
-      setInternalData(Array.isArray(ctm2Data) ? ctm2Data : []);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    setInternalData(Array.isArray(ctm2Data) ? ctm2Data : []);
   }, [ctm2Data]);
 
 
@@ -109,8 +104,18 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
       current = current[path[i]];
     }
     const finalKey = path[path.length - 1];
-    current[finalKey] = { ...current[finalKey], description: value };
 
+    if (typeof finalKey === 'string' && finalKey === 'description' && typeof current === 'object' && current !== null) {
+        current.description = value;
+    } else if (typeof current[finalKey] === 'object' && current[finalKey] !== null) {
+        current[finalKey] = { ...current[finalKey], description: value };
+    } else {
+        // This case might be for direct value update, which shouldn't happen with objects.
+        // It's safer to handle the primary object case.
+        console.error("Attempted to update a non-object or complex path incorrectly.");
+        return;
+    }
+    
     setInternalData(newData);
     onSetCtm2Data(newData);
   };
@@ -149,8 +154,10 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     const finalKey = path[path.length - 1];
     const itemToUpdate = parent[finalKey];
     
-    itemToUpdate.status = status;
-    itemToUpdate.validationMethod = method;
+    if (itemToUpdate) {
+      itemToUpdate.status = status;
+      itemToUpdate.validationMethod = method;
+    }
 
     setInternalData(newData);
     onSetCtm2Data(newData);
@@ -161,7 +168,14 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   const handleAdd = (path: (string | number)[]) => {
     const newData: CTMData = JSON.parse(JSON.stringify(internalData));
     
-    // Case 1: Add new top-level "Por Qué" from an approved cause.
+    if (path.length === 0) { // Main "Añadir Por Qué" button
+        newData.push({ id: generateClientSideId('fm'), description: 'Nuevo Por Qué', hypotheses: [] });
+        setInternalData(newData);
+        onSetCtm2Data(newData);
+        return;
+    }
+
+    // Case for adding a new question from an approved cause
     if (path.length === 4 && path[1] === 'hypotheses' && path[3] === 'physicalCauses') {
         const fmIndex = path[0] as number;
         const hypIndex = path[2] as number;
@@ -170,7 +184,8 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
         const hyp = fm?.hypotheses[hypIndex];
         
         if (hyp && hyp.status === 'accepted') {
-            const newWhyDescription = `¿Por qué: "${hyp.description.substring(0, 50)}..."?`;
+            const desc = typeof hyp.description === 'string' ? hyp.description : 'Causa Aprobada';
+            const newWhyDescription = `¿Por qué: "${desc.substring(0, 50)}..."?`;
             newData.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
             setInternalData(newData);
             onSetCtm2Data(newData);
@@ -178,36 +193,32 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
         }
     }
 
-    // Case 2: General "add" logic for other scenarios (add new cause within a question or top-level question).
+    // Generic add for "Porque" inside a question
     let parent: any = newData;
-    
-    if (path.length === 0) { // Top-level button "Añadir Por Qué"
-        newData.push({ id: generateClientSideId('fm'), description: 'Nuevo Por Qué', hypotheses: [] });
-    } else {
-        for (let i = 0; i < path.length - 1; i++) {
-          parent = parent[path[i]];
-        }
-        
-        let targetArray;
-        const lastKey = path[path.length - 1];
-
-        if (typeof lastKey === 'string') {
-          targetArray = parent[lastKey];
-        } else if (typeof lastKey === 'number') {
-          parent = parent[lastKey]; 
-          if ('hypotheses' in parent) targetArray = parent.hypotheses;
-        }
-        
-        if (!Array.isArray(targetArray)) {
-           console.error("Target for adding is not an array", path, parent);
-           return;
-        }
-  
-        if ('hypotheses' in parent) {
-          if (!parent.hypotheses) parent.hypotheses = [];
-          parent.hypotheses.push({ id: generateClientSideId('hyp'), description: 'Nuevo Porque', physicalCauses: [], status: 'pending' });
-        }
+    for (let i = 0; i < path.length - 1; i++) {
+      parent = parent[path[i]];
     }
+    
+    let targetArray;
+    const lastKey = path[path.length - 1];
+
+    if (typeof lastKey === 'string') {
+      targetArray = parent[lastKey];
+    } else if (typeof lastKey === 'number') {
+      parent = parent[lastKey]; 
+      if ('hypotheses' in parent) targetArray = parent.hypotheses;
+    }
+    
+    if (!Array.isArray(targetArray)) {
+       console.error("Target for adding is not an array", path, parent);
+       return;
+    }
+
+    if ('hypotheses' in parent) {
+      if (!parent.hypotheses) parent.hypotheses = [];
+      parent.hypotheses.push({ id: generateClientSideId('hyp'), description: 'Nuevo Porque', physicalCauses: [], status: 'pending' });
+    }
+    
 
     setInternalData(newData);
     onSetCtm2Data(newData);
