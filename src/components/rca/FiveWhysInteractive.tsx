@@ -1,6 +1,5 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
-import { useState, useEffect } from 'react';
 import type { FiveWhysData, FiveWhysEntry, FiveWhysCause } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,26 +19,15 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   onSetFiveWhysData,
 }) => {
   const { toast } = useToast();
-  // Use internal state to avoid directly mutating props
-  const [internalData, setInternalData] = useState<FiveWhysData>(() => fiveWhysData || []);
-
-  // Effect to sync parent changes to internal state
-  useEffect(() => {
-    setInternalData(fiveWhysData);
-  }, [fiveWhysData]);
-
-  // Effect to notify parent of internal changes
-  useEffect(() => {
-    onSetFiveWhysData(internalData);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [internalData]);
 
   const handleAddEntry = () => {
-    const lastEntry = internalData.length > 0 ? internalData[internalData.length - 1] : null;
+    const lastEntry = fiveWhysData.length > 0 ? fiveWhysData[fiveWhysData.length - 1] : null;
     let newWhy = '';
     if (lastEntry && lastEntry.becauses && lastEntry.becauses.length > 0) {
       const lastBecause = lastEntry.becauses[lastEntry.becauses.length - 1];
-      newWhy = `¿Por qué: "${lastBecause.description.substring(0, 70)}..."?`;
+      if (lastBecause && lastBecause.description) {
+        newWhy = `¿Por qué: "${lastBecause.description.substring(0, 70)}..."?`;
+      }
     }
     
     const newEntry: FiveWhysEntry = {
@@ -47,17 +35,18 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       why: newWhy,
       becauses: [{ id: `cause-${Date.now()}`, description: '' }],
     };
-    setInternalData(prev => [...prev, newEntry]);
+    onSetFiveWhysData([...fiveWhysData, newEntry]);
   };
 
   const handleUpdateWhy = (id: string, value: string) => {
-    setInternalData(prev => prev.map(entry =>
+    const newData = fiveWhysData.map(entry =>
       entry.id === id ? { ...entry, why: value } : entry
-    ));
+    );
+    onSetFiveWhysData(newData);
   };
 
   const handleRemoveEntry = (id: string) => {
-    if (internalData.length <= 1) {
+    if (fiveWhysData.length <= 1) {
       toast({
         title: "Acción no permitida",
         description: "Debe haber al menos una entrada en los 5 Porqués.",
@@ -65,40 +54,44 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       });
       return;
     }
-    setInternalData(prev => prev.filter(entry => entry.id !== id));
+    const newData = fiveWhysData.filter(entry => entry.id !== id);
+    onSetFiveWhysData(newData);
   };
   
   const handleAddBecause = (entryId: string) => {
-    setInternalData(prev => prev.map(entry => {
+    const newData = fiveWhysData.map(entry => {
       if (entry.id === entryId) {
         const newBecause: FiveWhysCause = { id: `cause-${Date.now()}`, description: '' };
         const existingBecauses = Array.isArray(entry.becauses) ? entry.becauses : [];
         return { ...entry, becauses: [...existingBecauses, newBecause] };
       }
       return entry;
-    }));
+    });
+    onSetFiveWhysData(newData);
   };
   
   const handleUpdateBecause = (entryId: string, causeId: string, value: string) => {
-    setInternalData(prev => prev.map(entry => {
+    const newData = fiveWhysData.map(entry => {
       if (entry.id === entryId && Array.isArray(entry.becauses)) {
         return { ...entry, becauses: entry.becauses.map(cause =>
           cause.id === causeId ? { ...cause, description: value } : cause
         )};
       }
       return entry;
-    }));
+    });
+    onSetFiveWhysData(newData);
   };
   
   const handleRemoveBecause = (entryId: string, causeId: string) => {
-     setInternalData(prev => prev.map(entry => {
+     const newData = fiveWhysData.map(entry => {
       if (entry.id === entryId && Array.isArray(entry.becauses)) {
         if (entry.becauses.length > 1) {
           return { ...entry, becauses: entry.becauses.filter(cause => cause.id !== causeId) };
         }
       }
       return entry;
-    }));
+    });
+    onSetFiveWhysData(newData);
   };
 
   return (
@@ -107,7 +100,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         <HelpCircle className="mr-2 h-5 w-5" /> 5 Porqués
       </h3>
       <div className="space-y-4">
-        {internalData.map((entry, index) => (
+        {fiveWhysData.map((entry, index) => (
           <Card key={entry.id} className="p-4 bg-secondary/30">
             <div className="flex justify-between items-center mb-2">
               <p className="font-semibold text-primary">Por qué #{index + 1}</p>
