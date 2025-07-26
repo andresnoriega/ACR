@@ -122,7 +122,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                 />
               </div>
               <div className="space-y-2 pt-2">
-                <Label>Porque...</Label>
                 {Array.isArray(entry.becauses) && entry.becauses.map((cause, causeIndex) => (
                   <div key={cause.id} className="pl-4 border-l-2 space-y-1">
                      <Label htmlFor={`because-${entry.id}-${cause.id}`} className="text-xs font-medium">Porque {index + 1}.{causeIndex + 1}</Label>
