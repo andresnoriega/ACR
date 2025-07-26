@@ -1,3 +1,4 @@
+
 'use client';
 import { FC, useCallback, useMemo, useState, useEffect } from 'react';
 import {
@@ -223,7 +224,6 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
           </div>
         </div>
       ))}
-      <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => handleAdd(path)}><PlusCircle className="mr-1 h-3 w-3" /> Añadir C. Latente</Button>
     </div>
   );
 
@@ -241,7 +241,6 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
           {renderLatentCauses(hc.latentCauses, [...path, hcIndex, 'latentCauses'])}
         </div>
       ))}
-      <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => handleAdd(path)}><PlusCircle className="mr-1 h-3 w-3" /> Añadir C. Humana</Button>
     </div>
   );
 
