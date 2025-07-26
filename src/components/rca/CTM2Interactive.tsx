@@ -160,33 +160,31 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   const hasInitialized = useRef(false);
 
   useEffect(() => {
-    // This effect runs only on the client, after hydration.
-    // It ensures that we don't cause a hydration mismatch by modifying the data structure on the first render.
-    if (!hasInitialized.current) {
-        if (!ctm2Data || ctm2Data.length === 0) {
-            const initialWhyDescription = `¿Por qué ocurrió: "${focusEventDescription}"?`;
-            const initialFailureMode: FailureMode = {
-                id: generateClientSideId('fm'),
-                description: initialWhyDescription,
-                hypotheses: [],
-            };
-            onSetCtm2Data([initialFailureMode]);
-        }
-        hasInitialized.current = true;
+    if (!hasInitialized.current && (!ctm2Data || ctm2Data.length === 0)) {
+      const initialWhyDescription = `¿Por qué ocurrió: "${focusEventDescription}"?`;
+      const initialFailureMode: FailureMode = {
+        id: generateClientSideId('fm'),
+        description: initialWhyDescription,
+        hypotheses: [],
+      };
+      onSetCtm2Data([initialFailureMode]);
     }
+    hasInitialized.current = true;
   }, [ctm2Data, onSetCtm2Data, focusEventDescription]);
 
   const handleUpdate = useCallback((path: (string | number)[], value: string) => {
     const newData: CTMData = JSON.parse(JSON.stringify(ctm2Data));
     let current: any = newData;
     
-    for (let i = 0; i < path.length; i++) {
+    // Traverse to the object containing the description.
+    for (let i = 0; i < path.length -1; i++) {
         if (current === undefined) return;
         current = current[path[i]];
     }
+    const finalKey = path[path.length - 1];
 
-    if (current && typeof current === 'object' && 'description' in current) {
-      current.description = value;
+    if (current && typeof current === 'object' && finalKey in current) {
+       current[finalKey].description = value;
     } else {
       console.error("Could not update property. Path:", path, "Current Object:", JSON.parse(JSON.stringify(current)));
     }
@@ -307,7 +305,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
         ) : (
           <div className="flex space-x-4 overflow-x-auto py-2">
             {safeCtm2Data.map((fm, fmIndex) => {
-              const title = `Por Qué #${fmIndex + 1}`; 
+              const title = `Por Qué #1`; 
               return (
                 <div key={fm.id} className="min-w-[22rem] flex-shrink-0">
                     <Accordion type="single" collapsible defaultValue="item-1">
