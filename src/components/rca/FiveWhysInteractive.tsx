@@ -1,8 +1,8 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
+import { useState, useEffect } from 'react';
 import type { FiveWhysData, FiveWhysEntry, FiveWhysCause } from '@/types/rca';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -19,11 +19,24 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   onSetFiveWhysData,
 }) => {
   const { toast } = useToast();
+  // State is now managed internally to prevent state update loops and issues.
+  const [internalData, setInternalData] = useState<FiveWhysData>([]);
+
+  // Effect to synchronize the internal state only when the parent's data changes.
+  useEffect(() => {
+    setInternalData(Array.isArray(fiveWhysData) ? fiveWhysData : []);
+  }, [fiveWhysData]);
+
+  // A single function to update both internal and parent state.
+  const updateData = (newData: FiveWhysData) => {
+    setInternalData(newData);
+    onSetFiveWhysData(newData);
+  };
 
   const handleAddEntry = () => {
-    const lastEntry = fiveWhysData.length > 0 ? fiveWhysData[fiveWhysData.length - 1] : null;
+    const lastEntry = internalData.length > 0 ? internalData[internalData.length - 1] : null;
     let newWhy = '';
-    if (lastEntry && lastEntry.becauses && lastEntry.becauses.length > 0) {
+    if (lastEntry && Array.isArray(lastEntry.becauses) && lastEntry.becauses.length > 0) {
       const lastBecause = lastEntry.becauses[lastEntry.becauses.length - 1];
       if (lastBecause && lastBecause.description) {
         newWhy = `¿Por qué: "${lastBecause.description.substring(0, 70)}..."?`;
@@ -35,18 +48,18 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       why: newWhy,
       becauses: [{ id: `cause-${Date.now()}`, description: '' }],
     };
-    onSetFiveWhysData([...fiveWhysData, newEntry]);
+    updateData([...internalData, newEntry]);
   };
 
   const handleUpdateWhy = (id: string, value: string) => {
-    const newData = fiveWhysData.map(entry =>
+    const newData = internalData.map(entry =>
       entry.id === id ? { ...entry, why: value } : entry
     );
-    onSetFiveWhysData(newData);
+    updateData(newData);
   };
 
   const handleRemoveEntry = (id: string) => {
-    if (fiveWhysData.length <= 1) {
+    if (internalData.length <= 1) {
       toast({
         title: "Acción no permitida",
         description: "Debe haber al menos una entrada en los 5 Porqués.",
@@ -54,12 +67,12 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       });
       return;
     }
-    const newData = fiveWhysData.filter(entry => entry.id !== id);
-    onSetFiveWhysData(newData);
+    const newData = internalData.filter(entry => entry.id !== id);
+    updateData(newData);
   };
   
   const handleAddBecause = (entryId: string) => {
-    const newData = fiveWhysData.map(entry => {
+    const newData = internalData.map(entry => {
       if (entry.id === entryId) {
         const newBecause: FiveWhysCause = { id: `cause-${Date.now()}`, description: '' };
         const existingBecauses = Array.isArray(entry.becauses) ? entry.becauses : [];
@@ -67,11 +80,11 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       }
       return entry;
     });
-    onSetFiveWhysData(newData);
+    updateData(newData);
   };
   
   const handleUpdateBecause = (entryId: string, causeId: string, value: string) => {
-    const newData = fiveWhysData.map(entry => {
+    const newData = internalData.map(entry => {
       if (entry.id === entryId && Array.isArray(entry.becauses)) {
         return { ...entry, becauses: entry.becauses.map(cause =>
           cause.id === causeId ? { ...cause, description: value } : cause
@@ -79,11 +92,11 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       }
       return entry;
     });
-    onSetFiveWhysData(newData);
+    updateData(newData);
   };
   
   const handleRemoveBecause = (entryId: string, causeId: string) => {
-     const newData = fiveWhysData.map(entry => {
+     const newData = internalData.map(entry => {
       if (entry.id === entryId && Array.isArray(entry.becauses)) {
         if (entry.becauses.length > 1) {
           return { ...entry, becauses: entry.becauses.filter(cause => cause.id !== causeId) };
@@ -91,7 +104,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       }
       return entry;
     });
-    onSetFiveWhysData(newData);
+    updateData(newData);
   };
 
   return (
@@ -100,7 +113,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         <HelpCircle className="mr-2 h-5 w-5" /> 5 Porqués
       </h3>
       <div className="space-y-4">
-        {fiveWhysData.map((entry, index) => (
+        {internalData.map((entry, index) => (
           <Card key={entry.id} className="p-4 bg-secondary/30">
             <div className="flex justify-between items-center mb-2">
               <p className="font-semibold text-primary">Por qué #{index + 1}</p>
