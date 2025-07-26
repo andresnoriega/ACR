@@ -732,7 +732,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
             {analysisTechnique === 'CTM.2' && (
               <CTM2Interactive
                 ctm2Data={ctm2Data}
-                onSetCtm2Data={onSetCtmData}
+                onSetCtm2Data={onSetCtm2Data}
                 focusEventDescription={eventData.focusEventDescription || "Evento Foco no definido"}
               />
             )}
