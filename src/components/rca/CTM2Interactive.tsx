@@ -37,7 +37,11 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   const [internalData, setInternalData] = useState<CTMData>([]);
   
   useEffect(() => {
-    setInternalData(Array.isArray(ctm2Data) ? ctm2Data : []);
+    // Only set internal state if the incoming prop is different, to avoid unnecessary re-renders
+    if (JSON.stringify(ctm2Data) !== JSON.stringify(internalData)) {
+      setInternalData(Array.isArray(ctm2Data) ? ctm2Data : []);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctm2Data]);
 
 
@@ -59,19 +63,19 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
 
   const handleToggleStatus = (path: (string | number)[], status: 'accepted' | 'rejected' | 'pending') => {
     const newData = JSON.parse(JSON.stringify(internalData));
-    let parent: any = newData;
-    for (let i = 0; i < path.length - 1; i++) {
-        parent = parent[path[i]];
-    }
-    const finalKey = path[path.length - 1];
-    const itemToUpdate = parent[finalKey];
+    let current: any = newData;
 
-    if (!itemToUpdate) {
-      console.error("Item to update not found at path:", path);
-      return;
+    for (let i = 0; i < path.length; i++) {
+        current = current[path[i]];
+        if (current === undefined) {
+             console.error("Path is invalid during handleToggleStatus", path);
+             return;
+        }
     }
+    const itemToUpdate = current;
     
     if (itemToUpdate.status === status) {
+        // If clicking the same status button, toggle back to pending
         itemToUpdate.status = 'pending';
         itemToUpdate.validationMethod = undefined;
         onSetCtm2Data(newData);
@@ -86,12 +90,11 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     const { path, status } = validationState;
     
     const newData = JSON.parse(JSON.stringify(internalData));
-    let parent: any = newData;
-    for (let i = 0; i < path.length - 1; i++) {
-        parent = parent[path[i]];
+    let current: any = newData;
+    for (let i = 0; i < path.length; i++) {
+        current = current[path[i]];
     }
-    const finalKey = path[path.length - 1];
-    const itemToUpdate = parent[finalKey];
+    const itemToUpdate = current;
     
     if (itemToUpdate) {
       itemToUpdate.status = status;
@@ -103,50 +106,85 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     setIsProcessingValidation(false);
   }, [internalData, onSetCtm2Data, validationState]);
 
+
   const handleAdd = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(internalData));
+    let currentLevel = newData;
 
-    if (path.length === 0) { // Adding a new FailureMode (Por Qué #)
-      const newWhyDescription = `¿Por qué ocurrió: "${focusEventDescription || 'el evento foco'}"?`;
-      newData.push({
-        id: generateClientSideId('fm'),
-        description: newWhyDescription,
-        hypotheses: [],
-      });
-      setInternalData(newData);
-      onSetCtm2Data(newData);
-      return;
+    if (path.length === 0) { // This case is handled by handleAddFailureMode now
+        return;
     }
     
-    let parentOfTarget: any = newData;
-    for (let i = 0; i < path.length - 1; i++) {
-      parentOfTarget = parentOfTarget[path[i]];
-    }
-    const lastKey = path[path.length-1];
+    let parent: any = newData;
+    let targetArray: any[] | undefined = undefined;
 
-    let targetArray;
-    if(typeof lastKey === 'string' && lastKey === 'hypotheses'){
-      targetArray = parentOfTarget[lastKey];
-    } else {
-      console.error("handleAdd called with unexpected path structure", path);
-      return;
+    // Traverse to the parent of the array where we want to add
+    for(let i = 0; i < path.length; i++) {
+        const key = path[i];
+        if (parent === undefined) {
+            console.error("Invalid path in handleAdd", path);
+            return;
+        }
+
+        // If the key is 'hypotheses', we've found our target array
+        if (key === 'hypotheses') {
+            if (!Array.isArray(parent.hypotheses)) {
+                parent.hypotheses = [];
+            }
+            targetArray = parent.hypotheses;
+            break;
+        }
+        
+        parent = parent[key];
     }
     
+    // After the loop, if parent is an array, it's the top-level FailureMode array
+    if (Array.isArray(parent)) {
+        const key = path[path.length - 1];
+        if (typeof key === "number" && parent[key]) {
+            const failureMode = parent[key];
+            if (!Array.isArray(failureMode.hypotheses)) {
+                 failureMode.hypotheses = [];
+            }
+            targetArray = failureMode.hypotheses;
+        }
+    } else if (parent && typeof parent === 'object' && !Array.isArray(parent)) {
+        // If parent is an object, it should be a FailureMode or Hypothesis
+         if ('hypotheses' in parent) {
+             if (!Array.isArray(parent.hypotheses)) {
+                parent.hypotheses = [];
+             }
+             targetArray = parent.hypotheses;
+         }
+    }
+
 
     if (!Array.isArray(targetArray)) {
-       console.error("Target for adding is not an array", path, parentOfTarget);
-       return;
+        console.error("Target for adding is not an array", path, parent);
+        return;
     }
 
-    targetArray.push({ id: generateClientSideId('hyp'), description: 'Nuevo porque', physicalCauses: [], status: 'pending' });
-    
+    // Now, add the new hypothesis to the found array
+    const lastHypothesis = targetArray.length > 0 ? targetArray[targetArray.length - 1] : null;
+    let newDescription = 'Nuevo porque';
+    if(lastHypothesis && lastHypothesis.description) {
+      newDescription = `¿Por qué: "${lastHypothesis.description.substring(0,50)}..."?`;
+    }
+
+    targetArray.push({ id: generateClientSideId('hyp'), description: newDescription, physicalCauses: [], status: 'pending' });
+
     onSetCtm2Data(newData);
   };
   
   const handleAddFailureMode = () => {
-    const newData = [...internalData]; // Create a new array reference
-    const newWhyDescription = `¿Por qué ocurrió: "${focusEventDescription || 'el evento foco'}"?`;
+    const newData = [...internalData];
+    let newWhyDescription = `¿Por qué ocurrió: "${focusEventDescription || 'el evento foco'}"?`;
     
+    // Check if there is already a "Por que #1" to base the new one on
+    if (newData.length > 0 && newData[0].description) {
+        newWhyDescription = newData[0].description;
+    }
+
     newData.push({
         id: generateClientSideId('fm'),
         description: newWhyDescription,
@@ -205,7 +243,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
                 <span className="font-semibold">Justificación V/R:</span> {hyp.validationMethod}
               </div>
             )}
-            {renderPhysicalCauses(hyp.hypotheses, [...path, hypIndex, 'hypotheses'], hyp.status === 'accepted')}
+            {renderPhysicalCauses(hyp.hypotheses, [...path, hypIndex], hyp.status === 'accepted')}
           </Card>
         ))}
         <Button size="sm" variant="outline" className="text-sm h-8" onClick={() => handleAdd([...path])}><PlusCircle className="mr-2 h-4 w-4" /> Añadir porque</Button>
@@ -221,7 +259,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
           <h3 className="text-lg font-semibold font-headline text-primary flex items-center">
             <Share2 className="mr-2 h-5 w-5" /> Árbol de Causas (CTM.2)
           </h3>
-          <Button onClick={() => handleAdd([])} variant="outline" size="sm">
+          <Button onClick={handleAddFailureMode} variant="outline" size="sm">
               <PlusCircle className="mr-2 h-4 w-4" /> Añadir Por Qué
           </Button>
         </div>
