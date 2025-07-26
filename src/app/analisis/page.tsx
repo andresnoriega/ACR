@@ -1238,7 +1238,12 @@ function RCAAnalysisPageComponent() {
     } else if (value === 'CTM.2') {
         const isCtm2Empty = !ctm2Data || ctm2Data.length === 0;
         if (isCtm2Empty) {
-            setCtm2Data(JSON.parse(JSON.stringify(initialCTMData)));
+            const initialEntry = {
+                id: generateClientSideId('fm'),
+                description: `¿Por qué ocurrió: "${eventData.focusEventDescription || 'el evento foco'}"?`,
+                hypotheses: []
+            };
+            setCtm2Data([initialEntry]);
         }
     }
   };
