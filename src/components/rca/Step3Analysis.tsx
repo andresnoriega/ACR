@@ -413,14 +413,9 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     );
     const isCtm2Edited = ctm2Data && ctm2Data.length > 0 && ctm2Data.some(fm => 
         fm.description.trim() !== '' || 
-        fm.hypotheses.some(h => h.description.trim() !== '' || 
-            h.physicalCauses.some(pc => pc.description.trim() !== '' ||
-                pc.humanCauses.some(hc => hc.description.trim() !== '' || 
-                    hc.latentCauses.some(lc => lc.description.trim() !== '')
-                )
-            )
-        )
+        (fm.hypotheses && fm.hypotheses.some(h => h.description.trim() !== ''))
     );
+
 
     if (
       !isTechniqueSelected &&
@@ -729,7 +724,11 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
             )}
 
             {analysisTechnique === 'CTM.2' && (
-              <CTM2Interactive ctm2Data={ctm2Data} onSetCtm2Data={onSetCtm2Data} />
+              <CTM2Interactive
+                ctm2Data={ctm2Data}
+                onSetCtm2Data={onSetCtm2Data}
+                focusEventDescription={eventData.focusEventDescription || "Evento Foco no definido"}
+              />
             )}
             
             {(analysisTechnique === '' || analysisTechniqueNotes.trim() !== '') && (

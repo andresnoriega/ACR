@@ -83,32 +83,32 @@ const CtmValidationDialog: FC<CtmValidationDialogProps> = ({ isOpen, onOpenChang
 interface CTM2InteractiveProps {
   ctm2Data: CTMData;
   onSetCtm2Data: (data: CTMData) => void;
+  focusEventDescription: string;
 }
 
 
-export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2Data }) => {
+export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2Data, focusEventDescription }) => {
   const [validationState, setValidationState] = useState<{ path: (string | number)[]; status: Hypothesis['status'] } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
   
   const [internalData, setInternalData] = useState<CTMData>([]);
-  
+
   useEffect(() => {
     setInternalData(Array.isArray(ctm2Data) ? ctm2Data : []);
   }, [ctm2Data]);
 
 
   const handleUpdate = (path: (string | number)[], value: string) => {
-    const newData: CTMData = JSON.parse(JSON.stringify(internalData));
+    const newData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
       current = current[path[i]];
     }
     const finalKey = path[path.length - 1];
 
-    // Check if we are updating the description of an object in an array
     if (typeof finalKey === 'number' && current[finalKey] && typeof current[finalKey] === 'object') {
       current[finalKey].description = value;
-    } else { // Check if we are updating the description of the root object (like a FailureMode)
+    } else { 
        current[finalKey] = value;
     }
     
@@ -126,13 +126,11 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     const itemToUpdate = parent[finalKey];
       
     if (itemToUpdate && itemToUpdate.status === status) {
-        // If clicking the same status button, toggle back to pending
         itemToUpdate.status = 'pending';
         itemToUpdate.validationMethod = undefined;
         setInternalData(newData);
         onSetCtm2Data(newData);
     } else {
-        // Otherwise, open dialog to confirm new status
         setValidationState({ path, status });
     }
   };
@@ -164,19 +162,9 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   const handleAdd = (path: (string | number)[]) => {
     const newData: CTMData = JSON.parse(JSON.stringify(internalData));
     
-    // Case 1: Top-level "Añadir Por Qué" button is clicked. Creates a new main question.
-    if (path.length === 0) { 
-        newData.push({ id: generateClientSideId('fm'), description: 'Nuevo Por Qué', hypotheses: [] });
-        setInternalData(newData);
-        onSetCtm2Data(newData);
-        return;
-    }
-
-    // Case 2: "Añadir Por Qué" from an approved cause. This should add a new "Porque" (Hypothesis) *inside* the current question.
     if (path.length === 4 && path[1] === 'hypotheses' && path[3] === 'physicalCauses') {
         const fmIndex = path[0] as number;
         const hypIndex = path[2] as number;
-        
         const fm = newData[fmIndex];
         const hyp = fm?.hypotheses[hypIndex];
         
@@ -184,7 +172,6 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
             const desc = hyp.description || 'Causa Aprobada';
             const newWhyDescription = `¿Por qué: "${desc.substring(0, 50)}..."?`;
             
-            // Add a new hypothesis to the current FailureMode's hypotheses array
             if (!fm.hypotheses) fm.hypotheses = [];
             fm.hypotheses.push({ id: generateClientSideId('hyp'), description: newWhyDescription, physicalCauses: [], status: 'pending' });
             
@@ -194,7 +181,6 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
         }
     }
 
-    // Case 3: Generic add for a new "Porque" (Hypothesis) inside a question.
     let parent: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
       parent = parent[path[i]];
@@ -220,10 +206,20 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
       parent.hypotheses.push({ id: generateClientSideId('hyp'), description: 'Nuevo Porque', physicalCauses: [], status: 'pending' });
     }
     
-
     setInternalData(newData);
     onSetCtm2Data(newData);
   };
+  
+  const handleReset = () => {
+    const initialEntry = {
+        id: generateClientSideId('fm'),
+        description: `¿Por qué ocurrió: "${focusEventDescription || 'el evento foco'}"?`,
+        hypotheses: []
+    };
+    setInternalData([initialEntry]);
+    onSetCtm2Data([initialEntry]);
+  };
+
 
   const handleRemove = (path: (string | number)[]) => {
     const newData: CTMData = JSON.parse(JSON.stringify(internalData));
@@ -255,7 +251,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
             <div className="flex items-center gap-2 mt-1">
               <Textarea 
                 value={hyp.description} 
-                onChange={(e) => handleUpdate([...path, hypIndex], e.target.value)} 
+                onChange={(e) => handleUpdate([...path, hypIndex, 'description'], e.target.value)} 
                 rows={1} 
                 className={cn(
                   "text-sm",
@@ -290,7 +286,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
           <h3 className="text-lg font-semibold font-headline text-primary flex items-center">
             <Share2 className="mr-2 h-5 w-5" /> Árbol de Causas (CTM.2)
           </h3>
-          <Button onClick={() => handleAdd([])} variant="outline" size="sm">
+          <Button onClick={handleReset} variant="outline" size="sm">
               <PlusCircle className="mr-2 h-4 w-4" /> Añadir Por Qué
           </Button>
         </div>
