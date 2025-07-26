@@ -168,7 +168,7 @@ interface Step3AnalysisProps {
   onSetIshikawaData: (data: IshikawaData) => void;
   ctmData: CTMData;
   onSetCtmData: (data: CTMData) => void;
-  ctm2Data?: CTMData;
+  ctm2Data: CTMData;
   onSetCtm2Data: (data: CTMData) => void;
   identifiedRootCauses: IdentifiedRootCause[];
   onAddIdentifiedRootCause: () => void;
@@ -562,6 +562,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
         analysisTechniqueNotes: analysisTechniqueNotes || undefined,
         ishikawaData: analysisTechnique === 'Ishikawa' ? ishikawaData : undefined,
         ctmData: analysisTechnique === 'CTM' ? ctmData : undefined,
+        ctm2Data: analysisTechnique === 'CTM.2' ? ctm2Data : undefined,
       };
       const result = await suggestRootCauses(input);
       if (result && result.suggestedRootCauses && result.suggestedRootCauses.length > 0) {
@@ -727,7 +728,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
               <CTMInteractive ctmData={ctmData} onSetCtmData={onSetCtmData} />
             )}
 
-            {analysisTechnique === 'CTM.2' && ctm2Data && (
+            {analysisTechnique === 'CTM.2' && (
               <CTM2Interactive ctm2Data={ctm2Data} onSetCtm2Data={onSetCtm2Data} />
             )}
             

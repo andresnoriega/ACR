@@ -70,6 +70,7 @@ const initialRCAAnalysisState: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedA
   analysisTechniqueNotes: '',
   ishikawaData: JSON.parse(JSON.stringify(initialIshikawaData)),
   ctmData: JSON.parse(JSON.stringify(initialCTMData)),
+  ctm2Data: JSON.parse(JSON.stringify(initialCTMData)),
   identifiedRootCauses: [],
   plannedActions: [],
   validations: [],
@@ -170,6 +171,7 @@ function RCAAnalysisPageComponent() {
   const [analysisTechniqueNotes, setAnalysisTechniqueNotes] = useState(initialRCAAnalysisState.analysisTechniqueNotes);
   const [ishikawaData, setIshikawaData] = useState<IshikawaData>(JSON.parse(JSON.stringify(initialIshikawaData)));
   const [ctmData, setCtmData] = useState<CTMData>(JSON.parse(JSON.stringify(initialCTMData)));
+  const [ctm2Data, setCtm2Data] = useState<CTMData>(JSON.parse(JSON.stringify(initialCTMData)));
   const [identifiedRootCauses, setIdentifiedRootCauses] = useState<IdentifiedRootCause[]>(initialRCAAnalysisState.identifiedRootCauses);
 
   const [plannedActions, setPlannedActions] = useState<PlannedAction[]>(initialRCAAnalysisState.plannedActions);
@@ -262,6 +264,7 @@ function RCAAnalysisPageComponent() {
         setAnalysisTechniqueNotes(data.analysisTechniqueNotes || '');
         setIshikawaData(data.ishikawaData || JSON.parse(JSON.stringify(initialIshikawaData)));
         setCtmData(data.ctmData || JSON.parse(JSON.stringify(initialCTMData)));
+        setCtm2Data(data.ctm2Data || JSON.parse(JSON.stringify(initialCTMData)));
         setIdentifiedRootCauses(data.identifiedRootCauses || []);
 
         const loadedPlannedActions = data.plannedActions || [];
@@ -315,6 +318,7 @@ function RCAAnalysisPageComponent() {
             setAnalysisTechniqueNotes(initialRCAAnalysisState.analysisTechniqueNotes);
             setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
             setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
+            setCtm2Data(JSON.parse(JSON.stringify(initialCTMData)));
             setIdentifiedRootCauses(initialRCAAnalysisState.identifiedRootCauses);
             setPlannedActions(initialRCAAnalysisState.plannedActions);
             setPlannedActionCounter(1);
@@ -349,6 +353,7 @@ function RCAAnalysisPageComponent() {
         setAnalysisTechniqueNotes(initialRCAAnalysisState.analysisTechniqueNotes);
         setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
         setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
+        setCtm2Data(JSON.parse(JSON.stringify(initialCTMData)));
         setIdentifiedRootCauses(initialRCAAnalysisState.identifiedRootCauses);
         setPlannedActions(initialRCAAnalysisState.plannedActions);
         setPlannedActionCounter(1);
@@ -417,6 +422,7 @@ function RCAAnalysisPageComponent() {
             setAnalysisTechniqueNotes(initialRCAAnalysisState.analysisTechniqueNotes);
             setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
             setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
+            setCtm2Data(JSON.parse(JSON.stringify(initialCTMData)));
             setIdentifiedRootCauses(initialRCAAnalysisState.identifiedRootCauses);
             setPlannedActions(initialRCAAnalysisState.plannedActions);
             setPlannedActionCounter(1);
@@ -556,7 +562,7 @@ function RCAAnalysisPageComponent() {
     const rcaDocPayload: Partial<RCAAnalysisDocument> = {
       eventData: consistentEventData, immediateActions, projectLeader, detailedFacts, investigationObjective, investigationSessions, analysisDetails,
       preservedFacts, timelineEvents, brainstormingIdeas, analysisTechnique, analysisTechniqueNotes, ishikawaData,
-      ctmData, identifiedRootCauses, 
+      ctmData, ctm2Data, identifiedRootCauses, 
       plannedActions: (plannedActionsOverride !== undefined) ? plannedActionsOverride : plannedActions,
       validations: (validationsOverride !== undefined) ? validationsOverride : validations,
       finalComments, isFinalized: currentIsFinalized,
@@ -1229,6 +1235,11 @@ function RCAAnalysisPageComponent() {
         if (isCtmEmpty) {
             setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
         }
+    } else if (value === 'CTM.2') {
+        const isCtm2Empty = !ctm2Data || ctm2Data.length === 0;
+        if (isCtm2Empty) {
+            setCtm2Data(JSON.parse(JSON.stringify(initialCTMData)));
+        }
     }
   };
 
@@ -1536,6 +1547,8 @@ function RCAAnalysisPageComponent() {
           onSetIshikawaData={setIshikawaData}
           ctmData={ctmData}
           onSetCtmData={setCtmData}
+          ctm2Data={ctm2Data}
+          onSetCtm2Data={setCtm2Data}
           identifiedRootCauses={identifiedRootCauses}
           onAddIdentifiedRootCause={handleAddIdentifiedRootCause}
           onUpdateIdentifiedRootCause={handleUpdateIdentifiedRootCause}
