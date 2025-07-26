@@ -30,10 +30,15 @@ const IshikawaCategorySchema = z.object({
 
 const IshikawaDataSchema = z.array(IshikawaCategorySchema).optional().nullable();
 
+const FiveWhysCauseSchema = z.object({
+    id: z.string(),
+    description: z.string(),
+});
+
 const FiveWhysEntrySchema = z.object({
   id: z.string(),
   why: z.string().describe('La pregunta del "porqué".'),
-  because: z.string().describe('La respuesta o "porque".'),
+  becauses: z.array(FiveWhysCauseSchema).describe('Las respuestas o "porque".'),
 });
 const FiveWhysDataSchema = z.array(FiveWhysEntrySchema).optional().nullable();
 
@@ -152,7 +157,9 @@ const suggestRootCausesPrompt = ai.definePrompt({
     Datos de los 5 Porqués (cadena causal):
     {{#each fiveWhysData}}
       - ¿Por qué?: {{this.why}}
-      - Porque: {{this.because}}
+      {{#each this.becauses}}
+        - Porque: {{this.description}}
+      {{/each}}
     {{/each}}
     {{/if}}
 
@@ -201,7 +208,7 @@ const suggestRootCausesFlowInternal = ai.defineFlow(
     if (input.analysisTechnique === 'Ishikawa' && input.ishikawaData && input.ishikawaData.length > 0 && input.ishikawaData.some(cat => cat.causes.length > 0)) {
         hasSufficientInput = true;
     }
-    if (input.analysisTechnique === '5 Por qué' && input.fiveWhysData && input.fiveWhysData.length > 0 && input.fiveWhysData.some(e => e.because.trim().length > 5)) {
+    if (input.analysisTechnique === '5 Por qué' && input.fiveWhysData && input.fiveWhysData.length > 0 && input.fiveWhysData.some(e => e.becauses.some(b => b.description.trim().length > 5))) {
         hasSufficientInput = true;
     }
     if (input.analysisTechnique === 'CTM' && input.ctmData && input.ctmData.length > 0 && input.ctmData.some(fm => fm.description.trim() || fm.hypotheses.length > 0)) {

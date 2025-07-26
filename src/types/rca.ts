@@ -82,10 +82,15 @@ export interface IshikawaCategory {
 export type IshikawaData = IshikawaCategory[];
 
 // --- Type for 5 Whys ---
+export interface FiveWhysCause {
+  id: string;
+  description: string;
+}
+
 export interface FiveWhysEntry {
   id: string;
   why: string;
-  because: string;
+  becauses: FiveWhysCause[];
 }
 export type FiveWhysData = FiveWhysEntry[];
 

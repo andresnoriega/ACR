@@ -1,12 +1,11 @@
 
 'use client';
 import type { FC, ChangeEvent } from 'react';
-import { useState } from 'react';
-import type { FiveWhysData, FiveWhysEntry } from '@/types/rca';
+import type { FiveWhysData, FiveWhysEntry, FiveWhysCause } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { PlusCircle, Trash2, HelpCircle } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
@@ -24,21 +23,24 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
 
   const handleAddEntry = () => {
     const lastEntry = fiveWhysData.length > 0 ? fiveWhysData[fiveWhysData.length - 1] : null;
-    const newWhy = lastEntry?.because ? `¿Por qué: "${lastEntry.because.substring(0, 70)}..."?` : '';
+    let newWhy = '';
+    if (lastEntry && lastEntry.becauses.length > 0) {
+      const lastBecause = lastEntry.becauses[lastEntry.becauses.length - 1];
+      newWhy = `¿Por qué: "${lastBecause.description.substring(0, 70)}..."?`;
+    }
     
     const newEntry: FiveWhysEntry = {
       id: `5why-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       why: newWhy,
-      because: '',
+      becauses: [{ id: `cause-${Date.now()}`, description: '' }],
     };
     onSetFiveWhysData([...fiveWhysData, newEntry]);
   };
 
-  const handleUpdateEntry = (id: string, field: 'why' | 'because', value: string) => {
-    const newData = fiveWhysData.map(entry =>
-      entry.id === id ? { ...entry, [field]: value } : entry
-    );
-    onSetFiveWhysData(newData);
+  const handleUpdateWhy = (id: string, value: string) => {
+    onSetFiveWhysData(fiveWhysData.map(entry =>
+      entry.id === id ? { ...entry, why: value } : entry
+    ));
   };
 
   const handleRemoveEntry = (id: string) => {
@@ -50,8 +52,39 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       });
       return;
     }
-    const newData = fiveWhysData.filter(entry => entry.id !== id);
-    onSetFiveWhysData(newData);
+    onSetFiveWhysData(fiveWhysData.filter(entry => entry.id !== id));
+  };
+  
+  const handleAddBecause = (entryId: string) => {
+    onSetFiveWhysData(fiveWhysData.map(entry => {
+      if (entry.id === entryId) {
+        const newBecause: FiveWhysCause = { id: `cause-${Date.now()}`, description: '' };
+        return { ...entry, becauses: [...entry.becauses, newBecause] };
+      }
+      return entry;
+    }));
+  };
+  
+  const handleUpdateBecause = (entryId: string, causeId: string, value: string) => {
+    onSetFiveWhysData(fiveWhysData.map(entry => {
+      if (entry.id === entryId) {
+        return { ...entry, becauses: entry.becauses.map(cause =>
+          cause.id === causeId ? { ...cause, description: value } : cause
+        )};
+      }
+      return entry;
+    }));
+  };
+  
+  const handleRemoveBecause = (entryId: string, causeId: string) => {
+     onSetFiveWhysData(fiveWhysData.map(entry => {
+      if (entry.id === entryId) {
+        if (entry.becauses.length > 1) {
+          return { ...entry, becauses: entry.becauses.filter(cause => cause.id !== causeId) };
+        }
+      }
+      return entry;
+    }));
   };
 
   return (
@@ -82,20 +115,32 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                 <Textarea
                   id={`why-${entry.id}`}
                   value={entry.why}
-                  onChange={(e) => handleUpdateEntry(entry.id, 'why', e.target.value)}
+                  onChange={(e) => handleUpdateWhy(entry.id, e.target.value)}
                   placeholder="Pregunte '¿Por qué...?'"
                   rows={2}
                 />
               </div>
-              <div>
-                <Label htmlFor={`because-${entry.id}`}>Porque...</Label>
-                <Textarea
-                  id={`because-${entry.id}`}
-                  value={entry.because}
-                  onChange={(e) => handleUpdateEntry(entry.id, 'because', e.target.value)}
-                  placeholder="Responda con la causa directa..."
-                  rows={2}
-                />
+              <div className="space-y-2 pt-2">
+                <Label>Porque...</Label>
+                {entry.becauses.map((cause, causeIndex) => (
+                  <div key={cause.id} className="pl-4 border-l-2 space-y-1">
+                     <Label htmlFor={`because-${entry.id}-${cause.id}`} className="text-xs font-medium">Porque {index + 1}.{causeIndex + 1}</Label>
+                    <div className="flex items-center gap-2">
+                       <Textarea
+                        id={`because-${entry.id}-${cause.id}`}
+                        value={cause.description}
+                        onChange={(e) => handleUpdateBecause(entry.id, cause.id, e.target.value)}
+                        placeholder="Responda con la causa directa..."
+                        rows={1}
+                        className="text-sm"
+                      />
+                      <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => handleRemoveBecause(entry.id, cause.id)} disabled={entry.becauses.length <= 1}>
+                        <Trash2 className="h-3 w-3 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                 <Button size="sm" variant="outline" className="text-xs h-7 ml-4" onClick={() => handleAddBecause(entry.id)}><PlusCircle className="mr-1 h-3 w-3" /> Añadir Porque</Button>
               </div>
             </div>
           </Card>
