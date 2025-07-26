@@ -1,3 +1,4 @@
+
 'use client';
 import { FC, useCallback, useMemo, useState, useEffect } from 'react';
 import {
@@ -46,7 +47,7 @@ const CtmValidationDialog: FC<CtmValidationDialogProps> = ({ isOpen, onOpenChang
   }, [isOpen]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if (!isProcessing) onOpenChange(open) }}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!isProcessing) onOpenChange(open); }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Confirmar Validación/Rechazo de Porque</DialogTitle>
@@ -91,11 +92,11 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   
   const [internalData, setInternalData] = useState<CTMData>(() => Array.isArray(ctm2Data) ? ctm2Data : []);
 
-  // useEffect(() => {
-  //     // This sync can cause issues if parent re-renders with stale data
-  //     // while this component has local changes. Let's manage state more directly.
-  //     setInternalData(Array.isArray(ctm2Data) ? ctm2Data : []);
-  // }, [ctm2Data]);
+  useEffect(() => {
+      // This effect syncs the state from the parent, but only when the parent's data object reference changes.
+      // This is crucial to avoid overwriting local changes during a parent re-render caused by this component.
+      setInternalData(Array.isArray(ctm2Data) ? ctm2Data : []);
+  }, [ctm2Data]);
 
 
   const handleUpdate = (path: (string | number)[], value: string) => {

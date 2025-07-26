@@ -1549,11 +1549,11 @@ function RCAAnalysisPageComponent() {
           analysisTechniqueNotes={analysisTechniqueNotes}
           onAnalysisTechniqueNotesChange={setAnalysisTechniqueNotes}
           ishikawaData={ishikawaData}
-          onSetIshikawaData={setIshikawaData}
+          onSetIshikawaData={(data) => setIshikawaData(JSON.parse(JSON.stringify(data)))}
           ctmData={ctmData}
-          onSetCtmData={setCtmData}
+          onSetCtmData={(data) => setCtmData(JSON.parse(JSON.stringify(data)))}
           ctm2Data={ctm2Data}
-          onSetCtm2Data={setCtm2Data}
+          onSetCtm2Data={(data) => setCtm2Data(JSON.parse(JSON.stringify(data)))}
           identifiedRootCauses={identifiedRootCauses}
           onAddIdentifiedRootCause={handleAddIdentifiedRootCause}
           onUpdateIdentifiedRootCause={handleUpdateIdentifiedRootCause}
