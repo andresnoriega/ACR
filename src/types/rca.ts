@@ -104,7 +104,8 @@ export interface PhysicalCause {
 export interface Hypothesis {
   id: string;
   description: string;
-  physicalCauses: PhysicalCause[];
+  physicalCauses?: PhysicalCause[]; // For original CTM
+  failureModes?: FailureMode[];   // For CTM.2 recursive structure
   status?: 'pending' | 'accepted' | 'rejected';
   validationMethod?: string;
 }

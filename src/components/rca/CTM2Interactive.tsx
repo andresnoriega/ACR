@@ -1,6 +1,6 @@
 
 'use client';
-import { FC, useCallback, useMemo, useState, useEffect, useRef } from 'react';
+import { FC, useCallback, useState, useEffect, useRef } from 'react';
 import {
   Accordion,
   AccordionContent,
@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import { PlusCircle, Trash2, Share2, Check, X, GitBranchPlus, BrainCircuit, Loader2 } from 'lucide-react';
+import { PlusCircle, Trash2, Share2, Check, X, GitBranchPlus, BrainCircuit } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { ValidationDialog } from './ValidationDialog';
@@ -66,7 +66,7 @@ const CTM2RecursiveRenderer: FC<{
                                     <AccordionContent className="pl-2">
                                         <div className="space-y-2 p-2 border-l-2">
                                         <Label>Descripción del Por Qué</Label>
-                                        <Input value={fm.description} onChange={(e) => onUpdate([...path, fmIndex], e.target.value)} className="text-sm"/>
+                                        <Input value={fm.description} onChange={(e) => onUpdate([...path, fmIndex, 'description'], e.target.value)} className="text-sm"/>
                                         <CTM2RecursiveRenderer
                                             items={fm.hypotheses || []}
                                             level="hypothesis"
@@ -102,7 +102,7 @@ const CTM2RecursiveRenderer: FC<{
                     <div className="flex items-center gap-2 mt-1">
                       <Textarea 
                         value={hyp.description} 
-                        onChange={(e) => onUpdate([...path, hypIndex], e.target.value)}
+                        onChange={(e) => onUpdate([...path, hypIndex, 'description'], e.target.value)}
                         rows={1} 
                         className={cn(
                           "text-sm",
@@ -307,7 +307,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
         ) : (
           <div className="flex space-x-4 overflow-x-auto py-2">
             {safeCtm2Data.map((fm, fmIndex) => {
-              const title = `Por Qué #1`; // Always #1 for parallel, independent investigations
+              const title = `Por Qué #${fmIndex + 1}`; 
               return (
                 <div key={fm.id} className="min-w-[22rem] flex-shrink-0">
                     <Accordion type="single" collapsible defaultValue="item-1">
@@ -321,12 +321,12 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
                             <AccordionContent className="pl-2">
                                 <div className="space-y-2 p-2 border-l-2">
                                 <Label>Descripción del Por Qué</Label>
-                                <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex], e.target.value)} className="text-sm"/>
+                                <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex, 'description'], e.target.value)} className="text-sm"/>
                                 <CTM2RecursiveRenderer
                                     items={fm.hypotheses || []}
                                     level="hypothesis"
                                     path={[fmIndex, 'hypotheses']}
-                                    numberingPrefix="1."
+                                    numberingPrefix={`${fmIndex + 1}.`}
                                     onUpdate={handleUpdate}
                                     onAdd={handleAdd}
                                     onRemove={handleRemove}
