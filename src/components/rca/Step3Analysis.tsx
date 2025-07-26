@@ -1,3 +1,4 @@
+
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useCallback, useEffect } from 'react'; 
@@ -399,9 +400,9 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     const hasAnyRootCause = identifiedRootCauses.length > 0 && identifiedRootCauses.some(rc => rc.description.trim() !== '');
     const hasPlannedActions = uniquePlannedActions.length > 0;
 
-    const isIshikawaEdited = ishikawaData.some(cat => cat.causes.some(c => c.description.trim() !== ''));
+    const isIshikawaEdited = ishikawaData && ishikawaData.some(cat => cat.causes.some(c => c.description.trim() !== ''));
     
-    const isCtmEdited = ctmData.length > 0 && ctmData.some(fm => 
+    const isCtmEdited = ctmData && ctmData.length > 0 && ctmData.some(fm => 
       (fm.description && fm.description.trim() !== '') || 
       (fm.hypotheses && fm.hypotheses.some(h => 
         (h.description && h.description.trim() !== '') || 
@@ -731,7 +732,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
             {analysisTechnique === 'CTM.2' && (
               <CTM2Interactive
                 ctm2Data={ctm2Data}
-                onSetCtm2Data={onSetCtm2Data}
+                onSetCtm2Data={onSetCtmData}
                 focusEventDescription={eventData.focusEventDescription || "Evento Foco no definido"}
               />
             )}

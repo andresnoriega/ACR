@@ -18,6 +18,8 @@ import { BRAINSTORM_IDEA_TYPES } from '@/types/rca';
 const IshikawaCauseSchema = z.object({
   id: z.string(),
   description: z.string(),
+  status: z.enum(['pending', 'accepted', 'rejected']).optional().nullable(),
+  validationMethod: z.string().optional().nullable(),
 });
 
 const IshikawaCategorySchema = z.object({
@@ -26,7 +28,7 @@ const IshikawaCategorySchema = z.object({
   causes: z.array(IshikawaCauseSchema),
 });
 
-const IshikawaDataSchema = z.array(IshikawaCategorySchema);
+const IshikawaDataSchema = z.array(IshikawaCategorySchema).optional().nullable();
 
 const LatentCauseSchema = z.object({
   id: z.string(),
@@ -45,19 +47,23 @@ const PhysicalCauseSchema = z.object({
   humanCauses: z.array(HumanCauseSchema),
 });
 
-const HypothesisSchema = z.object({
+const HypothesisSchema: z.ZodType<any> = z.lazy(() => z.object({
   id: z.string(),
   description: z.string(),
-  physicalCauses: z.array(PhysicalCauseSchema),
-});
+  physicalCauses: z.array(PhysicalCauseSchema).optional(),
+  failureModes: z.array(FailureModeSchema).optional(),
+  status: z.enum(['pending', 'accepted', 'rejected']).optional(),
+  validationMethod: z.string().optional(),
+}));
 
-const FailureModeSchema = z.object({
-  id: z.string(),
-  description: z.string(),
-  hypotheses: z.array(HypothesisSchema),
-});
+const FailureModeSchema: z.ZodType<any> = z.lazy(() => z.object({
+    id: z.string(),
+    description: z.string(),
+    hypotheses: z.array(HypothesisSchema),
+}));
 
-const CTMDataSchema = z.array(FailureModeSchema);
+const CTMDataSchema = z.array(FailureModeSchema).optional().nullable();
+
 
 // --- Esquema para BrainstormIdea ---
 const BrainstormIdeaSchema = z.object({
@@ -72,9 +78,9 @@ const SuggestRootCausesInputSchema = z.object({
   brainstormingIdeas: z.array(BrainstormIdeaSchema).optional().describe('Lista de ideas de lluvia de ideas iniciales, clasificadas por tipo.'), // Changed from brainstormingNotes
   analysisTechnique: z.enum(['', 'Ishikawa', 'CTM', 'CTM.2']).describe('La técnica de análisis principal seleccionada.'),
   analysisTechniqueNotes: z.string().optional().describe('Notas generales o específicas sobre la aplicación de la técnica de análisis.'),
-  ishikawaData: IshikawaDataSchema.optional().describe('Datos del diagrama de Ishikawa, si esa fue la técnica utilizada.'),
-  ctmData: CTMDataSchema.optional().describe('Datos del Árbol de Causas (CTM), si esa fue la técnica utilizada.'),
-  ctm2Data: CTMDataSchema.optional().describe('Datos del Árbol de Causas (CTM.2), si esa fue la técnica utilizada.'),
+  ishikawaData: IshikawaDataSchema,
+  ctmData: CTMDataSchema,
+  ctm2Data: CTMDataSchema,
 });
 export type SuggestRootCausesInput = z.infer<typeof SuggestRootCausesInputSchema>;
 
