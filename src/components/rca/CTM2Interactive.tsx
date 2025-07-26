@@ -220,7 +220,6 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
           </div>
         </div>
       ))}
-      <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => handleAdd(path)}><PlusCircle className="mr-1 h-3 w-3" /> Añadir C. Latente</Button>
     </div>
   );
 
@@ -238,7 +237,6 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
           {renderLatentCauses(hc.latentCauses, [...path, hcIndex, 'latentCauses'])}
         </div>
       ))}
-      <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => handleAdd(path)}><PlusCircle className="mr-1 h-3 w-3" /> Añadir C. Humana</Button>
     </div>
   );
 
