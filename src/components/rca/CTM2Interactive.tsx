@@ -89,27 +89,28 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   const [validationState, setValidationState] = useState<{ path: (string | number)[]; status: Hypothesis['status'] } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
   
-  // Lazy state initialization to prevent hydration issues
+  // This state is now only for local rendering updates.
   const [internalData, setInternalData] = useState<CTMData>(() => ctm2Data || []);
 
+  // Sync internal state if the prop changes from outside (e.g., loading a new analysis)
   useEffect(() => {
-      onSetCtm2Data(internalData);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [internalData]);
+      setInternalData(ctm2Data);
+  }, [ctm2Data]);
 
 
   const handleUpdate = (path: (string | number)[], value: string) => {
-    const newData = JSON.parse(JSON.stringify(internalData));
+    const newData: CTMData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
       current = current[path[i]];
     }
     current[path[path.length - 1]] = { ...current[path[path.length - 1]], description: value };
     setInternalData(newData);
+    onSetCtm2Data(newData);
   };
 
   const handleToggleStatus = (path: (string | number)[], status: 'accepted' | 'rejected' | 'pending') => {
-      const newData = JSON.parse(JSON.stringify(internalData));
+      const newData: CTMData = JSON.parse(JSON.stringify(internalData));
       let current: any = newData;
       for (let i = 0; i < path.length - 1; i++) {
         current = current[path[i]];
@@ -121,6 +122,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
         itemToUpdate.status = 'pending';
         itemToUpdate.validationMethod = undefined;
         setInternalData(newData);
+        onSetCtm2Data(newData);
       } else {
         // Otherwise, open dialog to confirm new status
         setValidationState({ path, status });
@@ -132,7 +134,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     setIsProcessingValidation(true);
     const { path, status } = validationState;
     
-    const newData = JSON.parse(JSON.stringify(internalData));
+    const newData: CTMData = JSON.parse(JSON.stringify(internalData));
     let parent: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
         parent = parent[path[i]];
@@ -144,38 +146,25 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     itemToUpdate.validationMethod = method;
 
     setInternalData(newData);
+    onSetCtm2Data(newData);
     setIsProcessingValidation(false);
     setValidationState(null);
-  }, [internalData, validationState]);
+  }, [internalData, onSetCtm2Data, validationState]);
 
   const handleAdd = (path: (string | number)[]) => {
-    const newData = JSON.parse(JSON.stringify(internalData));
+    const newData: CTMData = JSON.parse(JSON.stringify(internalData));
 
     // Special case for CTM.2: Adding a new top-level "Por Qué" from an accepted "Porque"
-    if (path.length === 3 && path[1] === 'hypotheses' && path[2] === 'physicalCauses') {
-        const fmIndex = path[0] as number;
-        const hypIndex = (path[2] as any) -1; // This part is wrong. path is [fmIndex, 'hypotheses', hypIndex, 'physicalCauses']
+    if(path.length === 4 && path[1] === 'hypotheses' && path[3] === 'physicalCauses') {
+        const fm = newData[path[0] as number];
+        const hyp = fm.hypotheses[path[2] as number];
         
-        let parentHypothesis: Hypothesis | undefined;
-        let parent: any = newData;
-
-        if (path.length > 2 && path[1] === 'hypotheses') {
-          const fm = newData[path[0] as number];
-          const hyp = fm.hypotheses[path[2] as number];
-          parentHypothesis = hyp;
-        }
-        
-
-        if(path.length === 4 && path[1] === 'hypotheses' && path[3] === 'physicalCauses') {
-            const fm = newData[path[0] as number];
-            const hyp = fm.hypotheses[path[2] as number];
-            
-            if (hyp && hyp.status === 'accepted') {
-                const newWhyDescription = `¿Por qué: "${hyp.description.substring(0, 50)}..."?`;
-                newData.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
-                setInternalData(newData);
-                return;
-            }
+        if (hyp && hyp.status === 'accepted') {
+            const newWhyDescription = `¿Por qué: "${hyp.description.substring(0, 50)}..."?`;
+            newData.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
+            setInternalData(newData);
+            onSetCtm2Data(newData);
+            return;
         }
     }
 
@@ -206,7 +195,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
 
       if ('physicalCauses' in parent) {
         if (!parent.physicalCauses) parent.physicalCauses = [];
-        parent.physicalCauses.push({ id: generateClientSideId('pc'), description: 'Nueva Causa Física', humanCauses: [] });
+        parent.physicalCauses.push({ id: generateClientSideId('pc'), description: '', humanCauses: [] });
       } else if ('hypotheses' in parent) {
         if (!parent.hypotheses) parent.hypotheses = [];
         parent.hypotheses.push({ id: generateClientSideId('hyp'), description: 'Nuevo Porque', physicalCauses: [], status: 'pending' });
@@ -214,10 +203,11 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     }
 
     setInternalData(newData);
+    onSetCtm2Data(newData);
   };
 
   const handleRemove = (path: (string | number)[]) => {
-    const newData = JSON.parse(JSON.stringify(internalData));
+    const newData: CTMData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
         current = current[path[i]];
@@ -225,6 +215,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     const indexToRemove = path[path.length - 1] as number;
     current.splice(indexToRemove, 1);
     setInternalData(newData);
+    onSetCtm2Data(newData);
   };
   
   const renderPhysicalCauses = (physicalCauses: PhysicalCause[] | undefined, path: (string | number)[], isParentAccepted: boolean) => (
