@@ -37,28 +37,24 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   const [internalData, setInternalData] = useState<CTMData>([]);
   
   useEffect(() => {
-    // Only set internal state if the incoming prop is different, to avoid unnecessary re-renders
     if (JSON.stringify(ctm2Data) !== JSON.stringify(internalData)) {
       setInternalData(Array.isArray(ctm2Data) ? ctm2Data : []);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctm2Data]);
 
-
  const handleUpdate = (path: (string | number)[], value: string) => {
     const newData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
     
-    // Traverse to the object to be updated
-    for (let i = 0; i < path.length; i++) {
+    // Traverse to the parent of the object to be updated
+    for (let i = 0; i < path.length - 1; i++) {
         current = current[path[i]];
     }
-    
-    // Update the description property of the found object
-    if (current && typeof current === 'object' && 'description' in current) {
-       current.description = value;
-    } else {
-        console.error("Could not update description on target:", current);
+    const finalKey = path[path.length - 1];
+
+    if (current && typeof current === 'object' && finalKey in current) {
+       current[finalKey].description = value;
     }
 
     onSetCtm2Data(newData);
@@ -74,7 +70,6 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     const itemToUpdate = current;
     
     if (itemToUpdate && itemToUpdate.status === status) {
-        // If clicking the same status button, toggle back to pending
         itemToUpdate.status = 'pending';
         itemToUpdate.validationMethod = undefined;
         onSetCtm2Data(newData);
@@ -105,38 +100,47 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     setIsProcessingValidation(false);
   }, [internalData, onSetCtm2Data, validationState]);
 
-
   const handleAdd = useCallback((path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(internalData));
-    let parent: any = newData;
-    
-    // Traverse to the parent of the target array
-    for (let i = 0; i < path.length -1; i++) {
-        parent = parent[path[i]];
+    let parentOfTarget: any = newData;
+
+    for (let i = 0; i < path.length - 1; i++) {
+        parentOfTarget = parentOfTarget[path[i]];
     }
     
-    const targetKey = path[path.length -1];
-    const targetArray = parent[targetKey];
+    const targetKey = path[path.length - 1];
+    let targetArray;
 
+    if (typeof targetKey === 'string') {
+        targetArray = parentOfTarget[targetKey];
+    } else {
+        targetArray = parentOfTarget;
+    }
+    
     if (!Array.isArray(targetArray)) {
-       console.error("Target for adding is not an array", path, parent);
+       console.error("Target for adding is not an array", path, parentOfTarget);
        return;
     }
-    
-    const lastHypothesis = targetArray.length > 0 ? targetArray[targetArray.length - 1] : null;
-    let newDescription = 'Nuevo porque';
-    if(lastHypothesis && lastHypothesis.description) {
-      newDescription = `¿Por qué: "${lastHypothesis.description.substring(0,50)}..."?`;
-    }
 
-    targetArray.push({ id: generateClientSideId('hyp'), description: newDescription, hypotheses: [], status: 'pending' });
+    if (path.length === 1 && typeof targetKey === 'string' && targetKey === 'hypotheses') { // Adding a hypothesis to a top-level FailureMode
+      targetArray.push({ id: generateClientSideId('hyp'), description: 'Nuevo porque', failureModes: [], status: 'pending' });
+    } else {
+      const parentHypothesis = parentOfTarget[path[path.length - 2] as number];
+      if (!parentHypothesis.failureModes) {
+          parentHypothesis.failureModes = [];
+      }
+      const newWhyDescription = `¿Por qué: "${parentHypothesis.description.substring(0, 50)}..."?`;
+      parentHypothesis.failureModes.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
+    }
+    
     onSetCtm2Data(newData);
   }, [internalData, onSetCtm2Data]);
 
+
   const handleAddFailureMode = () => {
-    const newData = [...internalData];
+    const newData = JSON.parse(JSON.stringify(internalData));
     let newWhyDescription = `¿Por qué ocurrió: "${focusEventDescription || 'el evento foco'}"?`;
-    
+
     newData.push({
         id: generateClientSideId('fm'),
         description: newWhyDescription,
@@ -148,24 +152,26 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
 
   const handleRemove = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(internalData));
-    let current: any = newData;
+    let parent: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
-        current = current[path[i]];
+        parent = parent[path[i]];
     }
     const indexToRemove = path[path.length - 1] as number;
-    current.splice(indexToRemove, 1);
+    parent.splice(indexToRemove, 1);
     onSetCtm2Data(newData);
   };
   
-  const renderPhysicalCauses = (hypotheses: Hypothesis[] | undefined, path: (string | number)[], isParentAccepted: boolean) => (
-    <div className="pl-4 border-l ml-4 mt-2 space-y-2">
-      {isParentAccepted && (
-        <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => handleAdd(path)}><PlusCircle className="mr-1 h-3 w-3" /> Añadir porque</Button>
-      )}
+  const renderFailureModes = (failureModes: FailureMode[] | undefined, path: (string|number)[]) => (
+    <div className="pl-4 border-l-2 border-dashed border-gray-400 ml-4 mt-2 space-y-3">
+        {(failureModes || []).map((fm, fmIndex) => (
+            <div key={fm.id}>
+                {renderSingleFailureMode(fm, [...path, fmIndex], true)}
+            </div>
+        ))}
     </div>
   );
   
-  const renderHypotheses = (hypotheses: Hypothesis[] | undefined, path: (string | number)[], fmIndex: number) => (
+  const renderHypotheses = (hypotheses: Hypothesis[] | undefined, path: (string | number)[]) => (
       <div className="pl-4 border-l-2 border-teal-500/50 ml-4 mt-2 space-y-3">
         {(hypotheses || []).map((hyp, hypIndex) => (
           <Card key={hyp.id} className="p-3 bg-card">
@@ -175,7 +181,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
             <div className="flex items-center gap-2 mt-1">
               <Textarea 
                 value={hyp.description} 
-                onChange={(e) => handleUpdate([...path, hypIndex], e.target.value)} 
+                onChange={(e) => handleUpdate([...path, hypIndex, 'description'], e.target.value)} 
                 rows={1} 
                 className={cn(
                   "text-sm",
@@ -194,11 +200,36 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
                 <span className="font-semibold">Justificación V/R:</span> {hyp.validationMethod}
               </div>
             )}
-            {renderPhysicalCauses(hyp.hypotheses, [...path, hypIndex, 'hypotheses'], hyp.status === 'accepted')}
+             {hyp.status === 'accepted' && (
+                <>
+                  {renderFailureModes(hyp.failureModes, [...path, hypIndex, 'failureModes'])}
+                  <Button size="sm" variant="outline" className="text-xs h-7 mt-2" onClick={() => handleAdd([...path, hypIndex, 'failureModes'])}><PlusCircle className="mr-1 h-3 w-3" /> Añadir Por Qué</Button>
+                </>
+            )}
           </Card>
         ))}
         <Button size="sm" variant="outline" className="text-sm h-8" onClick={() => handleAdd(path)}><PlusCircle className="mr-2 h-4 w-4" /> Añadir porque</Button>
       </div>
+  );
+
+  const renderSingleFailureMode = (fm: FailureMode, path: (string|number)[], isNested: boolean) => (
+      <Accordion type="single" collapsible defaultValue="item-1" className={cn(isNested ? "" : "min-w-[20rem] flex-shrink-0")}>
+        <AccordionItem value="item-1">
+          <div className="flex items-center w-full">
+            <AccordionTrigger className="flex-grow">
+              <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> Por Qué #{path[path.length - 1] as number + 1}</span>
+            </AccordionTrigger>
+            <Button size="icon" variant="ghost" className="h-7 w-7 ml-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemove(path);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+          </div>
+          <AccordionContent className="pl-2">
+            <div className="space-y-2 p-2 border-l-2">
+              <Label>Descripción del Por Qué</Label>
+              <Input value={fm.description} onChange={(e) => handleUpdate([...path, 'description'], e.target.value)} className="text-sm"/>
+              {renderHypotheses(fm.hypotheses, [...path, 'hypotheses'])}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
   );
 
   const safeInternalData = Array.isArray(internalData) ? internalData : [];
@@ -216,24 +247,8 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
         </div>
         <div className="flex space-x-4 overflow-x-auto py-2">
           {safeInternalData.map((fm, fmIndex) => (
-            <div key={fm.id} className="min-w-[20rem] flex-shrink-0">
-              <Accordion type="single" collapsible defaultValue="item-1">
-                <AccordionItem value="item-1">
-                  <div className="flex items-center w-full">
-                    <AccordionTrigger className="flex-grow">
-                      <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> Por Qué #1</span>
-                    </AccordionTrigger>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 ml-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemove([fmIndex]);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                  </div>
-                  <AccordionContent className="pl-2">
-                    <div className="space-y-2 p-2 border-l-2">
-                      <Label>Descripción del Por Qué</Label>
-                      <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex], e.target.value)} className="text-sm"/>
-                      {renderHypotheses(fm.hypotheses, [fmIndex, 'hypotheses'], fmIndex)}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
+            <div key={fm.id}>
+              {renderSingleFailureMode(fm, [fmIndex], false)}
             </div>
           ))}
           {safeInternalData.length === 0 && (
