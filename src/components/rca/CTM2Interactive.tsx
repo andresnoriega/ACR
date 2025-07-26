@@ -89,12 +89,10 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   const [validationState, setValidationState] = useState<{ path: (string | number)[]; status: Hypothesis['status'] } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
   
-  // This state is now only for local rendering updates.
-  const [internalData, setInternalData] = useState<CTMData>(() => ctm2Data || []);
+  const [internalData, setInternalData] = useState<CTMData>(() => Array.isArray(ctm2Data) ? ctm2Data : []);
 
-  // Sync internal state if the prop changes from outside (e.g., loading a new analysis)
   useEffect(() => {
-      setInternalData(ctm2Data);
+      setInternalData(Array.isArray(ctm2Data) ? ctm2Data : []);
   }, [ctm2Data]);
 
 
@@ -156,8 +154,11 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
 
     // Special case for CTM.2: Adding a new top-level "Por Qué" from an accepted "Porque"
     if(path.length === 4 && path[1] === 'hypotheses' && path[3] === 'physicalCauses') {
-        const fm = newData[path[0] as number];
-        const hyp = fm.hypotheses[path[2] as number];
+        const fmIndex = path[0] as number;
+        const hypIndex = path[2] as number;
+        
+        const fm = newData[fmIndex];
+        const hyp = fm?.hypotheses[hypIndex];
         
         if (hyp && hyp.status === 'accepted') {
             const newWhyDescription = `¿Por qué: "${hyp.description.substring(0, 50)}..."?`;
@@ -273,6 +274,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
       </div>
   );
 
+  const safeInternalData = Array.isArray(internalData) ? internalData : [];
 
   return (
     <>
@@ -286,7 +288,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
           </Button>
         </div>
         <div className="flex space-x-4 overflow-x-auto py-2">
-          {internalData.map((fm, fmIndex) => (
+          {safeInternalData.map((fm, fmIndex) => (
             <div key={fm.id} className="min-w-[20rem] flex-shrink-0">
               <Accordion type="single" collapsible defaultValue="item-1">
                 <AccordionItem value="item-1">
@@ -307,7 +309,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
               </Accordion>
             </div>
           ))}
-          {internalData.length === 0 && (
+          {safeInternalData.length === 0 && (
             <div className="text-center text-muted-foreground italic py-4 w-full">
               Haga clic en "Añadir Por Qué" para comenzar a construir el árbol.
             </div>
