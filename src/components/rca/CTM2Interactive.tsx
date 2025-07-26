@@ -1,6 +1,6 @@
 
 'use client';
-import { FC, useCallback, useMemo, useState, useEffect } from 'react';
+import { FC, useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import {
   Accordion,
   AccordionContent,
@@ -48,7 +48,7 @@ const CTM2RecursiveRenderer: FC<{
         return (
              <div className="space-y-3 pl-4 border-l-2 border-dashed border-gray-400 ml-4 mt-2">
                 {failureModes.map((fm, fmIndex) => {
-                    const currentPrefix = numberingPrefix ? `${numberingPrefix}${fmIndex + 1}` : `${fmIndex + 1}`;
+                    const currentPrefix = `${numberingPrefix}${fmIndex + 1}`;
                     const title = `Por Qué #${currentPrefix}`;
                     return (
                         <div key={fm.id}>
@@ -66,7 +66,7 @@ const CTM2RecursiveRenderer: FC<{
                                     <AccordionContent className="pl-2">
                                         <div className="space-y-2 p-2 border-l-2">
                                         <Label>Descripción del Por Qué</Label>
-                                        <Input value={fm.description} onChange={(e) => onUpdate([...path, fmIndex, 'description'], e.target.value)} className="text-sm"/>
+                                        <Input value={fm.description} onChange={(e) => onUpdate([...path, fmIndex], e.target.value)} className="text-sm"/>
                                         <CTM2RecursiveRenderer
                                             items={fm.hypotheses || []}
                                             level="hypothesis"
@@ -102,7 +102,7 @@ const CTM2RecursiveRenderer: FC<{
                     <div className="flex items-center gap-2 mt-1">
                       <Textarea 
                         value={hyp.description} 
-                        onChange={(e) => onUpdate([...path, hypIndex, 'description'], e.target.value)}
+                        onChange={(e) => onUpdate([...path, hypIndex], e.target.value)}
                         rows={1} 
                         className={cn(
                           "text-sm",
@@ -157,28 +157,45 @@ interface CTM2InteractiveProps {
 export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2Data, focusEventDescription }) => {
   const [validationState, setValidationState] = useState<{ path: (string | number)[]; status: Hypothesis['status'] } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
+  const hasInitialized = useRef(false);
 
-  const handleUpdate = (path: (string | number)[], value: string) => {
+  useEffect(() => {
+    // This effect runs only on the client, after hydration.
+    // It ensures that we don't cause a hydration mismatch by modifying the data structure on the first render.
+    if (!hasInitialized.current) {
+        if (!ctm2Data || ctm2Data.length === 0) {
+            const initialWhyDescription = `¿Por qué ocurrió: "${focusEventDescription}"?`;
+            const initialFailureMode: FailureMode = {
+                id: generateClientSideId('fm'),
+                description: initialWhyDescription,
+                hypotheses: [],
+            };
+            onSetCtm2Data([initialFailureMode]);
+        }
+        hasInitialized.current = true;
+    }
+  }, [ctm2Data, onSetCtm2Data, focusEventDescription]);
+
+  const handleUpdate = useCallback((path: (string | number)[], value: string) => {
     const newData: CTMData = JSON.parse(JSON.stringify(ctm2Data));
     let current: any = newData;
     
-    for (let i = 0; i < path.length - 1; i++) {
+    for (let i = 0; i < path.length; i++) {
         if (current === undefined) return;
         current = current[path[i]];
     }
 
-    const finalKey = path[path.length - 1];
-    if (finalKey === 'description' && typeof current === 'object' && current !== null) {
+    if (current && typeof current === 'object' && 'description' in current) {
       current.description = value;
     } else {
       console.error("Could not update property. Path:", path, "Current Object:", JSON.parse(JSON.stringify(current)));
     }
     
     onSetCtm2Data(newData);
-  };
+  }, [ctm2Data, onSetCtm2Data]);
 
 
-  const handleToggleStatus = (path: (string | number)[], status: 'accepted' | 'rejected' | 'pending') => {
+  const handleToggleStatus = useCallback((path: (string | number)[], status: 'accepted' | 'rejected' | 'pending') => {
     const newData: CTMData = JSON.parse(JSON.stringify(ctm2Data));
     let current: any = newData;
 
@@ -194,7 +211,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     } else {
         setValidationState({ path, status });
     }
-  };
+  }, [ctm2Data, onSetCtm2Data]);
 
   const handleConfirmValidation = useCallback((method: string) => {
     if (!validationState) return;
@@ -220,7 +237,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
 
 
   const handleAdd = useCallback((path: (string | number)[], baseDescription: string) => {
-    const newData: CTMData = JSON.parse(JSON.stringify(ctm2Data));
+    const newData: CTMData = JSON.parse(JSON.stringify(ctm2Data || []));
     let current: any = newData;
 
     for (let i = 0; i < path.length; i++) {
@@ -234,10 +251,10 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     const lastSegment = path[path.length - 1];
 
     if (lastSegment === 'hypotheses') {
-      if (!current) current = [];
+      if (!Array.isArray(current)) current = [];
       current.push({ id: generateClientSideId('hyp'), description: 'Nuevo porque', failureModes: [], status: 'pending' });
     } else if (lastSegment === 'failureModes') {
-      if (!current) current = [];
+      if (!Array.isArray(current)) current = [];
       const newWhyDescription = `¿Por qué: "${baseDescription.substring(0, 50)}..."?`;
       current.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
     } else {
@@ -248,7 +265,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   }, [ctm2Data, onSetCtm2Data]);
 
 
-  const handleRemove = (path: (string | number)[]) => {
+  const handleRemove = useCallback((path: (string | number)[]) => {
     const newData: CTMData = JSON.parse(JSON.stringify(ctm2Data));
     let parent: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
@@ -257,7 +274,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     const indexToRemove = path[path.length - 1] as number;
     parent.splice(indexToRemove, 1);
     onSetCtm2Data(newData);
-  };
+  }, [ctm2Data, onSetCtm2Data]);
   
   const handleAddFailureMode = useCallback(() => {
     const newWhyDescription = `¿Por qué ocurrió: "${focusEventDescription}"?`;
@@ -304,7 +321,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
                             <AccordionContent className="pl-2">
                                 <div className="space-y-2 p-2 border-l-2">
                                 <Label>Descripción del Por Qué</Label>
-                                <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex, 'description'], e.target.value)} className="text-sm"/>
+                                <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex], e.target.value)} className="text-sm"/>
                                 <CTM2RecursiveRenderer
                                     items={fm.hypotheses || []}
                                     level="hypothesis"
