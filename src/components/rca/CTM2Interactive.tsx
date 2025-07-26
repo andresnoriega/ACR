@@ -66,7 +66,7 @@ const CTM2RecursiveRenderer: FC<{
                                     <AccordionContent className="pl-2">
                                         <div className="space-y-2 p-2 border-l-2">
                                         <Label>Descripción del Por Qué</Label>
-                                        <Input value={fm.description} onChange={(e) => onUpdate([...path, fmIndex, 'description'], e.target.value)} className="text-sm"/>
+                                        <Input value={fm.description} onChange={(e) => onUpdate([...path, fmIndex], e.target.value)} className="text-sm"/>
                                         <CTM2RecursiveRenderer
                                             items={fm.hypotheses || []}
                                             level="hypothesis"
@@ -102,7 +102,7 @@ const CTM2RecursiveRenderer: FC<{
                     <div className="flex items-center gap-2 mt-1">
                       <Textarea 
                         value={hyp.description} 
-                        onChange={(e) => onUpdate([...path, hypIndex, 'description'], e.target.value)}
+                        onChange={(e) => onUpdate([...path, hypIndex], e.target.value)}
                         rows={1} 
                         className={cn(
                           "text-sm",
@@ -158,35 +158,36 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   const [validationState, setValidationState] = useState<{ path: (string | number)[]; status: Hypothesis['status'] } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
   
-  const [internalData, setInternalData] = useState<CTMData>(() => ctm2Data || []);
-  
+  const [internalData, setInternalData] = useState<CTMData>([]);
+
   useEffect(() => {
-    // If ctm2Data is empty and there's a description, initialize with the first question.
-    // This solves the production issue where the component might not initialize correctly.
-    if ((!ctm2Data || ctm2Data.length === 0) && focusEventDescription) {
+    // This effect ensures state consistency between parent and child, crucial for production builds.
+    // It initializes or updates the internal state only when the prop from the parent changes.
+    // This avoids hydration errors.
+    const initialData = Array.isArray(ctm2Data) ? ctm2Data : [];
+    if (initialData.length === 0 && focusEventDescription) {
         const initialEntry = {
             id: generateClientSideId('fm'),
             description: `¿Por qué ocurrió: "${focusEventDescription}"?`,
             hypotheses: []
         };
-        onSetCtm2Data([initialEntry]);
-    } else if (JSON.stringify(ctm2Data) !== JSON.stringify(internalData)) {
-      setInternalData(Array.isArray(ctm2Data) ? ctm2Data : []);
+        setInternalData([initialEntry]);
+    } else {
+        setInternalData(initialData);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctm2Data, focusEventDescription]);
+
 
  const handleUpdate = (path: (string | number)[], value: string) => {
     const newData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
     
-    for (let i = 0; i < path.length - 1; i++) {
+    for (let i = 0; i < path.length; i++) {
         current = current[path[i]];
     }
-    const finalKey = path[path.length - 1];
     
-    if (current && typeof current === 'object' && finalKey in current) {
-      current[finalKey].description = value;
+    if (current && typeof current === 'object') {
+      current.description = value;
     } else {
        console.error("Could not update property. Path:", path, "Current Object:", JSON.parse(JSON.stringify(current)));
     }
@@ -241,6 +242,11 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     const newData = JSON.parse(JSON.stringify(internalData));
     let parentOfTarget: any = newData;
 
+    if (path.length === 0) { // This case is handled by handleAddFailureMode now
+        return;
+    }
+
+    // Navigate to the direct parent of the array where we want to add.
     for (let i = 0; i < path.length - 1; i++) {
         if (!parentOfTarget || parentOfTarget[path[i]] === undefined) {
             console.error("Path is invalid during traversal", path, parentOfTarget);
@@ -249,12 +255,12 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
         parentOfTarget = parentOfTarget[path[i]];
     }
     
-    const lastKey = path[path.length - 1];
-    const container = parentOfTarget[lastKey];
+    const containerKey = path[path.length - 1]; // This key should point to the array (e.g., 'hypotheses' or 'failureModes')
+    const container = parentOfTarget[containerKey];
 
-    if (lastKey === 'hypotheses' && Array.isArray(container)) {
+    if (containerKey === 'hypotheses' && Array.isArray(container)) {
         container.push({ id: generateClientSideId('hyp'), description: 'Nuevo porque', failureModes: [], status: 'pending' });
-    } else if (lastKey === 'failureModes' && Array.isArray(container)) {
+    } else if (containerKey === 'failureModes' && Array.isArray(container)) {
         const newWhyDescription = `¿Por qué: "${baseDescription.substring(0, 50)}..."?`;
         container.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
     } else {
@@ -277,7 +283,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   };
   
   const handleAddFailureMode = useCallback(() => {
-    const newWhyDescription = `¿Por qué ocurrió: "${focusEventDescription || 'el evento foco'}"?`;
+    const newWhyDescription = `¿Por qué ocurrió: "${focusEventDescription}"?`;
     const newFailureMode: FailureMode = {
         id: generateClientSideId('fm'),
         description: newWhyDescription,
@@ -307,7 +313,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
         ) : (
           <div className="flex space-x-4 overflow-x-auto py-2">
             {safeInternalData.map((fm, fmIndex) => {
-              const title = "Por Qué #1";
+              const title = `Por Qué #${fmIndex + 1}`;
               return (
                 <div key={fm.id} className="min-w-[22rem] flex-shrink-0">
                     <Accordion type="single" collapsible defaultValue="item-1">
@@ -321,7 +327,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
                             <AccordionContent className="pl-2">
                                 <div className="space-y-2 p-2 border-l-2">
                                 <Label>Descripción del Por Qué</Label>
-                                <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex, 'description'], e.target.value)} className="text-sm"/>
+                                <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex], e.target.value)} className="text-sm"/>
                                 <CTM2RecursiveRenderer
                                     items={fm.hypotheses || []}
                                     level="hypothesis"
@@ -330,7 +336,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
                                     onUpdate={handleUpdate}
                                     onAdd={handleAdd}
                                     onRemove={handleRemove}
-                                    onToggleStatus={onToggleStatus}
+                                    onToggleStatus={handleToggleStatus}
                                   />
                                 </div>
                             </AccordionContent>
