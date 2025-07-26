@@ -130,7 +130,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     }
   };
 
-  const handleConfirmValidation = useCallback((method: string) => {
+  const handleConfirmValidation = (method: string) => {
     if (!validationState) return;
     setIsProcessingValidation(true);
     const { entryId, causeId, status } = validationState;
@@ -151,7 +151,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     handleUpdate(newData);
     setIsProcessingValidation(false);
     setValidationState(null);
-  }, [internalData, validationState]);
+  };
 
 
   return (
@@ -165,7 +165,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
             <Card key={entry.id} className="p-4 bg-secondary/30">
               <div className="flex justify-between items-center mb-2">
                 <p className="font-semibold text-primary">Por qué #{index + 1}</p>
-                {index > 0 && (
+                {internalData.length > 1 && (
                   <Button
                     variant="ghost"
                     size="icon"

@@ -7,65 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlusCircle, Trash2, CornerDownRight, Users, Network, Wrench, Box, Ruler, Leaf, Check, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-
-// --- Validation Dialog Component (similar to CTM's) ---
-interface ValidationDialogProps {
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
-  onConfirm: (method: string) => void;
-  isProcessing: boolean;
-}
-
-const ValidationDialog: FC<ValidationDialogProps> = ({ isOpen, onOpenChange, onConfirm, isProcessing }) => {
-  const [method, setMethod] = useState('');
-
-  const handleConfirmClick = () => {
-    if (method.trim()) {
-      onConfirm(method);
-    }
-  };
-
-  useEffect(() => {
-    if (isOpen) {
-      setMethod('');
-    }
-  }, [isOpen]);
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Confirmar Validación/Rechazo de Causa</DialogTitle>
-          <DialogDescription>
-            Por favor, ingrese el método o justificación utilizado para validar o rechazar esta causa.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="py-4">
-          <Label htmlFor="ishikawaValidationMethod">Método de Validación/Rechazo <span className="text-destructive">*</span></Label>
-          <Textarea
-            id="ishikawaValidationMethod"
-            value={method}
-            onChange={(e) => setMethod(e.target.value)}
-            placeholder="Ej: Inspección visual, análisis de datos, entrevista, etc."
-            className="mt-1"
-          />
-        </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline" disabled={isProcessing}>Cancelar</Button>
-          </DialogClose>
-          <Button onClick={handleConfirmClick} disabled={!method.trim() || isProcessing}>
-            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Confirmar
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
+import { ValidationDialog } from './ValidationDialog';
 
 
 // --- Main Ishikawa Component ---
@@ -90,6 +32,7 @@ export const IshikawaDiagramInteractive: FC<IshikawaDiagramInteractiveProps> = (
   onSetIshikawaData,
 }) => {
   const [validationState, setValidationState] = useState<{ categoryId: string; causeId: string; status: 'accepted' | 'rejected' } | null>(null);
+  const [isProcessingValidation, setIsProcessingValidation] = useState(false);
 
   const handleAddCause = (categoryId: string) => {
     const newData = ishikawaData.map(category => {
@@ -141,7 +84,7 @@ export const IshikawaDiagramInteractive: FC<IshikawaDiagramInteractiveProps> = (
         if (cat.id === categoryId) {
           return {
             ...cat,
-            causes: cat.causes.map(c => c.id === causeId ? { ...c, status: 'pending' } : c)
+            causes: cat.causes.map(c => c.id === causeId ? { ...c, status: 'pending', validationMethod: undefined } : c)
           };
         }
         return cat;
@@ -154,6 +97,7 @@ export const IshikawaDiagramInteractive: FC<IshikawaDiagramInteractiveProps> = (
 
   const handleConfirmValidation = (method: string) => {
     if (!validationState) return;
+    setIsProcessingValidation(true);
     const { categoryId, causeId, status } = validationState;
 
     const newData = ishikawaData.map(cat => {
@@ -170,6 +114,7 @@ export const IshikawaDiagramInteractive: FC<IshikawaDiagramInteractiveProps> = (
     });
 
     onSetIshikawaData(newData);
+    setIsProcessingValidation(false);
     setValidationState(null);
   };
 
@@ -258,7 +203,7 @@ export const IshikawaDiagramInteractive: FC<IshikawaDiagramInteractiveProps> = (
           <Card className="mx-4 shrink-0 shadow-lg border-primary">
               <CardContent className="p-3">
                   <p className="text-sm font-semibold text-center text-primary-foreground bg-primary px-3 py-1 rounded">
-                      {focusEventDescription || "Evento Foco"}
+                      {focusEventDescription || "Evento Foco (no definido en Paso 1)"}
                   </p>
               </CardContent>
           </Card>
@@ -268,14 +213,15 @@ export const IshikawaDiagramInteractive: FC<IshikawaDiagramInteractiveProps> = (
         {renderCategoryGroup(bottomCategories)}
         
       </div>
-      {validationState && (
-        <ValidationDialog
-          isOpen={!!validationState}
-          onOpenChange={() => setValidationState(null)}
-          onConfirm={handleConfirmValidation}
-          isProcessing={false} // No long running task here
-        />
-      )}
+      <ValidationDialog
+        isOpen={!!validationState}
+        onOpenChange={() => setValidationState(null)}
+        onConfirm={handleConfirmValidation}
+        isProcessing={isProcessingValidation}
+        title="Confirmar Validación/Rechazo de Causa"
+        description="Por favor, ingrese el método o justificación utilizado para validar o rechazar esta causa."
+        placeholder="Ej: Inspección visual, análisis de datos, entrevista, etc."
+      />
     </>
   );
 };
