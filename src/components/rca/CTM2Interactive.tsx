@@ -105,15 +105,11 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     }
     const finalKey = path[path.length - 1];
 
-    if (typeof finalKey === 'string' && finalKey === 'description' && typeof current === 'object' && current !== null) {
-        current.description = value;
-    } else if (typeof current[finalKey] === 'object' && current[finalKey] !== null) {
-        current[finalKey] = { ...current[finalKey], description: value };
-    } else {
-        // This case might be for direct value update, which shouldn't happen with objects.
-        // It's safer to handle the primary object case.
-        console.error("Attempted to update a non-object or complex path incorrectly.");
-        return;
+    // Check if we are updating the description of an object in an array
+    if (typeof finalKey === 'number' && current[finalKey] && typeof current[finalKey] === 'object') {
+      current[finalKey].description = value;
+    } else { // Check if we are updating the description of the root object (like a FailureMode)
+       current[finalKey] = value;
     }
     
     setInternalData(newData);
@@ -126,7 +122,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     for (let i = 0; i < path.length - 1; i++) {
         parent = parent[path[i]];
     }
-    const finalKey = path[path.length - 1];
+    const finalKey = path[path.length - 1] as number;
     const itemToUpdate = parent[finalKey];
       
     if (itemToUpdate && itemToUpdate.status === status) {
@@ -168,14 +164,15 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   const handleAdd = (path: (string | number)[]) => {
     const newData: CTMData = JSON.parse(JSON.stringify(internalData));
     
-    if (path.length === 0) { // Main "Añadir Por Qué" button
+    // Case 1: Top-level "Añadir Por Qué" button is clicked. Creates a new main question.
+    if (path.length === 0) { 
         newData.push({ id: generateClientSideId('fm'), description: 'Nuevo Por Qué', hypotheses: [] });
         setInternalData(newData);
         onSetCtm2Data(newData);
         return;
     }
 
-    // Case for adding a new question from an approved cause
+    // Case 2: "Añadir Por Qué" from an approved cause. This should add a new "Porque" (Hypothesis) *inside* the current question.
     if (path.length === 4 && path[1] === 'hypotheses' && path[3] === 'physicalCauses') {
         const fmIndex = path[0] as number;
         const hypIndex = path[2] as number;
@@ -184,16 +181,20 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
         const hyp = fm?.hypotheses[hypIndex];
         
         if (hyp && hyp.status === 'accepted') {
-            const desc = typeof hyp.description === 'string' ? hyp.description : 'Causa Aprobada';
+            const desc = hyp.description || 'Causa Aprobada';
             const newWhyDescription = `¿Por qué: "${desc.substring(0, 50)}..."?`;
-            newData.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
+            
+            // Add a new hypothesis to the current FailureMode's hypotheses array
+            if (!fm.hypotheses) fm.hypotheses = [];
+            fm.hypotheses.push({ id: generateClientSideId('hyp'), description: newWhyDescription, physicalCauses: [], status: 'pending' });
+            
             setInternalData(newData);
             onSetCtm2Data(newData);
             return;
         }
     }
 
-    // Generic add for "Porque" inside a question
+    // Case 3: Generic add for a new "Porque" (Hypothesis) inside a question.
     let parent: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
       parent = parent[path[i]];
@@ -254,7 +255,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
             <div className="flex items-center gap-2 mt-1">
               <Textarea 
                 value={hyp.description} 
-                onChange={(e) => handleUpdate([...path, hypIndex, 'description'], e.target.value)} 
+                onChange={(e) => handleUpdate([...path, hypIndex], e.target.value)} 
                 rows={1} 
                 className={cn(
                   "text-sm",
