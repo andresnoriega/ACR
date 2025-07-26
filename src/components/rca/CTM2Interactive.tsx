@@ -45,16 +45,20 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   }, [ctm2Data]);
 
 
-  const handleUpdate = (path: (string | number)[], value: string) => {
+ const handleUpdate = (path: (string | number)[], value: string) => {
     const newData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
-    for (let i = 0; i < path.length - 1; i++) {
+    
+    // Traverse to the object to be updated
+    for (let i = 0; i < path.length; i++) {
         current = current[path[i]];
     }
-    const finalKey = path[path.length - 1];
     
-    if (current && typeof current === 'object' && finalKey in current) {
-       current[finalKey].description = value;
+    // Update the description property of the found object
+    if (current && typeof current === 'object' && 'description' in current) {
+       current.description = value;
+    } else {
+        console.error("Could not update description on target:", current);
     }
 
     onSetCtm2Data(newData);
@@ -64,10 +68,10 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     const newData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
 
-    for (let i = 0; i < path.length - 1; i++) {
+    for (let i = 0; i < path.length; i++) {
         current = current[path[i]];
     }
-    const itemToUpdate = current[path[path.length - 1]];
+    const itemToUpdate = current;
     
     if (itemToUpdate && itemToUpdate.status === status) {
         // If clicking the same status button, toggle back to pending
@@ -86,10 +90,10 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     
     const newData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
-    for (let i = 0; i < path.length - 1; i++) {
+    for (let i = 0; i < path.length; i++) {
         current = current[path[i]];
     }
-    const itemToUpdate = current[path[path.length - 1]];
+    const itemToUpdate = current;
     
     if (itemToUpdate) {
       itemToUpdate.status = status;
@@ -101,46 +105,31 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     setIsProcessingValidation(false);
   }, [internalData, onSetCtm2Data, validationState]);
 
+
   const handleAdd = useCallback((path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(internalData));
     let parent: any = newData;
-
+    
     // Traverse to the parent of the target array
-    for (let i = 0; i < path.length - 1; i++) {
-      parent = parent[path[i]];
-      if (parent === undefined) {
-        console.error("Invalid path in handleAdd", path);
-        return;
-      }
+    for (let i = 0; i < path.length -1; i++) {
+        parent = parent[path[i]];
     }
+    
+    const targetKey = path[path.length -1];
+    const targetArray = parent[targetKey];
 
-    // Determine the target array based on the last key in the path
-    const lastKey = path[path.length - 1];
-    const parentOfTarget = parent;
-    parent = parent[lastKey];
-
-    let targetArray: any[] | undefined = undefined;
-
-    if (Array.isArray(parent)) {
-      targetArray = parent;
-    } else if (parent && typeof parent === 'object' && 'hypotheses' in parent) {
-      if (!Array.isArray(parent.hypotheses)) {
-        parent.hypotheses = [];
-      }
-      targetArray = parent.hypotheses;
-    } else {
-      console.error("Target for adding is not an array", path, parentOfTarget);
-      return;
+    if (!Array.isArray(targetArray)) {
+       console.error("Target for adding is not an array", path, parent);
+       return;
     }
-
+    
     const lastHypothesis = targetArray.length > 0 ? targetArray[targetArray.length - 1] : null;
     let newDescription = 'Nuevo porque';
     if(lastHypothesis && lastHypothesis.description) {
       newDescription = `¿Por qué: "${lastHypothesis.description.substring(0,50)}..."?`;
     }
 
-    targetArray.push({ id: generateClientSideId('hyp'), description: newDescription, physicalCauses: [], status: 'pending' });
-
+    targetArray.push({ id: generateClientSideId('hyp'), description: newDescription, hypotheses: [], status: 'pending' });
     onSetCtm2Data(newData);
   }, [internalData, onSetCtm2Data]);
 
@@ -186,7 +175,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
             <div className="flex items-center gap-2 mt-1">
               <Textarea 
                 value={hyp.description} 
-                onChange={(e) => handleUpdate([...path, hypIndex, 'description'], e.target.value)} 
+                onChange={(e) => handleUpdate([...path, hypIndex], e.target.value)} 
                 rows={1} 
                 className={cn(
                   "text-sm",
@@ -205,7 +194,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
                 <span className="font-semibold">Justificación V/R:</span> {hyp.validationMethod}
               </div>
             )}
-            {renderPhysicalCauses(hyp.hypotheses, [...path, hypIndex], hyp.status === 'accepted')}
+            {renderPhysicalCauses(hyp.hypotheses, [...path, hypIndex, 'hypotheses'], hyp.status === 'accepted')}
           </Card>
         ))}
         <Button size="sm" variant="outline" className="text-sm h-8" onClick={() => handleAdd(path)}><PlusCircle className="mr-2 h-4 w-4" /> Añadir porque</Button>
@@ -239,7 +228,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
                   <AccordionContent className="pl-2">
                     <div className="space-y-2 p-2 border-l-2">
                       <Label>Descripción del Por Qué</Label>
-                      <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex, 'description'], e.target.value)} className="text-sm"/>
+                      <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex], e.target.value)} className="text-sm"/>
                       {renderHypotheses(fm.hypotheses, [fmIndex, 'hypotheses'], fmIndex)}
                     </div>
                   </AccordionContent>
