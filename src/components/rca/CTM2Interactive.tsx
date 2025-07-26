@@ -66,7 +66,7 @@ const CTM2RecursiveRenderer: FC<{
                                     <AccordionContent className="pl-2">
                                         <div className="space-y-2 p-2 border-l-2">
                                         <Label>Descripción del Por Qué</Label>
-                                        <Input value={fm.description} onChange={(e) => onUpdate([...path, fmIndex], e.target.value)} className="text-sm"/>
+                                        <Input value={fm.description} onChange={(e) => onUpdate([...path, fmIndex, 'description'], e.target.value)} className="text-sm"/>
                                         <CTM2RecursiveRenderer
                                             items={fm.hypotheses || []}
                                             level="hypothesis"
@@ -102,7 +102,7 @@ const CTM2RecursiveRenderer: FC<{
                     <div className="flex items-center gap-2 mt-1">
                       <Textarea 
                         value={hyp.description} 
-                        onChange={(e) => onUpdate([...path, hypIndex], e.target.value)}
+                        onChange={(e) => onUpdate([...path, hypIndex, 'description'], e.target.value)}
                         rows={1} 
                         className={cn(
                           "text-sm",
@@ -178,22 +178,34 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   }, [ctm2Data, focusEventDescription]);
 
 
- const handleUpdate = (path: (string | number)[], value: string) => {
+  const handleUpdate = (path: (string | number)[], value: string) => {
     const newData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
     
-    for (let i = 0; i < path.length; i++) {
+    // Traverse to the parent of the value to be updated
+    for (let i = 0; i < path.length - 1; i++) {
+        if (current === undefined) {
+             console.error("Invalid path for update:", path);
+             return;
+        }
         current = current[path[i]];
     }
-    
-    if (current && typeof current === 'object') {
-      current.description = value;
-    } else {
-       console.error("Could not update property. Path:", path, "Current Object:", JSON.parse(JSON.stringify(current)));
-    }
 
+    const finalKey = path[path.length - 1];
+    
+    // Check if the final key is 'description' and its parent is an object
+    if (finalKey === 'description' && typeof current === 'object' && current !== null) {
+        current.description = value;
+    } else if (typeof current[finalKey] === 'object' && current[finalKey] !== null) {
+        // This handles cases where the path leads to the object itself
+        current[finalKey].description = value;
+    } else {
+        console.error("Could not update property. Path:", path, "Current Object:", JSON.parse(JSON.stringify(current)));
+    }
+    
     onSetCtm2Data(newData);
-};
+  };
+
 
 
   const handleToggleStatus = (path: (string | number)[], status: 'accepted' | 'rejected' | 'pending') => {
@@ -240,22 +252,34 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
 
   const handleAdd = useCallback((path: (string | number)[], baseDescription: string) => {
     const newData = JSON.parse(JSON.stringify(internalData));
-    let parentOfTarget: any = newData;
+    let current = newData;
+    let parentOfTarget = null;
+    let containerKey: string | number | null = null;
+    let parentHypothesis = null;
 
-    if (path.length === 0) { // This case is handled by handleAddFailureMode now
+    if (path.length === 0) { // Should not be called from here, handled by handleAddFailureMode
         return;
     }
 
-    // Navigate to the direct parent of the array where we want to add.
-    for (let i = 0; i < path.length - 1; i++) {
-        if (!parentOfTarget || parentOfTarget[path[i]] === undefined) {
-            console.error("Path is invalid during traversal", path, parentOfTarget);
+    // Traverse to find the parent and the key/index of the container array.
+    let temp: any = newData;
+    for (let i = 0; i < path.length; i++) {
+        if (temp === undefined) {
+            console.error("Path is invalid during add traversal", path);
             return;
         }
-        parentOfTarget = parentOfTarget[path[i]];
+        if (i < path.length - 1) {
+          temp = temp[path[i]];
+        }
+    }
+    parentOfTarget = temp;
+    containerKey = path[path.length - 1];
+
+    if (parentOfTarget === null || containerKey === null) {
+      console.error("Could not determine parent or container key", path);
+      return;
     }
     
-    const containerKey = path[path.length - 1]; // This key should point to the array (e.g., 'hypotheses' or 'failureModes')
     const container = parentOfTarget[containerKey];
 
     if (containerKey === 'hypotheses' && Array.isArray(container)) {
@@ -313,7 +337,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
         ) : (
           <div className="flex space-x-4 overflow-x-auto py-2">
             {safeInternalData.map((fm, fmIndex) => {
-              const title = `Por Qué #${fmIndex + 1}`;
+              const title = `Por Qué #1`; // Always #1 for parallel, independent investigations
               return (
                 <div key={fm.id} className="min-w-[22rem] flex-shrink-0">
                     <Accordion type="single" collapsible defaultValue="item-1">
@@ -327,12 +351,12 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
                             <AccordionContent className="pl-2">
                                 <div className="space-y-2 p-2 border-l-2">
                                 <Label>Descripción del Por Qué</Label>
-                                <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex], e.target.value)} className="text-sm"/>
+                                <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex, 'description'], e.target.value)} className="text-sm"/>
                                 <CTM2RecursiveRenderer
                                     items={fm.hypotheses || []}
                                     level="hypothesis"
                                     path={[fmIndex, 'hypotheses']}
-                                    numberingPrefix={`${fmIndex + 1}.`}
+                                    numberingPrefix="1."
                                     onUpdate={handleUpdate}
                                     onAdd={handleAdd}
                                     onRemove={handleRemove}
