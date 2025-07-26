@@ -55,14 +55,17 @@ const CTM2RecursiveRenderer: FC<{
                                 <AccordionItem value="item-1">
                                     <div className="flex items-center w-full">
                                         <AccordionTrigger className="flex-grow">
-                                            <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> Por Qué #{currentPrefix}</span>
+                                            <span className="font-semibold flex items-center">
+                                                <GitBranchPlus className="mr-2 h-4 w-4" /> 
+                                                Por Qué #{numberingPrefix ? currentPrefix : '1'}
+                                            </span>
                                         </AccordionTrigger>
                                         <Button size="icon" variant="ghost" className="h-7 w-7 ml-2 shrink-0" onClick={(e) => {e.stopPropagation(); onRemove([...path, fmIndex]);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                     </div>
                                     <AccordionContent className="pl-2">
                                         <div className="space-y-2 p-2 border-l-2">
                                         <Label>Descripción del Por Qué</Label>
-                                        <Input value={fm.description} onChange={(e) => onUpdate([...path, fmIndex], e.target.value)} className="text-sm"/>
+                                        <Input value={fm.description} onChange={(e) => onUpdate([...path, fmIndex, 'description'], e.target.value)} className="text-sm"/>
                                         <CTM2RecursiveRenderer
                                             items={fm.hypotheses || []}
                                             level="hypothesis"
@@ -98,7 +101,7 @@ const CTM2RecursiveRenderer: FC<{
                     <div className="flex items-center gap-2 mt-1">
                       <Textarea 
                         value={hyp.description} 
-                        onChange={(e) => onUpdate([...path, hypIndex], e.target.value)}
+                        onChange={(e) => onUpdate([...path, hypIndex, 'description'], e.target.value)}
                         rows={1} 
                         className={cn(
                           "text-sm",
@@ -167,17 +170,20 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     const newData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
     
-    for (let i = 0; i < path.length; i++) {
-        const segment = path[i];
-        if (current[segment] === undefined) {
-            console.error("Path is invalid during update traversal", path);
-            return;
-        }
-        current = current[segment];
+    // Traverse to the parent of the item to update
+    for (let i = 0; i < path.length - 2; i++) {
+        if (current === undefined) return;
+        current = current[path[i]];
     }
     
-    if (typeof current === 'object' && current !== null && 'description' in current) {
-      current.description = value;
+    // finalKey is the index or property name in the parent
+    const finalKey = path[path.length - 2];
+    const propertyToUpdate = path[path.length - 1]; // e.g., 'description'
+
+    if (current && typeof current === 'object' && finalKey in current && propertyToUpdate in current[finalKey]) {
+      current[finalKey][propertyToUpdate] = value;
+    } else {
+       console.error("Could not update property. Path:", path, "Current Object:", JSON.parse(JSON.stringify(current)));
     }
 
     onSetCtm2Data(newData);
@@ -228,30 +234,33 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
 
   const handleAdd = useCallback((path: (string | number)[], baseDescription: string) => {
     const newData = JSON.parse(JSON.stringify(internalData));
-    let parent: any = newData;
-    let finalKey = null;
-
-    if (path.length === 0) {
-      // Adding a new top-level failure mode
+    let current: any = newData;
+    
+    if (path.length === 0) { // Adding a new top-level failure mode
       const newWhyDescription = `¿Por qué ocurrió: "${focusEventDescription || 'el evento foco'}"?`;
       newData.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
     } else {
-        let currentLevel = newData;
-        for (let i = 0; i < path.length; i++) {
-            parent = currentLevel;
-            const segment = path[i];
-            currentLevel = parent[segment as any];
-        }
+      // Traverse to the parent array
+      for (let i = 0; i < path.length; i++) {
+        if (current === undefined) return;
+        current = current[path[i]];
+      }
 
-        if (Array.isArray(currentLevel)) {
-            const lastSegment = path[path.length - 1];
-            if (lastSegment === 'hypotheses') {
-                currentLevel.push({ id: generateClientSideId('hyp'), description: 'Nuevo porque', failureModes: [], status: 'pending' });
-            } else if (lastSegment === 'failureModes') {
-                const newWhyDescription = `¿Por qué: "${baseDescription.substring(0, 50)}..."?`;
-                currentLevel.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
-            }
+      // `current` is now the array we want to push to
+      if (Array.isArray(current)) {
+        const parentPath = path.slice(0, -1);
+        let parentObject: any = newData;
+        parentPath.forEach(segment => parentObject = parentObject[segment]);
+        
+        const lastSegment = path[path.length - 1];
+        
+        if (lastSegment === 'hypotheses') {
+            current.push({ id: generateClientSideId('hyp'), description: 'Nuevo porque', failureModes: [], status: 'pending' });
+        } else if (lastSegment === 'failureModes') {
+            const newWhyDescription = `¿Por qué: "${baseDescription.substring(0, 50)}..."?`;
+            current.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
         }
+      }
     }
     onSetCtm2Data(newData);
   }, [internalData, onSetCtm2Data, focusEventDescription]);
@@ -268,6 +277,14 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     onSetCtm2Data(newData);
   };
   
+  const handleAddFailureMode = useCallback(() => {
+    const newData = JSON.parse(JSON.stringify(internalData));
+    const newWhyDescription = `¿Por qué ocurrió: "${focusEventDescription || 'el evento foco'}"?`;
+    newData.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
+    onSetCtm2Data(newData);
+  }, [internalData, onSetCtm2Data, focusEventDescription]);
+
+  
   const safeInternalData = Array.isArray(internalData) ? internalData : [];
 
   return (
@@ -277,7 +294,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
           <h3 className="text-lg font-semibold font-headline text-primary flex items-center">
             <Share2 className="mr-2 h-5 w-5" /> Árbol de Causas (CTM.2)
           </h3>
-          <Button onClick={() => handleAdd([], focusEventDescription)} variant="outline" size="sm">
+          <Button onClick={handleAddFailureMode} variant="outline" size="sm">
               <PlusCircle className="mr-2 h-4 w-4" /> Añadir Por Qué
           </Button>
         </div>
@@ -294,20 +311,20 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
                         <AccordionItem value="item-1">
                             <div className="flex items-center w-full">
                                 <AccordionTrigger className="flex-grow">
-                                    <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> Por Qué #1</span>
+                                    <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> Por Qué #{fmIndex + 1}</span>
                                 </AccordionTrigger>
                                 <Button size="icon" variant="ghost" className="h-7 w-7 ml-2 shrink-0" onClick={(e) => {e.stopPropagation(); onRemove([fmIndex]);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                             </div>
                             <AccordionContent className="pl-2">
                                 <div className="space-y-2 p-2 border-l-2">
                                 <Label>Descripción del Por Qué</Label>
-                                <Input value={fm.description} onChange={(e) => onUpdate([fmIndex], e.target.value)} className="text-sm"/>
+                                <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex, 'description'], e.target.value)} className="text-sm"/>
                                 <CTM2RecursiveRenderer
                                     items={fm.hypotheses || []}
                                     level="hypothesis"
                                     path={[fmIndex, 'hypotheses']}
-                                    numberingPrefix="1."
-                                    onUpdate={onUpdate}
+                                    numberingPrefix={`${fmIndex + 1}.`}
+                                    onUpdate={handleUpdate}
                                     onAdd={handleAdd}
                                     onRemove={onRemove}
                                     onToggleStatus={onToggleStatus}
