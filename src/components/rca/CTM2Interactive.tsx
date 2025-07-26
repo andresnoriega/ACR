@@ -49,32 +49,27 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     const newData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
-      current = current[path[i]];
+        current = current[path[i]];
     }
     const finalKey = path[path.length - 1];
     
-    // Ensure we are updating the description property of the object
     if (current && typeof current === 'object' && finalKey in current) {
        current[finalKey].description = value;
     }
 
     onSetCtm2Data(newData);
-  };
+};
 
   const handleToggleStatus = (path: (string | number)[], status: 'accepted' | 'rejected' | 'pending') => {
     const newData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
 
-    for (let i = 0; i < path.length; i++) {
+    for (let i = 0; i < path.length - 1; i++) {
         current = current[path[i]];
-        if (current === undefined) {
-             console.error("Path is invalid during handleToggleStatus", path);
-             return;
-        }
     }
-    const itemToUpdate = current;
+    const itemToUpdate = current[path[path.length - 1]];
     
-    if (itemToUpdate.status === status) {
+    if (itemToUpdate && itemToUpdate.status === status) {
         // If clicking the same status button, toggle back to pending
         itemToUpdate.status = 'pending';
         itemToUpdate.validationMethod = undefined;
@@ -91,10 +86,10 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     
     const newData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
-    for (let i = 0; i < path.length; i++) {
+    for (let i = 0; i < path.length - 1; i++) {
         current = current[path[i]];
     }
-    const itemToUpdate = current;
+    const itemToUpdate = current[path[path.length - 1]];
     
     if (itemToUpdate) {
       itemToUpdate.status = status;
@@ -106,65 +101,38 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     setIsProcessingValidation(false);
   }, [internalData, onSetCtm2Data, validationState]);
 
-
-  const handleAdd = (path: (string | number)[]) => {
+  const handleAdd = useCallback((path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(internalData));
-    let currentLevel = newData;
-
-    if (path.length === 0) { // This case is handled by handleAddFailureMode now
-        return;
-    }
-    
     let parent: any = newData;
+
+    // Traverse to the parent of the target array
+    for (let i = 0; i < path.length - 1; i++) {
+      parent = parent[path[i]];
+      if (parent === undefined) {
+        console.error("Invalid path in handleAdd", path);
+        return;
+      }
+    }
+
+    // Determine the target array based on the last key in the path
+    const lastKey = path[path.length - 1];
+    const parentOfTarget = parent;
+    parent = parent[lastKey];
+
     let targetArray: any[] | undefined = undefined;
 
-    // Traverse to the parent of the array where we want to add
-    for(let i = 0; i < path.length; i++) {
-        const key = path[i];
-        if (parent === undefined) {
-            console.error("Invalid path in handleAdd", path);
-            return;
-        }
-
-        // If the key is 'hypotheses', we've found our target array
-        if (key === 'hypotheses') {
-            if (!Array.isArray(parent.hypotheses)) {
-                parent.hypotheses = [];
-            }
-            targetArray = parent.hypotheses;
-            break;
-        }
-        
-        parent = parent[key];
-    }
-    
-    // After the loop, if parent is an array, it's the top-level FailureMode array
     if (Array.isArray(parent)) {
-        const key = path[path.length - 1];
-        if (typeof key === "number" && parent[key]) {
-            const failureMode = parent[key];
-            if (!Array.isArray(failureMode.hypotheses)) {
-                 failureMode.hypotheses = [];
-            }
-            targetArray = failureMode.hypotheses;
-        }
-    } else if (parent && typeof parent === 'object' && !Array.isArray(parent)) {
-        // If parent is an object, it should be a FailureMode or Hypothesis
-         if ('hypotheses' in parent) {
-             if (!Array.isArray(parent.hypotheses)) {
-                parent.hypotheses = [];
-             }
-             targetArray = parent.hypotheses;
-         }
+      targetArray = parent;
+    } else if (parent && typeof parent === 'object' && 'hypotheses' in parent) {
+      if (!Array.isArray(parent.hypotheses)) {
+        parent.hypotheses = [];
+      }
+      targetArray = parent.hypotheses;
+    } else {
+      console.error("Target for adding is not an array", path, parentOfTarget);
+      return;
     }
 
-
-    if (!Array.isArray(targetArray)) {
-        console.error("Target for adding is not an array", path, parent);
-        return;
-    }
-
-    // Now, add the new hypothesis to the found array
     const lastHypothesis = targetArray.length > 0 ? targetArray[targetArray.length - 1] : null;
     let newDescription = 'Nuevo porque';
     if(lastHypothesis && lastHypothesis.description) {
@@ -174,17 +142,12 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     targetArray.push({ id: generateClientSideId('hyp'), description: newDescription, physicalCauses: [], status: 'pending' });
 
     onSetCtm2Data(newData);
-  };
-  
+  }, [internalData, onSetCtm2Data]);
+
   const handleAddFailureMode = () => {
     const newData = [...internalData];
     let newWhyDescription = `¿Por qué ocurrió: "${focusEventDescription || 'el evento foco'}"?`;
     
-    // Check if there is already a "Por que #1" to base the new one on
-    if (newData.length > 0 && newData[0].description) {
-        newWhyDescription = newData[0].description;
-    }
-
     newData.push({
         id: generateClientSideId('fm'),
         description: newWhyDescription,
@@ -193,7 +156,6 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
 
     onSetCtm2Data(newData);
   };
-
 
   const handleRemove = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(internalData));
@@ -219,12 +181,12 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
         {(hypotheses || []).map((hyp, hypIndex) => (
           <Card key={hyp.id} className="p-3 bg-card">
             <Label className="text-sm font-semibold flex items-center text-teal-700 dark:text-teal-300">
-              <BrainCircuit className="mr-2 h-4 w-4" /> porque #{fmIndex + 1}.{hypIndex + 1}
+              <BrainCircuit className="mr-2 h-4 w-4" /> porque #{hypIndex + 1}
             </Label>
             <div className="flex items-center gap-2 mt-1">
               <Textarea 
                 value={hyp.description} 
-                onChange={(e) => handleUpdate([...path, hypIndex], e.target.value)} 
+                onChange={(e) => handleUpdate([...path, hypIndex, 'description'], e.target.value)} 
                 rows={1} 
                 className={cn(
                   "text-sm",
@@ -246,7 +208,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
             {renderPhysicalCauses(hyp.hypotheses, [...path, hypIndex], hyp.status === 'accepted')}
           </Card>
         ))}
-        <Button size="sm" variant="outline" className="text-sm h-8" onClick={() => handleAdd([...path])}><PlusCircle className="mr-2 h-4 w-4" /> Añadir porque</Button>
+        <Button size="sm" variant="outline" className="text-sm h-8" onClick={() => handleAdd(path)}><PlusCircle className="mr-2 h-4 w-4" /> Añadir porque</Button>
       </div>
   );
 
@@ -270,14 +232,14 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
                 <AccordionItem value="item-1">
                   <div className="flex items-center w-full">
                     <AccordionTrigger className="flex-grow">
-                      <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> Por Qué #{fmIndex + 1}</span>
+                      <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> Por Qué #1</span>
                     </AccordionTrigger>
                     <Button size="icon" variant="ghost" className="h-7 w-7 ml-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemove([fmIndex]);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </div>
                   <AccordionContent className="pl-2">
                     <div className="space-y-2 p-2 border-l-2">
                       <Label>Descripción del Por Qué</Label>
-                      <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex], e.target.value)} className="text-sm"/>
+                      <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex, 'description'], e.target.value)} className="text-sm"/>
                       {renderHypotheses(fm.hypotheses, [fmIndex, 'hypotheses'], fmIndex)}
                     </div>
                   </AccordionContent>
