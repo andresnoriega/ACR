@@ -1,4 +1,3 @@
-
 export type EventType = 'Incidente' | 'Accidente' | 'Falla de Equipo' | 'No Conformidad' | 'Evento Operacional' | '';
 export type PriorityType = 'Alta' | 'Media' | 'Baja' | '';
 
@@ -65,7 +64,7 @@ export interface Validation {
   rejectedAt?: string;
 }
 
-export type AnalysisTechnique = '' | 'Ishikawa' | 'CTM' | 'CTM.2';
+export type AnalysisTechnique = '' | 'Ishikawa' | 'CTM' | 'CTM.3';
 
 export interface IshikawaCause {
   id: string;
@@ -105,7 +104,7 @@ export interface Hypothesis {
   id: string;
   description: string;
   physicalCauses?: PhysicalCause[]; // For original CTM
-  failureModes?: FailureMode[];   // For CTM.2 recursive structure
+  failureModes?: FailureMode[];   // For CTM.2/3 recursive structure
   status?: 'pending' | 'accepted' | 'rejected';
   validationMethod?: string;
 }
@@ -255,7 +254,7 @@ export interface RCAAnalysisDocument {
   analysisTechniqueNotes: string;
   ishikawaData: IshikawaData;
   ctmData: CTMData;
-  ctm2Data?: CTMData;
+  ctm3Data?: CTMData;
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
   // From Step 4
