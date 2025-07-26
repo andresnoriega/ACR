@@ -50,7 +50,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     const finalKey = path[path.length - 1];
     
     // Ensure we are updating the description property of the object
-    if (current && typeof current === 'object' && finalKey in current) {
+    if (current && typeof current[finalKey] === 'object' && current[finalKey] !== null) {
        current[finalKey].description = value;
     }
 
@@ -59,12 +59,11 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
 
   const handleToggleStatus = (path: (string | number)[], status: 'accepted' | 'rejected' | 'pending') => {
     const newData = JSON.parse(JSON.stringify(internalData));
-    let parent = newData;
+    let current: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
-        if (!parent) return;
-        parent = parent[path[i]];
+        current = current[path[i]];
     }
-    const itemToUpdate = parent[path[path.length - 1]];
+    const itemToUpdate = current[path[path.length - 1]];
 
     if (!itemToUpdate) {
       console.error("Item to update not found at path:", path);
@@ -105,41 +104,44 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
 
   const handleAdd = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(internalData));
-    let parent: any = newData;
 
-    if (path.length === 0) { 
-        return;
-    }
-
-    let current = newData;
-    for (const key of path) {
-      if (current === undefined) return;
-      current = current[key];
+    if (path.length === 0) {
+      // This case handles the top-right button "Añadir Por Qué"
+      // It always starts a new analysis line from the main event description
+      const newWhyDescription = `¿Por qué ocurrió: "${focusEventDescription || 'el evento foco'}"?`;
+      newData.push({
+        id: generateClientSideId('fm'),
+        description: newWhyDescription,
+        hypotheses: [],
+      });
+      setInternalData(newData);
+      onSetCtm2Data(newData);
+      return;
     }
     
-    const hyp = current;
-    // Logic for adding a nested "porque" (hypothesis)
+    let current = newData;
+    for (const key of path) {
+        if (current === undefined) return;
+        current = current[key];
+    }
+    const hyp: Hypothesis = current as any;
+    
+    // Logic for adding a nested "porque" (hypothesis) to a validated cause
     if (hyp && hyp.status === 'accepted') {
-        let parentOfTarget = newData;
-        for (let i = 0; i < path.length - 1; i++) {
-            parentOfTarget = parentOfTarget[path[i]];
-        }
-        let targetArray = parentOfTarget[path[path.length-1]];
-        if(targetArray && !Array.isArray(targetArray.hypotheses)) {
-            targetArray.hypotheses = [];
-        }
-        targetArray.hypotheses.push({ id: generateClientSideId('hyp'), description: 'Nuevo porque', physicalCauses: [], status: 'pending' });
+        const newWhyDescription = `¿Por qué: "${hyp.description.substring(0, 50)}..."?`;
+        newData.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
+        setInternalData(newData);
         onSetCtm2Data(newData);
         return;
     }
     
     // Logic for adding a "porque" to the current "Por Qué"
-    let parentOfTarget = newData;
+    let parentOfTarget: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
       parentOfTarget = parentOfTarget[path[i]];
     }
 
-    let targetArray = parentOfTarget[path[path.length-1]];
+    let targetArray = parentOfTarget;
 
     if (!Array.isArray(targetArray)) {
        console.error("Target for adding is not an array", path, parentOfTarget);
@@ -152,14 +154,15 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   };
   
   const handleAddFailureMode = () => {
-    const newData = JSON.parse(JSON.stringify(internalData));
-    const firstWhyDescription = `¿Por qué ocurrió: "${focusEventDescription || 'el evento foco'}"?`;
+    const newData = [...internalData]; // Create a new array reference
+    const newWhyDescription = `¿Por qué ocurrió: "${focusEventDescription || 'el evento foco'}"?`;
     
     newData.push({
         id: generateClientSideId('fm'),
-        description: firstWhyDescription,
+        description: newWhyDescription,
         hypotheses: []
     });
+
     onSetCtm2Data(newData);
   };
 
@@ -193,7 +196,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
             <div className="flex items-center gap-2 mt-1">
               <Textarea 
                 value={hyp.description} 
-                onChange={(e) => handleUpdate([...path, hypIndex, 'description'], e.target.value)} 
+                onChange={(e) => handleUpdate([...path, hypIndex], e.target.value)} 
                 rows={1} 
                 className={cn(
                   "text-sm",
@@ -212,7 +215,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
                 <span className="font-semibold">Justificación V/R:</span> {hyp.validationMethod}
               </div>
             )}
-            {renderPhysicalCauses(hyp.hypotheses, [...path, hypIndex], hyp.status === 'accepted')}
+            {renderPhysicalCauses(hyp.hypotheses, [...path, hypIndex, 'hypotheses'], hyp.status === 'accepted')}
           </Card>
         ))}
         <Button size="sm" variant="outline" className="text-sm h-8" onClick={() => handleAdd([...path])}><PlusCircle className="mr-2 h-4 w-4" /> Añadir porque</Button>
@@ -246,7 +249,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
                   <AccordionContent className="pl-2">
                     <div className="space-y-2 p-2 border-l-2">
                       <Label>Descripción del Por Qué</Label>
-                      <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex, 'description'], e.target.value)} className="text-sm"/>
+                      <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex], e.target.value)} className="text-sm"/>
                       {renderHypotheses(fm.hypotheses, [fmIndex, 'hypotheses'], fmIndex)}
                     </div>
                   </AccordionContent>
