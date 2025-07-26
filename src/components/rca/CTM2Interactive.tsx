@@ -232,12 +232,12 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     </div>
   );
   
-  const renderHypotheses = (hypotheses: Hypothesis[] | undefined, path: (string | number)[]) => (
+  const renderHypotheses = (hypotheses: Hypothesis[] | undefined, path: (string | number)[], fmIndex: number) => (
       <div className="pl-4 border-l-2 border-teal-500/50 ml-4 mt-2 space-y-3">
         {(hypotheses || []).map((hyp, hypIndex) => (
           <Card key={hyp.id} className="p-3 bg-card">
             <Label className="text-sm font-semibold flex items-center text-teal-700 dark:text-teal-300">
-              <BrainCircuit className="mr-2 h-4 w-4" /> Porque #{hypIndex + 1}
+              <BrainCircuit className="mr-2 h-4 w-4" /> Porque #{fmIndex + 1}.{hypIndex + 1}
             </Label>
             <div className="flex items-center gap-2 mt-1">
               <Textarea 
@@ -295,7 +295,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
                     <div className="space-y-2 p-2 border-l-2">
                       <Label>Descripción del Por Qué</Label>
                       <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex], e.target.value)} className="text-sm"/>
-                      {renderHypotheses(fm.hypotheses, [fmIndex, 'hypotheses'])}
+                      {renderHypotheses(fm.hypotheses, [fmIndex, 'hypotheses'], fmIndex)}
                     </div>
                   </AccordionContent>
                 </AccordionItem>
