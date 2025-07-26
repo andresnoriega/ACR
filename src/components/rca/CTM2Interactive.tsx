@@ -37,7 +37,6 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   const [internalData, setInternalData] = useState<CTMData>([]);
   
   useEffect(() => {
-    // Initialize internal state only once or when the external data fundamentally changes (e.g., new analysis loaded)
     setInternalData(Array.isArray(ctm2Data) ? JSON.parse(JSON.stringify(ctm2Data)) : []);
   }, [ctm2Data]);
 
@@ -51,7 +50,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     const finalKey = path[path.length - 1];
     
     // Ensure we are updating the description property of the object
-    if (current[finalKey] && typeof current[finalKey] === 'object') {
+    if (current && typeof current === 'object' && finalKey in current) {
        current[finalKey].description = value;
     }
 
@@ -62,17 +61,21 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   const handleToggleStatus = (path: (string | number)[], status: 'accepted' | 'rejected' | 'pending') => {
     const newData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
-    // Correctly traverse to the item that needs to be updated
-    for (let i = 0; i < path.length - 1; i++) {
+
+    for (let i = 0; i < path.length; i++) {
+        if (current === undefined) {
+            console.error("Path traversal failed at index", i, "with path", path);
+            return;
+        }
         current = current[path[i]];
     }
-    const itemToUpdate = current[path[path.length - 1]];
-
+    const itemToUpdate = current;
+    
     if (!itemToUpdate) {
-        console.error("Item to update not found at path:", path);
-        return;
+      console.error("Item to update not found at path:", path);
+      return;
     }
-
+    
     if (itemToUpdate.status === status) {
         itemToUpdate.status = 'pending';
         itemToUpdate.validationMethod = undefined;
@@ -103,7 +106,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
 
     setInternalData(newData);
     onSetCtm2Data(newData);
-    setValidationState(null); // Close the dialog
+    setValidationState(null); 
     setIsProcessingValidation(false);
   }, [internalData, onSetCtm2Data, validationState]);
 
@@ -112,41 +115,39 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     let parent: any = newData;
     let targetArray;
 
-    if (path.length === 0) { // Top-level button "Añadir Por Qué"
-        const newWhyDescription = 'Nuevo Por Qué';
+    if (path.length === 0) { 
+        return;
+    }
+
+    let current = newData;
+    for (const key of path) {
+      if (current === undefined) return;
+      current = current[key];
+    }
+    
+    const hyp = current;
+    if (hyp && hyp.status === 'accepted') {
+        const desc = hyp.description || 'Causa Aprobada';
+        const newWhyDescription = `¿Por qué: "${desc.substring(0, 50)}..."?`;
         newData.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
         setInternalData(newData);
         onSetCtm2Data(newData);
         return;
     }
-
+    
+    let parentOfTarget = newData;
     for (let i = 0; i < path.length - 1; i++) {
-        parent = parent[path[i]];
+      parentOfTarget = parentOfTarget[path[i]];
     }
-    const lastKey = path[path.length - 1];
-    
-    if (typeof lastKey === 'string') {
-      targetArray = parent[lastKey];
-    } else {
-        const hyp = parent[lastKey];
-        if (hyp && hyp.status === 'accepted') {
-            const desc = hyp.description || 'Causa Aprobada';
-            const newWhyDescription = `¿Por qué: "${desc.substring(0, 50)}..."?`;
-            if (!hyp.hypotheses) hyp.hypotheses = [];
-            hyp.hypotheses.push({ id: generateClientSideId('hyp'), description: newWhyDescription, physicalCauses: [], status: 'pending' });
-            setInternalData(newData);
-            onSetCtm2Data(newData);
-            return;
-        }
-        targetArray = parent[lastKey].hypotheses;
-    }
-    
+
+    targetArray = parentOfTarget[path[path.length-1]];
+
     if (!Array.isArray(targetArray)) {
-       console.error("Target for adding is not an array", path, parent);
+       console.error("Target for adding is not an array", path, parentOfTarget);
        return;
     }
 
-    targetArray.push({ id: generateClientSideId('hyp'), description: 'Nuevo Porque', physicalCauses: [], status: 'pending' });
+    targetArray.push({ id: generateClientSideId('hyp'), description: 'Nuevo porque', physicalCauses: [], status: 'pending' });
     
     setInternalData(newData);
     onSetCtm2Data(newData);
@@ -154,9 +155,11 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   
   const handleAddFailureMode = () => {
     const newData = JSON.parse(JSON.stringify(internalData));
+    const firstWhyDescription = newData[0]?.description || `¿Por qué ocurrió: "${focusEventDescription || 'el evento foco'}"?`;
+    
     newData.push({
         id: generateClientSideId('fm'),
-        description: `Nueva línea de investigación`,
+        description: firstWhyDescription,
         hypotheses: []
     });
     setInternalData(newData);
@@ -176,7 +179,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     onSetCtm2Data(newData);
   };
   
-  const renderPhysicalCauses = (physicalCauses: PhysicalCause[] | undefined, path: (string | number)[], isParentAccepted: boolean) => (
+  const renderPhysicalCauses = (hypotheses: Hypothesis[] | undefined, path: (string | number)[], isParentAccepted: boolean) => (
     <div className="pl-4 border-l ml-4 mt-2 space-y-2">
       {isParentAccepted && (
         <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => handleAdd(path)}><PlusCircle className="mr-1 h-3 w-3" /> Añadir Por Qué</Button>
@@ -194,7 +197,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
             <div className="flex items-center gap-2 mt-1">
               <Textarea 
                 value={hyp.description} 
-                onChange={(e) => handleUpdate([...path, hypIndex, 'description'], e.target.value)} 
+                onChange={(e) => handleUpdate([...path, hypIndex], e.target.value)} 
                 rows={1} 
                 className={cn(
                   "text-sm",
@@ -216,7 +219,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
             {renderPhysicalCauses(hyp.hypotheses, [...path, hypIndex], hyp.status === 'accepted')}
           </Card>
         ))}
-        <Button size="sm" variant="outline" className="text-sm h-8" onClick={() => handleAdd(path)}><PlusCircle className="mr-2 h-4 w-4" /> Añadir porque</Button>
+        <Button size="sm" variant="outline" className="text-sm h-8" onClick={() => handleAdd([...path])}><PlusCircle className="mr-2 h-4 w-4" /> Añadir porque</Button>
       </div>
   );
 
