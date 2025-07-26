@@ -1,4 +1,3 @@
-
 'use client';
 import { FC, useCallback, useMemo, useState, useEffect } from 'react';
 import {
@@ -154,14 +153,29 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
 
     // Special case for CTM.2: Adding a new top-level "Por Qué" from an accepted "Porque"
     if (path.length === 3 && path[1] === 'hypotheses' && path[2] === 'physicalCauses') {
-        const failureMode = newData[path[0] as number];
-        const hypothesis = failureMode.hypotheses.find((h: any, i: number) => h.status === 'accepted'); // Simplified for this logic
+        const fmIndex = path[0] as number;
+        const hypIndex = (path[2] as any) -1; // This part is wrong. path is [fmIndex, 'hypotheses', hypIndex, 'physicalCauses']
         
-        if (hypothesis && hypothesis.status === 'accepted') {
-            const newWhyDescription = `¿Por qué: "${hypothesis.description.substring(0, 50)}..."?`;
-            newData.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
-            setInternalData(newData);
-            return;
+        let parentHypothesis: Hypothesis | undefined;
+        let parent: any = newData;
+
+        if (path.length > 2 && path[1] === 'hypotheses') {
+          const fm = newData[path[0] as number];
+          const hyp = fm.hypotheses[path[2] as number];
+          parentHypothesis = hyp;
+        }
+        
+
+        if(path.length === 4 && path[1] === 'hypotheses' && path[3] === 'physicalCauses') {
+            const fm = newData[path[0] as number];
+            const hyp = fm.hypotheses[path[2] as number];
+            
+            if (hyp && hyp.status === 'accepted') {
+                const newWhyDescription = `¿Por qué: "${hyp.description.substring(0, 50)}..."?`;
+                newData.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
+                setInternalData(newData);
+                return;
+            }
         }
     }
 
@@ -181,9 +195,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
         targetArray = parent[lastKey];
       } else if (typeof lastKey === 'number') {
         parent = parent[lastKey]; 
-        if ('latentCauses' in parent) targetArray = parent.latentCauses;
-        else if ('humanCauses' in parent) targetArray = parent.humanCauses;
-        else if ('physicalCauses' in parent) targetArray = parent.physicalCauses;
+        if ('physicalCauses' in parent) targetArray = parent.physicalCauses;
         else if ('hypotheses' in parent) targetArray = parent.hypotheses;
       }
       
@@ -263,7 +275,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
                 <span className="font-semibold">Justificación V/R:</span> {hyp.validationMethod}
               </div>
             )}
-            {hyp.status !== 'rejected' && renderPhysicalCauses(hyp.physicalCauses, [...path, hypIndex, 'physicalCauses'], hyp.status === 'accepted')}
+            {renderPhysicalCauses(hyp.physicalCauses, [...path, hypIndex, 'physicalCauses'], hyp.status === 'accepted')}
           </Card>
         ))}
         <Button size="sm" variant="outline" className="text-sm h-8" onClick={() => handleAdd(path)}><PlusCircle className="mr-2 h-4 w-4" /> Añadir Porque</Button>
