@@ -1,4 +1,3 @@
-
 'use client';
 import { FC, useCallback, useState, useEffect, useRef } from 'react';
 import {
@@ -168,8 +167,8 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
         hypotheses: [],
       };
       onSetCtm2Data([initialFailureMode]);
+      hasInitialized.current = true;
     }
-    hasInitialized.current = true;
   }, [ctm2Data, onSetCtm2Data, focusEventDescription]);
 
   const handleUpdate = useCallback((path: (string | number)[], value: string) => {
@@ -177,16 +176,18 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     let current: any = newData;
     
     // Traverse to the object containing the description.
-    for (let i = 0; i < path.length -1; i++) {
+    for (let i = 0; i < path.length; i++) {
         if (current === undefined) return;
+        if(i === path.length - 2 && path[path.length - 1] === 'description') {
+           break; 
+        }
         current = current[path[i]];
     }
-    const finalKey = path[path.length - 1];
 
-    if (current && typeof current === 'object' && finalKey in current) {
-       current[finalKey].description = value;
+    if (path[path.length -1] === 'description') {
+        current.description = value;
     } else {
-      console.error("Could not update property. Path:", path, "Current Object:", JSON.parse(JSON.stringify(current)));
+        console.error("Could not update property. Path:", path, "Current Object:", JSON.parse(JSON.stringify(current)));
     }
     
     onSetCtm2Data(newData);
