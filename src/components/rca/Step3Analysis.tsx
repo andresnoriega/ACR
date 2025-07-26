@@ -402,19 +402,22 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     const isIshikawaEdited = ishikawaData.some(cat => cat.causes.some(c => c.description.trim() !== ''));
     
     const isCtmEdited = ctmData.length > 0 && ctmData.some(fm => 
-        fm.description.trim() !== '' || 
-        (fm.hypotheses && fm.hypotheses.some(h => h.description.trim() !== '' || 
-            (h.physicalCauses && h.physicalCauses.some(pc => pc.description.trim() !== '' ||
-                (pc.humanCauses && pc.humanCauses.some(hc => hc.description.trim() !== '' || 
-                    (hc.latentCauses && hc.latentCauses.some(lc => lc.description.trim() !== ''))
-                ))
-            ))
+      (fm.description && fm.description.trim() !== '') || 
+      (fm.hypotheses && fm.hypotheses.some(h => 
+        (h.description && h.description.trim() !== '') || 
+        (h.physicalCauses && h.physicalCauses.some(pc => 
+          (pc.description && pc.description.trim() !== '') ||
+          (pc.humanCauses && pc.humanCauses.some(hc => 
+            (hc.description && hc.description.trim() !== '') || 
+            (hc.latentCauses && hc.latentCauses.some(lc => lc.description && lc.description.trim() !== ''))
+          ))
         ))
+      ))
     );
 
     const isCtm2Edited = ctm2Data && ctm2Data.length > 0 && ctm2Data.some(fm => 
-        fm.description.trim() !== '' || 
-        (fm.hypotheses && fm.hypotheses.some(h => h.description.trim() !== ''))
+        (fm.description && fm.description.trim() !== '') || 
+        (fm.hypotheses && fm.hypotheses.some(h => h.description && h.description.trim() !== ''))
     );
 
 
