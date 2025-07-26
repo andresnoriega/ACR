@@ -63,7 +63,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         {fiveWhysData.map((entry, index) => (
           <Card key={entry.id} className="p-4 bg-secondary/30">
             <div className="flex justify-between items-center mb-2">
-              <p className="font-semibold text-primary">Paso #{index + 1}</p>
+              <p className="font-semibold text-primary">Por qué #{index + 1}</p>
               {index > 0 && (
                 <Button
                   variant="ghost"
