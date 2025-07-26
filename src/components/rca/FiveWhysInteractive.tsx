@@ -1,4 +1,3 @@
-
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import type { FiveWhysData, FiveWhysEntry, FiveWhysCause } from '@/types/rca';
@@ -24,7 +23,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   const handleAddEntry = () => {
     const lastEntry = fiveWhysData.length > 0 ? fiveWhysData[fiveWhysData.length - 1] : null;
     let newWhy = '';
-    if (lastEntry && lastEntry.becauses.length > 0) {
+    if (lastEntry && lastEntry.becauses && lastEntry.becauses.length > 0) {
       const lastBecause = lastEntry.becauses[lastEntry.becauses.length - 1];
       newWhy = `¿Por qué: "${lastBecause.description.substring(0, 70)}..."?`;
     }
@@ -59,7 +58,9 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     onSetFiveWhysData(fiveWhysData.map(entry => {
       if (entry.id === entryId) {
         const newBecause: FiveWhysCause = { id: `cause-${Date.now()}`, description: '' };
-        return { ...entry, becauses: [...entry.becauses, newBecause] };
+        // Ensure becauses is an array before spreading
+        const existingBecauses = Array.isArray(entry.becauses) ? entry.becauses : [];
+        return { ...entry, becauses: [...existingBecauses, newBecause] };
       }
       return entry;
     }));
@@ -67,7 +68,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   
   const handleUpdateBecause = (entryId: string, causeId: string, value: string) => {
     onSetFiveWhysData(fiveWhysData.map(entry => {
-      if (entry.id === entryId) {
+      if (entry.id === entryId && Array.isArray(entry.becauses)) {
         return { ...entry, becauses: entry.becauses.map(cause =>
           cause.id === causeId ? { ...cause, description: value } : cause
         )};
@@ -78,7 +79,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   
   const handleRemoveBecause = (entryId: string, causeId: string) => {
      onSetFiveWhysData(fiveWhysData.map(entry => {
-      if (entry.id === entryId) {
+      if (entry.id === entryId && Array.isArray(entry.becauses)) {
         if (entry.becauses.length > 1) {
           return { ...entry, becauses: entry.becauses.filter(cause => cause.id !== causeId) };
         }
@@ -122,7 +123,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
               </div>
               <div className="space-y-2 pt-2">
                 <Label>Porque...</Label>
-                {entry.becauses.map((cause, causeIndex) => (
+                {Array.isArray(entry.becauses) && entry.becauses.map((cause, causeIndex) => (
                   <div key={cause.id} className="pl-4 border-l-2 space-y-1">
                      <Label htmlFor={`because-${entry.id}-${cause.id}`} className="text-xs font-medium">Porque {index + 1}.{causeIndex + 1}</Label>
                     <div className="flex items-center gap-2">
