@@ -90,26 +90,18 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
   const [validationState, setValidationState] = useState<{ path: (string | number)[]; status: Hypothesis['status'] } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
   
-  // Lazy state initialization to prevent hydration issues
-  const [internalData, setInternalData] = useState<CTMData>(() => ctm3Data || []);
-
-  useEffect(() => {
-      onSetCtm3Data(internalData);
-  }, [internalData, onSetCtm3Data]);
-
-
   const handleUpdate = (path: (string | number)[], value: string) => {
-    const newData = JSON.parse(JSON.stringify(internalData));
+    const newData = JSON.parse(JSON.stringify(ctm3Data));
     let current: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
       current = current[path[i]];
     }
     current[path[path.length - 1]] = { ...current[path[path.length - 1]], description: value };
-    setInternalData(newData);
+    onSetCtm3Data(newData);
   };
 
   const handleToggleStatus = (path: (string | number)[], status: 'accepted' | 'rejected' | 'pending') => {
-      const newData = JSON.parse(JSON.stringify(internalData));
+      const newData = JSON.parse(JSON.stringify(ctm3Data));
       let current: any = newData;
       for (let i = 0; i < path.length - 1; i++) {
         current = current[path[i]];
@@ -120,7 +112,7 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
         // If clicking the same status button, toggle back to pending
         itemToUpdate.status = 'pending';
         itemToUpdate.validationMethod = undefined;
-        setInternalData(newData);
+        onSetCtm3Data(newData);
       } else {
         // Otherwise, open dialog to confirm new status
         setValidationState({ path, status });
@@ -132,7 +124,7 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
     setIsProcessingValidation(true);
     const { path, status } = validationState;
     
-    const newData = JSON.parse(JSON.stringify(internalData));
+    const newData = JSON.parse(JSON.stringify(ctm3Data));
     let parent: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
         parent = parent[path[i]];
@@ -143,13 +135,13 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
     itemToUpdate.status = status;
     itemToUpdate.validationMethod = method;
 
-    setInternalData(newData);
+    onSetCtm3Data(newData);
     setIsProcessingValidation(false);
     setValidationState(null);
-  }, [internalData, validationState]);
+  }, [ctm3Data, onSetCtm3Data, validationState]);
 
   const handleAdd = (path: (string | number)[]) => {
-    const newData = JSON.parse(JSON.stringify(internalData));
+    const newData = JSON.parse(JSON.stringify(ctm3Data));
     let parent: any = newData;
     let lastKey = path.length > 0 ? path[path.length - 1] : null;
     
@@ -159,7 +151,7 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
     }
 
     if (lastKey === null) { // Adding a new "Por Qué" to the root
-      const initialDescription = internalData.length === 0 
+      const initialDescription = ctm3Data.length === 0 
         ? `¿Por qué ocurrió: "${focusEventDescription || 'Descripción del Evento Foco'}"?`
         : 'Nuevo Por Qué';
       newData.push({ id: generateClientSideId('fm'), description: initialDescription, hypotheses: [] });
@@ -195,18 +187,18 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
       }
     }
 
-    setInternalData(newData);
+    onSetCtm3Data(newData);
   };
 
   const handleRemove = (path: (string | number)[]) => {
-    const newData = JSON.parse(JSON.stringify(internalData));
+    const newData = JSON.parse(JSON.stringify(ctm3Data));
     let current: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
         current = current[path[i]];
     }
     const indexToRemove = path[path.length - 1] as number;
     current.splice(indexToRemove, 1);
-    setInternalData(newData);
+    onSetCtm3Data(newData);
   };
   
   const renderLatentCauses = (latentCauses: LatentCause[] | undefined, path: (string | number)[]) => (
@@ -300,7 +292,7 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
           </Button>
         </div>
         <div className="flex space-x-4 overflow-x-auto py-2">
-          {internalData.map((fm, fmIndex) => (
+          {ctm3Data.map((fm, fmIndex) => (
             <div key={fm.id} className="min-w-[20rem] flex-shrink-0">
               <Accordion type="single" collapsible defaultValue="item-1">
                 <AccordionItem value="item-1">
@@ -321,7 +313,7 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
               </Accordion>
             </div>
           ))}
-          {internalData.length === 0 && (
+          {ctm3Data.length === 0 && (
             <div className="text-center text-muted-foreground italic py-4 w-full">
               Haga clic en "Añadir Por Qué" para comenzar a construir el árbol.
             </div>
