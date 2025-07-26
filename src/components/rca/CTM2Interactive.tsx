@@ -91,9 +91,11 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   
   const [internalData, setInternalData] = useState<CTMData>(() => Array.isArray(ctm2Data) ? ctm2Data : []);
 
-  useEffect(() => {
-      setInternalData(Array.isArray(ctm2Data) ? ctm2Data : []);
-  }, [ctm2Data]);
+  // useEffect(() => {
+  //     // This sync can cause issues if parent re-renders with stale data
+  //     // while this component has local changes. Let's manage state more directly.
+  //     setInternalData(Array.isArray(ctm2Data) ? ctm2Data : []);
+  // }, [ctm2Data]);
 
 
   const handleUpdate = (path: (string | number)[], value: string) => {
