@@ -23,26 +23,20 @@ const generateClientSideId = (prefix: string) => {
     return `${prefix}-${idCounter}`;
 };
 
-interface CTM2InteractiveProps {
-  ctm2Data: CTMData;
-  onSetCtm2Data: (data: CTMData) => void;
-  focusEventDescription: string;
-}
-
 const CTM2RecursiveRenderer: FC<{
-    items: FailureMode[] | Hypothesis[];
+    items: any[];
+    level: 'failureMode' | 'hypothesis';
     path: (string | number)[];
     numberingPrefix?: string;
-    level: 'failureMode' | 'hypothesis';
     onUpdate: (path: (string | number)[], value: string) => void;
-    onAdd: (path: (string | number)[]) => void;
+    onAdd: (path: (string | number)[], description: string) => void;
     onRemove: (path: (string | number)[]) => void;
     onToggleStatus: (path: (string | number)[], status: Hypothesis['status']) => void;
 }> = ({
     items,
+    level,
     path,
     numberingPrefix = '',
-    level,
     onUpdate,
     onAdd,
     onRemove,
@@ -52,40 +46,39 @@ const CTM2RecursiveRenderer: FC<{
     if (level === 'failureMode') {
         const failureModes = items as FailureMode[];
         return (
-             <div className={cn("space-y-3", numberingPrefix ? "pl-4 border-l-2 border-dashed border-gray-400 ml-4 mt-2" : "flex space-x-4 overflow-x-auto py-2")}>
-                {(failureModes || []).map((fm, fmIndex) => {
-                  // If it's a top-level item (no prefix), it's always #1. Otherwise, it's sequential.
-                  const displayIndex = numberingPrefix ? fmIndex + 1 : 1;
-                  return (
-                    <div key={fm.id} className={cn(!numberingPrefix && "min-w-[20rem] flex-shrink-0")}>
-                        <Accordion type="single" collapsible defaultValue="item-1">
-                            <AccordionItem value="item-1">
-                                <div className="flex items-center w-full">
-                                    <AccordionTrigger className="flex-grow">
-                                        <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> Por Qué #{numberingPrefix}{displayIndex}</span>
-                                    </AccordionTrigger>
-                                    <Button size="icon" variant="ghost" className="h-7 w-7 ml-2 shrink-0" onClick={(e) => {e.stopPropagation(); onRemove([...path, fmIndex]);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                                </div>
-                                <AccordionContent className="pl-2">
-                                    <div className="space-y-2 p-2 border-l-2">
-                                    <Label>Descripción del Por Qué</Label>
-                                    <Input value={fm.description} onChange={(e) => onUpdate([...path, fmIndex, 'description'], e.target.value)} className="text-sm"/>
-                                    <CTM2RecursiveRenderer
-                                        items={fm.hypotheses || []}
-                                        level="hypothesis"
-                                        path={[...path, fmIndex, 'hypotheses']}
-                                        numberingPrefix={`${numberingPrefix}${displayIndex}.`}
-                                        onUpdate={onUpdate}
-                                        onAdd={onAdd}
-                                        onRemove={onRemove}
-                                        onToggleStatus={onToggleStatus}
-                                      />
+             <div className="space-y-3 pl-4 border-l-2 border-dashed border-gray-400 ml-4 mt-2">
+                {failureModes.map((fm, fmIndex) => {
+                    const currentPrefix = `${numberingPrefix}${fmIndex + 1}`;
+                    return (
+                        <div key={fm.id}>
+                            <Accordion type="single" collapsible defaultValue="item-1">
+                                <AccordionItem value="item-1">
+                                    <div className="flex items-center w-full">
+                                        <AccordionTrigger className="flex-grow">
+                                            <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> Por Qué #{currentPrefix}</span>
+                                        </AccordionTrigger>
+                                        <Button size="icon" variant="ghost" className="h-7 w-7 ml-2 shrink-0" onClick={(e) => {e.stopPropagation(); onRemove([...path, fmIndex]);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                     </div>
-                                </AccordionContent>
-                            </AccordionItem>
-                        </Accordion>
-                    </div>
-                  )
+                                    <AccordionContent className="pl-2">
+                                        <div className="space-y-2 p-2 border-l-2">
+                                        <Label>Descripción del Por Qué</Label>
+                                        <Input value={fm.description} onChange={(e) => onUpdate([...path, fmIndex], e.target.value)} className="text-sm"/>
+                                        <CTM2RecursiveRenderer
+                                            items={fm.hypotheses || []}
+                                            level="hypothesis"
+                                            path={[...path, fmIndex, 'hypotheses']}
+                                            numberingPrefix={`${currentPrefix}.`}
+                                            onUpdate={onUpdate}
+                                            onAdd={onAdd}
+                                            onRemove={onRemove}
+                                            onToggleStatus={onToggleStatus}
+                                          />
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            </Accordion>
+                        </div>
+                    );
                 })}
             </div>
         );
@@ -95,51 +88,54 @@ const CTM2RecursiveRenderer: FC<{
       const hypotheses = items as Hypothesis[];
       return (
         <div className="pl-4 border-l-2 border-teal-500/50 ml-4 mt-2 space-y-3">
-          {(hypotheses || []).map((hyp, hypIndex) => (
-            <Card key={hyp.id} className="p-3 bg-card">
-              <Label className="text-sm font-semibold flex items-center text-teal-700 dark:text-teal-300">
-                <BrainCircuit className="mr-2 h-4 w-4" /> porque #{numberingPrefix}{hypIndex + 1}
-              </Label>
-              <div className="flex items-center gap-2 mt-1">
-                <Textarea 
-                  value={hyp.description} 
-                  onChange={(e) => onUpdate([...path, hypIndex, 'description'], e.target.value)} 
-                  rows={1} 
-                  className={cn(
-                    "text-sm",
-                    hyp.status === 'accepted' ? 'bg-green-100 dark:bg-green-900/30 border-green-400 dark:border-green-600' : 
-                    hyp.status === 'rejected' ? 'bg-red-100 dark:bg-red-900/30 border-red-400 dark:border-red-600 opacity-80' : ''
-                  )}
-                />
-                <div className="flex flex-col gap-1">
-                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRemove([...path, hypIndex])}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                  <Button size="icon" variant={hyp.status === 'accepted' ? 'secondary' : 'ghost'} className="h-7 w-7" onClick={() => onToggleStatus([...path, hypIndex], 'accepted')}><Check className="h-4 w-4 text-green-600"/></Button>
-                  <Button size="icon" variant={hyp.status === 'rejected' ? 'secondary' : 'ghost'} className="h-7 w-7" onClick={() => onToggleStatus([...path, hypIndex], 'rejected')}><X className="h-4 w-4 text-destructive" /></Button>
-                </div>
-              </div>
-              {hyp.validationMethod && (
-                <div className="text-xs text-muted-foreground pt-2 mt-2 border-t">
-                  <span className="font-semibold">Justificación V/R:</span> {hyp.validationMethod}
-                </div>
-              )}
-               {hyp.status === 'accepted' && (
-                  <>
-                    <CTM2RecursiveRenderer
-                      items={hyp.failureModes || []}
-                      level="failureMode"
-                      path={[...path, hypIndex, 'failureModes']}
-                      numberingPrefix={`${numberingPrefix}${hypIndex + 1}.`}
-                      onUpdate={onUpdate}
-                      onAdd={onAdd}
-                      onRemove={onRemove}
-                      onToggleStatus={onToggleStatus}
-                    />
-                    <Button size="sm" variant="outline" className="text-xs h-7 mt-2" onClick={() => onAdd([...path, hypIndex, 'failureModes'])}><PlusCircle className="mr-1 h-3 w-3" /> Añadir Por Qué</Button>
-                  </>
-              )}
-            </Card>
-          ))}
-          <Button size="sm" variant="outline" className="text-sm h-8" onClick={() => onAdd(path)}><PlusCircle className="mr-2 h-4 w-4" /> Añadir porque</Button>
+          {(hypotheses || []).map((hyp, hypIndex) => {
+              const currentPrefix = `${numberingPrefix}${hypIndex + 1}`;
+              return (
+                  <Card key={hyp.id} className="p-3 bg-card">
+                    <Label className="text-sm font-semibold flex items-center text-teal-700 dark:text-teal-300">
+                      <BrainCircuit className="mr-2 h-4 w-4" /> porque #{currentPrefix}
+                    </Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Textarea 
+                        value={hyp.description} 
+                        onChange={(e) => onUpdate([...path, hypIndex], e.target.value)}
+                        rows={1} 
+                        className={cn(
+                          "text-sm",
+                          hyp.status === 'accepted' ? 'bg-green-100 dark:bg-green-900/30 border-green-400 dark:border-green-600' : 
+                          hyp.status === 'rejected' ? 'bg-red-100 dark:bg-red-900/30 border-red-400 dark:border-red-600 opacity-80' : ''
+                        )}
+                      />
+                      <div className="flex flex-col gap-1">
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onRemove([...path, hypIndex])}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        <Button size="icon" variant={hyp.status === 'accepted' ? 'secondary' : 'ghost'} className="h-7 w-7" onClick={() => onToggleStatus([...path, hypIndex], 'accepted')}><Check className="h-4 w-4 text-green-600"/></Button>
+                        <Button size="icon" variant={hyp.status === 'rejected' ? 'secondary' : 'ghost'} className="h-7 w-7" onClick={() => onToggleStatus([...path, hypIndex], 'rejected')}><X className="h-4 w-4 text-destructive" /></Button>
+                      </div>
+                    </div>
+                    {hyp.validationMethod && (
+                      <div className="text-xs text-muted-foreground pt-2 mt-2 border-t">
+                        <span className="font-semibold">Justificación V/R:</span> {hyp.validationMethod}
+                      </div>
+                    )}
+                     {hyp.status === 'accepted' && (
+                        <>
+                          <CTM2RecursiveRenderer
+                            items={hyp.failureModes || []}
+                            level="failureMode"
+                            path={[...path, hypIndex, 'failureModes']}
+                            numberingPrefix={`${currentPrefix}.`}
+                            onUpdate={onUpdate}
+                            onAdd={onAdd}
+                            onRemove={onRemove}
+                            onToggleStatus={onToggleStatus}
+                          />
+                          <Button size="sm" variant="outline" className="text-xs h-7 mt-2" onClick={() => onAdd([...path, hypIndex, 'failureModes'], hyp.description)}><PlusCircle className="mr-1 h-3 w-3" /> Añadir Por Qué</Button>
+                        </>
+                    )}
+                  </Card>
+              );
+          })}
+          <Button size="sm" variant="outline" className="text-sm h-8" onClick={() => onAdd(path, '')}><PlusCircle className="mr-2 h-4 w-4" /> Añadir porque</Button>
         </div>
       );
     }
@@ -148,11 +144,17 @@ const CTM2RecursiveRenderer: FC<{
 };
 
 
+interface CTM2InteractiveProps {
+  ctm2Data: CTMData;
+  onSetCtm2Data: (data: CTMData) => void;
+  focusEventDescription: string;
+}
+
 export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2Data, focusEventDescription }) => {
   const [validationState, setValidationState] = useState<{ path: (string | number)[]; status: Hypothesis['status'] } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
   
-  const [internalData, setInternalData] = useState<CTMData>([]);
+  const [internalData, setInternalData] = useState<CTMData>(() => ctm2Data || []);
   
   useEffect(() => {
     if (JSON.stringify(ctm2Data) !== JSON.stringify(internalData)) {
@@ -165,7 +167,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     const newData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
     
-    for (let i = 0; i < path.length - 1; i++) {
+    for (let i = 0; i < path.length; i++) {
         const segment = path[i];
         if (current[segment] === undefined) {
             console.error("Path is invalid during update traversal", path);
@@ -173,13 +175,14 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
         }
         current = current[segment];
     }
-    const finalKey = path[path.length - 1];
-    if (current && typeof current === 'object' && finalKey in current) {
-       current[finalKey].description = value;
+    
+    if (typeof current === 'object' && current !== null && 'description' in current) {
+      current.description = value;
     }
 
     onSetCtm2Data(newData);
 };
+
 
   const handleToggleStatus = (path: (string | number)[], status: 'accepted' | 'rejected' | 'pending') => {
     const newData = JSON.parse(JSON.stringify(internalData));
@@ -207,15 +210,14 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     
     const newData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
-    for (let i = 0; i < path.length -1; i++) {
+    for (let i = 0; i < path.length; i++) {
       if(current === undefined) return;
       current = current[path[i]];
     }
-    const itemToUpdate = current[path[path.length - 1]];
     
-    if (itemToUpdate) {
-      itemToUpdate.status = status;
-      itemToUpdate.validationMethod = method;
+    if (current) {
+      current.status = status;
+      current.validationMethod = method;
     }
 
     onSetCtm2Data(newData);
@@ -223,44 +225,37 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     setIsProcessingValidation(false);
   }, [internalData, onSetCtm2Data, validationState]);
 
-  const handleAdd = useCallback((path: (string | number)[]) => {
+
+  const handleAdd = useCallback((path: (string | number)[], baseDescription: string) => {
     const newData = JSON.parse(JSON.stringify(internalData));
-    let parentOfTarget: any = { root: newData };
-    let finalKey: string | number | null = 'root';
+    let parent: any = newData;
+    let finalKey = null;
 
-    for (const segment of path) {
-        if (finalKey !== null) {
-            parentOfTarget = parentOfTarget[finalKey];
+    if (path.length === 0) {
+      // Adding a new top-level failure mode
+      const newWhyDescription = `¿Por qué ocurrió: "${focusEventDescription || 'el evento foco'}"?`;
+      newData.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
+    } else {
+        let currentLevel = newData;
+        for (let i = 0; i < path.length; i++) {
+            parent = currentLevel;
+            const segment = path[i];
+            currentLevel = parent[segment as any];
         }
-        finalKey = segment;
+
+        if (Array.isArray(currentLevel)) {
+            const lastSegment = path[path.length - 1];
+            if (lastSegment === 'hypotheses') {
+                currentLevel.push({ id: generateClientSideId('hyp'), description: 'Nuevo porque', failureModes: [], status: 'pending' });
+            } else if (lastSegment === 'failureModes') {
+                const newWhyDescription = `¿Por qué: "${baseDescription.substring(0, 50)}..."?`;
+                currentLevel.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
+            }
+        }
     }
-    
-    let targetArray = finalKey === 'root' ? parentOfTarget[finalKey] : parentOfTarget[finalKey];
-
-    if (finalKey === 'hypotheses') {
-        if (!targetArray) {
-            parentOfTarget.hypotheses = [];
-            targetArray = parentOfTarget.hypotheses;
-        }
-        targetArray.push({ id: generateClientSideId('hyp'), description: 'Nuevo porque', failureModes: [], status: 'pending' });
-    } else if (finalKey === 'failureModes') {
-        if (!targetArray) {
-            parentOfTarget.failureModes = [];
-            targetArray = parentOfTarget.failureModes;
-        }
-        const newWhyDescription = `¿Por qué: "${parentOfTarget.description.substring(0, 50)}..."?`;
-        targetArray.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
-    } else { // Adding a top-level FailureMode
-        const newWhyDescription = `¿Por qué ocurrió: "${focusEventDescription || 'el evento foco'}"?`;
-        newData.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
-    }
-
     onSetCtm2Data(newData);
-}, [internalData, onSetCtm2Data, focusEventDescription]);
+  }, [internalData, onSetCtm2Data, focusEventDescription]);
 
-  const handleAddFailureMode = () => {
-    handleAdd([]);
-  };
 
   const handleRemove = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(internalData));
@@ -282,7 +277,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
           <h3 className="text-lg font-semibold font-headline text-primary flex items-center">
             <Share2 className="mr-2 h-5 w-5" /> Árbol de Causas (CTM.2)
           </h3>
-          <Button onClick={handleAddFailureMode} variant="outline" size="sm">
+          <Button onClick={() => handleAdd([], focusEventDescription)} variant="outline" size="sm">
               <PlusCircle className="mr-2 h-4 w-4" /> Añadir Por Qué
           </Button>
         </div>
@@ -292,15 +287,38 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
             Haga clic en "Añadir Por Qué" para comenzar a construir el árbol.
           </div>
         ) : (
-          <CTM2RecursiveRenderer
-            items={safeInternalData}
-            level="failureMode"
-            path={[]}
-            onUpdate={handleUpdate}
-            onAdd={handleAdd}
-            onRemove={handleRemove}
-            onToggleStatus={handleToggleStatus}
-          />
+          <div className="flex space-x-4 overflow-x-auto py-2">
+            {safeInternalData.map((fm, fmIndex) => (
+                <div key={fm.id} className="min-w-[22rem] flex-shrink-0">
+                    <Accordion type="single" collapsible defaultValue="item-1">
+                        <AccordionItem value="item-1">
+                            <div className="flex items-center w-full">
+                                <AccordionTrigger className="flex-grow">
+                                    <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> Por Qué #1</span>
+                                </AccordionTrigger>
+                                <Button size="icon" variant="ghost" className="h-7 w-7 ml-2 shrink-0" onClick={(e) => {e.stopPropagation(); onRemove([fmIndex]);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                            </div>
+                            <AccordionContent className="pl-2">
+                                <div className="space-y-2 p-2 border-l-2">
+                                <Label>Descripción del Por Qué</Label>
+                                <Input value={fm.description} onChange={(e) => onUpdate([fmIndex], e.target.value)} className="text-sm"/>
+                                <CTM2RecursiveRenderer
+                                    items={fm.hypotheses || []}
+                                    level="hypothesis"
+                                    path={[fmIndex, 'hypotheses']}
+                                    numberingPrefix="1."
+                                    onUpdate={onUpdate}
+                                    onAdd={handleAdd}
+                                    onRemove={onRemove}
+                                    onToggleStatus={onToggleStatus}
+                                  />
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                    </Accordion>
+                </div>
+            ))}
+          </div>
         )}
       </div>
       {validationState && (
@@ -317,4 +335,3 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     </>
   );
 };
-
