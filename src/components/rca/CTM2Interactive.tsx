@@ -90,12 +90,10 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   const [validationState, setValidationState] = useState<{ path: (string | number)[]; status: Hypothesis['status'] } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
   
-  const [internalData, setInternalData] = useState<CTMData>(() => Array.isArray(ctm2Data) ? ctm2Data : []);
-
+  const [internalData, setInternalData] = useState<CTMData>([]);
+  
   useEffect(() => {
-      // This effect syncs the state from the parent, but only when the parent's data object reference changes.
-      // This is crucial to avoid overwriting local changes during a parent re-render caused by this component.
-      setInternalData(Array.isArray(ctm2Data) ? ctm2Data : []);
+    setInternalData(Array.isArray(ctm2Data) ? ctm2Data : []);
   }, [ctm2Data]);
 
 
@@ -114,9 +112,9 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
       const newData: CTMData = JSON.parse(JSON.stringify(internalData));
       let current: any = newData;
       for (let i = 0; i < path.length - 1; i++) {
-        current = current[path[i]];
+        current = current[path[path.length - 1]];
       }
-      const itemToUpdate = current[path[path.length - 1]];
+      const itemToUpdate = current;
       
       if (itemToUpdate.status === status) {
         // If clicking the same status button, toggle back to pending
@@ -154,9 +152,8 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
 
   const handleAdd = (path: (string | number)[]) => {
     const newData: CTMData = JSON.parse(JSON.stringify(internalData));
-
-    // Case 1: The "Añadir Por Qué" button from an approved Hypothesis is clicked.
-    // This should create a new top-level FailureMode.
+    
+    // Case 1: Add new top-level "Por Qué" from approved cause.
     if (path.length === 4 && path[1] === 'hypotheses' && path[3] === 'physicalCauses') {
         const fmIndex = path[0] as number;
         const hypIndex = path[2] as number;
@@ -169,38 +166,39 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
             newData.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
             setInternalData(newData);
             onSetCtm2Data(newData);
-            return; // Action completed
+            return;
         }
     }
 
-    // Case 2: General "add" logic for other scenarios.
+    // Case 2: General "add" logic for other scenarios (add new cause within a question).
     let parent: any = newData;
-    let lastKey = path.length > 0 ? path[path.length - 1] : null;
     
-    for (let i = 0; i < path.length - 1; i++) {
-      parent = parent[path[i]];
-    }
-
-    if (lastKey === null) { // Adding a new FailureMode (top-level "Por Qué")
-      newData.push({ id: generateClientSideId('fm'), description: 'Nuevo Por Qué', hypotheses: [] });
+    if (path.length === 0) { // Top-level button "Añadir Por Qué"
+        newData.push({ id: generateClientSideId('fm'), description: 'Nuevo Por Qué', hypotheses: [] });
     } else {
-      let targetArray;
-      if (typeof lastKey === 'string') {
-        targetArray = parent[lastKey];
-      } else if (typeof lastKey === 'number') {
-        parent = parent[lastKey]; 
-        if ('hypotheses' in parent) targetArray = parent.hypotheses;
-      }
-      
-      if (!Array.isArray(targetArray)) {
-         console.error("Target for adding is not an array", path, parent);
-         return;
-      }
+        for (let i = 0; i < path.length - 1; i++) {
+          parent = parent[path[i]];
+        }
+        
+        let targetArray;
+        const lastKey = path[path.length - 1];
 
-      if ('hypotheses' in parent) {
-        if (!parent.hypotheses) parent.hypotheses = [];
-        parent.hypotheses.push({ id: generateClientSideId('hyp'), description: 'Nuevo Porque', physicalCauses: [], status: 'pending' });
-      }
+        if (typeof lastKey === 'string') {
+          targetArray = parent[lastKey];
+        } else if (typeof lastKey === 'number') {
+          parent = parent[lastKey]; 
+          if ('hypotheses' in parent) targetArray = parent.hypotheses;
+        }
+        
+        if (!Array.isArray(targetArray)) {
+           console.error("Target for adding is not an array", path, parent);
+           return;
+        }
+  
+        if ('hypotheses' in parent) {
+          if (!parent.hypotheses) parent.hypotheses = [];
+          parent.hypotheses.push({ id: generateClientSideId('hyp'), description: 'Nuevo Porque', physicalCauses: [], status: 'pending' });
+        }
     }
 
     setInternalData(newData);
