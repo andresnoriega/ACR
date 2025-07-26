@@ -263,12 +263,21 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   const renderHypotheses = (hypotheses: Hypothesis[] | undefined, path: (string | number)[]) => (
       <div className="pl-4 border-l-2 border-teal-500/50 ml-4 mt-2 space-y-3">
         {(hypotheses || []).map((hyp, hypIndex) => (
-          <Card key={hyp.id} className={cn("p-3", hyp.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' : hyp.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 opacity-70' : 'bg-card')}>
+          <Card key={hyp.id} className="p-3 bg-card">
             <Label className="text-sm font-semibold flex items-center text-teal-700 dark:text-teal-300">
               <BrainCircuit className="mr-2 h-4 w-4" /> Porque #{hypIndex + 1}
             </Label>
             <div className="flex items-center gap-2 mt-1">
-              <Textarea value={hyp.description} onChange={(e) => handleUpdate([...path, hypIndex], e.target.value)} rows={1} className="text-sm" />
+              <Textarea 
+                value={hyp.description} 
+                onChange={(e) => handleUpdate([...path, hypIndex], e.target.value)} 
+                rows={1} 
+                className={cn(
+                  "text-sm",
+                  hyp.status === 'accepted' ? 'bg-green-100 dark:bg-green-900/30 border-green-400 dark:border-green-600' : 
+                  hyp.status === 'rejected' ? 'bg-red-100 dark:bg-red-900/30 border-red-400 dark:border-red-600 opacity-80' : ''
+                )}
+              />
               <div className="flex flex-col gap-1">
                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleRemove([...path, hypIndex])}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                 <Button size="icon" variant={hyp.status === 'accepted' ? 'secondary' : 'ghost'} className="h-7 w-7" onClick={() => handleToggleStatus([...path, hypIndex], 'accepted')}><Check className="h-4 w-4 text-green-600"/></Button>
