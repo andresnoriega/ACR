@@ -57,7 +57,7 @@ const CTM2RecursiveRenderer: FC<{
                                         <AccordionTrigger className="flex-grow">
                                             <span className="font-semibold flex items-center">
                                                 <GitBranchPlus className="mr-2 h-4 w-4" /> 
-                                                Por Qué #{numberingPrefix ? currentPrefix : '1'}
+                                                Por Qué #{currentPrefix}
                                             </span>
                                         </AccordionTrigger>
                                         <Button size="icon" variant="ghost" className="h-7 w-7 ml-2 shrink-0" onClick={(e) => {e.stopPropagation(); onRemove([...path, fmIndex]);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
@@ -171,17 +171,16 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     let current: any = newData;
     
     // Traverse to the parent of the item to update
-    for (let i = 0; i < path.length - 2; i++) {
+    for (let i = 0; i < path.length - 1; i++) {
         if (current === undefined) return;
         current = current[path[i]];
     }
     
-    // finalKey is the index or property name in the parent
-    const finalKey = path[path.length - 2];
-    const propertyToUpdate = path[path.length - 1]; // e.g., 'description'
-
-    if (current && typeof current === 'object' && finalKey in current && propertyToUpdate in current[finalKey]) {
-      current[finalKey][propertyToUpdate] = value;
+    const finalKey = path[path.length - 1];
+    
+    // Check if the target is an object before assigning to its description
+    if (current && typeof current === 'object' && finalKey in current && typeof current[finalKey] === 'object') {
+       current[finalKey].description = value;
     } else {
        console.error("Could not update property. Path:", path, "Current Object:", JSON.parse(JSON.stringify(current)));
     }
@@ -240,26 +239,24 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
       const newWhyDescription = `¿Por qué ocurrió: "${focusEventDescription || 'el evento foco'}"?`;
       newData.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
     } else {
-      // Traverse to the parent array
-      for (let i = 0; i < path.length; i++) {
-        if (current === undefined) return;
-        current = current[path[i]];
+      let parentOfTarget: any = newData;
+      for (let i = 0; i < path.length - 1; i++) {
+        parentOfTarget = parentOfTarget[path[i]];
       }
+      
+      const lastSegment = path[path.length - 1];
+      const targetArray = parentOfTarget[lastSegment];
 
-      // `current` is now the array we want to push to
-      if (Array.isArray(current)) {
-        const parentPath = path.slice(0, -1);
-        let parentObject: any = newData;
-        parentPath.forEach(segment => parentObject = parentObject[segment]);
-        
-        const lastSegment = path[path.length - 1];
-        
-        if (lastSegment === 'hypotheses') {
-            current.push({ id: generateClientSideId('hyp'), description: 'Nuevo porque', failureModes: [], status: 'pending' });
-        } else if (lastSegment === 'failureModes') {
-            const newWhyDescription = `¿Por qué: "${baseDescription.substring(0, 50)}..."?`;
-            current.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
-        }
+      if (!Array.isArray(targetArray)) {
+         console.error("Target for adding is not an array", path, parentOfTarget);
+         return;
+      }
+      
+      if (lastSegment === 'hypotheses') {
+          targetArray.push({ id: generateClientSideId('hyp'), description: 'Nuevo porque', failureModes: [], status: 'pending' });
+      } else if (lastSegment === 'failureModes') {
+          const newWhyDescription = `¿Por qué: "${baseDescription.substring(0, 50)}..."?`;
+          targetArray.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
       }
     }
     onSetCtm2Data(newData);
@@ -311,9 +308,9 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
                         <AccordionItem value="item-1">
                             <div className="flex items-center w-full">
                                 <AccordionTrigger className="flex-grow">
-                                    <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> Por Qué #{fmIndex + 1}</span>
+                                    <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> Por Qué #1</span>
                                 </AccordionTrigger>
-                                <Button size="icon" variant="ghost" className="h-7 w-7 ml-2 shrink-0" onClick={(e) => {e.stopPropagation(); onRemove([fmIndex]);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                <Button size="icon" variant="ghost" className="h-7 w-7 ml-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemove([fmIndex]);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                             </div>
                             <AccordionContent className="pl-2">
                                 <div className="space-y-2 p-2 border-l-2">
@@ -326,7 +323,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
                                     numberingPrefix={`${fmIndex + 1}.`}
                                     onUpdate={handleUpdate}
                                     onAdd={handleAdd}
-                                    onRemove={onRemove}
+                                    onRemove={handleRemove}
                                     onToggleStatus={onToggleStatus}
                                   />
                                 </div>
