@@ -13,7 +13,6 @@ import { PlusCircle, Trash2, MessageSquare, Network, Link2, Save, Send, Loader2,
 import { Textarea } from '@/components/ui/textarea';
 import { IshikawaDiagramInteractive } from './IshikawaDiagramInteractive';
 import { CTMInteractive } from './CTMInteractive';
-import { CTM3Interactive } from './CTM3Interactive';
 import TimelineComponent from './TimelineComponent';
 import { useToast } from "@/hooks/use-toast";
 import { sendEmailAction } from '@/app/actions';
@@ -167,8 +166,6 @@ interface Step3AnalysisProps {
   onSetIshikawaData: (data: IshikawaData) => void;
   ctmData: CTMData;
   onSetCtmData: (data: CTMData) => void;
-  ctm3Data: CTMData;
-  onSetCtm3Data: (data: CTMData) => void;
   identifiedRootCauses: IdentifiedRootCause[];
   onAddIdentifiedRootCause: () => void;
   onUpdateIdentifiedRootCause: (id: string, description: string) => void;
@@ -201,8 +198,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   onSetIshikawaData,
   ctmData,
   onSetCtmData,
-  ctm3Data,
-  onSetCtm3Data,
   identifiedRootCauses,
   onAddIdentifiedRootCause,
   onUpdateIdentifiedRootCause,
@@ -415,12 +410,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
       ))
     );
 
-    const isCtm3Edited = ctm3Data && ctm3Data.length > 0 && ctm3Data.some(fm => 
-        (fm.description && fm.description.trim() !== '') || 
-        (fm.hypotheses && fm.hypotheses.some(h => h.description && h.description.trim() !== ''))
-    );
-
-
     if (
       !isTechniqueSelected &&
       !hasNotes &&
@@ -429,8 +418,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
       !hasAnyRootCause && 
       !hasPlannedActions &&
       !isIshikawaEdited &&
-      !isCtmEdited &&
-      !isCtm3Edited
+      !isCtmEdited
     ) {
       toast({
         title: "Nada que guardar",
@@ -561,7 +549,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
         analysisTechniqueNotes: analysisTechniqueNotes || undefined,
         ishikawaData: analysisTechnique === 'Ishikawa' ? ishikawaData : undefined,
         ctmData: analysisTechnique === 'CTM' ? ctmData : undefined,
-        ctm2Data: analysisTechnique === 'CTM.3' ? ctm3Data : undefined,
       };
       
       const result = await suggestRootCauses(input);
@@ -711,7 +698,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                 <SelectContent>
                   <SelectItem value="Ishikawa"><div className="flex items-center"><Fish className="mr-2 h-4 w-4" />Ishikawa</div></SelectItem>
                   <SelectItem value="CTM"><div className="flex items-center"><CtmIcon className="mr-2 h-4 w-4" />Árbol de Causas (CTM)</div></SelectItem>
-                  <SelectItem value="CTM.3"><div className="flex items-center"><CtmIcon className="mr-2 h-4 w-4" />Árbol de Causas (CTM.3)</div></SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -726,10 +712,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
             
             {analysisTechnique === 'CTM' && (
               <CTMInteractive ctmData={ctmData} onSetCtmData={onSetCtmData} />
-            )}
-
-            {analysisTechnique === 'CTM.3' && (
-              <CTM3Interactive ctm3Data={ctm3Data} onSetCtm3Data={onSetCtm3Data} focusEventDescription={eventData.focusEventDescription}/>
             )}
             
             {(analysisTechnique === '' || analysisTechniqueNotes.trim() !== '') && (

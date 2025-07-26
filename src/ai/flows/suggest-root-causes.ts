@@ -76,11 +76,10 @@ const BrainstormIdeaSchema = z.object({
 const SuggestRootCausesInputSchema = z.object({
   focusEventDescription: z.string().describe('La descripción principal del evento que se está analizando.'),
   brainstormingIdeas: z.array(BrainstormIdeaSchema).optional().describe('Lista de ideas de lluvia de ideas iniciales, clasificadas por tipo.'), // Changed from brainstormingNotes
-  analysisTechnique: z.enum(['', 'Ishikawa', 'CTM', 'CTM.2']).describe('La técnica de análisis principal seleccionada.'),
+  analysisTechnique: z.enum(['', 'Ishikawa', 'CTM']).describe('La técnica de análisis principal seleccionada.'),
   analysisTechniqueNotes: z.string().optional().describe('Notas generales o específicas sobre la aplicación de la técnica de análisis.'),
   ishikawaData: IshikawaDataSchema,
   ctmData: CTMDataSchema,
-  ctm2Data: CTMDataSchema,
 });
 export type SuggestRootCausesInput = z.infer<typeof SuggestRootCausesInputSchema>;
 
@@ -159,25 +158,6 @@ const suggestRootCausesPrompt = ai.definePrompt({
     {{/each}}
     {{/if}}
 
-    {{#if ctm2Data}}
-    Datos del Árbol de Causas (CTM.2) (desglose de fallas a causas directas):
-    {{#each ctm2Data}}
-      Modo de Falla: {{this.description}}
-      {{#each this.hypotheses}}
-        - Hipótesis: {{this.description}}
-        {{#each this.physicalCauses}}
-          -- Causa Física: {{this.description}}
-          {{#each this.humanCauses}}
-            --- Causa Humana: {{this.description}}
-            {{#each this.latentCauses}}
-              ---- Causa Latente (ya identificada por el usuario): {{this.description}}
-            {{/each}}
-          {{/each}}
-        {{/each}}
-      {{/each}}
-    {{/each}}
-    {{/if}}
-
     Considera toda la información anterior, especialmente las causas directas y humanas, y las ideas de la lluvia de ideas.
     Ahora, genera una lista de posibles **CAUSAS LATENTES** que podrían haber contribuido al evento.
     Cada causa latente debe ser una descripción clara y accionable de un problema sistémico u organizacional.
@@ -205,9 +185,6 @@ const suggestRootCausesFlowInternal = ai.defineFlow(
         hasSufficientInput = true;
     }
     if (input.analysisTechnique === 'CTM' && input.ctmData && input.ctmData.length > 0 && input.ctmData.some(fm => fm.description.trim() || fm.hypotheses.length > 0)) {
-        hasSufficientInput = true;
-    }
-    if (input.analysisTechnique === 'CTM.2' && input.ctm2Data && input.ctm2Data.length > 0 && input.ctm2Data.some(fm => fm.description.trim() || fm.hypotheses.length > 0)) {
         hasSufficientInput = true;
     }
     if (input.analysisTechniqueNotes && input.analysisTechniqueNotes.trim().length > 10) { 

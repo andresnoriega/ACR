@@ -64,7 +64,7 @@ export interface Validation {
   rejectedAt?: string;
 }
 
-export type AnalysisTechnique = '' | 'Ishikawa' | 'CTM' | 'CTM.3';
+export type AnalysisTechnique = '' | 'Ishikawa' | 'CTM';
 
 export interface IshikawaCause {
   id: string;
@@ -254,7 +254,6 @@ export interface RCAAnalysisDocument {
   analysisTechniqueNotes: string;
   ishikawaData: IshikawaData;
   ctmData: CTMData;
-  ctm3Data?: CTMData;
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
   // From Step 4
