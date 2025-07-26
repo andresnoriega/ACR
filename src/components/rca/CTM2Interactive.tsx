@@ -50,7 +50,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     const finalKey = path[path.length - 1];
     
     // Ensure we are updating the description property of the object
-    if (current && typeof current[finalKey] === 'object' && current[finalKey] !== null) {
+    if (current && typeof current === 'object' && finalKey in current) {
        current[finalKey].description = value;
     }
 
@@ -59,11 +59,12 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
 
   const handleToggleStatus = (path: (string | number)[], status: 'accepted' | 'rejected' | 'pending') => {
     const newData = JSON.parse(JSON.stringify(internalData));
-    let current: any = newData;
+    let parent: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
-        current = current[path[i]];
+        parent = parent[path[i]];
     }
-    const itemToUpdate = current[path[path.length - 1]];
+    const finalKey = path[path.length - 1];
+    const itemToUpdate = parent[finalKey];
 
     if (!itemToUpdate) {
       console.error("Item to update not found at path:", path);
@@ -105,9 +106,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   const handleAdd = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(internalData));
 
-    if (path.length === 0) {
-      // This case handles the top-right button "Añadir Por Qué"
-      // It always starts a new analysis line from the main event description
+    if (path.length === 0) { // Adding a new FailureMode (Por Qué #)
       const newWhyDescription = `¿Por qué ocurrió: "${focusEventDescription || 'el evento foco'}"?`;
       newData.push({
         id: generateClientSideId('fm'),
@@ -119,29 +118,20 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
       return;
     }
     
-    let current = newData;
-    for (const key of path) {
-        if (current === undefined) return;
-        current = current[key];
-    }
-    const hyp: Hypothesis = current as any;
-    
-    // Logic for adding a nested "porque" (hypothesis) to a validated cause
-    if (hyp && hyp.status === 'accepted') {
-        const newWhyDescription = `¿Por qué: "${hyp.description.substring(0, 50)}..."?`;
-        newData.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
-        setInternalData(newData);
-        onSetCtm2Data(newData);
-        return;
-    }
-    
-    // Logic for adding a "porque" to the current "Por Qué"
     let parentOfTarget: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
       parentOfTarget = parentOfTarget[path[i]];
     }
+    const lastKey = path[path.length-1];
 
-    let targetArray = parentOfTarget;
+    let targetArray;
+    if(typeof lastKey === 'string' && lastKey === 'hypotheses'){
+      targetArray = parentOfTarget[lastKey];
+    } else {
+      console.error("handleAdd called with unexpected path structure", path);
+      return;
+    }
+    
 
     if (!Array.isArray(targetArray)) {
        console.error("Target for adding is not an array", path, parentOfTarget);
@@ -231,7 +221,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
           <h3 className="text-lg font-semibold font-headline text-primary flex items-center">
             <Share2 className="mr-2 h-5 w-5" /> Árbol de Causas (CTM.2)
           </h3>
-          <Button onClick={handleAddFailureMode} variant="outline" size="sm">
+          <Button onClick={() => handleAdd([])} variant="outline" size="sm">
               <PlusCircle className="mr-2 h-4 w-4" /> Añadir Por Qué
           </Button>
         </div>
@@ -267,7 +257,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
       {validationState && (
         <ValidationDialog
           isOpen={!!validationState}
-          onOpenChange={(open) => {if (!isProcessingValidation) setValidationState(null)}}
+          onOpenChange={(open) => { if(!isProcessingValidation) setValidationState(null)}}
           onConfirm={handleConfirmValidation}
           isProcessing={isProcessingValidation}
           title="Confirmar Validación/Rechazo de porque"
