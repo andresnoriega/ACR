@@ -93,7 +93,12 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   const [internalData, setInternalData] = useState<CTMData>([]);
   
   useEffect(() => {
-    setInternalData(Array.isArray(ctm2Data) ? ctm2Data : []);
+    // Only sync if the external data has fundamentally changed (e.g. loading a new analysis)
+    // This check is simplistic but helps prevent overwrites. A more robust check might involve deep comparison or versioning.
+    if (JSON.stringify(ctm2Data) !== JSON.stringify(internalData)) {
+      setInternalData(Array.isArray(ctm2Data) ? ctm2Data : []);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctm2Data]);
 
 
@@ -103,29 +108,32 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     for (let i = 0; i < path.length - 1; i++) {
       current = current[path[i]];
     }
-    current[path[path.length - 1]] = { ...current[path[path.length - 1]], description: value };
+    const finalKey = path[path.length - 1];
+    current[finalKey] = { ...current[finalKey], description: value };
+
     setInternalData(newData);
     onSetCtm2Data(newData);
   };
 
   const handleToggleStatus = (path: (string | number)[], status: 'accepted' | 'rejected' | 'pending') => {
-      const newData: CTMData = JSON.parse(JSON.stringify(internalData));
-      let current: any = newData;
-      for (let i = 0; i < path.length - 1; i++) {
-        current = current[path[path.length - 1]];
-      }
-      const itemToUpdate = current;
+    const newData: CTMData = JSON.parse(JSON.stringify(internalData));
+    let parent: any = newData;
+    for (let i = 0; i < path.length - 1; i++) {
+        parent = parent[path[i]];
+    }
+    const finalKey = path[path.length - 1];
+    const itemToUpdate = parent[finalKey];
       
-      if (itemToUpdate.status === status) {
+    if (itemToUpdate && itemToUpdate.status === status) {
         // If clicking the same status button, toggle back to pending
         itemToUpdate.status = 'pending';
         itemToUpdate.validationMethod = undefined;
         setInternalData(newData);
         onSetCtm2Data(newData);
-      } else {
+    } else {
         // Otherwise, open dialog to confirm new status
         setValidationState({ path, status });
-      }
+    }
   };
 
   const handleConfirmValidation = useCallback((method: string) => {
@@ -153,7 +161,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   const handleAdd = (path: (string | number)[]) => {
     const newData: CTMData = JSON.parse(JSON.stringify(internalData));
     
-    // Case 1: Add new top-level "Por Qué" from approved cause.
+    // Case 1: Add new top-level "Por Qué" from an approved cause.
     if (path.length === 4 && path[1] === 'hypotheses' && path[3] === 'physicalCauses') {
         const fmIndex = path[0] as number;
         const hypIndex = path[2] as number;
@@ -170,7 +178,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
         }
     }
 
-    // Case 2: General "add" logic for other scenarios (add new cause within a question).
+    // Case 2: General "add" logic for other scenarios (add new cause within a question or top-level question).
     let parent: any = newData;
     
     if (path.length === 0) { // Top-level button "Añadir Por Qué"
@@ -235,7 +243,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
             <div className="flex items-center gap-2 mt-1">
               <Textarea 
                 value={hyp.description} 
-                onChange={(e) => handleUpdate([...path, hypIndex], e.target.value)} 
+                onChange={(e) => handleUpdate([...path, hypIndex, 'description'], e.target.value)} 
                 rows={1} 
                 className={cn(
                   "text-sm",
@@ -288,7 +296,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
                   <AccordionContent className="pl-2">
                     <div className="space-y-2 p-2 border-l-2">
                       <Label>Descripción del Por Qué</Label>
-                      <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex], e.target.value)} className="text-sm"/>
+                      <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex, 'description'], e.target.value)} className="text-sm"/>
                       {renderHypotheses(fm.hypotheses, [fmIndex, 'hypotheses'], fmIndex)}
                     </div>
                   </AccordionContent>
