@@ -161,25 +161,32 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   const [internalData, setInternalData] = useState<CTMData>(() => ctm2Data || []);
   
   useEffect(() => {
-    if (JSON.stringify(ctm2Data) !== JSON.stringify(internalData)) {
+    // If ctm2Data is empty and there's a description, initialize with the first question.
+    // This solves the production issue where the component might not initialize correctly.
+    if ((!ctm2Data || ctm2Data.length === 0) && focusEventDescription) {
+        const initialEntry = {
+            id: generateClientSideId('fm'),
+            description: `¿Por qué ocurrió: "${focusEventDescription}"?`,
+            hypotheses: []
+        };
+        onSetCtm2Data([initialEntry]);
+    } else if (JSON.stringify(ctm2Data) !== JSON.stringify(internalData)) {
       setInternalData(Array.isArray(ctm2Data) ? ctm2Data : []);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ctm2Data]);
+  }, [ctm2Data, focusEventDescription]);
 
  const handleUpdate = (path: (string | number)[], value: string) => {
     const newData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
     
-    // Traverse to the parent of the item to update
-    let parent = current;
     for (let i = 0; i < path.length - 1; i++) {
         parent = parent[path[i]];
     }
     const finalKey = path[path.length - 1];
     
-    if(parent && typeof parent === 'object' && finalKey in parent) {
-      const itemToUpdate = parent[finalKey];
+    if(current && typeof current === 'object' && finalKey in current) {
+      const itemToUpdate = current[finalKey];
       if(itemToUpdate && typeof itemToUpdate === 'object'){
          itemToUpdate.description = value;
       }
@@ -235,34 +242,26 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
 
   const handleAdd = useCallback((path: (string | number)[], baseDescription: string) => {
     const newData = JSON.parse(JSON.stringify(internalData));
-    let current: any = newData;
-    
     let parentOfTarget: any = newData;
-    for (let i = 0; i < path.length; i++) {
-      if (!parentOfTarget[path[i]]) {
-        console.error("Path is invalid", path, parentOfTarget);
-        return;
-      }
-      parentOfTarget = parentOfTarget[path[i]];
+
+    for (let i = 0; i < path.length - 1; i++) {
+        if (!parentOfTarget || parentOfTarget[path[i]] === undefined) {
+            console.error("Path is invalid during traversal", path, parentOfTarget);
+            return;
+        }
+        parentOfTarget = parentOfTarget[path[i]];
     }
     
-    const lastKey = path.length > 0 ? path[path.length-1] : null;
+    const lastKey = path[path.length - 1];
+    const container = parentOfTarget[lastKey];
 
-    if (lastKey === 'hypotheses') {
-        if (!Array.isArray(parentOfTarget)) {
-            console.error("Target for hypotheses is not an array");
-            return;
-        }
-        parentOfTarget.push({ id: generateClientSideId('hyp'), description: 'Nuevo porque', failureModes: [], status: 'pending' });
-    } else if (lastKey === 'failureModes') {
-        if (!Array.isArray(parentOfTarget)) {
-            console.error("Target for failureModes is not an array");
-            return;
-        }
+    if (lastKey === 'hypotheses' && Array.isArray(container)) {
+        container.push({ id: generateClientSideId('hyp'), description: 'Nuevo porque', failureModes: [], status: 'pending' });
+    } else if (lastKey === 'failureModes' && Array.isArray(container)) {
         const newWhyDescription = `¿Por qué: "${baseDescription.substring(0, 50)}..."?`;
-        parentOfTarget.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
+        container.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
     } else {
-       console.error("Unknown add target", path);
+       console.error("Unknown add target or target is not an array. Path:", path, "Container:", container);
     }
 
     onSetCtm2Data(newData);
@@ -281,16 +280,14 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   };
   
   const handleAddFailureMode = useCallback(() => {
-    const newData = [...internalData];
     const newWhyDescription = `¿Por qué ocurrió: "${focusEventDescription || 'el evento foco'}"?`;
-    newData.push({
+    const newFailureMode: FailureMode = {
         id: generateClientSideId('fm'),
         description: newWhyDescription,
         hypotheses: [],
-    });
-    onSetCtm2Data(newData);
-}, [internalData, onSetCtm2Data, focusEventDescription]);
-
+    };
+    onSetCtm2Data([...internalData, newFailureMode]);
+  }, [internalData, onSetCtm2Data, focusEventDescription]);
   
   const safeInternalData = Array.isArray(internalData) ? internalData : [];
 
@@ -313,7 +310,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
         ) : (
           <div className="flex space-x-4 overflow-x-auto py-2">
             {safeInternalData.map((fm, fmIndex) => {
-              const title = "Por Qué #1"; // Always #1 for top-level as requested
+              const title = "Por Qué #1";
               return (
                 <div key={fm.id} className="min-w-[22rem] flex-shrink-0">
                     <Accordion type="single" collapsible defaultValue="item-1">
@@ -332,7 +329,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
                                     items={fm.hypotheses || []}
                                     level="hypothesis"
                                     path={[fmIndex, 'hypotheses']}
-                                    numberingPrefix="1."
+                                    numberingPrefix={`${fmIndex + 1}.`}
                                     onUpdate={handleUpdate}
                                     onAdd={handleAdd}
                                     onRemove={handleRemove}

@@ -298,7 +298,14 @@ function RCAAnalysisPageComponent() {
           toast({ title: "Análisis Cargado", description: `Se cargó el análisis ID: ${id}` });
         }
         lastLoadedAnalysisIdRef.current = id;
-        setMaxCompletedStep(prevMax => Math.max(prevMax, data.isFinalized ? 5 : (data.validations?.length > 0 && data.plannedActions?.every(pa => data.validations.find(v => v.actionId === pa.id)?.status === 'validated') ? 4 : (data.identifiedRootCauses?.length > 0 ? 3 : (data.projectLeader ? 2 : 1)))));
+        
+        const isIshikawaPopulated = data.ishikawaData?.some(cat => cat.causes.length > 0);
+        const isCtmPopulated = data.ctmData?.some(fm => fm.hypotheses.length > 0);
+        const isCtm2Populated = data.ctm2Data?.some(fm => fm.hypotheses.length > 0);
+        const hasStep3Content = data.identifiedRootCauses?.length > 0 || isIshikawaPopulated || isCtmPopulated || isCtm2Populated;
+        
+        setMaxCompletedStep(prevMax => Math.max(prevMax, data.isFinalized ? 5 : (data.validations?.length > 0 && data.plannedActions?.every(pa => data.validations.find(v => v.actionId === pa.id)?.status === 'validated') ? 4 : (hasStep3Content ? 3 : (data.projectLeader ? 2 : 1)))));
+
         return true;
       } else {
         if (lastLoadedAnalysisIdRef.current !== id || lastLoadedAnalysisIdRef.current === null) {
