@@ -49,6 +49,7 @@ const CTM2RecursiveRenderer: FC<{
              <div className="space-y-3 pl-4 border-l-2 border-dashed border-gray-400 ml-4 mt-2">
                 {failureModes.map((fm, fmIndex) => {
                     const currentPrefix = `${numberingPrefix}${fmIndex + 1}`;
+                    const title = numberingPrefix === '' ? 'Por Qué #1' : `Por Qué #${currentPrefix}`;
                     return (
                         <div key={fm.id}>
                             <Accordion type="single" collapsible defaultValue="item-1">
@@ -57,7 +58,7 @@ const CTM2RecursiveRenderer: FC<{
                                         <AccordionTrigger className="flex-grow">
                                             <span className="font-semibold flex items-center">
                                                 <GitBranchPlus className="mr-2 h-4 w-4" /> 
-                                                Por Qué #{currentPrefix}
+                                                {title}
                                             </span>
                                         </AccordionTrigger>
                                         <Button size="icon" variant="ghost" className="h-7 w-7 ml-2 shrink-0" onClick={(e) => {e.stopPropagation(); onRemove([...path, fmIndex]);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
@@ -65,7 +66,7 @@ const CTM2RecursiveRenderer: FC<{
                                     <AccordionContent className="pl-2">
                                         <div className="space-y-2 p-2 border-l-2">
                                         <Label>Descripción del Por Qué</Label>
-                                        <Input value={fm.description} onChange={(e) => onUpdate([...path, fmIndex, 'description'], e.target.value)} className="text-sm"/>
+                                        <Input value={fm.description} onChange={(e) => onUpdate([...path, fmIndex], e.target.value)} className="text-sm"/>
                                         <CTM2RecursiveRenderer
                                             items={fm.hypotheses || []}
                                             level="hypothesis"
@@ -101,7 +102,7 @@ const CTM2RecursiveRenderer: FC<{
                     <div className="flex items-center gap-2 mt-1">
                       <Textarea 
                         value={hyp.description} 
-                        onChange={(e) => onUpdate([...path, hypIndex, 'description'], e.target.value)}
+                        onChange={(e) => onUpdate([...path, hypIndex], e.target.value)}
                         rows={1} 
                         className={cn(
                           "text-sm",
@@ -171,16 +172,13 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     let current: any = newData;
     
     // Traverse to the parent of the item to update
-    for (let i = 0; i < path.length - 1; i++) {
+    for (let i = 0; i < path.length; i++) {
         if (current === undefined) return;
         current = current[path[i]];
     }
     
-    const finalKey = path[path.length - 1];
-    
-    // Check if the target is an object before assigning to its description
-    if (current && typeof current === 'object' && finalKey in current && typeof current[finalKey] === 'object') {
-       current[finalKey].description = value;
+    if (current && typeof current === 'object') {
+       current.description = value;
     } else {
        console.error("Could not update property. Path:", path, "Current Object:", JSON.parse(JSON.stringify(current)));
     }
@@ -235,28 +233,26 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     const newData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
     
-    if (path.length === 0) { // Adding a new top-level failure mode
+    if (path.length === 0) {
       const newWhyDescription = `¿Por qué ocurrió: "${focusEventDescription || 'el evento foco'}"?`;
       newData.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
     } else {
       let parentOfTarget: any = newData;
-      for (let i = 0; i < path.length - 1; i++) {
+      for (let i = 0; i < path.length; i++) {
         parentOfTarget = parentOfTarget[path[i]];
       }
       
-      const lastSegment = path[path.length - 1];
-      const targetArray = parentOfTarget[lastSegment];
-
-      if (!Array.isArray(targetArray)) {
-         console.error("Target for adding is not an array", path, parentOfTarget);
-         return;
-      }
+      const lastKey = path[path.length - 1];
       
-      if (lastSegment === 'hypotheses') {
-          targetArray.push({ id: generateClientSideId('hyp'), description: 'Nuevo porque', failureModes: [], status: 'pending' });
-      } else if (lastSegment === 'failureModes') {
+      if (lastKey === 'hypotheses') {
+          if (!parentOfTarget) parentOfTarget = [];
+          parentOfTarget.push({ id: generateClientSideId('hyp'), description: 'Nuevo porque', failureModes: [], status: 'pending' });
+      } else if (lastKey === 'failureModes') {
+          if (!parentOfTarget) parentOfTarget = [];
           const newWhyDescription = `¿Por qué: "${baseDescription.substring(0, 50)}..."?`;
-          targetArray.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
+          parentOfTarget.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
+      } else {
+        console.error("Unknown add target", path, lastKey);
       }
     }
     onSetCtm2Data(newData);
@@ -276,7 +272,11 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   
   const handleAddFailureMode = useCallback(() => {
     const newData = JSON.parse(JSON.stringify(internalData));
-    const newWhyDescription = `¿Por qué ocurrió: "${focusEventDescription || 'el evento foco'}"?`;
+    const firstFm = newData[0];
+    const newWhyDescription = firstFm 
+      ? `¿Por qué ocurrió: "${firstFm.description || 'el evento foco'}"?` 
+      : `¿Por qué ocurrió: "${focusEventDescription || 'el evento foco'}"?`;
+
     newData.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
     onSetCtm2Data(newData);
   }, [internalData, onSetCtm2Data, focusEventDescription]);
@@ -302,36 +302,38 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
           </div>
         ) : (
           <div className="flex space-x-4 overflow-x-auto py-2">
-            {safeInternalData.map((fm, fmIndex) => (
+            {safeInternalData.map((fm, fmIndex) => {
+              const title = `Por Qué #1`; // Always #1 for top-level as requested
+              return (
                 <div key={fm.id} className="min-w-[22rem] flex-shrink-0">
                     <Accordion type="single" collapsible defaultValue="item-1">
                         <AccordionItem value="item-1">
                             <div className="flex items-center w-full">
                                 <AccordionTrigger className="flex-grow">
-                                    <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> Por Qué #1</span>
+                                    <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> {title}</span>
                                 </AccordionTrigger>
                                 <Button size="icon" variant="ghost" className="h-7 w-7 ml-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemove([fmIndex]);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                             </div>
                             <AccordionContent className="pl-2">
                                 <div className="space-y-2 p-2 border-l-2">
                                 <Label>Descripción del Por Qué</Label>
-                                <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex, 'description'], e.target.value)} className="text-sm"/>
+                                <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex], e.target.value)} className="text-sm"/>
                                 <CTM2RecursiveRenderer
                                     items={fm.hypotheses || []}
                                     level="hypothesis"
                                     path={[fmIndex, 'hypotheses']}
-                                    numberingPrefix={`${fmIndex + 1}.`}
+                                    numberingPrefix="1."
                                     onUpdate={handleUpdate}
                                     onAdd={handleAdd}
                                     onRemove={handleRemove}
-                                    onToggleStatus={onToggleStatus}
+                                    onToggleStatus={handleToggleStatus}
                                   />
                                 </div>
                             </AccordionContent>
                         </AccordionItem>
                     </Accordion>
                 </div>
-            ))}
+            )})}
           </div>
         )}
       </div>
