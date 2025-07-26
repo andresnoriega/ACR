@@ -82,10 +82,11 @@ const CtmValidationDialog: FC<CtmValidationDialogProps> = ({ isOpen, onOpenChang
 interface CTM3InteractiveProps {
   ctm3Data: CTMData;
   onSetCtm3Data: (data: CTMData) => void;
+  focusEventDescription: string;
 }
 
 
-export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3Data }) => {
+export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3Data, focusEventDescription }) => {
   const [validationState, setValidationState] = useState<{ path: (string | number)[]; status: Hypothesis['status'] } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
   
@@ -158,8 +159,11 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
       parent = parent[path[i]];
     }
 
-    if (lastKey === null) { // Adding a new FailureMode to the root
-      newData.push({ id: generateClientSideId('fm'), description: 'Nuevo Por Qué', hypotheses: [] });
+    if (lastKey === null) { // Adding a new "Por Qué" to the root
+      const initialDescription = internalData.length === 0 
+        ? `¿Por qué ocurrió: "${focusEventDescription || 'Descripción del Evento Foco'}"?`
+        : 'Nuevo Por Qué';
+      newData.push({ id: generateClientSideId('fm'), description: initialDescription, hypotheses: [] });
     } else {
       let targetArray;
       if (typeof lastKey === 'string') {

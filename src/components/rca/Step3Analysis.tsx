@@ -1,4 +1,3 @@
-
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useCallback, useEffect } from 'react'; 
@@ -730,7 +729,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
             )}
 
             {analysisTechnique === 'CTM.3' && (
-              <CTM3Interactive ctm3Data={ctm3Data} onSetCtm3Data={onSetCtm3Data} />
+              <CTM3Interactive ctm3Data={ctm3Data} onSetCtm3Data={onSetCtm3Data} focusEventDescription={eventData.focusEventDescription}/>
             )}
             
             {(analysisTechnique === '' || analysisTechniqueNotes.trim() !== '') && (
