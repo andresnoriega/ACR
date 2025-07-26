@@ -90,13 +90,11 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
   const [validationState, setValidationState] = useState<{ path: (string | number)[]; status: Hypothesis['status'] } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
   
-  // Lazy state initialization to prevent hydration issues
-  const [internalData, setInternalData] = useState<CTMData>(() => ctm3Data || []);
+  const [internalData, setInternalData] = useState<CTMData>([]);
 
   useEffect(() => {
-    onSetCtm3Data(internalData);
-  }, [internalData, onSetCtm3Data]);
-
+    setInternalData(ctm3Data || []);
+  }, [ctm3Data]);
 
   const handleUpdate = (path: (string | number)[], value: string) => {
     const newData = JSON.parse(JSON.stringify(internalData));
@@ -105,7 +103,7 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
       current = current[path[i]];
     }
     current[path[path.length - 1]] = { ...current[path[path.length - 1]], description: value };
-    setInternalData(newData);
+    onSetCtm3Data(newData);
   };
 
   const handleToggleStatus = (path: (string | number)[], status: 'accepted' | 'rejected' | 'pending') => {
@@ -120,7 +118,7 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
         // If clicking the same status button, toggle back to pending
         itemToUpdate.status = 'pending';
         itemToUpdate.validationMethod = undefined;
-        setInternalData(newData);
+        onSetCtm3Data(newData);
       } else {
         // Otherwise, open dialog to confirm new status
         setValidationState({ path, status });
@@ -143,10 +141,10 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
     itemToUpdate.status = status;
     itemToUpdate.validationMethod = method;
 
-    setInternalData(newData);
+    onSetCtm3Data(newData);
     setIsProcessingValidation(false);
     setValidationState(null);
-  }, [internalData, validationState]);
+  }, [internalData, validationState, onSetCtm3Data]);
 
   const handleAdd = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(internalData));
@@ -189,7 +187,7 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
       }
     }
 
-    setInternalData(newData);
+    onSetCtm3Data(newData);
   };
 
   const handleRemove = (path: (string | number)[]) => {
@@ -200,7 +198,7 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
     }
     const indexToRemove = path[path.length - 1] as number;
     current.splice(indexToRemove, 1);
-    setInternalData(newData);
+    onSetCtm3Data(newData);
   };
   
   const renderPhysicalCauses = (physicalCauses: PhysicalCause[] | undefined, path: (string | number)[]) => (
