@@ -151,22 +151,36 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
 
   const handleAdd = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(internalData));
+
+    // Special case for CTM.2: Adding a new top-level "Por Qué" from an accepted "Porque"
+    if (path.length === 3 && path[1] === 'hypotheses' && path[2] === 'physicalCauses') {
+        const failureMode = newData[path[0] as number];
+        const hypothesis = failureMode.hypotheses.find((h: any, i: number) => h.status === 'accepted'); // Simplified for this logic
+        
+        if (hypothesis && hypothesis.status === 'accepted') {
+            const newWhyDescription = `¿Por qué: "${hypothesis.description.substring(0, 50)}..."?`;
+            newData.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
+            setInternalData(newData);
+            return;
+        }
+    }
+
+
     let parent: any = newData;
     let lastKey = path.length > 0 ? path[path.length - 1] : null;
     
-    // Traverse to the parent of the target array
     for (let i = 0; i < path.length - 1; i++) {
       parent = parent[path[i]];
     }
 
-    if (lastKey === null) { // Adding a new FailureMode to the root
+    if (lastKey === null) { 
       newData.push({ id: generateClientSideId('fm'), description: 'Nuevo Por Qué', hypotheses: [] });
     } else {
       let targetArray;
       if (typeof lastKey === 'string') {
         targetArray = parent[lastKey];
       } else if (typeof lastKey === 'number') {
-        parent = parent[lastKey]; // Move to the object itself
+        parent = parent[lastKey]; 
         if ('latentCauses' in parent) targetArray = parent.latentCauses;
         else if ('humanCauses' in parent) targetArray = parent.humanCauses;
         else if ('physicalCauses' in parent) targetArray = parent.physicalCauses;
@@ -175,16 +189,10 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
       
       if (!Array.isArray(targetArray)) {
          console.error("Target for adding is not an array", path, parent);
-         return; // Should not happen with corrected logic
+         return;
       }
 
-      if ('latentCauses' in parent) {
-        if (!parent.latentCauses) parent.latentCauses = [];
-        parent.latentCauses.push({ id: generateClientSideId('lc'), description: 'Nueva Causa Latente' });
-      } else if ('humanCauses' in parent) {
-        if (!parent.humanCauses) parent.humanCauses = [];
-        parent.humanCauses.push({ id: generateClientSideId('hc'), description: 'Nueva Causa Humana', latentCauses: [] });
-      } else if ('physicalCauses' in parent) {
+      if ('physicalCauses' in parent) {
         if (!parent.physicalCauses) parent.physicalCauses = [];
         parent.physicalCauses.push({ id: generateClientSideId('pc'), description: 'Nueva Causa Física', humanCauses: [] });
       } else if ('hypotheses' in parent) {
@@ -207,40 +215,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     setInternalData(newData);
   };
   
-  const renderLatentCauses = (latentCauses: LatentCause[] | undefined, path: (string | number)[]) => (
-    <div className="pl-4 border-l ml-4 mt-2 space-y-2">
-      {(latentCauses || []).map((lc, lcIndex) => (
-        <div key={lc.id} className="space-y-1">
-          <Label className="text-xs font-semibold flex items-center text-purple-600 dark:text-purple-400">
-            <Building className="mr-1 h-3 w-3" /> Causa Latente #{lcIndex + 1}
-          </Label>
-           <div className="flex items-center gap-2">
-            <Input value={lc.description} onChange={(e) => handleUpdate([...path, lcIndex], e.target.value)} className="h-8 text-xs" />
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleRemove([...path, lcIndex])}><Trash2 className="h-3 w-3 text-destructive" /></Button>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-
-  const renderHumanCauses = (humanCauses: HumanCause[] | undefined, path: (string | number)[]) => (
-    <div className="pl-4 border-l ml-4 mt-2 space-y-2">
-      {(humanCauses || []).map((hc, hcIndex) => (
-        <div key={hc.id} className="space-y-1">
-          <Label className="text-xs font-semibold flex items-center text-yellow-600 dark:text-yellow-400">
-            <User className="mr-1 h-3 w-3" /> Causa Humana #{hcIndex + 1}
-          </Label>
-          <div className="flex items-center gap-2">
-            <Input value={hc.description} onChange={(e) => handleUpdate([...path, hcIndex], e.target.value)} className="h-8 text-xs" />
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleRemove([...path, hcIndex])}><Trash2 className="h-3 w-3 text-destructive" /></Button>
-          </div>
-          {renderLatentCauses(hc.latentCauses, [...path, hcIndex, 'latentCauses'])}
-        </div>
-      ))}
-    </div>
-  );
-
-  const renderPhysicalCauses = (physicalCauses: PhysicalCause[] | undefined, path: (string | number)[]) => (
+  const renderPhysicalCauses = (physicalCauses: PhysicalCause[] | undefined, path: (string | number)[], isParentAccepted: boolean) => (
     <div className="pl-4 border-l ml-4 mt-2 space-y-2">
       {(physicalCauses || []).map((pc, pcIndex) => (
         <div key={pc.id} className="space-y-1">
@@ -251,10 +226,9 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
             <Input value={pc.description} onChange={(e) => handleUpdate([...path, pcIndex], e.target.value)} className="h-8 text-xs" />
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleRemove([...path, pcIndex])}><Trash2 className="h-3 w-3 text-destructive" /></Button>
           </div>
-          {renderHumanCauses(pc.humanCauses, [...path, pcIndex, 'humanCauses'])}
         </div>
       ))}
-      <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => handleAdd(path)}><PlusCircle className="mr-1 h-3 w-3" /> Añadir C. Física</Button>
+      <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => handleAdd(path)}><PlusCircle className="mr-1 h-3 w-3" /> {isParentAccepted ? 'Añadir Por Qué' : 'Añadir C. Física'}</Button>
     </div>
   );
   
@@ -287,7 +261,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
                 <span className="font-semibold">Justificación V/R:</span> {hyp.validationMethod}
               </div>
             )}
-            {hyp.status !== 'rejected' && renderPhysicalCauses(hyp.physicalCauses, [...path, hypIndex, 'physicalCauses'])}
+            {hyp.status !== 'rejected' && renderPhysicalCauses(hyp.physicalCauses, [...path, hypIndex, 'physicalCauses'], hyp.status === 'accepted')}
           </Card>
         ))}
         <Button size="sm" variant="outline" className="text-sm h-8" onClick={() => handleAdd(path)}><PlusCircle className="mr-2 h-4 w-4" /> Añadir Porque</Button>
