@@ -1,4 +1,3 @@
-
 'use client';
 import { FC, useCallback, useMemo, useState, useEffect } from 'react';
 import {
@@ -96,8 +95,7 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
 
   useEffect(() => {
       onSetCtm3Data(internalData);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [internalData]);
+  }, [internalData, onSetCtm3Data]);
 
 
   const handleUpdate = (path: (string | number)[], value: string) => {
