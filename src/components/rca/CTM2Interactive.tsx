@@ -181,15 +181,12 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     let current: any = newData;
     
     for (let i = 0; i < path.length - 1; i++) {
-        parent = parent[path[i]];
+        current = current[path[i]];
     }
     const finalKey = path[path.length - 1];
     
-    if(current && typeof current === 'object' && finalKey in current) {
-      const itemToUpdate = current[finalKey];
-      if(itemToUpdate && typeof itemToUpdate === 'object'){
-         itemToUpdate.description = value;
-      }
+    if (current && typeof current === 'object' && finalKey in current) {
+      current[finalKey].description = value;
     } else {
        console.error("Could not update property. Path:", path, "Current Object:", JSON.parse(JSON.stringify(current)));
     }
@@ -333,7 +330,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
                                     onUpdate={handleUpdate}
                                     onAdd={handleAdd}
                                     onRemove={handleRemove}
-                                    onToggleStatus={handleToggleStatus}
+                                    onToggleStatus={onToggleStatus}
                                   />
                                 </div>
                             </AccordionContent>
