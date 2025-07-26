@@ -49,9 +49,9 @@ const CtmValidationDialog: FC<CtmValidationDialogProps> = ({ isOpen, onOpenChang
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Confirmar Validación/Rechazo de Hipótesis</DialogTitle>
+          <DialogTitle>Confirmar Validación/Rechazo de Porque</DialogTitle>
           <DialogDescription>
-            Por favor, ingrese el método o justificación utilizado para validar o rechazar esta hipótesis.
+            Por favor, ingrese el método o justificación utilizado para validar o rechazar este porque.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
@@ -159,7 +159,7 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
     }
 
     if (lastKey === null) { // Adding a new FailureMode to the root
-      newData.push({ id: generateClientSideId('fm'), description: 'Nuevo Modo de Falla', hypotheses: [] });
+      newData.push({ id: generateClientSideId('fm'), description: 'Nuevo Por Qué', hypotheses: [] });
     } else {
       let targetArray;
       if (typeof lastKey === 'string') {
@@ -188,7 +188,7 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
         parent.physicalCauses.push({ id: generateClientSideId('pc'), description: 'Nueva Causa Física', humanCauses: [] });
       } else if ('hypotheses' in parent) {
         if (!parent.hypotheses) parent.hypotheses = [];
-        parent.hypotheses.push({ id: generateClientSideId('hyp'), description: 'Nueva Hipótesis', physicalCauses: [], status: 'pending' });
+        parent.hypotheses.push({ id: generateClientSideId('hyp'), description: 'Nuevo Porque', physicalCauses: [], status: 'pending' });
       }
     }
 
@@ -264,7 +264,7 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
         {(hypotheses || []).map((hyp, hypIndex) => (
           <Card key={hyp.id} className={cn("p-3", hyp.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' : hyp.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 opacity-70' : 'bg-card')}>
             <Label className="text-sm font-semibold flex items-center text-teal-700 dark:text-teal-300">
-              <BrainCircuit className="mr-2 h-4 w-4" /> Hipótesis #{hypIndex + 1}
+              <BrainCircuit className="mr-2 h-4 w-4" /> Porque #{hypIndex + 1}
             </Label>
             <div className="flex items-center gap-2 mt-1">
               <Textarea value={hyp.description} onChange={(e) => handleUpdate([...path, hypIndex], e.target.value)} rows={1} className="text-sm" />
@@ -282,7 +282,7 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
             {hyp.status !== 'rejected' && renderPhysicalCauses(hyp.physicalCauses, [...path, hypIndex, 'physicalCauses'])}
           </Card>
         ))}
-        <Button size="sm" variant="outline" className="text-sm h-8" onClick={() => handleAdd(path)}><PlusCircle className="mr-2 h-4 w-4" /> Añadir Hipótesis</Button>
+        <Button size="sm" variant="outline" className="text-sm h-8" onClick={() => handleAdd(path)}><PlusCircle className="mr-2 h-4 w-4" /> Añadir Porque</Button>
       </div>
   );
 
@@ -295,7 +295,7 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
             <Share2 className="mr-2 h-5 w-5" /> Árbol de Causas (CTM.3)
           </h3>
           <Button onClick={() => handleAdd([])} variant="outline" size="sm">
-              <PlusCircle className="mr-2 h-4 w-4" /> Añadir Modo de Falla
+              <PlusCircle className="mr-2 h-4 w-4" /> Añadir Por Qué
           </Button>
         </div>
         <div className="flex space-x-4 overflow-x-auto py-2">
@@ -305,13 +305,13 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
                 <AccordionItem value="item-1">
                   <div className="flex items-center w-full">
                     <AccordionTrigger className="flex-grow">
-                      <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> Modo de Falla #{fmIndex + 1}</span>
+                      <span className="font-semibold flex items-center"><GitBranchPlus className="mr-2 h-4 w-4" /> Por Qué #{fmIndex + 1}</span>
                     </AccordionTrigger>
                     <Button size="icon" variant="ghost" className="h-7 w-7 ml-2 shrink-0" onClick={(e) => {e.stopPropagation(); handleRemove([fmIndex]);}}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                   </div>
                   <AccordionContent className="pl-2">
                     <div className="space-y-2 p-2 border-l-2">
-                      <Label>Descripción del Modo de Falla</Label>
+                      <Label>Descripción del Por Qué</Label>
                       <Input value={fm.description} onChange={(e) => handleUpdate([fmIndex], e.target.value)} className="text-sm"/>
                       {renderHypotheses(fm.hypotheses, [fmIndex, 'hypotheses'])}
                     </div>
@@ -322,7 +322,7 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
           ))}
           {internalData.length === 0 && (
             <div className="text-center text-muted-foreground italic py-4 w-full">
-              Haga clic en "Añadir Modo de Falla" para comenzar a construir el árbol.
+              Haga clic en "Añadir Por Qué" para comenzar a construir el árbol.
             </div>
           )}
         </div>
