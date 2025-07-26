@@ -46,7 +46,7 @@ const CtmValidationDialog: FC<CtmValidationDialogProps> = ({ isOpen, onOpenChang
   }, [isOpen]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!isProcessing) onOpenChange(open) }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Confirmar Validación/Rechazo de Porque</DialogTitle>
@@ -152,7 +152,9 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   const handleAdd = (path: (string | number)[]) => {
     const newData: CTMData = JSON.parse(JSON.stringify(internalData));
 
-    if(path.length === 4 && path[1] === 'hypotheses' && path[3] === 'physicalCauses') {
+    // Case 1: The "Añadir Por Qué" button from an approved Hypothesis is clicked.
+    // This should create a new top-level FailureMode.
+    if (path.length === 4 && path[1] === 'hypotheses' && path[3] === 'physicalCauses') {
         const fmIndex = path[0] as number;
         const hypIndex = path[2] as number;
         
@@ -164,11 +166,11 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
             newData.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
             setInternalData(newData);
             onSetCtm2Data(newData);
-            return;
+            return; // Action completed
         }
     }
 
-
+    // Case 2: General "add" logic for other scenarios.
     let parent: any = newData;
     let lastKey = path.length > 0 ? path[path.length - 1] : null;
     
@@ -176,7 +178,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
       parent = parent[path[i]];
     }
 
-    if (lastKey === null) { 
+    if (lastKey === null) { // Adding a new FailureMode (top-level "Por Qué")
       newData.push({ id: generateClientSideId('fm'), description: 'Nuevo Por Qué', hypotheses: [] });
     } else {
       let targetArray;
@@ -184,8 +186,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
         targetArray = parent[lastKey];
       } else if (typeof lastKey === 'number') {
         parent = parent[lastKey]; 
-        if ('physicalCauses' in parent) targetArray = parent.physicalCauses;
-        else if ('hypotheses' in parent) targetArray = parent.hypotheses;
+        if ('hypotheses' in parent) targetArray = parent.hypotheses;
       }
       
       if (!Array.isArray(targetArray)) {
@@ -193,10 +194,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
          return;
       }
 
-      if ('physicalCauses' in parent) {
-        if (!parent.physicalCauses) parent.physicalCauses = [];
-        parent.physicalCauses.push({ id: generateClientSideId('pc'), description: '', humanCauses: [] });
-      } else if ('hypotheses' in parent) {
+      if ('hypotheses' in parent) {
         if (!parent.hypotheses) parent.hypotheses = [];
         parent.hypotheses.push({ id: generateClientSideId('hyp'), description: 'Nuevo Porque', physicalCauses: [], status: 'pending' });
       }
@@ -220,17 +218,6 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
   
   const renderPhysicalCauses = (physicalCauses: PhysicalCause[] | undefined, path: (string | number)[], isParentAccepted: boolean) => (
     <div className="pl-4 border-l ml-4 mt-2 space-y-2">
-      {(physicalCauses || []).map((pc, pcIndex) => (
-        <div key={pc.id} className="space-y-1">
-          <Label className="text-xs font-semibold flex items-center text-orange-600 dark:text-orange-400">
-            <Wrench className="mr-1 h-3 w-3" /> Causa Física #{pcIndex + 1}
-          </Label>
-           <div className="flex items-center gap-2">
-            <Input value={pc.description} onChange={(e) => handleUpdate([...path, pcIndex], e.target.value)} className="h-8 text-xs" />
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleRemove([...path, pcIndex])}><Trash2 className="h-3 w-3 text-destructive" /></Button>
-          </div>
-        </div>
-      ))}
       {isParentAccepted && (
         <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => handleAdd(path)}><PlusCircle className="mr-1 h-3 w-3" /> Añadir Por Qué</Button>
       )}
