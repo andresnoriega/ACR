@@ -559,6 +559,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
         ctmData: analysisTechnique === 'CTM' ? ctmData : undefined,
         ctm2Data: analysisTechnique === 'CTM.2' ? ctm2Data : undefined,
       };
+      
       const result = await suggestRootCauses(input);
       if (result && result.suggestedRootCauses && result.suggestedRootCauses.length > 0) {
         const validSuggestions = result.suggestedRootCauses.filter(s => !s.startsWith("[Sugerencia IA no disponible") && s.trim() !== "");
