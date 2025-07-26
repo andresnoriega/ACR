@@ -35,15 +35,10 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     onSetFiveWhysData(newData);
   };
   
-  const handleAddEntry = () => {
-    const lastEntry = internalData.length > 0 ? internalData[internalData.length - 1] : null;
-    let newWhy = '';
-    if (lastEntry && Array.isArray(lastEntry.becauses) && lastEntry.becauses.length > 0) {
-      const lastBecause = lastEntry.becauses.find(b => b.description.trim() !== '');
-      if (lastBecause) {
-        newWhy = `¿Por qué: "${lastBecause.description.substring(0, 70)}..."?`;
-      }
-    }
+  const handleAddEntry = (fromCauseDescription?: string) => {
+    const newWhy = fromCauseDescription
+      ? `¿Por qué: "${fromCauseDescription.substring(0, 70)}..."?`
+      : '';
     
     const newEntry: FiveWhysEntry = {
       id: `5why-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
@@ -156,7 +151,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
     handleUpdate(newData);
     setIsProcessingValidation(false);
     setValidationState(null);
-  }, [internalData, validationState, handleUpdate]);
+  }, [internalData, validationState]);
 
 
   return (
@@ -211,6 +206,11 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
                             )}
                           />
                            {cause.validationMethod && <p className="text-xs text-muted-foreground italic pl-1">Justificación: {cause.validationMethod}</p>}
+                           {cause.status === 'accepted' && (
+                            <Button size="sm" variant="secondary" className="text-xs h-7 mt-1" onClick={() => handleAddEntry(cause.description)}>
+                              <PlusCircle className="mr-1 h-3 w-3" /> Añadir Siguiente "Por qué"
+                            </Button>
+                           )}
                         </div>
                         <div className="flex flex-col gap-1">
                           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleToggleCauseStatus(entry.id, cause.id, 'accepted')} title="Validar Causa"><Check className={cn("h-3.5 w-3.5", cause.status === 'accepted' ? "text-green-600" : "text-muted-foreground")} /></Button>
@@ -226,13 +226,6 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
             </Card>
           ))}
         </div>
-        <Button
-          onClick={handleAddEntry}
-          variant="outline"
-          className="w-full mt-4"
-        >
-          <PlusCircle className="mr-2 h-4 w-4" /> Añadir Siguiente "Por qué"
-        </Button>
       </div>
       <ValidationDialog
         isOpen={!!validationState}
