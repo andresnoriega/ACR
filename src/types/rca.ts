@@ -85,6 +85,8 @@ export type IshikawaData = IshikawaCategory[];
 export interface FiveWhysCause {
   id: string;
   description: string;
+  status?: 'pending' | 'accepted' | 'rejected';
+  validationMethod?: string;
 }
 
 export interface FiveWhysEntry {
