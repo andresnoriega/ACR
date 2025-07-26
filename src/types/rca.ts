@@ -64,7 +64,7 @@ export interface Validation {
   rejectedAt?: string;
 }
 
-export type AnalysisTechnique = '' | 'Ishikawa' | 'CTM';
+export type AnalysisTechnique = '' | 'Ishikawa' | '5 Por qué' | 'CTM';
 
 export interface IshikawaCause {
   id: string;
@@ -80,6 +80,14 @@ export interface IshikawaCategory {
 }
 
 export type IshikawaData = IshikawaCategory[];
+
+// --- Type for 5 Whys ---
+export interface FiveWhysEntry {
+  id: string;
+  why: string;
+  because: string;
+}
+export type FiveWhysData = FiveWhysEntry[];
 
 
 // --- Tree Structure for CTM ---
@@ -253,6 +261,7 @@ export interface RCAAnalysisDocument {
   analysisTechnique: AnalysisTechnique;
   analysisTechniqueNotes: string;
   ishikawaData: IshikawaData;
+  fiveWhysData: FiveWhysData;
   ctmData: CTMData;
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];

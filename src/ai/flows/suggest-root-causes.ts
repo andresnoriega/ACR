@@ -10,7 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import { z } from 'zod';
-import type { AnalysisTechnique, IshikawaData, CTMData, BrainstormIdeaType } from '@/types/rca'; // Asegúrate de que las rutas y tipos sean correctos
+import type { AnalysisTechnique, IshikawaData, CTMData, FiveWhysData, BrainstormIdeaType } from '@/types/rca'; // Asegúrate de que las rutas y tipos sean correctos
 import { BRAINSTORM_IDEA_TYPES } from '@/types/rca';
 
 // --- Zod Schemas para los datos de las técnicas ---
@@ -29,6 +29,14 @@ const IshikawaCategorySchema = z.object({
 });
 
 const IshikawaDataSchema = z.array(IshikawaCategorySchema).optional().nullable();
+
+const FiveWhysEntrySchema = z.object({
+  id: z.string(),
+  why: z.string().describe('La pregunta del "porqué".'),
+  because: z.string().describe('La respuesta o "porque".'),
+});
+const FiveWhysDataSchema = z.array(FiveWhysEntrySchema).optional().nullable();
+
 
 const LatentCauseSchema = z.object({
   id: z.string(),
@@ -76,9 +84,10 @@ const BrainstormIdeaSchema = z.object({
 const SuggestRootCausesInputSchema = z.object({
   focusEventDescription: z.string().describe('La descripción principal del evento que se está analizando.'),
   brainstormingIdeas: z.array(BrainstormIdeaSchema).optional().describe('Lista de ideas de lluvia de ideas iniciales, clasificadas por tipo.'), // Changed from brainstormingNotes
-  analysisTechnique: z.enum(['', 'Ishikawa', 'CTM']).describe('La técnica de análisis principal seleccionada.'),
+  analysisTechnique: z.enum(['', 'Ishikawa', '5 Por qué', 'CTM']).describe('La técnica de análisis principal seleccionada.'),
   analysisTechniqueNotes: z.string().optional().describe('Notas generales o específicas sobre la aplicación de la técnica de análisis.'),
   ishikawaData: IshikawaDataSchema,
+  fiveWhysData: FiveWhysDataSchema,
   ctmData: CTMDataSchema,
 });
 export type SuggestRootCausesInput = z.infer<typeof SuggestRootCausesInputSchema>;
@@ -139,6 +148,14 @@ const suggestRootCausesPrompt = ai.definePrompt({
     {{/each}}
     {{/if}}
     
+    {{#if fiveWhysData}}
+    Datos de los 5 Porqués (cadena causal):
+    {{#each fiveWhysData}}
+      - ¿Por qué?: {{this.why}}
+      - Porque: {{this.because}}
+    {{/each}}
+    {{/if}}
+
     {{#if ctmData}}
     Datos del Árbol de Causas (CTM) (desglose de fallas a causas directas):
     {{#each ctmData}}
@@ -182,6 +199,9 @@ const suggestRootCausesFlowInternal = ai.defineFlow(
         hasSufficientInput = true;
     }
     if (input.analysisTechnique === 'Ishikawa' && input.ishikawaData && input.ishikawaData.length > 0 && input.ishikawaData.some(cat => cat.causes.length > 0)) {
+        hasSufficientInput = true;
+    }
+    if (input.analysisTechnique === '5 Por qué' && input.fiveWhysData && input.fiveWhysData.length > 0 && input.fiveWhysData.some(e => e.because.trim().length > 5)) {
         hasSufficientInput = true;
     }
     if (input.analysisTechnique === 'CTM' && input.ctmData && input.ctmData.length > 0 && input.ctmData.some(fm => fm.description.trim() || fm.hypotheses.length > 0)) {
