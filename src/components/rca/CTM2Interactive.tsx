@@ -48,7 +48,7 @@ const CTM2RecursiveRenderer: FC<{
         return (
              <div className="space-y-3 pl-4 border-l-2 border-dashed border-gray-400 ml-4 mt-2">
                 {failureModes.map((fm, fmIndex) => {
-                    const currentPrefix = `${numberingPrefix}${fmIndex + 1}`;
+                    const currentPrefix = numberingPrefix ? `${numberingPrefix}${fmIndex + 1}` : `${fmIndex + 1}`;
                     const title = `Por Qué #${currentPrefix}`;
                     return (
                         <div key={fm.id}>
@@ -157,70 +157,39 @@ interface CTM2InteractiveProps {
 export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2Data, focusEventDescription }) => {
   const [validationState, setValidationState] = useState<{ path: (string | number)[]; status: Hypothesis['status'] } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
-  
-  const [internalData, setInternalData] = useState<CTMData>([]);
-
-  useEffect(() => {
-    // This effect ensures state consistency between parent and child, crucial for production builds.
-    // It initializes or updates the internal state only when the prop from the parent changes.
-    // This avoids hydration errors.
-    const initialData = Array.isArray(ctm2Data) ? ctm2Data : [];
-    if (initialData.length === 0 && focusEventDescription) {
-        const initialEntry = {
-            id: generateClientSideId('fm'),
-            description: `¿Por qué ocurrió: "${focusEventDescription}"?`,
-            hypotheses: []
-        };
-        setInternalData([initialEntry]);
-    } else {
-        setInternalData(initialData);
-    }
-  }, [ctm2Data, focusEventDescription]);
-
 
   const handleUpdate = (path: (string | number)[], value: string) => {
-    const newData = JSON.parse(JSON.stringify(internalData));
+    const newData: CTMData = JSON.parse(JSON.stringify(ctm2Data));
     let current: any = newData;
     
-    // Traverse to the parent of the value to be updated
     for (let i = 0; i < path.length - 1; i++) {
-        if (current === undefined) {
-             console.error("Invalid path for update:", path);
-             return;
-        }
+        if (current === undefined) return;
         current = current[path[i]];
     }
 
     const finalKey = path[path.length - 1];
-    
-    // Check if the final key is 'description' and its parent is an object
     if (finalKey === 'description' && typeof current === 'object' && current !== null) {
-        current.description = value;
-    } else if (typeof current[finalKey] === 'object' && current[finalKey] !== null) {
-        // This handles cases where the path leads to the object itself
-        current[finalKey].description = value;
+      current.description = value;
     } else {
-        console.error("Could not update property. Path:", path, "Current Object:", JSON.parse(JSON.stringify(current)));
+      console.error("Could not update property. Path:", path, "Current Object:", JSON.parse(JSON.stringify(current)));
     }
     
     onSetCtm2Data(newData);
   };
 
 
-
   const handleToggleStatus = (path: (string | number)[], status: 'accepted' | 'rejected' | 'pending') => {
-    const newData = JSON.parse(JSON.stringify(internalData));
+    const newData: CTMData = JSON.parse(JSON.stringify(ctm2Data));
     let current: any = newData;
 
-    for (let i = 0; i < path.length - 1; i++) {
+    for (let i = 0; i < path.length; i++) {
         if(current === undefined) return;
         current = current[path[i]];
     }
-    const itemToUpdate = current[path[path.length - 1]];
     
-    if (itemToUpdate && itemToUpdate.status === status) {
-        itemToUpdate.status = 'pending';
-        itemToUpdate.validationMethod = undefined;
+    if (current && current.status === status) {
+        current.status = 'pending';
+        current.validationMethod = undefined;
         onSetCtm2Data(newData);
     } else {
         setValidationState({ path, status });
@@ -232,7 +201,7 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     setIsProcessingValidation(true);
     const { path, status } = validationState;
     
-    const newData = JSON.parse(JSON.stringify(internalData));
+    const newData: CTMData = JSON.parse(JSON.stringify(ctm2Data));
     let current: any = newData;
     for (let i = 0; i < path.length; i++) {
       if(current === undefined) return;
@@ -247,56 +216,40 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
     onSetCtm2Data(newData);
     setValidationState(null); 
     setIsProcessingValidation(false);
-  }, [internalData, onSetCtm2Data, validationState]);
+  }, [ctm2Data, onSetCtm2Data, validationState]);
 
 
   const handleAdd = useCallback((path: (string | number)[], baseDescription: string) => {
-    const newData = JSON.parse(JSON.stringify(internalData));
-    let current = newData;
-    let parentOfTarget = null;
-    let containerKey: string | number | null = null;
-    let parentHypothesis = null;
+    const newData: CTMData = JSON.parse(JSON.stringify(ctm2Data));
+    let current: any = newData;
 
-    if (path.length === 0) { // Should not be called from here, handled by handleAddFailureMode
-        return;
-    }
-
-    // Traverse to find the parent and the key/index of the container array.
-    let temp: any = newData;
     for (let i = 0; i < path.length; i++) {
-        if (temp === undefined) {
-            console.error("Path is invalid during add traversal", path);
-            return;
-        }
-        if (i < path.length - 1) {
-          temp = temp[path[i]];
-        }
+      if (!current) {
+        console.error("Path is invalid during add traversal", path);
+        return;
+      }
+      current = current[path[i]];
     }
-    parentOfTarget = temp;
-    containerKey = path[path.length - 1];
 
-    if (parentOfTarget === null || containerKey === null) {
-      console.error("Could not determine parent or container key", path);
-      return;
-    }
-    
-    const container = parentOfTarget[containerKey];
+    const lastSegment = path[path.length - 1];
 
-    if (containerKey === 'hypotheses' && Array.isArray(container)) {
-        container.push({ id: generateClientSideId('hyp'), description: 'Nuevo porque', failureModes: [], status: 'pending' });
-    } else if (containerKey === 'failureModes' && Array.isArray(container)) {
-        const newWhyDescription = `¿Por qué: "${baseDescription.substring(0, 50)}..."?`;
-        container.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
+    if (lastSegment === 'hypotheses') {
+      if (!current) current = [];
+      current.push({ id: generateClientSideId('hyp'), description: 'Nuevo porque', failureModes: [], status: 'pending' });
+    } else if (lastSegment === 'failureModes') {
+      if (!current) current = [];
+      const newWhyDescription = `¿Por qué: "${baseDescription.substring(0, 50)}..."?`;
+      current.push({ id: generateClientSideId('fm'), description: newWhyDescription, hypotheses: [] });
     } else {
-       console.error("Unknown add target or target is not an array. Path:", path, "Container:", container);
+      console.error("Unknown add target or target is not an array. Path:", path, "Current:", current);
     }
 
     onSetCtm2Data(newData);
-  }, [internalData, onSetCtm2Data]);
+  }, [ctm2Data, onSetCtm2Data]);
 
 
   const handleRemove = (path: (string | number)[]) => {
-    const newData = JSON.parse(JSON.stringify(internalData));
+    const newData: CTMData = JSON.parse(JSON.stringify(ctm2Data));
     let parent: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
         parent = parent[path[i]];
@@ -313,10 +266,10 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
         description: newWhyDescription,
         hypotheses: [],
     };
-    onSetCtm2Data([...internalData, newFailureMode]);
-  }, [internalData, onSetCtm2Data, focusEventDescription]);
+    onSetCtm2Data([...(ctm2Data || []), newFailureMode]);
+  }, [ctm2Data, onSetCtm2Data, focusEventDescription]);
   
-  const safeInternalData = Array.isArray(internalData) ? internalData : [];
+  const safeCtm2Data = Array.isArray(ctm2Data) ? ctm2Data : [];
 
   return (
     <>
@@ -330,13 +283,13 @@ export const CTM2Interactive: FC<CTM2InteractiveProps> = ({ ctm2Data, onSetCtm2D
           </Button>
         </div>
         
-        {safeInternalData.length === 0 ? (
+        {safeCtm2Data.length === 0 ? (
           <div className="text-center text-muted-foreground italic py-4 w-full">
             Haga clic en "Añadir Por Qué" para comenzar a construir el árbol.
           </div>
         ) : (
           <div className="flex space-x-4 overflow-x-auto py-2">
-            {safeInternalData.map((fm, fmIndex) => {
+            {safeCtm2Data.map((fm, fmIndex) => {
               const title = `Por Qué #1`; // Always #1 for parallel, independent investigations
               return (
                 <div key={fm.id} className="min-w-[22rem] flex-shrink-0">
