@@ -22,16 +22,19 @@ const generateClientSideId = (prefix: string) => {
     return `${prefix}-${idCounter}`;
 };
 
-const CTM2RecursiveRenderer: FC<{
-    items: any[];
-    level: 'failureMode' | 'hypothesis';
-    path: (string | number)[];
-    numberingPrefix?: string;
-    onUpdate: (path: (string | number)[], value: string) => void;
-    onAdd: (path: (string | number)[], description: string) => void;
-    onRemove: (path: (string | number)[]) => void;
-    onToggleStatus: (path: (string | number)[], status: Hypothesis['status']) => void;
-}> = ({
+// Define props interface for clarity and correctness
+interface CTM2RecursiveRendererProps {
+  items: any[];
+  level: 'failureMode' | 'hypothesis';
+  path: (string | number)[];
+  numberingPrefix?: string;
+  onUpdate: (path: (string | number)[], value: string) => void;
+  onAdd: (path: (string | number)[], description: string) => void;
+  onRemove: (path: (string | number)[]) => void;
+  onToggleStatus: (path: (string | number)[], status: Hypothesis['status']) => void;
+}
+
+const CTM2RecursiveRenderer: FC<CTM2RecursiveRendererProps> = ({
     items,
     level,
     path,
