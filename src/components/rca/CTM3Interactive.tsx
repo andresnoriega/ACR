@@ -90,18 +90,26 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
   const [validationState, setValidationState] = useState<{ path: (string | number)[]; status: Hypothesis['status'] } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
   
+  // Lazy state initialization to prevent hydration issues
+  const [internalData, setInternalData] = useState<CTMData>(() => ctm3Data || []);
+
+  useEffect(() => {
+    onSetCtm3Data(internalData);
+  }, [internalData, onSetCtm3Data]);
+
+
   const handleUpdate = (path: (string | number)[], value: string) => {
-    const newData = JSON.parse(JSON.stringify(ctm3Data));
+    const newData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
       current = current[path[i]];
     }
     current[path[path.length - 1]] = { ...current[path[path.length - 1]], description: value };
-    onSetCtm3Data(newData);
+    setInternalData(newData);
   };
 
   const handleToggleStatus = (path: (string | number)[], status: 'accepted' | 'rejected' | 'pending') => {
-      const newData = JSON.parse(JSON.stringify(ctm3Data));
+      const newData = JSON.parse(JSON.stringify(internalData));
       let current: any = newData;
       for (let i = 0; i < path.length - 1; i++) {
         current = current[path[i]];
@@ -112,7 +120,7 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
         // If clicking the same status button, toggle back to pending
         itemToUpdate.status = 'pending';
         itemToUpdate.validationMethod = undefined;
-        onSetCtm3Data(newData);
+        setInternalData(newData);
       } else {
         // Otherwise, open dialog to confirm new status
         setValidationState({ path, status });
@@ -124,7 +132,7 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
     setIsProcessingValidation(true);
     const { path, status } = validationState;
     
-    const newData = JSON.parse(JSON.stringify(ctm3Data));
+    const newData = JSON.parse(JSON.stringify(internalData));
     let parent: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
         parent = parent[path[i]];
@@ -135,13 +143,13 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
     itemToUpdate.status = status;
     itemToUpdate.validationMethod = method;
 
-    onSetCtm3Data(newData);
+    setInternalData(newData);
     setIsProcessingValidation(false);
     setValidationState(null);
-  }, [ctm3Data, onSetCtm3Data, validationState]);
+  }, [internalData, validationState]);
 
   const handleAdd = (path: (string | number)[]) => {
-    const newData = JSON.parse(JSON.stringify(ctm3Data));
+    const newData = JSON.parse(JSON.stringify(internalData));
     let parent: any = newData;
     let lastKey = path.length > 0 ? path[path.length - 1] : null;
     
@@ -151,7 +159,7 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
     }
 
     if (lastKey === null) { // Adding a new "Por Qué" to the root
-      const initialDescription = ctm3Data.length === 0 
+      const initialDescription = internalData.length === 0 
         ? `¿Por qué ocurrió: "${focusEventDescription || 'Descripción del Evento Foco'}"?`
         : 'Nuevo Por Qué';
       newData.push({ id: generateClientSideId('fm'), description: initialDescription, hypotheses: [] });
@@ -172,13 +180,7 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
          return; // Should not happen with corrected logic
       }
 
-      if ('latentCauses' in parent) {
-        if (!parent.latentCauses) parent.latentCauses = [];
-        parent.latentCauses.push({ id: generateClientSideId('lc'), description: 'Nueva Causa Latente' });
-      } else if ('humanCauses' in parent) {
-        if (!parent.humanCauses) parent.humanCauses = [];
-        parent.humanCauses.push({ id: generateClientSideId('hc'), description: 'Nueva Causa Humana', latentCauses: [] });
-      } else if ('physicalCauses' in parent) {
+      if ('physicalCauses' in parent) {
         if (!parent.physicalCauses) parent.physicalCauses = [];
         parent.physicalCauses.push({ id: generateClientSideId('pc'), description: 'Nueva Causa Física', humanCauses: [] });
       } else if ('hypotheses' in parent) {
@@ -187,53 +189,20 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
       }
     }
 
-    onSetCtm3Data(newData);
+    setInternalData(newData);
   };
 
   const handleRemove = (path: (string | number)[]) => {
-    const newData = JSON.parse(JSON.stringify(ctm3Data));
+    const newData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
     for (let i = 0; i < path.length - 1; i++) {
         current = current[path[i]];
     }
     const indexToRemove = path[path.length - 1] as number;
     current.splice(indexToRemove, 1);
-    onSetCtm3Data(newData);
+    setInternalData(newData);
   };
   
-  const renderLatentCauses = (latentCauses: LatentCause[] | undefined, path: (string | number)[]) => (
-    <div className="pl-4 border-l ml-4 mt-2 space-y-2">
-      {(latentCauses || []).map((lc, lcIndex) => (
-        <div key={lc.id} className="space-y-1">
-          <Label className="text-xs font-semibold flex items-center text-purple-600 dark:text-purple-400">
-            <Building className="mr-1 h-3 w-3" /> Causa Latente #{lcIndex + 1}
-          </Label>
-           <div className="flex items-center gap-2">
-            <Input value={lc.description} onChange={(e) => handleUpdate([...path, lcIndex], e.target.value)} className="h-8 text-xs" />
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleRemove([...path, lcIndex])}><Trash2 className="h-3 w-3 text-destructive" /></Button>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-
-  const renderHumanCauses = (humanCauses: HumanCause[] | undefined, path: (string | number)[]) => (
-    <div className="pl-4 border-l ml-4 mt-2 space-y-2">
-      {(humanCauses || []).map((hc, hcIndex) => (
-        <div key={hc.id} className="space-y-1">
-          <Label className="text-xs font-semibold flex items-center text-yellow-600 dark:text-yellow-400">
-            <User className="mr-1 h-3 w-3" /> Causa Humana #{hcIndex + 1}
-          </Label>
-          <div className="flex items-center gap-2">
-            <Input value={hc.description} onChange={(e) => handleUpdate([...path, hcIndex], e.target.value)} className="h-8 text-xs" />
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleRemove([...path, hcIndex])}><Trash2 className="h-3 w-3 text-destructive" /></Button>
-          </div>
-          {renderLatentCauses(hc.latentCauses, [...path, hcIndex, 'latentCauses'])}
-        </div>
-      ))}
-    </div>
-  );
-
   const renderPhysicalCauses = (physicalCauses: PhysicalCause[] | undefined, path: (string | number)[]) => (
     <div className="pl-4 border-l ml-4 mt-2 space-y-2">
       {(physicalCauses || []).map((pc, pcIndex) => (
@@ -245,7 +214,6 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
             <Input value={pc.description} onChange={(e) => handleUpdate([...path, pcIndex], e.target.value)} className="h-8 text-xs" />
             <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleRemove([...path, pcIndex])}><Trash2 className="h-3 w-3 text-destructive" /></Button>
           </div>
-          {renderHumanCauses(pc.humanCauses, [...path, pcIndex, 'humanCauses'])}
         </div>
       ))}
       <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => handleAdd(path)}><PlusCircle className="mr-1 h-3 w-3" /> Añadir C. Física</Button>
@@ -255,12 +223,21 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
   const renderHypotheses = (hypotheses: Hypothesis[] | undefined, path: (string | number)[]) => (
       <div className="pl-4 border-l-2 border-teal-500/50 ml-4 mt-2 space-y-3">
         {(hypotheses || []).map((hyp, hypIndex) => (
-          <Card key={hyp.id} className={cn("p-3", hyp.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' : hyp.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 opacity-70' : 'bg-card')}>
+          <Card key={hyp.id} className="p-3 bg-card">
             <Label className="text-sm font-semibold flex items-center text-teal-700 dark:text-teal-300">
               <BrainCircuit className="mr-2 h-4 w-4" /> Porque #{hypIndex + 1}
             </Label>
             <div className="flex items-center gap-2 mt-1">
-              <Textarea value={hyp.description} onChange={(e) => handleUpdate([...path, hypIndex], e.target.value)} rows={1} className="text-sm" />
+              <Textarea 
+                value={hyp.description} 
+                onChange={(e) => handleUpdate([...path, hypIndex], e.target.value)} 
+                rows={1} 
+                className={cn(
+                  "text-sm",
+                  hyp.status === 'accepted' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' : 
+                  hyp.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 opacity-70' : ''
+                )}
+              />
               <div className="flex flex-col gap-1">
                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => handleRemove([...path, hypIndex])}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                 <Button size="icon" variant={hyp.status === 'accepted' ? 'secondary' : 'ghost'} className="h-7 w-7" onClick={() => handleToggleStatus([...path, hypIndex], 'accepted')}><Check className="h-4 w-4 text-green-600"/></Button>
@@ -292,7 +269,7 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
           </Button>
         </div>
         <div className="flex space-x-4 overflow-x-auto py-2">
-          {ctm3Data.map((fm, fmIndex) => (
+          {internalData.map((fm, fmIndex) => (
             <div key={fm.id} className="min-w-[20rem] flex-shrink-0">
               <Accordion type="single" collapsible defaultValue="item-1">
                 <AccordionItem value="item-1">
@@ -313,7 +290,7 @@ export const CTM3Interactive: FC<CTM3InteractiveProps> = ({ ctm3Data, onSetCtm3D
               </Accordion>
             </div>
           ))}
-          {ctm3Data.length === 0 && (
+          {internalData.length === 0 && (
             <div className="text-center text-muted-foreground italic py-4 w-full">
               Haga clic en "Añadir Por Qué" para comenzar a construir el árbol.
             </div>
