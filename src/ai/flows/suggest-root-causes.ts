@@ -212,7 +212,7 @@ const suggestRootCausesFlowInternal = ai.defineFlow(
     if (input.analysisTechnique === '5 Por qué' && input.fiveWhysData && input.fiveWhysData.length > 0 && input.fiveWhysData.some(e => e.becauses && e.becauses.some(b => b.description.trim().length > 5))) {
         hasSufficientInput = true;
     }
-    if (input.analysisTechnique === 'CTM' && input.ctmData && input.ctmData.length > 0 && input.ctmData.some(fm => (fm.description && fm.description.trim()) || (fm.hypotheses && fm.hypotheses.length > 0))) {
+    if (input.analysisTechnique === 'CTM' && input.ctmData && input.ctmData.length > 0 && input.ctmData.some(fm => (fm.description && fm.description.trim()) || (fm.hypotheses && fm.hypotheses.length > 0 && fm.hypotheses.some(h => h.description && h.description.trim())))) {
         hasSufficientInput = true;
     }
     if (input.analysisTechniqueNotes && input.analysisTechniqueNotes.trim().length > 10) { 
