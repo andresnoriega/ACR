@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview Sugiere posibles causas raíz latentes basadas en la información de análisis proporcionada.
@@ -10,7 +9,7 @@
 
 import {ai} from '@/ai/genkit';
 import { z } from 'zod';
-import type { AnalysisTechnique, IshikawaData, CTMData, FiveWhysData, BrainstormIdeaType } from '@/types/rca'; // Asegúrate de que las rutas y tipos sean correctos
+import type { AnalysisTechnique, IshikawaData, CTMData, FiveWhysData, BrainstormIdeaType } from '@/types/rca';
 import { BRAINSTORM_IDEA_TYPES } from '@/types/rca';
 
 // --- Zod Schemas para los datos de las técnicas ---
@@ -89,12 +88,13 @@ const BrainstormIdeaSchema = z.object({
 // --- Esquema de Entrada ---
 const SuggestRootCausesInputSchema = z.object({
   focusEventDescription: z.string().describe('La descripción principal del evento que se está analizando.'),
-  brainstormingIdeas: z.array(BrainstormIdeaSchema).optional().describe('Lista de ideas de lluvia de ideas iniciales, clasificadas por tipo.'), // Changed from brainstormingNotes
+  brainstormingIdeas: z.array(BrainstormIdeaSchema).optional().describe('Lista de ideas de lluvia de ideas iniciales, clasificadas por tipo.'),
   analysisTechnique: z.enum(['', 'Ishikawa', '5 Por qué', 'CTM']).describe('La técnica de análisis principal seleccionada.'),
   analysisTechniqueNotes: z.string().optional().describe('Notas generales o específicas sobre la aplicación de la técnica de análisis.'),
   ishikawaData: IshikawaDataSchema,
   fiveWhysData: FiveWhysDataSchema,
   ctmData: CTMDataSchema,
+  lastValidatedFiveWhysCause: z.string().optional().describe('La descripción de la última causa validada en la cadena de los 5 porqués. Usar como punto de partida si está presente.'),
 });
 export type SuggestRootCausesInput = z.infer<typeof SuggestRootCausesInputSchema>;
 
@@ -143,6 +143,11 @@ const suggestRootCausesPrompt = ai.definePrompt({
       Notas Generales del Análisis: {{{analysisTechniqueNotes}}}
       {{/if}}
     {{/if}}
+    
+    {{#if lastValidatedFiveWhysCause}}
+    Última causa validada de los 5 Porqués (Punto de partida del análisis):
+    "{{{lastValidatedFiveWhysCause}}}"
+    {{/if}}
 
     {{#if ishikawaData}}
     Datos del Diagrama de Ishikawa (causas directas):
@@ -159,7 +164,7 @@ const suggestRootCausesPrompt = ai.definePrompt({
     {{#each fiveWhysData}}
       - ¿Por qué?: {{this.why}}
       {{#each this.becauses}}
-        - Porque: {{this.description}}
+        - Porque: {{this.description}} (Estado: {{this.status}})
       {{/each}}
     {{/each}}
     {{/if}}
@@ -183,7 +188,7 @@ const suggestRootCausesPrompt = ai.definePrompt({
     {{/each}}
     {{/if}}
 
-    Considera toda la información anterior, especialmente las causas directas y humanas, y las ideas de la lluvia de ideas.
+    Considera toda la información anterior, especialmente las causas directas y humanas, las ideas de la lluvia de ideas y la última causa validada de los 5 Porqués si se proporcionó.
     Ahora, genera una lista de posibles **CAUSAS LATENTES** que podrían haber contribuido al evento.
     Cada causa latente debe ser una descripción clara y accionable de un problema sistémico u organizacional.
     No repitas las causas latentes que el usuario ya pudo haber identificado en el CTM. Busca nuevas perspectivas.
@@ -203,27 +208,50 @@ const suggestRootCausesFlowInternal = ai.defineFlow(
   },
   async (input) => {
     let hasSufficientInput = false;
-    if (input.brainstormingIdeas && input.brainstormingIdeas.length > 0 && input.brainstormingIdeas.some(idea => idea.description.trim().length > 5)) { // Check for meaningful brainstorming ideas
+    
+    // Check for meaningful brainstorming ideas
+    if (input.brainstormingIdeas && input.brainstormingIdeas.length > 0 && input.brainstormingIdeas.some(idea => idea.description.trim().length > 5)) {
         hasSufficientInput = true;
     }
+    
+    // Check for sufficient data in analysis techniques
     if (input.analysisTechnique === 'Ishikawa' && input.ishikawaData && input.ishikawaData.length > 0 && input.ishikawaData.some(cat => cat.causes.length > 0)) {
         hasSufficientInput = true;
     }
-    if (input.analysisTechnique === '5 Por qué' && input.fiveWhysData && input.fiveWhysData.length > 0 && input.fiveWhysData.some(e => e.becauses && e.becauses.length > 0 && e.becauses.some(b => b.description.trim().length > 5))) {
-        hasSufficientInput = true;
+    if (input.analysisTechnique === '5 Por qué' && input.fiveWhysData && input.fiveWhysData.length > 0) {
+      // Find the last validated cause to pass to the prompt
+      let lastValidatedCause = null;
+      for (let i = input.fiveWhysData.length - 1; i >= 0; i--) {
+        const entry = input.fiveWhysData[i];
+        if (entry.becauses) {
+          for (let j = entry.becauses.length - 1; j >= 0; j--) {
+            const cause = entry.becauses[j];
+            if (cause.status === 'accepted') {
+              lastValidatedCause = cause.description;
+              break;
+            }
+          }
+        }
+        if (lastValidatedCause) break;
+      }
+      if (lastValidatedCause) {
+          hasSufficientInput = true;
+          // Add the validated cause to the input for the prompt
+          (input as any).lastValidatedFiveWhysCause = lastValidatedCause;
+      }
     }
     if (input.analysisTechnique === 'CTM' && input.ctmData && input.ctmData.length > 0 && input.ctmData.some(fm => (fm.description && fm.description.trim()) || (fm.hypotheses && fm.hypotheses.length > 0 && fm.hypotheses.some(h => h.description && h.description.trim())))) {
         hasSufficientInput = true;
     }
+    
+    // Check for general analysis notes
     if (input.analysisTechniqueNotes && input.analysisTechniqueNotes.trim().length > 10) { 
         hasSufficientInput = true;
     }
 
-
     if (!hasSufficientInput) {
       return { suggestedRootCauses: ["[Sugerencia IA no disponible: Se requiere más información del análisis o de la lluvia de ideas para generar sugerencias.]"] };
     }
-
 
     const { output } = await suggestRootCausesPrompt(input);
     if (!output || !output.suggestedRootCauses) {
@@ -263,5 +291,3 @@ export async function suggestRootCauses(input: SuggestRootCausesInput): Promise<
     return { suggestedRootCauses: [errorMessage] };
   }
 }
-
-    

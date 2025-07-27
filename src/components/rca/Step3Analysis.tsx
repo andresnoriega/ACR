@@ -1,4 +1,3 @@
-
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useCallback, useEffect } from 'react'; 
@@ -392,52 +391,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   }
 
   const handleSaveProgressLocal = async () => {
-    const isTechniqueSelected = analysisTechnique !== '';
-    const hasNotes = analysisTechniqueNotes.trim() !== '';
-    const hasBrainstorming = brainstormingIdeas.length > 0 && brainstormingIdeas.some(idea => idea.description.trim() !== '');
-    const hasTimelineEvents = timelineEvents.length > 0;
-    
-    const hasAnyRootCause = identifiedRootCauses.length > 0 && identifiedRootCauses.some(rc => rc.description.trim() !== '');
-    const hasPlannedActions = uniquePlannedActions.length > 0;
-
-    const isIshikawaEdited = ishikawaData && ishikawaData.some(cat => cat.causes.some(c => c.description.trim() !== ''));
-    
-    const isFiveWhysEdited = fiveWhysData && fiveWhysData.some(entry =>
-      (entry.becauses && entry.becauses.some(b => b.description.trim() !== '')) || (entry.why && entry.why.trim() !== '')
-    );
-    
-    const isCtmEdited = ctmData && ctmData.length > 0 && ctmData.some(fm => 
-      (fm.description && fm.description.trim() !== '') || 
-      (fm.hypotheses && fm.hypotheses.some(h => 
-        (h.description && h.description.trim() !== '') || 
-        (h.physicalCauses && h.physicalCauses.some(pc => 
-          (pc.description && pc.description.trim() !== '') ||
-          (pc.humanCauses && pc.humanCauses.some(hc => 
-            (hc.description && hc.description.trim() !== '') || 
-            (hc.latentCauses && hc.latentCauses.some(lc => lc.description && lc.description.trim() !== ''))
-          ))
-        ))
-      ))
-    );
-
-    if (
-      !isTechniqueSelected &&
-      !hasNotes &&
-      !hasBrainstorming && 
-      !hasTimelineEvents &&
-      !hasAnyRootCause && 
-      !hasPlannedActions &&
-      !isIshikawaEdited &&
-      !isFiveWhysEdited &&
-      !isCtmEdited
-    ) {
-      toast({
-        title: "Nada que guardar",
-        description: "No se ha ingresado información nueva o modificado datos existentes en este paso.",
-        variant: "default",
-      });
-      return;
-    }
     await onSaveAnalysis(); 
   };
 
