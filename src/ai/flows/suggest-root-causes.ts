@@ -66,7 +66,6 @@ const HypothesisSchema: z.ZodType<any> = z.lazy(() => z.object({
   id: z.string(),
   description: z.string(),
   physicalCauses: z.array(PhysicalCauseSchema).optional(),
-  failureModes: z.array(FailureModeSchema).optional(),
   status: z.enum(['pending', 'accepted', 'rejected']).optional(),
   validationMethod: z.string().optional(),
 }));
@@ -213,7 +212,7 @@ const suggestRootCausesFlowInternal = ai.defineFlow(
     if (input.analysisTechnique === '5 Por qué' && input.fiveWhysData && input.fiveWhysData.length > 0 && input.fiveWhysData.some(e => e.becauses.some(b => b.description.trim().length > 5))) {
         hasSufficientInput = true;
     }
-    if (input.analysisTechnique === 'CTM' && input.ctmData && input.ctmData.length > 0 && input.ctmData.some(fm => fm.description.trim() || fm.hypotheses?.length > 0)) {
+    if (input.analysisTechnique === 'CTM' && input.ctmData && input.ctmData.length > 0 && input.ctmData.some(fm => fm.description.trim() || (fm.hypotheses && fm.hypotheses.length > 0))) {
         hasSufficientInput = true;
     }
     if (input.analysisTechniqueNotes && input.analysisTechniqueNotes.trim().length > 10) { 
