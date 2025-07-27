@@ -1,4 +1,3 @@
-
 'use client';
 import { FC, useCallback, useMemo, useState, useEffect } from 'react';
 import {
@@ -12,40 +11,65 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { PlusCircle, Trash2, Share2, Check, X, GitBranchPlus, BrainCircuit, Wrench, User, Building, Loader2 } from 'lucide-react';
+import { PlusCircle, Trash2, Share2, Check, X, GitBranchPlus, BrainCircuit, Wrench, User, Building, Loader2, HelpCircle } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 
-let idCounter = Date.now();
-const generateClientSideId = (prefix: string) => {
-    idCounter++;
-    return `${prefix}-${idCounter}`;
-};
+// === Ayuda Contextual CTM ===
+const CTMContextualHelp: FC<{ onClose: () => void }> = ({ onClose }) => (
+  <div className="fixed top-8 right-8 z-50 max-w-sm bg-background border rounded shadow-xl p-5 text-sm animate-in fade-in transition-all">
+    <div className="flex gap-2 items-center mb-2">
+      <HelpCircle className="h-5 w-5 text-blue-600" />
+      <span className="font-bold text-blue-700">Ayuda Contextual: Árbol CTM</span>
+    </div>
+    <div className="mb-3">
+      El Árbol CTM (Causal Tree Mapping) te ayuda a visualizar y analizar las causas de un modo de falla. Sigue estos pasos:
+    </div>
+    <ul className="list-disc ml-5 space-y-1 mb-3">
+      <li>
+        <b><GitBranchPlus className="inline h-4 w-4 mr-1" /> Modos de Falla:</b> Comienza agregando modos de falla. Describe brevemente el evento problema.
+      </li>
+      <li>
+        <b><BrainCircuit className="inline h-4 w-4 mr-1" /> Hipótesis:</b> Para cada modo de falla, agrega hipótesis explicando cómo pudo ocurrir. Valida (<Check className="inline h-4 w-4 text-green-600" />) o rechaza (<X className="inline h-4 w-4 text-red-600" />) cada hipótesis con justificación.
+      </li>
+      <li>
+        <b><Wrench className="inline h-4 w-4 mr-1" /> Causas Físicas:</b> Por cada hipótesis, agrega causas físicas directas.
+      </li>
+      <li>
+        <b><User className="inline h-4 w-4 mr-1" /> Causas Humanas:</b> De cada causa física, identifica causas humanas relacionadas.
+      </li>
+      <li>
+        <b><Building className="inline h-4 w-4 mr-1" /> Causas Latentes:</b> Añade causas latentes que contribuyeron desde el entorno o la organización.
+      </li>
+      <li>
+        Usa los botones <PlusCircle className="inline h-4 w-4" /> para agregar elementos y <Trash2 className="inline h-4 w-4 text-destructive" /> para eliminarlos.
+      </li>
+    </ul>
+    <div className="mb-2 text-xs text-muted-foreground">
+      Tip: Valida o rechaza hipótesis y registra la justificación, por ejemplo: inspección, entrevistas, revisión de registros, etc.
+    </div>
+    <Button size="sm" className="w-full mt-2" variant="secondary" onClick={onClose}>
+      Cerrar ayuda
+    </Button>
+  </div>
+);
 
-
+// Validación/Rechazo dialog
 interface CtmValidationDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (method: string) => void;
   isProcessing: boolean;
 }
-
 const CtmValidationDialog: FC<CtmValidationDialogProps> = ({ isOpen, onOpenChange, onConfirm, isProcessing }) => {
   const [method, setMethod] = useState('');
-
   const handleConfirmClick = () => {
     if (method.trim()) {
       onConfirm(method);
     }
   };
-  
-  useEffect(() => {
-    if (isOpen) {
-      setMethod('');
-    }
-  }, [isOpen]);
-
+  useEffect(() => { if (isOpen) setMethod(''); }, [isOpen]);
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -79,32 +103,30 @@ const CtmValidationDialog: FC<CtmValidationDialogProps> = ({ isOpen, onOpenChang
   );
 };
 
+// === Generador de IDs ===
+let idCounter = Date.now();
+const generateClientSideId = (prefix: string) => {
+    idCounter++;
+    return `${prefix}-${idCounter}`;
+};
 
 interface CTMInteractiveProps {
   ctmData: CTMData;
   onSetCtmData: (data: CTMData) => void;
 }
 
-
 export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData }) => {
   const [validationState, setValidationState] = useState<{ path: (string | number)[]; status: Hypothesis['status'] } | null>(null);
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
-  
-  // Lazy state initialization to prevent hydration issues
+  const [showHelp, setShowHelp] = useState(false);
   const [internalData, setInternalData] = useState<CTMData>(() => ctmData || []);
 
-  useEffect(() => {
-      onSetCtmData(internalData);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [internalData]);
-
+  useEffect(() => { onSetCtmData(internalData); /* eslint-disable-next-line */ }, [internalData]);
 
   const handleUpdate = (path: (string | number)[], value: string) => {
     const newData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
-    for (let i = 0; i < path.length - 1; i++) {
-      current = current[path[i]];
-    }
+    for (let i = 0; i < path.length - 1; i++) { current = current[path[i]]; }
     current[path[path.length - 1]] = { ...current[path[path.length - 1]], description: value };
     setInternalData(newData);
   };
@@ -112,18 +134,13 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
   const handleToggleStatus = (path: (string | number)[], status: 'accepted' | 'rejected' | 'pending') => {
       const newData = JSON.parse(JSON.stringify(internalData));
       let current: any = newData;
-      for (let i = 0; i < path.length - 1; i++) {
-        current = current[path[i]];
-      }
+      for (let i = 0; i < path.length - 1; i++) { current = current[path[i]]; }
       const itemToUpdate = current[path[path.length - 1]];
-      
       if (itemToUpdate.status === status) {
-        // If clicking the same status button, toggle back to pending
         itemToUpdate.status = 'pending';
         itemToUpdate.validationMethod = undefined;
         setInternalData(newData);
       } else {
-        // Otherwise, open dialog to confirm new status
         setValidationState({ path, status });
       }
   };
@@ -132,18 +149,13 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
     if (!validationState) return;
     setIsProcessingValidation(true);
     const { path, status } = validationState;
-    
     const newData = JSON.parse(JSON.stringify(internalData));
     let parent: any = newData;
-    for (let i = 0; i < path.length - 1; i++) {
-        parent = parent[path[i]];
-    }
+    for (let i = 0; i < path.length - 1; i++) { parent = parent[path[i]]; }
     const finalKey = path[path.length - 1];
     const itemToUpdate = parent[finalKey];
-    
     itemToUpdate.status = status;
     itemToUpdate.validationMethod = method;
-
     setInternalData(newData);
     setIsProcessingValidation(false);
     setValidationState(null);
@@ -153,12 +165,7 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
     const newData = JSON.parse(JSON.stringify(internalData));
     let parent: any = newData;
     let lastKey = path.length > 0 ? path[path.length - 1] : null;
-    
-    // Traverse to the parent of the target array
-    for (let i = 0; i < path.length - 1; i++) {
-      parent = parent[path[i]];
-    }
-
+    for (let i = 0; i < path.length - 1; i++) { parent = parent[path[i]]; }
     if (lastKey === null) { // Adding a new FailureMode to the root
       newData.push({ id: generateClientSideId('fm'), description: 'Nuevo Modo de Falla', hypotheses: [] });
     } else {
@@ -166,18 +173,16 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
       if (typeof lastKey === 'string') {
         targetArray = parent[lastKey];
       } else if (typeof lastKey === 'number') {
-        parent = parent[lastKey]; // Move to the object itself
+        parent = parent[lastKey];
         if ('latentCauses' in parent) targetArray = parent.latentCauses;
         else if ('humanCauses' in parent) targetArray = parent.humanCauses;
         else if ('physicalCauses' in parent) targetArray = parent.physicalCauses;
         else if ('hypotheses' in parent) targetArray = parent.hypotheses;
       }
-      
       if (!Array.isArray(targetArray)) {
          console.error("Target for adding is not an array", path, parent);
-         return; // Should not happen with corrected logic
+         return;
       }
-
       if ('latentCauses' in parent) {
         if (!parent.latentCauses) parent.latentCauses = [];
         parent.latentCauses.push({ id: generateClientSideId('lc'), description: 'Nueva Causa Latente' });
@@ -192,16 +197,13 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
         parent.hypotheses.push({ id: generateClientSideId('hyp'), description: 'Nueva Hipótesis', physicalCauses: [], status: 'pending' });
       }
     }
-
     setInternalData(newData);
   };
 
   const handleRemove = (path: (string | number)[]) => {
     const newData = JSON.parse(JSON.stringify(internalData));
     let current: any = newData;
-    for (let i = 0; i < path.length - 1; i++) {
-        current = current[path[i]];
-    }
+    for (let i = 0; i < path.length - 1; i++) { current = current[path[i]]; }
     const indexToRemove = path[path.length - 1] as number;
     current.splice(indexToRemove, 1);
     setInternalData(newData);
@@ -287,10 +289,24 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
       </div>
   );
 
-
   return (
     <>
-      <div className="space-y-4 mt-4 p-4 border rounded-lg shadow-sm bg-background">
+      <div className="space-y-4 mt-4 p-4 border rounded-lg shadow-sm bg-background relative">
+        {/* Botón de ayuda contextual en la esquina superior derecha */}
+        <div className="absolute right-2 top-2 z-40">
+          <Button
+            size="icon"
+            variant="ghost"
+            title="Ver ayuda contextual"
+            onClick={() => setShowHelp(true)}
+            aria-label="Ayuda contextual"
+          >
+            <HelpCircle className="h-5 w-5 text-blue-600" />
+          </Button>
+        </div>
+        {showHelp && (
+          <CTMContextualHelp onClose={() => setShowHelp(false)} />
+        )}
         <div className="flex justify-between items-center flex-wrap gap-2">
           <h3 className="text-lg font-semibold font-headline text-primary flex items-center">
             <Share2 className="mr-2 h-5 w-5" /> Árbol de Causas (CTM)

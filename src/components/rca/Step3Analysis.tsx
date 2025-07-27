@@ -402,7 +402,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     const isIshikawaEdited = ishikawaData && ishikawaData.some(cat => cat.causes.some(c => c.description.trim() !== ''));
     
     const isFiveWhysEdited = fiveWhysData && fiveWhysData.some(entry =>
-      entry.becauses.some(b => b.description.trim() !== '') || (entry.why && entry.why.trim() !== '')
+      (entry.becauses && entry.becauses.some(b => b.description.trim() !== '')) || (entry.why && entry.why.trim() !== '')
     );
     
     const isCtmEdited = ctmData && ctmData.length > 0 && ctmData.some(fm => 
