@@ -400,7 +400,10 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     const hasPlannedActions = uniquePlannedActions.length > 0;
 
     const isIshikawaEdited = ishikawaData && ishikawaData.some(cat => cat.causes.some(c => c.description.trim() !== ''));
-    const is5WhysEdited = fiveWhysData && fiveWhysData.some(e => e.because.trim() !== '');
+    
+    const isFiveWhysEdited = fiveWhysData && fiveWhysData.some(entry =>
+      entry.becauses.some(b => b.description.trim() !== '') || (entry.why && entry.why.trim() !== '')
+    );
     
     const isCtmEdited = ctmData && ctmData.length > 0 && ctmData.some(fm => 
       (fm.description && fm.description.trim() !== '') || 
@@ -424,7 +427,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
       !hasAnyRootCause && 
       !hasPlannedActions &&
       !isIshikawaEdited &&
-      !is5WhysEdited &&
+      !isFiveWhysEdited &&
       !isCtmEdited
     ) {
       toast({
@@ -723,6 +726,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                 <FiveWhysInteractive 
                     fiveWhysData={fiveWhysData}
                     onSetFiveWhysData={onSetFiveWhysData}
+                    eventFocusDescription={eventData.focusEventDescription}
                 />
             )}
             

@@ -14,11 +14,13 @@ import { ValidationDialog } from './ValidationDialog';
 interface FiveWhysInteractiveProps {
   fiveWhysData: FiveWhysData;
   onSetFiveWhysData: (data: FiveWhysData) => void;
+  eventFocusDescription: string;
 }
 
 export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   fiveWhysData,
   onSetFiveWhysData,
+  eventFocusDescription,
 }) => {
   const { toast } = useToast();
   const [internalData, setInternalData] = useState<FiveWhysData>([]);
@@ -26,15 +28,29 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
   const [isProcessingValidation, setIsProcessingValidation] = useState(false);
 
   useEffect(() => {
-    // Deep copy to prevent mutation issues.
-    setInternalData(JSON.parse(JSON.stringify(fiveWhysData || [])));
-  }, [fiveWhysData]);
+    let initialData = JSON.parse(JSON.stringify(fiveWhysData || []));
+    
+    // Ensure there's at least one entry and populate the first 'why' if empty.
+    if (initialData.length === 0) {
+      initialData.push({ 
+        id: `5why-${Date.now()}`, 
+        why: '', 
+        becauses: [{ id: `cause-${Date.now()}`, description: '', status: 'pending' }] 
+      });
+    }
 
-  const handleUpdate = (newData: FiveWhysData) => {
-    setInternalData(newData);
+    if (!initialData[0].why && eventFocusDescription) {
+      initialData[0].why = `¿Por qué: "${eventFocusDescription.substring(0, 70)}${eventFocusDescription.length > 70 ? "..." : ""}"?`;
+    }
+    
+    setInternalData(initialData);
+  }, [fiveWhysData, eventFocusDescription]);
+
+  const updateParentState = (newData: FiveWhysData) => {
     onSetFiveWhysData(newData);
+    setInternalData(newData);
   };
-  
+
   const handleAddEntry = (fromCauseDescription?: string) => {
     const newWhy = fromCauseDescription
       ? `¿Por qué: "${fromCauseDescription.substring(0, 70)}..."?`
@@ -46,15 +62,14 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       becauses: [{ id: `cause-${Date.now()}`, description: '', status: 'pending' }],
     };
     
-    const newData = [...internalData, newEntry];
-    handleUpdate(newData);
+    updateParentState([...internalData, newEntry]);
   };
 
   const handleUpdateWhy = (id: string, value: string) => {
     const newData = internalData.map(entry => 
       entry.id === id ? { ...entry, why: value } : entry
     );
-    handleUpdate(newData);
+    updateParentState(newData);
   };
 
   const handleRemoveEntry = (id: string) => {
@@ -67,7 +82,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       return;
     }
     const newData = internalData.filter(entry => entry.id !== id);
-    handleUpdate(newData);
+    updateParentState(newData);
   };
   
   const handleAddBecause = (entryId: string) => {
@@ -79,7 +94,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       }
       return entry;
     });
-    handleUpdate(newData);
+    updateParentState(newData);
   };
   
   const handleUpdateBecause = (entryId: string, causeId: string, value: string) => {
@@ -92,7 +107,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       }
       return entry;
     });
-    handleUpdate(newData);
+    updateParentState(newData);
   };
   
   const handleRemoveBecause = (entryId: string, causeId: string) => {
@@ -105,7 +120,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       }
       return entry;
     });
-    handleUpdate(newData);
+    updateParentState(newData);
   };
   
   const handleToggleCauseStatus = (entryId: string, causeId: string, status: 'accepted' | 'rejected') => {
@@ -124,7 +139,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
         }
         return e;
       });
-      handleUpdate(newData);
+      updateParentState(newData);
     } else {
       setValidationState({ entryId, causeId, status });
     }
@@ -148,7 +163,7 @@ export const FiveWhysInteractive: FC<FiveWhysInteractiveProps> = ({
       return entry;
     });
     
-    handleUpdate(newData);
+    updateParentState(newData);
     setIsProcessingValidation(false);
     setValidationState(null);
   };
