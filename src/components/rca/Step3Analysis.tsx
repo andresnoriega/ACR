@@ -19,7 +19,6 @@ import { useToast } from "@/hooks/use-toast";
 import { sendEmailAction } from '@/app/actions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { suggestRootCauses, type SuggestRootCausesInput } from '@/ai/flows/suggest-root-causes'; 
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -221,11 +220,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const { userProfile } = useAuth();
   const [isNotifyTasksDialogOpen, setIsNotifyTasksDialogOpen] = useState(false);
   const [actionsForNotificationDialog, setActionsForNotificationDialog] = useState<PlannedAction[]>([]);
-  
-  const [isSuggestingCauses, setIsSuggestingCauses] = useState(false);
-  const [suggestedAiCauses, setSuggestedAiCauses] = useState<string[]>([]);
-  const [currentSuggestionIndex, setCurrentSuggestionIndex] = useState(0);
-  const [showAiSuggestionsBox, setShowAiSuggestionsBox] = useState(false);
   const [responsibleSearchTerm, setResponsibleSearchTerm] = useState('');
 
   const usersForDropdown = useMemo(() => {
@@ -501,68 +495,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     onNext();
   };
 
-  const handleSuggestRootCausesClick = async () => {
-    setIsSuggestingCauses(true);
-    setSuggestedAiCauses([]);
-    setShowAiSuggestionsBox(false);
-    try {
-      const input: SuggestRootCausesInput = {
-        focusEventDescription: eventData.focusEventDescription || "No especificado",
-        brainstormingIdeas: brainstormingIdeas.length > 0 ? brainstormingIdeas.map(idea => ({ type: idea.type, description: idea.description })) : undefined,
-        analysisTechnique: analysisTechnique,
-        analysisTechniqueNotes: analysisTechniqueNotes || undefined,
-        ishikawaData: analysisTechnique === 'Ishikawa' ? ishikawaData : undefined,
-        fiveWhysData: analysisTechnique === '5 Por qué' ? fiveWhysData : undefined,
-        ctmData: analysisTechnique === 'CTM' ? ctmData : undefined,
-      };
-      
-      const result = await suggestRootCauses(input);
-      if (result && result.suggestedRootCauses && result.suggestedRootCauses.length > 0) {
-        const validSuggestions = result.suggestedRootCauses.filter(s => !s.startsWith("[Sugerencia IA no disponible") && s.trim() !== "");
-        
-        if (validSuggestions.length > 0) {
-           setSuggestedAiCauses(validSuggestions);
-           setCurrentSuggestionIndex(0);
-           setShowAiSuggestionsBox(true);
-           toast({ 
-            title: `IA Sugirió ${validSuggestions.length} Posible(s) Causa(s) Raíz Latente(s)`,
-            description: `Revise las sugerencias en el cuadro interactivo.`,
-            duration: 7000,
-          });
-        } else if (result.suggestedRootCauses.length === 1 && result.suggestedRootCauses[0].startsWith("[")) {
-          toast({ title: "Sugerencias IA", description: result.suggestedRootCauses[0], variant: result.suggestedRootCauses[0].includes("Error") || result.suggestedRootCauses[0].includes("no disponible") ? "destructive" : "default" });
-          setShowAiSuggestionsBox(false);
-        } else {
-          toast({ title: "Sugerencias IA", description: "La IA no generó nuevas sugerencias válidas.", variant: "default" });
-          setShowAiSuggestionsBox(false);
-        }
-      } else {
-        toast({ title: "Sugerencias IA", description: "La IA no generó nuevas sugerencias o hubo un error.", variant: "default" });
-        setShowAiSuggestionsBox(false);
-      }
-    } catch (error) {
-      console.error("Error al sugerir causas raíz con IA:", error);
-      toast({ title: "Error con IA", description: "No se pudieron obtener sugerencias de la IA.", variant: "destructive" });
-      setShowAiSuggestionsBox(false);
-    }
-    setIsSuggestingCauses(false);
-  };
-  
-  const handlePreviousSuggestion = () => {
-    setCurrentSuggestionIndex(prev => Math.max(0, prev - 1));
-  };
-
-  const handleNextSuggestion = () => {
-    setCurrentSuggestionIndex(prev => Math.min(suggestedAiCauses.length - 1, prev + 1));
-  };
-
-  const handleCopySuggestion = () => {
-    if (suggestedAiCauses.length > 0 && suggestedAiCauses[currentSuggestionIndex]) {
-      navigator.clipboard.writeText(suggestedAiCauses[currentSuggestionIndex]);
-      toast({ title: "Sugerencia Copiada", description: "La sugerencia actual ha sido copiada al portapapeles." });
-    }
-  };
-
   const filteredResponsibles = usersForDropdown.filter(user =>
     user.name.toLowerCase().includes(responsibleSearchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(responsibleSearchTerm.toLowerCase())
@@ -713,70 +645,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                     <MessageSquare className="mr-2 h-5 w-5 text-primary" />
                     Causas Raíz Identificadas
                 </h3>
-                <Button
-                    onClick={handleSuggestRootCausesClick}
-                    variant="outline"
-                    size="sm"
-                    disabled={isSaving || isSuggestingCauses}
-                    title="Sugerir posibles causas raíz latentes usando IA basado en la información del análisis actual."
-                >
-                    {isSuggestingCauses ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                    Sugerir con IA
-                </Button>
             </div>
-
-            {showAiSuggestionsBox && suggestedAiCauses.length > 0 && (
-              <Card className="p-4 bg-accent/10 border-accent shadow-md">
-                <CardHeader className="p-0 pb-2">
-                  <div className="flex justify-between items-center">
-                    <CardTitle className="text-base font-semibold text-accent-foreground">Sugerencias de Causa Raíz por IA</CardTitle>
-                    <Button variant="ghost" size="icon" onClick={() => setShowAiSuggestionsBox(false)} className="h-7 w-7">
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-0 space-y-2">
-                  <p className="text-sm text-muted-foreground p-2 border rounded-md bg-background min-h-[60px]">
-                    {suggestedAiCauses[currentSuggestionIndex]}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handlePreviousSuggestion}
-                      disabled={currentSuggestionIndex === 0 || isSuggestingCauses}
-                    >
-                      <ChevronLeft className="mr-1 h-4 w-4" /> Anterior
-                    </Button>
-                    <span className="text-xs text-muted-foreground">
-                      Sugerencia {currentSuggestionIndex + 1} de {suggestedAiCauses.length}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleNextSuggestion}
-                      disabled={currentSuggestionIndex === suggestedAiCauses.length - 1 || isSuggestingCauses}
-                    >
-                      Siguiente <ChevronRight className="ml-1 h-4 w-4" />
-                    </Button>
-                  </div>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="w-full"
-                    onClick={handleCopySuggestion}
-                    disabled={isSuggestingCauses}
-                  >
-                    <ClipboardCopy className="mr-2 h-4 w-4" /> Copiar Sugerencia
-                  </Button>
-                  <p className="text-xs text-muted-foreground text-center pt-1">
-                    Copie la sugerencia y luego agréguela a la lista de "Causas Raíz Identificadas" si es relevante.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-
-
             {identifiedRootCauses.map((rc, index) => (
               <Card key={rc.id} className="p-4 bg-card shadow-sm">
                 <div className="flex justify-between items-center mb-2">
@@ -934,18 +803,18 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
         </div>
       </CardContent>
       <CardFooter className="flex flex-col sm:flex-row justify-between gap-2 pt-4 border-t">
-        <Button onClick={onPrevious} variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || isSuggestingCauses}>Anterior</Button>
+        <Button onClick={onPrevious} variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>Anterior</Button>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Button onClick={handleSaveProgressLocal} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || isSuggestingCauses}>
-                {(isSaving || isSuggestingCauses) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button onClick={handleSaveProgressLocal} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Save className="mr-2 h-4 w-4" /> Guardar Avance
             </Button>
-            <Button onClick={handleOpenSendTasksDialog} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || isSuggestingCauses || uniquePlannedActions.length === 0}>
-                {(isSaving || isSuggestingCauses) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button onClick={handleOpenSendTasksDialog} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || uniquePlannedActions.length === 0}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Send className="mr-2 h-4 w-4" /> Enviar Tareas
             </Button>
-            <Button onClick={handleContinueLocal} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || isSuggestingCauses}>
-                 {(isSaving || isSuggestingCauses) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button onClick={handleContinueLocal} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
+                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                  Continuar
             </Button>
         </div>
