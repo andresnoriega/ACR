@@ -33,6 +33,8 @@ const IshikawaDataSchema = z.array(IshikawaCategorySchema).optional().nullable()
 const FiveWhysCauseSchema = z.object({
     id: z.string(),
     description: z.string(),
+    status: z.enum(['pending', 'accepted', 'rejected']).optional().nullable(),
+    validationMethod: z.string().optional().nullable(),
 });
 
 const FiveWhysEntrySchema = z.object({
@@ -72,7 +74,7 @@ const HypothesisSchema: z.ZodType<any> = z.lazy(() => z.object({
 const FailureModeSchema: z.ZodType<any> = z.lazy(() => z.object({
     id: z.string(),
     description: z.string(),
-    hypotheses: z.array(HypothesisSchema),
+    hypotheses: z.array(HypothesisSchema).optional(),
 }));
 
 const CTMDataSchema = z.array(FailureModeSchema).optional().nullable();
@@ -211,7 +213,7 @@ const suggestRootCausesFlowInternal = ai.defineFlow(
     if (input.analysisTechnique === '5 Por qué' && input.fiveWhysData && input.fiveWhysData.length > 0 && input.fiveWhysData.some(e => e.becauses.some(b => b.description.trim().length > 5))) {
         hasSufficientInput = true;
     }
-    if (input.analysisTechnique === 'CTM' && input.ctmData && input.ctmData.length > 0 && input.ctmData.some(fm => fm.description.trim() || fm.hypotheses.length > 0)) {
+    if (input.analysisTechnique === 'CTM' && input.ctmData && input.ctmData.length > 0 && input.ctmData.some(fm => fm.description.trim() || fm.hypotheses?.length > 0)) {
         hasSufficientInput = true;
     }
     if (input.analysisTechniqueNotes && input.analysisTechniqueNotes.trim().length > 10) { 
