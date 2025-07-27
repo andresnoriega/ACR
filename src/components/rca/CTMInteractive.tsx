@@ -292,18 +292,6 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
   return (
     <>
       <div className="space-y-4 mt-4 p-4 border rounded-lg shadow-sm bg-background relative">
-        {/* Botón de ayuda contextual en la esquina superior derecha */}
-        <div className="absolute right-2 top-2 z-40">
-          <Button
-            size="icon"
-            variant="ghost"
-            title="Ver ayuda contextual"
-            onClick={() => setShowHelp(true)}
-            aria-label="Ayuda contextual"
-          >
-            <HelpCircle className="h-5 w-5 text-blue-600" />
-          </Button>
-        </div>
         {showHelp && (
           <CTMContextualHelp onClose={() => setShowHelp(false)} />
         )}
@@ -311,9 +299,20 @@ export const CTMInteractive: FC<CTMInteractiveProps> = ({ ctmData, onSetCtmData 
           <h3 className="text-lg font-semibold font-headline text-primary flex items-center">
             <Share2 className="mr-2 h-5 w-5" /> Árbol de Causas (CTM)
           </h3>
-          <Button onClick={() => handleAdd([])} variant="outline" size="sm">
-              <PlusCircle className="mr-2 h-4 w-4" /> Añadir Modo de Falla
-          </Button>
+          <div className="flex gap-2 items-center">
+            <Button
+              size="icon"
+              variant="ghost"
+              title="Ver ayuda contextual"
+              onClick={() => setShowHelp(true)}
+              aria-label="Ayuda contextual"
+            >
+              <HelpCircle className="h-5 w-5 text-blue-600" />
+            </Button>
+            <Button onClick={() => handleAdd([])} variant="outline" size="sm">
+                <PlusCircle className="mr-2 h-4 w-4" /> Añadir Modo de Falla
+            </Button>
+          </div>
         </div>
         <div className="flex space-x-4 overflow-x-auto py-2">
           {internalData.map((fm, fmIndex) => (
