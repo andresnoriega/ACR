@@ -44,9 +44,7 @@ const initialIshikawaData: IshikawaData = [
   { id: 'environment', name: 'Medio Ambiente', causes: [] },
 ];
 
-const initialFiveWhysData: FiveWhysData = [
-  { id: `5why-${Date.now()}`, why: '', because: '' }
-];
+const initialFiveWhysData: FiveWhysData = [];
 
 const initialCTMData: CTMData = [];
 
@@ -304,7 +302,7 @@ function RCAAnalysisPageComponent() {
         lastLoadedAnalysisIdRef.current = id;
         
         const isIshikawaPopulated = data.ishikawaData?.some(cat => cat.causes.length > 0);
-        const is5WhysPopulated = data.fiveWhysData?.some(entry => entry.because.trim() !== '');
+        const is5WhysPopulated = data.fiveWhysData?.length > 0 && data.fiveWhysData[0].becauses.some(b => b.description.trim() !== '');
         const isCtmPopulated = data.ctmData?.some(fm => fm.hypotheses.length > 0);
         const hasStep3Content = data.identifiedRootCauses?.length > 0 || isIshikawaPopulated || is5WhysPopulated || isCtmPopulated;
         
@@ -956,10 +954,11 @@ function RCAAnalysisPageComponent() {
 
 
   const handleGoToStep = async (targetStep: number) => {
-    if (targetStep === 4 && step === 3 && !isStep3ValidForNavigation) {
+    // If trying to go to step 4 or beyond, check if step 3 is valid first.
+    if (targetStep >= 4 && !isStep3ValidForNavigation) {
        toast({
         title: "Validación Requerida en Paso 3",
-        description: "Asegúrese de que todas las causas raíz descritas estén abordadas por un plan de acción antes de continuar al paso 4.",
+        description: "Asegúrese de que todas las causas raíz descritas estén abordadas por un plan de acción antes de continuar.",
         variant: "destructive",
         duration: 7000
       });
@@ -1242,13 +1241,9 @@ function RCAAnalysisPageComponent() {
             setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
         }
     } else if (value === '5 Por qué') {
-        const is5WhysEmpty = !fiveWhysData || fiveWhysData.length === 0 || (fiveWhysData.length === 1 && fiveWhysData[0].why === '' && fiveWhysData[0].because === '');
+        const is5WhysEmpty = !fiveWhysData || fiveWhysData.length === 0 || (fiveWhysData.length === 1 && fiveWhysData[0].why === '' && (fiveWhysData[0].becauses.length === 0 || fiveWhysData[0].becauses[0].description === ''));
         if (is5WhysEmpty) {
-            const new5WhyData = JSON.parse(JSON.stringify(initialFiveWhysData));
-            if (eventData.focusEventDescription) {
-                new5WhyData[0].why = `¿Por qué: "${eventData.focusEventDescription.substring(0, 70)}${eventData.focusEventDescription.length > 70 ? "..." : ""}"?`;
-            }
-            setFiveWhysData(new5WhyData);
+            setFiveWhysData([]);
         }
     } else if (value === 'CTM') {
         const isCtmEmpty = !ctmData || ctmData.length === 0;
