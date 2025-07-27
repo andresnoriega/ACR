@@ -209,10 +209,10 @@ const suggestRootCausesFlowInternal = ai.defineFlow(
     if (input.analysisTechnique === 'Ishikawa' && input.ishikawaData && input.ishikawaData.length > 0 && input.ishikawaData.some(cat => cat.causes.length > 0)) {
         hasSufficientInput = true;
     }
-    if (input.analysisTechnique === '5 Por qué' && input.fiveWhysData && input.fiveWhysData.length > 0 && input.fiveWhysData.some(e => e.becauses.some(b => b.description.trim().length > 5))) {
+    if (input.analysisTechnique === '5 Por qué' && input.fiveWhysData && input.fiveWhysData.length > 0 && input.fiveWhysData.some(e => e.becauses && e.becauses.some(b => b.description.trim().length > 5))) {
         hasSufficientInput = true;
     }
-    if (input.analysisTechnique === 'CTM' && input.ctmData && input.ctmData.length > 0 && input.ctmData.some(fm => fm.description.trim() || (fm.hypotheses && fm.hypotheses.length > 0))) {
+    if (input.analysisTechnique === 'CTM' && input.ctmData && input.ctmData.length > 0 && input.ctmData.some(fm => (fm.description && fm.description.trim()) || (fm.hypotheses && fm.hypotheses.length > 0))) {
         hasSufficientInput = true;
     }
     if (input.analysisTechniqueNotes && input.analysisTechniqueNotes.trim().length > 10) { 
@@ -263,3 +263,5 @@ export async function suggestRootCauses(input: SuggestRootCausesInput): Promise<
     return { suggestedRootCauses: [errorMessage] };
   }
 }
+
+    
