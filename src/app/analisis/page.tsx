@@ -302,7 +302,7 @@ function RCAAnalysisPageComponent() {
         lastLoadedAnalysisIdRef.current = id;
         
         const isIshikawaPopulated = data.ishikawaData?.some(cat => cat.causes.length > 0);
-        const is5WhysPopulated = data.fiveWhysData?.length > 0 && data.fiveWhysData[0].becauses.some(b => b.description.trim() !== '');
+        const is5WhysPopulated = data.fiveWhysData?.length > 0 && data.fiveWhysData[0] && data.fiveWhysData[0].becauses && data.fiveWhysData[0].becauses.some(b => b.description.trim() !== '');
         const isCtmPopulated = data.ctmData?.some(fm => fm.hypotheses.length > 0);
         const hasStep3Content = data.identifiedRootCauses?.length > 0 || isIshikawaPopulated || is5WhysPopulated || isCtmPopulated;
         
