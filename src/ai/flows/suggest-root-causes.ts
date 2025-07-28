@@ -119,33 +119,33 @@ const prompt = ai.definePrompt({
     {{#if ishikawaData}}
     -   **Causas Validadas de Ishikawa:**
         {{#each ishikawaData}}
+            {{#if this.causes.length}}
             **Categoría {{this.name}}:**
-            {{#each this.causes}}
-                {{#if (eq this.status "accepted")}}
+                {{#each this.causes}}
                 - {{{this.description}}}
-                {{/if}}
-            {{/each}}
+                {{/each}}
+            {{/if}}
         {{/each}}
     {{/if}}
 
     {{#if fiveWhysData}}
     -   **Causas Validadas de 5 Porqués:**
         {{#each fiveWhysData}}
+            {{#if this.becauses.length}}
             **Análisis para "{{this.why}}":**
-            {{#each this.becauses}}
-                 {{#if (eq this.status "accepted")}}
+                {{#each this.becauses}}
                 - Causa validada: {{{this.description}}}
-                {{/if}}
-            {{/each}}
+                {{/each}}
+            {{/if}}
         {{/each}}
     {{/if}}
 
     {{#if ctmData}}
     -   **Causas Latentes de Hipótesis Validadas en CTM:**
         {{#each ctmData}}
+            {{#if this.hypotheses.length}}
             **Modo de Falla: {{this.description}}**
-            {{#each this.hypotheses}}
-                {{#if (eq this.status "accepted")}}
+                {{#each this.hypotheses}}
                     {{#each this.physicalCauses}}
                         {{#each this.humanCauses}}
                             {{#each this.latentCauses}}
@@ -153,8 +153,8 @@ const prompt = ai.definePrompt({
                             {{/each}}
                         {{/each}}
                     {{/each}}
-                {{/if}}
-            {{/each}}
+                {{/each}}
+            {{/if}}
         {{/each}}
     {{/if}}
 
@@ -176,25 +176,41 @@ const suggestLatentRootCausesFlow = ai.defineFlow(
     outputSchema: SuggestLatentRootCausesOutputSchema,
   },
   async (input) => {
-    // Helper function to check if there is any validated data to process
-    const hasValidatedData = (input: SuggestLatentRootCausesInput): boolean => {
-      if (input.ishikawaData?.some(cat => cat.causes.some(c => c.status === 'accepted'))) {
-        return true;
-      }
-      if (input.fiveWhysData?.some(entry => entry.becauses.some(b => b.status === 'accepted'))) {
-        return true;
-      }
-      if (input.ctmData?.some(fm => fm.hypotheses.some(h => h.status === 'accepted' && h.physicalCauses?.some(pc => pc.humanCauses.some(hc => hc.latentCauses.length > 0))))) {
-        return true;
-      }
-      return false;
-    };
+    
+    // Pre-filter data to only include accepted items
+    const filteredIshikawa = input.ishikawaData?.map(cat => ({
+      ...cat,
+      causes: cat.causes.filter(c => c.status === 'accepted')
+    })).filter(cat => cat.causes.length > 0);
 
-    if (!hasValidatedData(input)) {
+    const filtered5Whys = input.fiveWhysData?.map(entry => ({
+      ...entry,
+      becauses: entry.becauses.filter(b => b.status === 'accepted')
+    })).filter(entry => entry.becauses.length > 0);
+
+    const filteredCtm = input.ctmData?.map(fm => ({
+      ...fm,
+      hypotheses: fm.hypotheses.filter(h => h.status === 'accepted')
+    })).filter(fm => fm.hypotheses.length > 0);
+
+    const hasValidatedData = 
+        (filteredIshikawa && filteredIshikawa.length > 0) ||
+        (filtered5Whys && filtered5Whys.length > 0) ||
+        (filteredCtm && filteredCtm.length > 0);
+
+    if (!hasValidatedData) {
         return { suggestedLatentCauses: ["No hay suficientes causas validadas en la técnica seleccionada para generar sugerencias con IA. Por favor, valide algunas causas primero."] };
     }
     
-    const { output } = await prompt(input);
+    // Create a new input object for the prompt with only the filtered data
+    const promptInput = {
+      ...input,
+      ishikawaData: filteredIshikawa,
+      fiveWhysData: filtered5Whys,
+      ctmData: filteredCtm,
+    };
+
+    const { output } = await prompt(promptInput);
 
     if (!output || !output.suggestedLatentCauses || output.suggestedLatentCauses.length === 0) {
       return { suggestedLatentCauses: ["La IA no generó nuevas sugerencias o hubo un error. Intente de nuevo o revise los datos de entrada."] };
@@ -217,6 +233,7 @@ export async function suggestLatentRootCauses(input: SuggestLatentRootCausesInpu
     console.error("Error executing suggestLatentRootCauses:", error);
     let errorMessage = "Error al procesar la solicitud con IA.";
     if (error instanceof Error) {
+        // More specific error messages can be added here if needed
         errorMessage += ` (${error.message})`;
     }
     return { suggestedLatentCauses: [`[Sugerencias IA no disponibles] ${errorMessage}`] };
