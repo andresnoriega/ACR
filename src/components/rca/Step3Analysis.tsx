@@ -21,6 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/contexts/AuthContext';
+import { suggestLatentRootCauses, type SuggestLatentRootCausesInput } from '@/ai/flows/suggest-root-causes';
 
 
 // --- NotifyTasksDialog Component ---
@@ -221,6 +222,12 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const [isNotifyTasksDialogOpen, setIsNotifyTasksDialogOpen] = useState(false);
   const [actionsForNotificationDialog, setActionsForNotificationDialog] = useState<PlannedAction[]>([]);
   const [responsibleSearchTerm, setResponsibleSearchTerm] = useState('');
+  
+  // AI Suggestions State
+  const [isAiSuggestDialogOpen, setIsAiSuggestDialogOpen] = useState(false);
+  const [isSuggestingCauses, setIsSuggestingCauses] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+
 
   const usersForDropdown = useMemo(() => {
     if (userProfile?.role === 'Super User') {
@@ -494,6 +501,42 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
     }
     onNext();
   };
+  
+  const handleSuggestCauses = async () => {
+    setIsSuggestingCauses(true);
+    setAiSuggestions([]);
+    setIsAiSuggestDialogOpen(true);
+
+    try {
+        const input: SuggestLatentRootCausesInput = {
+            focusEventDescription: eventData.focusEventDescription || "No especificado",
+            analysisTechnique,
+            ishikawaData: analysisTechnique === 'Ishikawa' ? ishikawaData : undefined,
+            fiveWhysData: analysisTechnique === '5 Por qué' ? fiveWhysData : undefined,
+            ctmData: analysisTechnique === 'CTM' ? ctmData : undefined,
+            existingRootCauses: identifiedRootCauses.map(rc => rc.description).filter(Boolean),
+        };
+
+        const result = await suggestLatentRootCauses(input);
+
+        if (result && result.suggestedLatentCauses.length > 0) {
+            setAiSuggestions(result.suggestedLatentCauses);
+        } else {
+            setAiSuggestions(["No se pudieron generar sugerencias. Asegúrese de haber validado algunas causas en la técnica de análisis seleccionada."]);
+        }
+    } catch (error) {
+        console.error("Error suggesting causes:", error);
+        setAiSuggestions([`Error al contactar la IA: ${(error as Error).message}`]);
+    } finally {
+        setIsSuggestingCauses(false);
+    }
+  };
+  
+  const handleCopySuggestion = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({ title: "Copiado", description: "Sugerencia copiada al portapapeles." });
+  };
+
 
   const filteredResponsibles = usersForDropdown.filter(user =>
     user.name.toLowerCase().includes(responsibleSearchTerm.toLowerCase()) ||
@@ -620,6 +663,17 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
               <CTMInteractive ctmData={ctmData} onSetCtmData={onSetCtmData} />
             )}
             
+             <div className="pt-4 border-t space-y-2">
+                 <Button
+                    onClick={handleSuggestCauses}
+                    variant="outline"
+                    disabled={isSaving || !analysisTechnique}
+                    title={!analysisTechnique ? "Seleccione una técnica de análisis para habilitar la IA" : "Sugerir causas raíz latentes basadas en la técnica seleccionada"}
+                 >
+                    <Sparkles className="mr-2 h-4 w-4" /> Sugerir Causas con IA
+                </Button>
+            </div>
+
             {(analysisTechnique === '' || analysisTechniqueNotes.trim() !== '') && (
               <div className="space-y-2 pt-4">
                 <Label htmlFor="analysisTechniqueNotes">
@@ -831,6 +885,46 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
         identifiedRootCauses={identifiedRootCauses}
         onConfirmSend={handleConfirmSendNotificationsInDialog}
      />
+     
+    <Dialog open={isAiSuggestDialogOpen} onOpenChange={setIsAiSuggestDialogOpen}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center"><Sparkles className="mr-2 h-5 w-5 text-primary" />Sugerencias de Causas Raíz Latentes (IA)</DialogTitle>
+          <DialogDescription>
+            La IA ha analizado los hallazgos validados. Use estas sugerencias como inspiración. Puede copiar una sugerencia para pegarla en su lista de causas raíz.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-2 space-y-3">
+          {isSuggestingCauses ? (
+            <div className="flex justify-center items-center h-24">
+              <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+              <p>Analizando y generando sugerencias...</p>
+            </div>
+          ) : (
+            <ScrollArea className="h-[250px] pr-3">
+              <div className="space-y-2">
+                {aiSuggestions.map((suggestion, index) => (
+                  <Card key={index} className="p-3 bg-muted/30">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm flex-grow">{suggestion}</p>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 flex-shrink-0" onClick={() => handleCopySuggestion(suggestion)} title="Copiar sugerencia">
+                        <ClipboardCopy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="button" variant="outline">Cerrar</Button>
+          </DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
     </>
   );
 };
