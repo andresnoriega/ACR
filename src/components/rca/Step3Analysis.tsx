@@ -224,9 +224,10 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const [responsibleSearchTerm, setResponsibleSearchTerm] = useState('');
   
   // AI Suggestions State
-  const [isAiSuggestDialogOpen, setIsAiSuggestDialogOpen] = useState(false);
   const [isSuggestingCauses, setIsSuggestingCauses] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+  const [showAiSuggestions, setShowAiSuggestions] = useState(false);
+  const [currentSuggestionIndex, setCurrentSuggestionIndex] = useState(0);
 
 
   const usersForDropdown = useMemo(() => {
@@ -505,7 +506,8 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
   const handleSuggestCauses = async () => {
     setIsSuggestingCauses(true);
     setAiSuggestions([]);
-    setIsAiSuggestDialogOpen(true);
+    setCurrentSuggestionIndex(0);
+    setShowAiSuggestions(true);
 
     try {
         const input: SuggestLatentRootCausesInput = {
@@ -700,6 +702,41 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                     Causas Raíz Identificadas
                 </h3>
             </div>
+            {showAiSuggestions && (
+                <Card className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700 p-4 relative">
+                  <button onClick={() => setShowAiSuggestions(false)} className="absolute top-2 right-2 text-muted-foreground hover:text-foreground">
+                    <X className="h-4 w-4" />
+                  </button>
+                  <CardTitle className="text-base font-semibold text-green-800 dark:text-green-200 mb-2">Sugerencias de Causa Raíz por IA</CardTitle>
+                  {isSuggestingCauses ? (
+                    <div className="flex justify-center items-center h-20">
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      <p>Generando sugerencias...</p>
+                    </div>
+                  ) : aiSuggestions.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="p-3 border bg-background rounded-md min-h-[4rem] flex items-center justify-center">
+                        <p className="text-center">{aiSuggestions[currentSuggestionIndex]}</p>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <Button variant="ghost" size="sm" onClick={() => setCurrentSuggestionIndex(p => Math.max(0, p - 1))} disabled={currentSuggestionIndex === 0}>
+                          <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
+                        </Button>
+                        <span className="text-muted-foreground">Sugerencia {currentSuggestionIndex + 1} de {aiSuggestions.length}</span>
+                        <Button variant="ghost" size="sm" onClick={() => setCurrentSuggestionIndex(p => Math.min(aiSuggestions.length - 1, p + 1))} disabled={currentSuggestionIndex >= aiSuggestions.length - 1}>
+                          Siguiente <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
+                      </div>
+                      <Button variant="secondary" className="w-full" onClick={() => handleCopySuggestion(aiSuggestions[currentSuggestionIndex])}>
+                        <ClipboardCopy className="mr-2 h-4 w-4" /> Copiar Sugerencia
+                      </Button>
+                       <p className="text-xs text-center text-muted-foreground pt-1">Copie la sugerencia y luego agréguela a la lista de "Causas Raíz Identificadas" si es relevante.</p>
+                    </div>
+                  ) : (
+                    <p className="text-center text-muted-foreground">No se generaron sugerencias.</p>
+                  )}
+                </Card>
+            )}
             {identifiedRootCauses.map((rc, index) => (
               <Card key={rc.id} className="p-4 bg-card shadow-sm">
                 <div className="flex justify-between items-center mb-2">
@@ -885,46 +922,6 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
         identifiedRootCauses={identifiedRootCauses}
         onConfirmSend={handleConfirmSendNotificationsInDialog}
      />
-     
-    <Dialog open={isAiSuggestDialogOpen} onOpenChange={setIsAiSuggestDialogOpen}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center"><Sparkles className="mr-2 h-5 w-5 text-primary" />Sugerencias de Causas Raíz Latentes (IA)</DialogTitle>
-          <DialogDescription>
-            La IA ha analizado los hallazgos validados. Use estas sugerencias como inspiración. Puede copiar una sugerencia para pegarla en su lista de causas raíz.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="py-2 space-y-3">
-          {isSuggestingCauses ? (
-            <div className="flex justify-center items-center h-24">
-              <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-              <p>Analizando y generando sugerencias...</p>
-            </div>
-          ) : (
-            <ScrollArea className="h-[250px] pr-3">
-              <div className="space-y-2">
-                {aiSuggestions.map((suggestion, index) => (
-                  <Card key={index} className="p-3 bg-muted/30">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm flex-grow">{suggestion}</p>
-                      <Button size="icon" variant="ghost" className="h-7 w-7 flex-shrink-0" onClick={() => handleCopySuggestion(suggestion)} title="Copiar sugerencia">
-                        <ClipboardCopy className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </ScrollArea>
-          )}
-        </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="outline">Cerrar</Button>
-          </DialogClose>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-
     </>
   );
 };
