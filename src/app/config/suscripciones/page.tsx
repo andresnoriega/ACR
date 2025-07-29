@@ -15,7 +15,7 @@ const plansData = {
   monthly: [
     {
       name: 'Básico',
-      price: 'UF 0,25',
+      price: 'UF 0,5',
       priceSuffix: '/mes',
       userRange: '1 Usuario',
       description: 'Ideal para freelancers y uso individual intensivo.',
@@ -29,7 +29,7 @@ const plansData = {
     },
     {
       name: 'Profesional',
-      price: 'UF 0,5',
+      price: 'UF 1',
       priceSuffix: '/mes por usuario',
       userRange: '2-5 Usuarios',
       description: 'Para profesionales y equipos pequeños que necesitan más.',
@@ -44,7 +44,7 @@ const plansData = {
     },
     {
       name: 'Negocio',
-      price: 'UF 0,4',
+      price: 'UF 2',
       priceSuffix: '/mes por usuario',
       userRange: '6-20 Usuarios',
       description: 'La mejor opción para equipos en crecimiento y Pymes.',
@@ -76,7 +76,7 @@ const plansData = {
   annually: [
     {
       name: 'Básico',
-      price: 'UF 2,7',
+      price: 'UF 5,4',
       priceSuffix: '/año',
       userRange: '1 Usuario',
       description: 'Ahorra un 10% con el plan anual.',
@@ -90,7 +90,7 @@ const plansData = {
     },
     {
       name: 'Profesional',
-      price: 'UF 5,4',
+      price: 'UF 10,8',
       priceSuffix: '/año por usuario',
       userRange: '2-5 Usuarios',
       description: 'Ahorra un 10% con el plan anual.',
@@ -105,7 +105,7 @@ const plansData = {
     },
     {
       name: 'Negocio',
-      price: 'UF 4,3',
+      price: 'UF 21,6',
       priceSuffix: '/año por usuario',
       userRange: '6-20 Usuarios',
       description: 'Ahorra un 10% con el plan anual.',
