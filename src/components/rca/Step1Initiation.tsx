@@ -262,6 +262,8 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     const siteCompany = siteDetails?.empresa;
 
     if (!siteCompany) {
+      // If no site is selected, or site has no company, show users that also have no company assigned.
+      // This prevents mixing users from different companies if they exist.
       return availableUsers.filter(u => !u.empresa);
     }
 
@@ -271,6 +273,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   useEffect(() => {
     const getTodayDateString = () => {
       const today = new Date();
+      // To format for the `max` attribute of a datetime-local input, we need "YYYY-MM-DD".
       const year = today.getFullYear();
       const month = String(today.getMonth() + 1).padStart(2, '0');
       const day = String(today.getDate()).padStart(2, '0');
