@@ -523,7 +523,6 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
                       type="date" 
                       value={action.dueDate} 
                       onChange={(e) => handleActionChange(index, 'dueDate', e.target.value)}
-                      min={clientSideMaxDate}
                     />
                   </div>
                 </div>
