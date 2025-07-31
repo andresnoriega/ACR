@@ -283,7 +283,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
       });
       return;
     }
-    await onSaveAnalysis();
+    await onSaveAnalysis(true);
   };
 
   const handleNextWithSave = async () => {
