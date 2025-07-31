@@ -1,3 +1,4 @@
+
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect, useMemo } from 'react';
@@ -199,7 +200,6 @@ export const Step2Facts: FC<Step2FactsProps> = ({
     if (!siteCompany) {
       return availableUsers.filter(u => !u.empresa);
     }
-
     return availableUsers.filter(u => u.empresa === siteCompany);
   }, [availableUsers, availableSites, eventData.place, userProfile]);
 
