@@ -269,20 +269,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
   };
 
   const handleSaveProgressLocal = async () => {
-    const hasLeader = !!projectLeader;
-    const hasAnyDetailedFact = Object.values(detailedFacts).some(value => typeof value === 'string' && value.trim() !== '');
-    const hasAnalysisDetailsText = analysisDetails.trim() !== '';
-    const hasAnyPreservedFacts = preservedFacts.length > 0;
-    const hasInvestigationTeam = investigationSessions.length > 0;
-
-    if (!hasLeader && !hasAnyDetailedFact && !hasAnalysisDetailsText && !hasAnyPreservedFacts && !hasInvestigationTeam) {
-      toast({
-        title: "Nada que guardar",
-        description: "No se ha ingresado información nueva o modificado datos existentes en este paso.",
-        variant: "default",
-      });
-      return;
-    }
     await onSaveAnalysis(true);
   };
 
