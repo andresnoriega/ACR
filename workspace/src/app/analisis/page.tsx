@@ -1,7 +1,6 @@
-
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -12,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { db, storage } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, updateDoc, where, type QueryConstraint } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, updateDoc, where, type QueryConstraint, arrayUnion, arrayRemove } from "firebase/firestore";
 import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { Loader2 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -27,6 +26,14 @@ import { es } from 'date-fns/locale';
 
 export const dynamic = 'force-dynamic';
 
+const generateClientSideId = (prefix: string) => {
+    // This is a safer way to generate client-side IDs to prevent hydration mismatch.
+    const randomPart = Math.random().toString(36).substring(2, 9);
+    const timePart = Date.now().toString(36);
+    return `${prefix}-${timePart}-${randomPart}`;
+};
+
+
 const initialIshikawaData: IshikawaData = [
   { id: 'manpower', name: 'Mano de Obra', causes: [] },
   { id: 'method', name: 'Método', causes: [] },
@@ -36,9 +43,7 @@ const initialIshikawaData: IshikawaData = [
   { id: 'environment', name: 'Medio Ambiente', causes: [] },
 ];
 
-const initialFiveWhysData: FiveWhysData = [
-  { id: `5why-${Date.now()}`, why: '', because: '' }
-];
+const initialFiveWhysData: FiveWhysData = [];
 
 const initialCTMData: CTMData = [];
 
@@ -56,6 +61,8 @@ const initialRCAAnalysisState: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedA
   immediateActions: [],
   projectLeader: '',
   detailedFacts: { ...initialDetailedFacts },
+  investigationObjective: '', // <-- NUEVO ESTADO INICIAL
+  investigationSessions: [],
   analysisDetails: '',
   preservedFacts: [],
   timelineEvents: [],
@@ -154,6 +161,8 @@ function RCAAnalysisPageComponent() {
 
   const [projectLeader, setProjectLeader] = useState(initialRCAAnalysisState.projectLeader);
   const [detailedFacts, setDetailedFacts] = useState<DetailedFacts>(initialRCAAnalysisState.detailedFacts);
+  const [investigationObjective, setInvestigationObjective] = useState(initialRCAAnalysisState.investigationObjective || '');
+  const [investigationSessions, setInvestigationSessions] = useState<InvestigationSession[]>(initialRCAAnalysisState.investigationSessions || []);
   const [analysisDetails, setAnalysisDetails] = useState(initialRCAAnalysisState.analysisDetails);
   const [preservedFacts, setPreservedFacts] = useState<PreservedFact[]>(initialRCAAnalysisState.preservedFacts);
 
@@ -161,9 +170,9 @@ function RCAAnalysisPageComponent() {
   const [brainstormingIdeas, setBrainstormingIdeas] = useState<BrainstormIdea[]>(initialRCAAnalysisState.brainstormingIdeas || []);
   const [analysisTechnique, setAnalysisTechnique] = useState<AnalysisTechnique>(initialRCAAnalysisState.analysisTechnique);
   const [analysisTechniqueNotes, setAnalysisTechniqueNotes] = useState(initialRCAAnalysisState.analysisTechniqueNotes);
-  const [ishikawaData, setIshikawaData] = useState<IshikawaData>(initialRCAAnalysisState.ishikawaData);
-  const [fiveWhysData, setFiveWhysData] = useState<FiveWhysData>(initialRCAAnalysisState.fiveWhysData);
-  const [ctmData, setCtmData] = useState<CTMData>(initialRCAAnalysisState.ctmData);
+  const [ishikawaData, setIshikawaData] = useState<IshikawaData>(JSON.parse(JSON.stringify(initialIshikawaData)));
+  const [fiveWhysData, setFiveWhysData] = useState<FiveWhysData>(JSON.parse(JSON.stringify(initialFiveWhysData)));
+  const [ctmData, setCtmData] = useState<CTMData>(JSON.parse(JSON.stringify(initialCTMData)));
   const [identifiedRootCauses, setIdentifiedRootCauses] = useState<IdentifiedRootCause[]>(initialRCAAnalysisState.identifiedRootCauses);
 
   const [plannedActions, setPlannedActions] = useState<PlannedAction[]>(initialRCAAnalysisState.plannedActions);
@@ -182,6 +191,10 @@ function RCAAnalysisPageComponent() {
 
 
   const loadAnalysisData = useCallback(async (id: string): Promise<boolean> => {
+    if (!userProfile) { // Guard clause to prevent running on logout
+      setIsLoadingPage(false);
+      return false;
+    }
     setIsLoadingPage(true);
     try {
       const analysisDocRef = doc(db, "rcaAnalyses", id);
@@ -242,7 +255,8 @@ function RCAAnalysisPageComponent() {
           loadedDetailedFacts.cuando = convertOldCuandoToDateTimeLocal(loadedDetailedFacts.cuando);
         }
         setDetailedFacts(loadedDetailedFacts);
-
+        setInvestigationObjective(data.investigationObjective || '');
+        setInvestigationSessions(data.investigationSessions || []);
         setAnalysisDetails(data.analysisDetails || '');
         setPreservedFacts(data.preservedFacts || []);
         setTimelineEvents(data.timelineEvents || []);
@@ -285,7 +299,14 @@ function RCAAnalysisPageComponent() {
           toast({ title: "Análisis Cargado", description: `Se cargó el análisis ID: ${id}` });
         }
         lastLoadedAnalysisIdRef.current = id;
-        setMaxCompletedStep(prevMax => Math.max(prevMax, data.isFinalized ? 5 : (data.validations?.length > 0 && data.plannedActions?.every(pa => data.validations.find(v => v.actionId === pa.id)?.status === 'validated') ? 4 : (data.identifiedRootCauses?.length > 0 ? 3 : (data.projectLeader ? 2 : 1)))));
+        
+        const isIshikawaPopulated = data.ishikawaData?.some(cat => cat.causes.length > 0);
+        const is5WhysPopulated = data.fiveWhysData?.length > 0 && data.fiveWhysData[0] && data.fiveWhysData[0].becauses && data.fiveWhysData[0].becauses.some(b => b.description.trim() !== '');
+        const isCtmPopulated = data.ctmData?.some(fm => fm.hypotheses.length > 0);
+        const hasStep3Content = data.identifiedRootCauses?.length > 0 || isIshikawaPopulated || is5WhysPopulated || isCtmPopulated;
+        
+        setMaxCompletedStep(prevMax => Math.max(prevMax, data.isFinalized ? 5 : (data.validations?.length > 0 && data.plannedActions?.every(pa => data.validations.find(v => v.actionId === pa.id)?.status === 'validated') ? 4 : (hasStep3Content ? 3 : (data.projectLeader ? 2 : 1)))));
+
         return true;
       } else {
         if (lastLoadedAnalysisIdRef.current !== id || lastLoadedAnalysisIdRef.current === null) {
@@ -295,6 +316,8 @@ function RCAAnalysisPageComponent() {
             setImmediateActionCounter(1);
             setProjectLeader(initialRCAAnalysisState.projectLeader);
             setDetailedFacts(initialRCAAnalysisState.detailedFacts);
+            setInvestigationObjective(initialRCAAnalysisState.investigationObjective || '');
+            setInvestigationSessions(initialRCAAnalysisState.investigationSessions || []);
             setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
             setPreservedFacts(initialRCAAnalysisState.preservedFacts);
             setTimelineEvents(initialRCAAnalysisState.timelineEvents || []);
@@ -328,6 +351,8 @@ function RCAAnalysisPageComponent() {
         setImmediateActionCounter(1);
         setProjectLeader(initialRCAAnalysisState.projectLeader);
         setDetailedFacts(initialRCAAnalysisState.detailedFacts);
+        setInvestigationObjective(initialRCAAnalysisState.investigationObjective || '');
+        setInvestigationSessions(initialRCAAnalysisState.investigationSessions || []);
         setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
         setPreservedFacts(initialRCAAnalysisState.preservedFacts);
         setTimelineEvents(initialRCAAnalysisState.timelineEvents || []);
@@ -395,6 +420,8 @@ function RCAAnalysisPageComponent() {
             setImmediateActionCounter(1);
             setProjectLeader(initialRCAAnalysisState.projectLeader);
             setDetailedFacts(initialRCAAnalysisState.detailedFacts);
+            setInvestigationObjective(initialRCAAnalysisState.investigationObjective || '');
+            setInvestigationSessions(initialRCAAnalysisState.investigationSessions || []);
             setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
             setPreservedFacts(initialRCAAnalysisState.preservedFacts);
             setTimelineEvents(initialRCAAnalysisState.timelineEvents || []);
@@ -495,10 +522,11 @@ function RCAAnalysisPageComponent() {
       statusOverride?: ReportedEventStatus;
       rejectionReason?: string;
       validationsOverride?: Validation[];
+      plannedActionsOverride?: PlannedAction[];
       suppressNavigation?: boolean; 
     }
   ): Promise<{ success: boolean; newEventId?: string; needsNavigationUrl?: string }> => {
-    const { finalizedOverride, statusOverride, rejectionReason: currentRejectionReason, validationsOverride, suppressNavigation } = options || {};
+    const { finalizedOverride, statusOverride, rejectionReason: currentRejectionReason, validationsOverride, plannedActionsOverride, suppressNavigation } = options || {};
 
     let currentId = analysisDocumentId;
     let isNewEventCreation = false;
@@ -540,9 +568,10 @@ function RCAAnalysisPageComponent() {
     }
 
     const rcaDocPayload: Partial<RCAAnalysisDocument> = {
-      eventData: consistentEventData, immediateActions, projectLeader, detailedFacts, analysisDetails,
+      eventData: consistentEventData, immediateActions, projectLeader, detailedFacts, investigationObjective, investigationSessions, analysisDetails,
       preservedFacts, timelineEvents, brainstormingIdeas, analysisTechnique, analysisTechniqueNotes, ishikawaData,
-      fiveWhysData, ctmData, identifiedRootCauses, plannedActions,
+      fiveWhysData, ctmData, identifiedRootCauses, 
+      plannedActions: (plannedActionsOverride !== undefined) ? plannedActionsOverride : plannedActions,
       validations: (validationsOverride !== undefined) ? validationsOverride : validations,
       finalComments, isFinalized: currentIsFinalized,
       rejectionDetails: currentRejectionDetailsToSave,
@@ -581,6 +610,7 @@ function RCAAnalysisPageComponent() {
       if (finalizedOverride !== undefined && isFinalized !== finalizedOverride) setIsFinalized(finalizedOverride);
       if (currentRejectionDetailsToSave !== rejectionDetails) setRejectionDetails(currentRejectionDetailsToSave);
       if (validationsOverride !== undefined && validationsOverride !== validations) setValidations(validationsOverride); 
+      if (plannedActionsOverride !== undefined && plannedActionsOverride !== plannedActions) setPlannedActions(plannedActionsOverride);
       if (dataToSave.createdBy && createdBy !== dataToSave.createdBy) setCreatedBy(dataToSave.createdBy);
       if(consistentEventData.id !== eventData.id) setEventData(consistentEventData);
 
@@ -923,10 +953,11 @@ function RCAAnalysisPageComponent() {
 
 
   const handleGoToStep = async (targetStep: number) => {
-    if (targetStep === 4 && step === 3 && !isStep3ValidForNavigation) {
+    // If trying to go to step 4 or beyond, check if step 3 is valid first.
+    if (targetStep >= 4 && !isStep3ValidForNavigation) {
        toast({
         title: "Validación Requerida en Paso 3",
-        description: "Asegúrese de que todas las causas raíz descritas estén abordadas por un plan de acción antes de continuar al paso 4.",
+        description: "Asegúrese de que todas las causas raíz descritas estén abordadas por un plan de acción antes de continuar.",
         variant: "destructive",
         duration: 7000
       });
@@ -1099,7 +1130,7 @@ function RCAAnalysisPageComponent() {
     setProjectLeader(value);
   };
 
-  const handleDetailedFactChange = (field: keyof DetailedFacts, value: string) => {
+  const onDetailedFactChange = (field: keyof DetailedFacts, value: string) => {
     setDetailedFacts(prev => ({ ...prev, [field]: value }));
   };
 
@@ -1107,26 +1138,22 @@ function RCAAnalysisPageComponent() {
     factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>,
     file: File | null
   ) => {
-    let currentEventId = analysisDocumentId;
-    if (!currentEventId) {
-      currentEventId = ensureEventId();
-      setAnalysisDocumentId(currentEventId);
-    }
-    if (!currentEventId) {
-      toast({ title: "Error", description: "ID de evento no encontrado para asociar el hecho preservado.", variant: "destructive" });
-      return;
-    }
-    if (!file) {
-      toast({ title: "Error", description: "No se seleccionó ningún archivo.", variant: "destructive" });
-      return;
-    }
-    if (!userProfile) {
-      toast({ title: "Error de autenticación", description: "No se pudo obtener el perfil del usuario.", variant: "destructive" });
-      return;
-    }
-
     setIsSaving(true);
     try {
+      if (!file) {
+        throw new Error("No se seleccionó ningún archivo.");
+      }
+      
+      let currentEventId = analysisDocumentId;
+      if (!currentEventId) {
+        // First save creates the document and gives us an ID
+        const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
+        if (!saveResult.success || !saveResult.newEventId) {
+          throw new Error("No se pudo crear el documento de análisis antes de subir el archivo.");
+        }
+        currentEventId = saveResult.newEventId;
+      }
+
       toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
       const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
       const fileStorageRef = storageRef(storage, filePath);
@@ -1136,17 +1163,24 @@ function RCAAnalysisPageComponent() {
 
       const newFact: PreservedFact = {
         ...factMetadata,
-        id: `${currentEventId}-pf-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        id: generateClientSideId('pf'),
         uploadDate: new Date().toISOString(),
         eventId: currentEventId,
-        fileName: file.name,
         downloadURL: downloadURL,
         storagePath: uploadResult.ref.fullPath,
       };
 
+      const rcaDocRef = doc(db, "rcaAnalyses", currentEventId!);
+      // Use an update operation to just add the new fact, which is more efficient.
+      await updateDoc(rcaDocRef, {
+        preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
+        updatedAt: new Date().toISOString()
+      });
+
+      // Update local state to match
       setPreservedFacts(prev => [...prev, newFact]);
       toast({ title: "Hecho Preservado Añadido", description: `Se añadió y subió "${newFact.userGivenName}".` });
-      await handleSaveAnalysisData(false); // Save the state after adding the fact
+
     } catch (error: any) {
       console.error("Error detallado al subir hecho preservado:", error);
       toast({ title: "Error al Subir", description: `No se pudo subir el archivo. Verifique la consola. Código: ${error.code || 'Desconocido'}`, variant: "destructive" });
@@ -1154,12 +1188,17 @@ function RCAAnalysisPageComponent() {
       setIsSaving(false);
     }
   };
-
+  
   const handleRemovePreservedFact = async (id: string) => {
+    if (!analysisDocumentId) {
+      toast({ title: "Error", description: "ID del análisis no encontrado.", variant: "destructive" });
+      return;
+    }
     const factToRemove = preservedFacts.find(fact => fact.id === id);
     if (!factToRemove) return;
 
     setIsSaving(true);
+    
     // First, try to delete from storage if a path exists
     if (factToRemove.storagePath) {
       try {
@@ -1167,7 +1206,6 @@ function RCAAnalysisPageComponent() {
         await deleteObject(fileRef);
         toast({ title: "Archivo Eliminado de Storage", variant: "default" });
       } catch (error: any) {
-        // If file not found in storage, it's okay, just log it and proceed to remove from Firestore.
         if (error.code !== 'storage/object-not-found') {
           console.error("Error deleting file from Storage:", error);
           toast({ title: "Error al Eliminar Archivo", description: "No se pudo eliminar el archivo de Storage, pero se eliminará la referencia.", variant: "destructive" });
@@ -1175,56 +1213,47 @@ function RCAAnalysisPageComponent() {
       }
     }
     
-    // Then, remove from local state and save
-    setPreservedFacts(prev => prev.filter(fact => fact.id !== id));
-    toast({ title: "Hecho Preservado Eliminado", description: "Referencia eliminada. Guarde el progreso para confirmar.", variant: 'destructive' });
-    await handleSaveAnalysisData(false); // Save after removal
-    setIsSaving(false);
+    // Then, remove from Firestore using arrayRemove and update local state
+    const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
+    try {
+      await updateDoc(rcaDocRef, {
+          preservedFacts: arrayRemove(sanitizeForFirestore(factToRemove)),
+          updatedAt: new Date().toISOString()
+      });
+      setPreservedFacts(prev => prev.filter(fact => fact.id !== id));
+      toast({ title: "Hecho Preservado Eliminado", description: "La referencia se eliminó exitosamente.", variant: 'destructive' });
+    } catch (error: any) {
+      console.error("Error al actualizar Firestore después de eliminar hecho:", error);
+      toast({ title: "Error de Sincronización", description: `No se pudo confirmar la eliminación en la base de datos: ${error.message}. Recargue la página.`, variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
 
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);
-    setAnalysisTechniqueNotes('');
+    
     if (value === 'Ishikawa') {
-      setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
-    } else if (value === 'WhyWhy') {
-      const newFiveWhysData = JSON.parse(JSON.stringify(initialFiveWhysData));
-       if (eventData.focusEventDescription) {
-         newFiveWhysData[0].why = `¿Por qué ocurrió: "${eventData.focusEventDescription.substring(0,70)}${eventData.focusEventDescription.length > 70 ? "..." : ""}"?`;
-       }
-      setFiveWhysData(newFiveWhysData);
+        const isIshikawaEmpty = !ishikawaData || ishikawaData.every(cat => cat.causes.length === 0);
+        if (isIshikawaEmpty) {
+            setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
+        }
+    } else if (value === '5 Por qué') {
+        const is5WhysEmpty = !fiveWhysData || fiveWhysData.length === 0;
+        if (is5WhysEmpty) {
+            setFiveWhysData([]);
+        }
     } else if (value === 'CTM') {
-      setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
+        const isCtmEmpty = !ctmData || ctmData.length === 0;
+        if (isCtmEmpty) {
+            setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
+        }
     }
   };
 
-  const handleSetIshikawaData = (newData: IshikawaData) => {
-    setIshikawaData(newData);
-  };
-
-  const handleAddFiveWhyEntry = () => {
-    setFiveWhysData(prev => {
-      const lastEntry = prev.length > 0 ? prev[prev.length - 1] : null;
-      const initialWhy = lastEntry && lastEntry.because ? `¿Por qué: "${lastEntry.because.substring(0,70)}${lastEntry.because.length > 70 ? "..." : ""}"?` : '';
-      return [...prev, { id: `5why-${Date.now()}-${Math.random().toString(36).substring(2,7)}`, why: initialWhy, because: '' }];
-    });
-  };
-
-  const handleUpdateFiveWhyEntry = (id: string, field: 'why' | 'because', value: string) => {
-    setFiveWhysData(prev => prev.map(entry => entry.id === id ? { ...entry, [field]: value } : entry));
-  };
-
-  const handleRemoveFiveWhyEntry = (id: string) => {
-    setFiveWhysData(prev => prev.filter(entry => entry.id !== id));
-  };
-
-  const handleSetCtmData = (newData: CTMData) => {
-    setCtmData(newData);
-  };
-
   const handleAddIdentifiedRootCause = () => {
-    setIdentifiedRootCauses(prev => [...prev, { id: `rc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, description: '' }]);
+    setIdentifiedRootCauses(prev => [...prev, { id: generateClientSideId('rc'), description: '' }]);
   };
 
   const handleUpdateIdentifiedRootCause = (id: string, description: string) => {
@@ -1271,7 +1300,7 @@ function RCAAnalysisPageComponent() {
   };
 
   const handleAddBrainstormIdea = () => {
-    setBrainstormingIdeas(prev => [...prev, { id: `bi-${Date.now()}`, type: '', description: '' }]);
+    setBrainstormingIdeas(prev => [...prev, { id: generateClientSideId('bi'), type: '', description: '' }]);
   };
 
   const handleUpdateBrainstormIdea = (id: string, field: 'type' | 'description', value: string) => {
@@ -1281,6 +1310,7 @@ function RCAAnalysisPageComponent() {
   const handleRemoveBrainstormIdea = (id: string) => {
     setBrainstormingIdeas(prev => prev.filter(idea => idea.id !== id));
   };
+
 
   useEffect(() => {
     setValidations(prevValidations => {
@@ -1292,7 +1322,7 @@ function RCAAnalysisPageComponent() {
     });
   }, [plannedActions]);
 
-  const handleToggleValidation = async (actionId: string, newStatus: Validation['status'], rejectionReasonInput?: string) => {
+  const handleToggleValidation = useCallback(async (actionId: string, newStatus: Validation['status'], rejectionReasonInput?: string) => {
     const newValidationsArray = validations.map(v => {
       if (v.actionId === actionId) {
         const nowISO = new Date().toISOString();
@@ -1316,13 +1346,62 @@ function RCAAnalysisPageComponent() {
       return v;
     });
     
-    setValidations(newValidationsArray);
+    let finalPlannedActions = plannedActions;
+    if (newStatus === 'rejected') {
+      finalPlannedActions = plannedActions.map(action => {
+        if (action.id === actionId) {
+          return { ...action, markedAsReadyAt: undefined };
+        }
+        return action;
+      });
+    }
 
-    await handleSaveAnalysisData(
+    setValidations(newValidationsArray);
+    if (newStatus === 'rejected') {
+      setPlannedActions(finalPlannedActions);
+    }
+    
+    const saveResult = await handleSaveAnalysisData(
       false, 
-      { validationsOverride: newValidationsArray }
+      { 
+        validationsOverride: newValidationsArray,
+        plannedActionsOverride: finalPlannedActions
+      }
     );
-  };
+    
+    if (saveResult.success && newStatus === 'rejected') {
+      const rejectedAction = finalPlannedActions.find(pa => pa.id === actionId);
+      if (rejectedAction && rejectedAction.responsible) {
+        const responsibleUser = availableUsersFromDB.find(u => u.name === rejectedAction.responsible);
+        if (responsibleUser && responsibleUser.email && (responsibleUser.emailNotifications === undefined || responsibleUser.emailNotifications)) {
+          toast({ title: "Acción Rechazada", description: `Enviando notificación a ${responsibleUser.name}...`, variant: "destructive" });
+          const emailSubject = `Acción RCA Rechazada: ${rejectedAction.description.substring(0, 30)}...`;
+          const validationLink = `${window.location.origin}/usuario/planes`;
+          const emailBody = `Estimado/a ${responsibleUser.name},\n\nLa siguiente acción planificada del evento "${eventData.focusEventDescription}" ha sido RECHAZADA:\n\nAcción: ${rejectedAction.description}\n\nMotivo del Rechazo:\n${rejectionReasonInput}\n\nPor favor, revise la tarea en el sistema para tomar las medidas necesarias. Puede ver sus tareas en el siguiente enlace:\n${validationLink}\n\nSaludos,\nSistema Asistente ACR`;
+
+          const emailResult = await sendEmailAction({
+            to: responsibleUser.email,
+            subject: emailSubject,
+            body: emailBody
+          });
+
+          if (emailResult.success) {
+            toast({ title: "Notificación Enviada", description: `Se ha notificado a ${responsibleUser.name} sobre el rechazo.` });
+          } else {
+            toast({ title: "Error de Notificación", description: `No se pudo enviar el correo: ${emailResult.message}`, variant: "destructive" });
+          }
+
+        } else {
+          toast({ title: "Notificación no enviada", description: "No se pudo encontrar el responsable, su correo, o tiene las notificaciones desactivadas.", variant: "destructive" });
+        }
+      }
+    } else if (!saveResult.success && newStatus === 'rejected') {
+      toast({ title: "Error al Guardar", description: "No se pudo guardar el estado de rechazo. Revirtiendo cambio.", variant: "destructive"});
+      setValidations(validations);
+      setPlannedActions(plannedActions);
+    }
+  }, [validations, plannedActions, handleSaveAnalysisData, toast, availableUsersFromDB, eventData.focusEventDescription]);
+
 
   const handlePrintReport = () => {
     const nonPrintableElements = document.querySelectorAll('.no-print');
@@ -1360,6 +1439,7 @@ function RCAAnalysisPageComponent() {
     }
     setIsSaving(false);
   };
+  
 
   useEffect(() => {
     if (step > maxCompletedStep) {
@@ -1440,7 +1520,11 @@ function RCAAnalysisPageComponent() {
           onProjectLeaderChange={handleProjectLeaderChange}
           availableUsers={availableUsersFromDB}
           detailedFacts={detailedFacts}
-          onDetailedFactChange={handleDetailedFactChange}
+          onDetailedFactChange={onDetailedFactChange}
+          investigationObjective={investigationObjective}
+          onInvestigationObjectiveChange={setInvestigationObjective}
+          investigationSessions={investigationSessions}
+          onSetInvestigationSessions={setInvestigationSessions}
           analysisDetails={analysisDetails}
           onAnalysisDetailsChange={setAnalysisDetails}
           preservedFacts={preservedFacts}
@@ -1469,13 +1553,11 @@ function RCAAnalysisPageComponent() {
           analysisTechniqueNotes={analysisTechniqueNotes}
           onAnalysisTechniqueNotesChange={setAnalysisTechniqueNotes}
           ishikawaData={ishikawaData}
-          onSetIshikawaData={handleSetIshikawaData}
+          onSetIshikawaData={setIshikawaData}
           fiveWhysData={fiveWhysData}
-          onAddFiveWhyEntry={handleAddFiveWhyEntry}
-          onUpdateFiveWhyEntry={handleUpdateFiveWhyEntry}
-          onRemoveFiveWhyEntry={handleRemoveFiveWhyEntry}
+          onSetFiveWhysData={setFiveWhysData}
           ctmData={ctmData}
-          onSetCtmData={handleSetCtmData}
+          onSetCtmData={setCtmData}
           identifiedRootCauses={identifiedRootCauses}
           onAddIdentifiedRootCause={handleAddIdentifiedRootCause}
           onUpdateIdentifiedRootCause={handleUpdateIdentifiedRootCause}
@@ -1512,12 +1594,13 @@ function RCAAnalysisPageComponent() {
           eventId={analysisDocumentId || eventData.id}
           eventData={eventData}
           availableSites={availableSitesFromDB}
+          projectLeader={projectLeader}
+          investigationSessions={investigationSessions}
           detailedFacts={detailedFacts}
           analysisDetails={analysisDetails}
           analysisTechnique={analysisTechnique}
           analysisTechniqueNotes={analysisTechniqueNotes}
           ishikawaData={ishikawaData}
-          fiveWhysData={fiveWhysData}
           ctmData={ctmData}
           identifiedRootCauses={identifiedRootCauses}
           plannedActions={plannedActions}

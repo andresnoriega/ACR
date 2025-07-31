@@ -1241,7 +1241,7 @@ function RCAAnalysisPageComponent() {
             setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
         }
     } else if (value === '5 Por qué') {
-        const is5WhysEmpty = !fiveWhysData || fiveWhysData.length === 0 || (fiveWhysData.length === 1 && fiveWhysData[0].why === '' && (fiveWhysData[0].becauses.length === 0 || fiveWhysData[0].becauses[0].description === ''));
+        const is5WhysEmpty = !fiveWhysData || fiveWhysData.length === 0;
         if (is5WhysEmpty) {
             setFiveWhysData([]);
         }
