@@ -1,3 +1,4 @@
+
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
@@ -1459,7 +1460,7 @@ function RCAAnalysisPageComponent() {
     }
     const efficacyUpdate: EfficacyVerification = {
         status: 'verified',
-        verifiedBy: userProfile.name, // <-- Correctly use user name
+        verifiedBy: userProfile.name,
         verifiedAt: new Date().toISOString(),
         comments: comments,
         verificationDate: verificationDate,
