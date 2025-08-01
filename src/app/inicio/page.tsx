@@ -1,11 +1,105 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Home, BarChart3, FileText, SettingsIcon, Zap, UserCheck, ListOrdered, Loader2, AlertTriangle, UserCircle } from 'lucide-react';
+import { Home, BarChart3, FileText, SettingsIcon, Zap, UserCheck, ListOrdered, Loader2, AlertTriangle, UserCircle, LifeBuoy } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
+import { sendEmailAction } from '@/app/actions';
+
+
+// --- SupportDialog Component ---
+const SupportDialog = () => {
+  const { userProfile } = useAuth();
+  const { toast } = useToast();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [problem, setProblem] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    if (userProfile) {
+      setName(userProfile.name || '');
+      setEmail(userProfile.email || '');
+    }
+  }, [userProfile]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !email.trim() || !problem.trim()) {
+      toast({ title: "Campos incompletos", description: "Por favor, rellene todos los campos.", variant: "destructive" });
+      return;
+    }
+    setIsSending(true);
+
+    const emailSubject = `Solicitud de Soporte Técnico - ${name}`;
+    const emailBody = `Se ha recibido una nueva solicitud de soporte técnico:\n\nNombre: ${name}\nCorreo de Contacto: ${email}\n\nProblema Reportado:\n${problem}`;
+
+    const result = await sendEmailAction({
+      to: 'contacto@damc.cl',
+      subject: emailSubject,
+      body: emailBody
+    });
+
+    if (result.success) {
+      toast({ title: "Solicitud Enviada", description: "Nuestro equipo de soporte se pondrá en contacto con usted a la brevedad." });
+      setProblem('');
+      setIsOpen(false);
+    } else {
+      toast({ title: "Error al Enviar", description: result.message, variant: "destructive" });
+    }
+    setIsSending(false);
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button className="w-full" size="lg">
+          Solicitar Soporte
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Solicitud de Soporte Técnico</DialogTitle>
+          <DialogDescription>
+            Describa su problema y nuestro equipo se pondrá en contacto con usted.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="support-name">Su Nombre</Label>
+            <Input id="support-name" value={name} onChange={e => setName(e.target.value)} required disabled={isSending} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="support-email">Su Correo de Contacto</Label>
+            <Input id="support-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required disabled={isSending} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="support-problem">Problema a Reportar</Label>
+            <Textarea id="support-problem" value={problem} onChange={e => setProblem(e.target.value)} placeholder="Por favor, sea lo más detallado posible..." required disabled={isSending} />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" disabled={isSending}>Cancelar</Button>
+            </DialogClose>
+            <Button type="submit" disabled={isSending}>
+              {isSending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Enviar Solicitud
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 
 export default function InicioPage() {
   const router = useRouter();
@@ -182,6 +276,19 @@ export default function InicioPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mt-8 bg-secondary/30">
+        <CardHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <LifeBuoy className="h-7 w-7 text-primary" />
+              <CardTitle className="text-2xl">Soporte Técnico</CardTitle>
+            </div>
+            <CardDescription>¿Necesita ayuda? Nuestro equipo está listo para asistirlo.</CardDescription>
+          </CardHeader>
+        <CardContent>
+          <SupportDialog />
+        </CardContent>
+      </Card>
       
       <Card className="mt-8 bg-secondary/30">
         <CardContent className="pt-6">
