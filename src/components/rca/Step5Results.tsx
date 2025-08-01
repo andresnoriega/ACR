@@ -473,6 +473,9 @@ export const Step5Results: FC<Step5ResultsProps> = ({
               <p className="font-medium mt-2 mb-1">Descripción Detallada del Fenómeno:</p>
               <p className="pl-2 whitespace-pre-line">{analysisDetails || formatDetailedFacts()}</p>
               
+              <p className="font-medium mt-2 mb-1">Objetivo de la Investigación:</p>
+              <p className="pl-2 mb-2 whitespace-pre-line">{investigationObjective || "No se definió un objetivo explícito para la investigación."}</p>
+
               {preservedFacts && preservedFacts.length > 0 && (
                 <>
                   <p className="font-medium mt-2 mb-1">Hechos Preservados / Documentación Adjunta:</p>
@@ -493,9 +496,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           <section>
             <SectionTitle title="Análisis" icon={Settings}/>
             <SectionContent>
-              <p className="font-medium mt-2 mb-1">Objetivo de la Investigación:</p>
-              <p className="pl-2 mb-2 whitespace-pre-line">{investigationObjective || "No se definió un objetivo explícito para la investigación."}</p>
-
               <p className="font-medium mb-1">Técnica de Análisis Principal Utilizada:</p>
               <p className="pl-2 mb-2 font-semibold">{analysisTechnique || "No seleccionada"}</p>
 
