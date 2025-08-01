@@ -1,8 +1,7 @@
-
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useEffect } from 'react';
-import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile, PreservedFact, Site, InvestigationSession } from '@/types/rca'; // Added PreservedFact, InvestigationSession
+import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile, PreservedFact, Site, InvestigationSession, EfficacyVerification } from '@/types/rca'; // Added PreservedFact, InvestigationSession
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -10,8 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Sparkles, HardHat } from 'lucide-react'; // Added HardHat
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Sparkles, HardHat, ShieldCheck } from 'lucide-react'; // Added HardHat
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
@@ -43,6 +42,9 @@ interface Step5ResultsProps {
   onMarkAsFinalized: () => Promise<void>;
   onSaveAnalysis: (showToast?: boolean) => Promise<void>;
   isSaving: boolean;
+  investigationObjective: string; // <-- Added Prop
+  efficacyVerification: EfficacyVerification; // <-- Added Prop
+  onVerifyEfficacy: (comments: string) => Promise<void>; // <-- Added Prop
 }
 
 const SectionTitle: FC<{ icon?: React.ElementType; title: string; className?: string }> = ({ icon: Icon, title, className }) => (
@@ -57,6 +59,57 @@ const SectionContent: FC<{ children: React.ReactNode; className?: string }> = ({
     {children}
   </div>
 );
+
+// --- EfficacyVerificationDialog Component ---
+const EfficacyVerificationDialog: FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (comments: string) => void;
+  isProcessing: boolean;
+}> = ({ isOpen, onClose, onConfirm, isProcessing }) => {
+  const [comments, setComments] = useState('');
+
+  const handleConfirm = () => {
+    if (comments.trim()) {
+      onConfirm(comments);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) setComments('');
+  }, [isOpen]);
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Confirmar Verificación de Eficacia</DialogTitle>
+          <DialogDescription>
+            Por favor, añada sus comentarios finales sobre la eficacia de las acciones implementadas antes de marcar el análisis como verificado.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4">
+          <Label htmlFor="efficacy-comments">Comentarios de Verificación <span className="text-destructive">*</span></Label>
+          <Textarea
+            id="efficacy-comments"
+            value={comments}
+            onChange={(e) => setComments(e.target.value)}
+            placeholder="Ej: Se confirmó en terreno que la nueva guarda está instalada y el personal fue capacitado en el nuevo procedimiento. El objetivo se considera cumplido."
+            rows={4}
+            className="mt-1"
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={isProcessing}>Cancelar</Button>
+          <Button onClick={handleConfirm} disabled={!comments.trim() || isProcessing}>
+            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Confirmar y Verificar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 
 export const Step5Results: FC<Step5ResultsProps> = ({
@@ -82,6 +135,9 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   onMarkAsFinalized,
   onSaveAnalysis,
   isSaving,
+  investigationObjective,
+  efficacyVerification,
+  onVerifyEfficacy,
 }) => {
   const { toast } = useToast();
   const { userProfile } = useAuth();
@@ -91,6 +147,8 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   const [isSendingEmails, setIsSendingEmails] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isVerificationDialogOpen, setIsVerificationDialogOpen] = useState(false);
 
   const uniquePlannedActions = useMemo(() => {
     if (!Array.isArray(plannedActions)) {
@@ -146,56 +204,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     };
     const ctmTree = formatLevel(ctmData, "", "Modo de Falla");
     return ctmTree.trim() ? ctmTree : "(No se definieron elementos para el Árbol de Causas)";
-  };
-
-  // This function is kept for potential use in `onPrintReport` or other non-email contexts.
-  const generateReportText = (): string => {
-    let report = `INFORME FINAL DE ANÁLISIS DE CAUSA RAÍZ\n`;
-    report += `Evento ID: ${eventId || "No generado"}\n`;
-    report += `Título: Análisis del Incidente "${eventData.focusEventDescription || 'No Especificado'}"\n\n`;
-    report += `INTRODUCCIÓN / COMENTARIOS FINALES:\n${finalComments || "No proporcionados."}\n\n`;
-    report += `HECHOS:\n`;
-    report += `  Evento Foco: ${eventData.focusEventDescription || "No definido."}\n`;
-    report += `  Lugar: ${eventData.place || "No definido."}\n`;
-    report += `  Equipo: ${eventData.equipo || "No definido."}\n`; // Added Equipo
-    report += `  Descripción Detallada del Fenómeno:\n  ${formatDetailedFacts().replace(/\n/g, '\n  ')}\n`;
-    if (preservedFacts && preservedFacts.length > 0) {
-      report += `  Hechos Preservados/Documentación Adjunta:\n`;
-      preservedFacts.forEach(fact => {
-        report += `    - Nombre: ${fact.userGivenName || fact.fileName || 'Sin nombre'}, Categoría: ${fact.category || 'N/A'}, Descripción: ${fact.description || 'N/A'}\n`;
-      });
-    }
-    report += `\nANÁLISIS:\n`;
-    report += `  Análisis Preliminar Realizado:\n  ${analysisDetails || "No se proporcionaron detalles."}\n`;
-    report += `  Técnica de Análisis Principal Utilizada: ${analysisTechnique || "No seleccionada"}\n`;
-    if (analysisTechnique === 'Ishikawa') report += `  Detalles del Diagrama de Ishikawa:\n${formatIshikawaForReport().replace(/\n/g, '\n  ')}\n`;
-    if (analysisTechnique === 'CTM') report += `  Detalles del Árbol de Causas (CTM):\n${formatCTMForReport().replace(/\n/g, '\n  ')}\n`;
-    if (analysisTechniqueNotes.trim()) report += `  Notas Adicionales del Análisis (${analysisTechnique || 'General'}):\n  ${analysisTechniqueNotes.replace(/\n/g, '\n  ')}\n`;
-    report += `\nCAUSAS RAÍZ IDENTIFICADAS:\n`;
-    if (identifiedRootCauses.length > 0 && identifiedRootCauses.some(rc => rc.description.trim())) {
-      identifiedRootCauses.forEach((rc, index) => {
-        if (rc.description.trim()) report += `  - Causa Raíz #${index + 1}: ${rc.description}\n`;
-      });
-    } else {
-      report += `  No se han definido causas raíz específicas.\n`;
-    }
-    report += `\nACCIONES RECOMENDADAS (PLAN DE ACCIÓN):\n`;
-    if (uniquePlannedActions.length > 0) { 
-      uniquePlannedActions.forEach(action => {
-        report += `  - Acción: ${action.description}\n`;
-        report += `    Responsable: ${action.responsible || 'N/A'} | Fecha Límite: ${action.dueDate || 'N/A'}\n`;
-        if (action.relatedRootCauseIds && action.relatedRootCauseIds.length > 0) {
-          report += `    Aborda Causas Raíz:\n`;
-          action.relatedRootCauseIds.forEach(rcId => {
-            const cause = identifiedRootCauses.find(c => c.id === rcId);
-            report += `      * ${cause ? cause.description : `ID: ${rcId} (no encontrada)`}\n`;
-          });
-        }
-      });
-    } else {
-      report += `  No se han definido acciones planificadas.\n`;
-    }
-    return report;
   };
 
   const handleGenerateInsights = async () => {
@@ -268,7 +276,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     }
 
     const emailSubject = `Informe RCA: ${eventData.focusEventDescription || `Evento ID ${eventId}`}`;
-    const emailBody = `Estimado/a,\n\nSe ha completado el Análisis de Causa Raíz para el evento: "${eventData.focusEventDescription || eventId}" (ID: ${eventId}).\n\nEl informe completo está disponible en la aplicación o puede ser exportado a PDF desde el Paso 5.\n\nSaludos,\nSistema RCA Assistant`;
+    const emailBody = `Estimado/a,\n\nSe ha completado el Análisis de Causa Raíz para el evento: "${eventData.focusEventDescription || eventId}" (ID: ${eventId}).\n\nEl informe completo está disponible en la aplicación o puede ser exportado a PDF desde el Paso 5.\n\nSaludos,\nSistema Asistente ACR`;
     
     let emailsSentCount = 0;
 
@@ -343,7 +351,21 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     await onSaveAnalysis();
   };
 
-  const isBusy = isSaving || isSendingEmails || isFinalizing || isGeneratingInsights;
+  const handleConfirmVerification = async (comments: string) => {
+    setIsVerifying(true);
+    await onVerifyEfficacy(comments);
+    setIsVerificationDialogOpen(false);
+    setIsVerifying(false);
+  };
+
+  const canUserVerify = useMemo(() => {
+    if (!userProfile) return false;
+    if (userProfile.role === 'Super User') return true;
+    if (userProfile.role === 'Admin') return true;
+    return userProfile.name === projectLeader;
+  }, [userProfile, projectLeader]);
+  
+  const isBusy = isSaving || isSendingEmails || isFinalizing || isGeneratingInsights || isVerifying;
 
   return (
     <>
@@ -430,7 +452,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
               )}
 
               <p className="font-medium mt-2 mb-1">Descripción Detallada del Fenómeno:</p>
-              <p className="pl-2 whitespace-pre-line">{formatDetailedFacts()}</p>
+              <p className="pl-2 whitespace-pre-line">{analysisDetails || formatDetailedFacts()}</p>
               
               {preservedFacts && preservedFacts.length > 0 && (
                 <>
@@ -452,6 +474,9 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           <section>
             <SectionTitle title="Análisis" icon={Settings}/>
             <SectionContent>
+              <p className="font-medium mt-2 mb-1">Objetivo de la Investigación:</p>
+              <p className="pl-2 mb-2 whitespace-pre-line">{investigationObjective || "No se definió un objetivo explícito para la investigación."}</p>
+            
               <p className="font-medium mb-1">Análisis Preliminar Realizado:</p>
               <p className="pl-2 mb-2 whitespace-pre-line">{analysisDetails || "No se proporcionaron detalles del análisis preliminar."}</p>
 
@@ -528,6 +553,39 @@ export const Step5Results: FC<Step5ResultsProps> = ({
               )}
             </SectionContent>
           </section>
+          
+          {isFinalized && (
+            <>
+                <Separator className="my-4" />
+                <section>
+                    <SectionTitle title="Verificación de la Eficacia del Análisis" icon={ShieldCheck} />
+                    <Card className="bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700">
+                        <CardContent className="pt-4">
+                            <p className="text-sm font-semibold mb-1">Objetivo de la Investigación a Verificar:</p>
+                            <p className="text-sm text-muted-foreground italic mb-3">"{investigationObjective || 'No se definió un objetivo explícito para la investigación.'}"</p>
+                            
+                            {efficacyVerification.status === 'verified' ? (
+                                <div>
+                                    <p className="text-sm font-semibold text-green-600">Eficacia Verificada por: {efficacyVerification.verifiedBy} el {format(parseISO(efficacyVerification.verifiedAt), "dd 'de' MMMM, yyyy")}</p>
+                                    <p className="text-sm mt-1">Comentarios de Verificación:</p>
+                                    <p className="text-sm p-2 bg-background rounded-md whitespace-pre-wrap">{efficacyVerification.comments}</p>
+                                </div>
+                            ) : (
+                                <>
+                                    {canUserVerify ? (
+                                        <Button onClick={() => setIsVerificationDialogOpen(true)} disabled={isBusy}>
+                                            Confirmar Verificación de Eficacia
+                                        </Button>
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground">Esperando verificación por parte del Líder de Proyecto ({projectLeader}) o un Administrador.</p>
+                                    )}
+                                </>
+                            )}
+                        </CardContent>
+                    </Card>
+                </section>
+            </>
+          )}
 
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row justify-center items-center gap-3 mt-6 pt-4 border-t no-print">
@@ -611,6 +669,13 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      <EfficacyVerificationDialog
+        isOpen={isVerificationDialogOpen}
+        onClose={() => setIsVerificationDialogOpen(false)}
+        onConfirm={handleConfirmVerification}
+        isProcessing={isVerifying}
+      />
     </>
   );
 };
