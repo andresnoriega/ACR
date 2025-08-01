@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PieChart as PieChartIcon, ListChecks, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, Flame, Search, RefreshCcw, Percent, FileText, ListTodo, BarChart3 as RCASummaryIcon, FileDown, ArrowUp, ArrowDown, ChevronsUpDown, XCircle } from 'lucide-react'; // Added XCircle
+import { PieChart as PieChartIcon, ListChecks, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, Flame, Search, RefreshCcw, Percent, FileText, ListTodo, BarChart3 as RCASummaryIcon, FileDown, ArrowUp, ArrowDown, ChevronsUpDown, XCircle, ShieldCheck } from 'lucide-react'; // Added XCircle and ShieldCheck
 import type { ReportedEvent, RCAAnalysisDocument, PlannedAction, Validation, Site, ReportedEventType, PriorityType, ReportedEventStatus, FullUserProfile } from '@/types/rca';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, Timestamp, where, orderBy, limit, QueryConstraint } from "firebase/firestore";
@@ -45,6 +45,7 @@ interface RCASummaryData {
   totalRCAs: number;
   rcaPendientes: number;
   rcaFinalizados: number;
+  rcaVerificados: number; // New field
   rcaCompletionRate?: number;
 }
 
@@ -124,6 +125,7 @@ export default function DashboardRCAPage() {
     const currentPendingActionPlans: PlanAccionPendienteItem[] = [];
     let currentRcaFinalizadosCount = 0;
     let currentRcaPendientesCount = 0;
+    let currentRcaVerificadosCount = 0; // New counter
 
     try {
       // Fetch users first to have them available for reminders
@@ -158,7 +160,6 @@ export default function DashboardRCAPage() {
       const rcaSnapshot = await getDocs(rcaQueryInstance);
       
       const reportedEventsRef = collection(db, "reportedEvents");
-      // Use the constructed constraints to get an accurate count of events by status
       const eventsForCountsQuery = query(reportedEventsRef, ...eventQueryConstraintsForCounts);
       const filteredReportedEventsSnapshot = await getDocs(eventsForCountsQuery);
       
@@ -176,7 +177,8 @@ export default function DashboardRCAPage() {
           return;
         }
         
-        if (rcaDoc.isFinalized && eventStatus !== 'Rechazado') {
+        // Finalizados count is now only for those that are finalized but not yet verified
+        if (rcaDoc.isFinalized && eventStatus === 'Finalizado') {
           currentRcaFinalizadosCount++;
         }
 
@@ -206,7 +208,7 @@ export default function DashboardRCAPage() {
           });
         }
 
-        if (!rcaDoc.isFinalized && eventStatus !== 'Rechazado') {
+        if (!rcaDoc.isFinalized && eventStatus !== 'Rechazado' && eventStatus !== 'Verificado') {
             let proyecto = rcaDoc.eventData?.focusEventDescription || `Análisis ID: ${rcaId.substring(0,8)}...`;
             let currentStep = 1;
             if (rcaDoc.finalComments && rcaDoc.finalComments.trim() !== '') currentStep = 5;
@@ -235,22 +237,27 @@ export default function DashboardRCAPage() {
           if ((status === 'Pendiente' || status === 'En análisis' || status === 'En validación')) {
             currentRcaPendientesCount++;
           }
+          if (status === 'Verificado') {
+              currentRcaVerificadosCount++;
+          }
       });
 
-      const currentTotalRCAs = currentRcaPendientesCount + currentRcaFinalizadosCount;
-      const rcaCompletionRateValue = currentTotalRCAs > 0 ? (currentRcaFinalizadosCount / currentTotalRCAs) * 100 : 0;
+      const currentTotalRCAs = currentRcaPendientesCount + currentRcaFinalizadosCount + currentRcaVerificadosCount;
+      const rcaCompletionRateValue = currentTotalRCAs > 0 ? ((currentRcaFinalizadosCount + currentRcaVerificadosCount) / currentTotalRCAs) * 100 : 0;
+
 
       setRcaSummaryData({
         totalRCAs: currentTotalRCAs,
         rcaPendientes: currentRcaPendientesCount,
         rcaFinalizados: currentRcaFinalizadosCount,
+        rcaVerificados: currentRcaVerificadosCount,
         rcaCompletionRate: rcaCompletionRateValue,
       });
 
     } catch (error) {
       console.error("Error fetching dashboard data: ", error);
       setActionStatsData({ totalAcciones: 0, accionesPendientes: 0, accionesValidadas: 0 });
-      setRcaSummaryData({ totalRCAs: 0, rcaPendientes: 0, rcaFinalizados: 0, rcaCompletionRate: 0 });
+      setRcaSummaryData({ totalRCAs: 0, rcaPendientes: 0, rcaFinalizados: 0, rcaVerificados: 0, rcaCompletionRate: 0 });
       setAnalisisEnCurso([]);
       setPlanesAccionPendientes([]);
       toast({ title: "Error al Cargar Datos del Dashboard", description: (error as Error).message, variant: "destructive" });
@@ -333,12 +340,13 @@ export default function DashboardRCAPage() {
   }, [actionStatsData]);
 
   const rcaStatusPieChartData = useMemo(() => {
-    if (!rcaSummaryData || (rcaSummaryData.rcaPendientes === 0 && rcaSummaryData.rcaFinalizados === 0)) {
+    if (!rcaSummaryData || (rcaSummaryData.rcaPendientes === 0 && rcaSummaryData.rcaFinalizados === 0 && rcaSummaryData.rcaVerificados === 0)) {
       return [];
     }
     return [
       { name: 'ACR Pendientes', value: rcaSummaryData.rcaPendientes, color: 'hsl(var(--chart-5))' }, 
-      { name: 'ACR Finalizados', value: rcaSummaryData.rcaFinalizados, color: 'hsl(var(--chart-2))' }, 
+      { name: 'ACR Finalizados', value: rcaSummaryData.rcaFinalizados, color: 'hsl(var(--chart-2))' },
+      { name: 'ACR Verificados', value: rcaSummaryData.rcaVerificados, color: 'hsl(var(--chart-1))' }, // New data for pie chart
     ].filter(item => item.value > 0);
   }, [rcaSummaryData]);
 
@@ -604,9 +612,9 @@ export default function DashboardRCAPage() {
             <CardTitle className="text-2xl">Resumen de Análisis de Causa Raíz</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 text-center">
+        <CardContent className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 text-center">
           {isLoadingData ? (
-            [...Array(4)].map((_, i) => (
+            [...Array(5)].map((_, i) => (
               <div key={`rca-load-${i}`} className="p-4 bg-secondary/30 rounded-lg flex flex-col items-center justify-center h-24">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>
@@ -627,6 +635,11 @@ export default function DashboardRCAPage() {
                 <div className="flex items-center justify-center mb-1"><CheckSquare className="h-5 w-5 text-green-600 mr-1.5"/></div>
                 <p className="text-3xl font-bold text-green-600">{rcaSummaryData.rcaFinalizados}</p>
                 <p className="text-sm text-muted-foreground">ACR Finalizados</p>
+              </div>
+              <div className="p-4 bg-indigo-400/20 rounded-lg">
+                <div className="flex items-center justify-center mb-1"><ShieldCheck className="h-5 w-5 text-indigo-600 mr-1.5"/></div>
+                <p className="text-3xl font-bold text-indigo-600">{rcaSummaryData.rcaVerificados}</p>
+                <p className="text-sm text-muted-foreground">ACR Verificados</p>
               </div>
               <div className="p-4 bg-blue-400/20 rounded-lg">
                 <div className="flex items-center justify-center mb-1"><Percent className="h-5 w-5 text-blue-600 mr-1.5"/></div>
@@ -913,3 +926,4 @@ export default function DashboardRCAPage() {
     </div>
   );
 }
+
