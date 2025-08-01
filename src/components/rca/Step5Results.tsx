@@ -590,7 +590,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                                 <>
                                     {canUserVerify ? (
                                         <Button onClick={() => setIsVerificationDialogOpen(true)} disabled={isBusy}>
-                                            Confirmar Verificación de Eficacia
+                                            Planificar Verificación de la Eficacia
                                         </Button>
                                     ) : (
                                         <p className="text-sm text-muted-foreground">Esperando verificación por parte del Líder de Proyecto ({projectLeader}) o un Administrador.</p>
