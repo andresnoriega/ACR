@@ -69,6 +69,7 @@ const EfficacyVerificationDialog: FC<{
   isProcessing: boolean;
 }> = ({ isOpen, onClose, onConfirm, isProcessing }) => {
   const [verificationDate, setVerificationDate] = useState('');
+  const [minDate, setMinDate] = useState('');
 
   const handleConfirm = () => {
     if (verificationDate) {
@@ -77,8 +78,12 @@ const EfficacyVerificationDialog: FC<{
   };
 
   useEffect(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowString = tomorrow.toISOString().split('T')[0];
+    setMinDate(tomorrowString);
     if (isOpen) {
-        setVerificationDate(new Date().toISOString().split('T')[0]); // Default to today
+        setVerificationDate(tomorrowString); 
     }
   }, [isOpen]);
 
@@ -93,13 +98,14 @@ const EfficacyVerificationDialog: FC<{
         </DialogHeader>
         <div className="py-4 space-y-4">
           <div>
-            <Label htmlFor="efficacy-date">Fecha de Verificación <span className="text-destructive">*</span></Label>
+            <Label htmlFor="efficacy-date">Fecha de Verificación (solo fechas futuras)<span className="text-destructive">*</span></Label>
             <Input 
               id="efficacy-date"
               type="date"
               value={verificationDate}
               onChange={(e) => setVerificationDate(e.target.value)}
               className="mt-1"
+              min={minDate}
             />
           </div>
         </div>
@@ -107,7 +113,7 @@ const EfficacyVerificationDialog: FC<{
           <Button variant="outline" onClick={onClose} disabled={isProcessing}>Cancelar</Button>
           <Button onClick={handleConfirm} disabled={!verificationDate || isProcessing}>
             {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Planificar Verificación
+            Planificar Verificación de Eficacia
           </Button>
         </DialogFooter>
       </DialogContent>
