@@ -495,9 +495,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
             <SectionContent>
               <p className="font-medium mt-2 mb-1">Objetivo de la Investigación:</p>
               <p className="pl-2 mb-2 whitespace-pre-line">{investigationObjective || "No se definió un objetivo explícito para la investigación."}</p>
-            
-              <p className="font-medium mb-1">Análisis Preliminar Realizado:</p>
-              <p className="pl-2 mb-2 whitespace-pre-line">{analysisDetails || "No se proporcionaron detalles del análisis preliminar."}</p>
 
               <p className="font-medium mb-1">Técnica de Análisis Principal Utilizada:</p>
               <p className="pl-2 mb-2 font-semibold">{analysisTechnique || "No seleccionada"}</p>
