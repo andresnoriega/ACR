@@ -64,21 +64,19 @@ const SectionContent: FC<{ children: React.ReactNode; className?: string }> = ({
 const EfficacyVerificationDialog: FC<{
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (comments: string, verificationDate: string) => void;
+  onConfirm: (verificationDate: string) => void;
   isProcessing: boolean;
 }> = ({ isOpen, onClose, onConfirm, isProcessing }) => {
-  const [comments, setComments] = useState('');
   const [verificationDate, setVerificationDate] = useState('');
 
   const handleConfirm = () => {
-    if (comments.trim() && verificationDate) {
-      onConfirm(comments, verificationDate);
+    if (verificationDate) {
+      onConfirm(verificationDate);
     }
   };
 
   useEffect(() => {
     if (isOpen) {
-        setComments('');
         setVerificationDate(new Date().toISOString().split('T')[0]); // Default to today
     }
   }, [isOpen]);
@@ -87,9 +85,9 @@ const EfficacyVerificationDialog: FC<{
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Confirmar Verificación de Eficacia</DialogTitle>
+          <DialogTitle>Planificar Verificación de Eficacia</DialogTitle>
           <DialogDescription>
-            Por favor, añada sus comentarios y la fecha de la verificación.
+            Por favor, seleccione la fecha en que se realizará la verificación de eficacia.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4">
@@ -103,23 +101,12 @@ const EfficacyVerificationDialog: FC<{
               className="mt-1"
             />
           </div>
-          <div>
-            <Label htmlFor="efficacy-comments">Comentarios de Verificación <span className="text-destructive">*</span></Label>
-            <Textarea
-              id="efficacy-comments"
-              value={comments}
-              onChange={(e) => setComments(e.target.value)}
-              placeholder="Ej: Se confirmó en terreno que la nueva guarda está instalada y el personal fue capacitado en el nuevo procedimiento. El objetivo se considera cumplido."
-              rows={4}
-              className="mt-1"
-            />
-          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isProcessing}>Cancelar</Button>
-          <Button onClick={handleConfirm} disabled={!comments.trim() || !verificationDate || isProcessing}>
+          <Button onClick={handleConfirm} disabled={!verificationDate || isProcessing}>
             {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Confirmar y Verificar
+            Planificar Verificación de Eficacia
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -367,9 +354,9 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     await onSaveAnalysis();
   };
 
-  const handleConfirmVerification = async (comments: string, verificationDate: string) => {
+  const handleConfirmVerification = async (verificationDate: string) => {
     setIsVerifying(true);
-    await onVerifyEfficacy(comments, verificationDate);
+    await onVerifyEfficacy(investigationObjective, verificationDate);
     setIsVerificationDialogOpen(false);
     setIsVerifying(false);
   };
