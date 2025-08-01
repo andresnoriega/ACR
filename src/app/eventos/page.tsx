@@ -16,7 +16,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { ReportedEvent, ReportedEventType, ReportedEventStatus, PriorityType, Site, RCAAnalysisDocument } from '@/types/rca';
-import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, PlayCircle, Info, Loader2, Eye, Fingerprint, FileDown, ArrowUp, ArrowDown, ChevronsUpDown, XCircle, ShieldAlert, HardHat } from 'lucide-react';
+import { ListOrdered, PieChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, PlayCircle, Info, Loader2, Eye, Fingerprint, FileDown, ArrowUp, ArrowDown, ChevronsUpDown, XCircle, ShieldAlert, HardHat, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, where, QueryConstraint } from "firebase/firestore";
@@ -27,7 +27,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Falla de Equipo', 'Accidente', 'No Conformidad', 'Evento Operacional'];
 const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
-const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'En validación', 'Finalizado', 'Rechazado'];
+const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'En validación', 'Finalizado', 'Rechazado', 'Verificado'];
 
 
 const ALL_FILTER_VALUE = "__ALL__"; 
@@ -147,6 +147,7 @@ export default function EventosReportadosPage() {
     enAnalisis: allEvents.filter(e => e.status === 'En análisis').length,
     enValidacion: allEvents.filter(e => e.status === 'En validación').length,
     finalizados: allEvents.filter(e => e.status === 'Finalizado').length,
+    verificados: allEvents.filter(e => e.status === 'Verificado').length,
     rechazados: allEvents.filter(e => e.status === 'Rechazado').length,
   }), [allEvents]);
 
@@ -226,7 +227,7 @@ export default function EventosReportadosPage() {
   
   const handleViewAnalysis = () => {
     if (selectedEvent) {
-        if (selectedEvent.status === 'Finalizado' || selectedEvent.status === 'En validación' || selectedEvent.status === 'Rechazado') {
+        if (selectedEvent.status === 'Finalizado' || selectedEvent.status === 'En validación' || selectedEvent.status === 'Rechazado' || selectedEvent.status === 'Verificado') {
             router.push(`/analisis?id=${selectedEvent.id}&step=5`); // Step 5 is results, good for rejected too for now.
         } else { 
             router.push(`/analisis?id=${selectedEvent.id}`);
@@ -338,17 +339,12 @@ export default function EventosReportadosPage() {
   }
 
   const renderStatusBadge = (status: ReportedEventStatus) => {
-    if (status === 'Pendiente') {
-      return <Badge variant="destructive">{status}</Badge>;
-    } else if (status === 'En análisis') {
-      return <Badge variant="outline" className={cn("border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:border-yellow-500/60 dark:bg-yellow-500/20 dark:text-yellow-400")}>{status}</Badge>;
-    } else if (status === 'En validación') {
-      return <Badge variant="outline" className={cn("border-blue-500/50 bg-blue-500/10 text-blue-700 dark:border-blue-500/60 dark:bg-blue-500/20 dark:text-blue-400")}>{status}</Badge>;
-    } else if (status === 'Finalizado') {
-      return <Badge variant="outline" className={cn("border-green-500/50 bg-green-500/10 text-green-700 dark:border-green-500/60 dark:bg-green-500/20 dark:text-green-400")}>{status}</Badge>;
-    } else if (status === 'Rechazado') {
-      return <Badge variant="outline" className={cn("border-slate-500/50 bg-slate-500/10 text-slate-700 dark:border-slate-500/60 dark:bg-slate-500/20 dark:text-slate-400")}>{status}</Badge>;
-    }
+    if (status === 'Pendiente') return <Badge variant="destructive">{status}</Badge>;
+    if (status === 'En análisis') return <Badge variant="outline" className={cn("border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:border-yellow-500/60 dark:bg-yellow-500/20 dark:text-yellow-400")}>{status}</Badge>;
+    if (status === 'En validación') return <Badge variant="outline" className={cn("border-blue-500/50 bg-blue-500/10 text-blue-700 dark:border-blue-500/60 dark:bg-blue-500/20 dark:text-blue-400")}>{status}</Badge>;
+    if (status === 'Finalizado') return <Badge variant="outline" className={cn("border-green-500/50 bg-green-500/10 text-green-700 dark:border-green-500/60 dark:bg-green-500/20 dark:text-green-400")}>{status}</Badge>;
+    if (status === 'Verificado') return <Badge variant="outline" className={cn("border-indigo-500/50 bg-indigo-500/10 text-indigo-700 dark:border-indigo-500/60 dark:bg-indigo-500/20 dark:text-indigo-400")}>{status}</Badge>;
+    if (status === 'Rechazado') return <Badge variant="outline" className={cn("border-slate-500/50 bg-slate-500/10 text-slate-700 dark:border-slate-500/60 dark:bg-slate-500/20 dark:text-slate-400")}>{status}</Badge>;
     return <Badge variant="outline">{status}</Badge>;
   };
 
@@ -373,7 +369,7 @@ export default function EventosReportadosPage() {
             <CardTitle className="text-2xl">Resumen Rápido</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 text-center">
+        <CardContent className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 text-center">
           <div className="p-4 bg-secondary/40 rounded-lg">
             <p className="text-3xl font-bold text-foreground">{summaryData.total}</p>
             <p className="text-sm text-muted-foreground">Total</p>
@@ -393,6 +389,10 @@ export default function EventosReportadosPage() {
           <div className="p-4 bg-green-400/20 rounded-lg"> 
             <p className="text-3xl font-bold text-green-600">{summaryData.finalizados}</p>
             <p className="text-sm text-muted-foreground">Finalizados</p>
+          </div>
+          <div className="p-4 bg-indigo-400/20 rounded-lg"> 
+            <p className="text-3xl font-bold text-indigo-600">{summaryData.verificados}</p>
+            <p className="text-sm text-muted-foreground">Verificados</p>
           </div>
           <div className="p-4 bg-slate-400/20 rounded-lg"> 
             <p className="text-3xl font-bold text-slate-600">{summaryData.rechazados}</p>
@@ -585,7 +585,7 @@ export default function EventosReportadosPage() {
             let buttonOnClick = () => {};
             let isDisabled = false;
             
-            if (selectedEvent.status === 'Finalizado' || selectedEvent.status === 'En validación') {
+            if (selectedEvent.status === 'Finalizado' || selectedEvent.status === 'En validación' || selectedEvent.status === 'Verificado') {
               buttonText = "Revisar Investigación";
               ButtonIcon = Eye;
               buttonVariant = "outline";
