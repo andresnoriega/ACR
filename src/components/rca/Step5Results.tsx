@@ -1,3 +1,4 @@
+
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useEffect } from 'react';
@@ -460,7 +461,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           <section>
             <SectionTitle title="Análisis" icon={Settings}/>
             <SectionContent>
-                {timelineEvents.length > 0 && (
+                {timelineEvents && timelineEvents.length > 0 && (
                   <div className='mb-4'>
                     <h4 className="font-semibold text-primary flex items-center mb-2"><CalendarClock className="mr-2 h-4 w-4" />Línea de Tiempo</h4>
                     <ul className="list-disc pl-5 space-y-1 text-xs border rounded-md p-3 bg-secondary/20">
@@ -472,7 +473,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                     </ul>
                   </div>
                 )}
-                {brainstormingIdeas.length > 0 && (
+                {brainstormingIdeas && brainstormingIdeas.length > 0 && (
                   <div className='mb-4'>
                     <h4 className="font-semibold text-primary flex items-center mb-2"><Lightbulb className="mr-2 h-4 w-4" />Lluvia de Ideas</h4>
                     <ul className="list-disc pl-5 space-y-1 text-xs border rounded-md p-3 bg-secondary/20">
@@ -653,7 +654,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                   </ul>
                 </>
               )}
-              {preservedFacts.length === 0 && (
+              {(!preservedFacts || preservedFacts.length === 0) && (
                 <p className="text-sm text-muted-foreground">No hay anexos (hechos preservados) adjuntos a este análisis.</p>
               )}
           </section>

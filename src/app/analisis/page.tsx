@@ -1671,7 +1671,10 @@ function RCAAnalysisPageComponent() {
           analysisTechnique={analysisTechnique}
           analysisTechniqueNotes={analysisTechniqueNotes}
           ishikawaData={ishikawaData}
+          fiveWhysData={fiveWhysData}
           ctmData={ctmData}
+          timelineEvents={timelineEvents}
+          brainstormingIdeas={brainstormingIdeas}
           identifiedRootCauses={identifiedRootCauses}
           plannedActions={plannedActions}
           preservedFacts={preservedFacts}
