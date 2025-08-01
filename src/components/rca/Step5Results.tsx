@@ -160,6 +160,14 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isVerificationPlanningDialogOpen, setIsVerificationPlanningDialogOpen] = useState(false);
+  const [verificationComments, setVerificationComments] = useState('');
+
+  useEffect(() => {
+    if (efficacyVerification?.status === 'pending' && investigationObjective) {
+      setVerificationComments(investigationObjective);
+    }
+  }, [efficacyVerification, investigationObjective]);
+
 
   const uniquePlannedActions = useMemo(() => {
     if (!Array.isArray(plannedActions)) {
@@ -572,8 +580,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                     <SectionTitle title="Verificación de la Eficacia del Análisis" icon={ShieldCheck} />
                     <Card className="bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700">
                         <CardContent className="pt-4">
-                            <p className="text-sm font-semibold mb-1">Objetivo de la Investigación a Verificar:</p>
-                            <p className="text-sm text-muted-foreground italic mb-3">"{investigationObjective || 'No se definió un objetivo explícito para la investigación.'}"</p>
                             
                             {efficacyVerification.status === 'verified' ? (
                                 <div>
@@ -586,7 +592,17 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                                     {canUserVerify && efficacyVerification.status === 'pending' && efficacyVerification.verificationDate ? (
                                         <div className="space-y-2">
                                             <p className="text-sm text-blue-600">Verificación planificada para: <strong>{format(parseISO(efficacyVerification.verificationDate), "dd 'de' MMMM, yyyy")}</strong></p>
-                                            <Button onClick={() => onVerifyEfficacy(investigationObjective, efficacyVerification.verificationDate)} disabled={isBusy}>
+                                            <div className="space-y-2 pt-2">
+                                              <Label htmlFor="verification-comments">Comentarios de Verificación</Label>
+                                              <Textarea 
+                                                id="verification-comments"
+                                                value={verificationComments}
+                                                onChange={(e) => setVerificationComments(e.target.value)}
+                                                placeholder="Confirme si las acciones fueron efectivas y si el problema se resolvió."
+                                                rows={4}
+                                              />
+                                            </div>
+                                            <Button onClick={() => onVerifyEfficacy(verificationComments, efficacyVerification.verificationDate)} disabled={isBusy || !verificationComments.trim()}>
                                                 <CheckSquare className="mr-2 h-4 w-4" /> Confirmar Verificación de Eficacia
                                             </Button>
                                         </div>
