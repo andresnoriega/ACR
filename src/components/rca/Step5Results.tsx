@@ -1,7 +1,7 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useEffect } from 'react';
-import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile, PreservedFact, Site, InvestigationSession, EfficacyVerification } from '@/types/rca'; // Added PreservedFact, InvestigationSession
+import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile, PreservedFact, Site, InvestigationSession, EfficacyVerification, FiveWhysData, BrainstormIdea, TimelineEvent } from '@/types/rca'; // Added BrainstormIdea, TimelineEvent, FiveWhysData
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Sparkles, HardHat, ShieldCheck, CheckSquare } from 'lucide-react'; // Added HardHat
+import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Sparkles, HardHat, ShieldCheck, CheckSquare, CalendarClock, Lightbulb, Fish, HelpCircle as HelpIcon5Whys, Share2 as CtmIcon, Network, Wrench, Box, Ruler, Leaf } from 'lucide-react'; // Added more icons
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
@@ -18,19 +18,23 @@ import { sendEmailAction } from '@/app/actions';
 import { generateRcaInsights, type GenerateRcaInsightsInput } from '@/ai/flows/generate-rca-insights';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, parseISO } from 'date-fns';
+import { es } from 'date-fns/locale'; // For spanish date formatting
 
 interface Step5ResultsProps {
   eventId: string;
   eventData: RCAEventData;
   availableSites: Site[];
   projectLeader: string;
-  investigationSessions: InvestigationSession[]; // <-- Added Prop
+  investigationSessions: InvestigationSession[]; 
   detailedFacts: DetailedFacts;
   analysisDetails: string;
   analysisTechnique: AnalysisTechnique;
   analysisTechniqueNotes: string;
   ishikawaData: IshikawaData;
+  fiveWhysData: FiveWhysData; // Added fiveWhysData
   ctmData: CTMData;
+  timelineEvents: TimelineEvent[]; // Added timelineEvents
+  brainstormingIdeas: BrainstormIdea[]; // Added brainstormingIdeas
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
   preservedFacts: PreservedFact[];
@@ -42,10 +46,10 @@ interface Step5ResultsProps {
   onMarkAsFinalized: () => Promise<void>;
   onSaveAnalysis: (showToast?: boolean) => Promise<void>;
   isSaving: boolean;
-  investigationObjective: string; // <-- Added Prop
-  efficacyVerification: EfficacyVerification; // <-- Added Prop
+  investigationObjective: string; 
+  efficacyVerification: EfficacyVerification; 
   onVerifyEfficacy: (comments: string, verificationDate: string) => Promise<void>;
-  onPlanEfficacyVerification: (verificationDate: string) => Promise<void>; // New prop
+  onPlanEfficacyVerification: (verificationDate: string) => Promise<void>;
 }
 
 const SectionTitle: FC<{ icon?: React.ElementType; title: string; className?: string }> = ({ icon: Icon, title, className }) => (
@@ -127,16 +131,19 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   eventData,
   availableSites,
   projectLeader,
-  investigationSessions, // <-- Destructure prop
+  investigationSessions, 
   detailedFacts,
   analysisDetails,
   analysisTechnique,
   analysisTechniqueNotes,
   ishikawaData,
+  fiveWhysData,
   ctmData,
+  timelineEvents,
+  brainstormingIdeas,
   identifiedRootCauses,
   plannedActions,
-  preservedFacts, // Destructure preservedFacts
+  preservedFacts, 
   finalComments,
   onFinalCommentsChange,
   onPrintReport,
@@ -190,39 +197,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
 
   const formatDetailedFacts = () => {
     return `Un evento, identificado como "${detailedFacts.que || 'QUÉ (no especificado)'}", tuvo lugar en "${detailedFacts.donde || 'DÓNDE (no especificado)'}" el "${detailedFacts.cuando || 'CUÁNDO (no especificado)'}". La desviación ocurrió de la siguiente manera: "${detailedFacts.como || 'CÓMO (no especificado)'}". El impacto o tendencia fue: "${detailedFacts.cualCuanto || 'CUÁL/CUÁNTO (no especificado)'}". Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no especificado)'}".`;
-  };
-
-  const formatIshikawaForReport = () => {
-    let content = "";
-    ishikawaData.forEach(category => {
-      content += `\nCategoría ${category.name}:\n`;
-      if (category.causes.length > 0) {
-        category.causes.forEach((cause, index) => {
-          if (cause.description.trim()) content += `  - Causa ${index + 1}: ${cause.description.trim()}\n`;
-        });
-      } else {
-        content += "  (Sin causas identificadas para esta categoría)\n";
-      }
-    });
-    return content;
-  };
-
-  const formatCTMForReport = () => {
-    const formatLevel = (items: any[], prefix = "", levelName: string): string => {
-      let content = "";
-      items.forEach((item, idx) => {
-        if (item.description.trim()) {
-          content += `${prefix}- ${levelName} ${idx + 1}: ${item.description.trim()}\n`;
-          if (item.hypotheses?.length) content += formatLevel(item.hypotheses, prefix + "  ", "Hipótesis");
-          else if (item.physicalCauses?.length) content += formatLevel(item.physicalCauses, prefix + "  ", "Causa Física");
-          else if (item.humanCauses?.length) content += formatLevel(item.humanCauses, prefix + "  ", "Causa Humana");
-          else if (item.latentCauses?.length) content += formatLevel(item.latentCauses, prefix + "  ", "Causa Latente");
-        }
-      });
-      return content;
-    };
-    const ctmTree = formatLevel(ctmData, "", "Modo de Falla");
-    return ctmTree.trim() ? ctmTree : "(No se definieron elementos para el Árbol de Causas)";
   };
 
   const handleGenerateInsights = async () => {
@@ -386,6 +360,10 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   
   const isBusy = isSaving || isSendingEmails || isFinalizing || isGeneratingInsights || isVerifying;
 
+  const isIshikawaPopulated = ishikawaData?.some(cat => cat.causes.length > 0);
+  const is5WhysPopulated = fiveWhysData?.length > 0;
+  const isCtmPopulated = ctmData?.some(fm => fm.hypotheses.length > 0);
+
   return (
     <>
       <Card id="printable-report-area">
@@ -456,7 +434,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                   <div className="pl-2 mb-2 space-y-2">
                     {investigationSessions.map((session, index) => (
                       <div key={session.id} className="text-xs border rounded-md p-2 bg-secondary/30">
-                        <p className="font-semibold text-primary">Sesión #{index + 1} - Fecha: {format(parseISO(session.sessionDate), 'dd/MM/yyyy')}</p>
+                        <p className="font-semibold text-primary">Sesión #{index + 1} - Fecha: {format(parseISO(session.sessionDate), 'dd/MM/yyyy', { locale: es })}</p>
                         <ul className="list-disc pl-5 mt-1">
                           {session.members.map(member => (
                             <li key={member.id}>
@@ -471,24 +449,10 @@ export const Step5Results: FC<Step5ResultsProps> = ({
               )}
 
               <p className="font-medium mt-2 mb-1">Descripción Detallada del Fenómeno:</p>
-              <p className="pl-2 whitespace-pre-line">{analysisDetails || formatDetailedFacts()}</p>
+              <p className="pl-2 whitespace-pre-line">{analysisDetails}</p>
               
               <p className="font-medium mt-2 mb-1">Objetivo de la Investigación:</p>
               <p className="pl-2 mb-2 whitespace-pre-line">{investigationObjective || "No se definió un objetivo explícito para la investigación."}</p>
-
-              {preservedFacts && preservedFacts.length > 0 && (
-                <>
-                  <p className="font-medium mt-2 mb-1">Hechos Preservados / Documentación Adjunta:</p>
-                  <ul className="list-disc pl-6 space-y-1 text-xs">
-                    {preservedFacts.map(fact => (
-                      <li key={fact.id}>
-                        <strong>{fact.userGivenName || fact.fileName || 'Documento sin nombre especificado'}</strong> (Categoría: {fact.category || 'N/A'})
-                        {fact.description && <p className="pl-2 text-muted-foreground italic">"{fact.description}"</p>}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
             </SectionContent>
           </section>
           <Separator className="my-4" />
@@ -496,27 +460,84 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           <section>
             <SectionTitle title="Análisis" icon={Settings}/>
             <SectionContent>
-              <p className="font-medium mb-1">Técnica de Análisis Principal Utilizada:</p>
-              <p className="pl-2 mb-2 font-semibold">{analysisTechnique || "No seleccionada"}</p>
-
-              {analysisTechnique === 'Ishikawa' && (
-                <>
-                  <p className="font-medium mt-2 mb-1">Detalles del Diagrama de Ishikawa:</p>
-                  <pre className="pl-2 whitespace-pre-wrap text-xs bg-secondary/30 p-2 rounded-md">{formatIshikawaForReport()}</pre>
-                </>
-              )}
-              {analysisTechnique === 'CTM' && (
-                <>
-                  <p className="font-medium mt-2 mb-1">Detalles del Árbol de Causas (CTM):</p>
-                  <pre className="pl-2 whitespace-pre-wrap text-xs bg-secondary/30 p-2 rounded-md">{formatCTMForReport()}</pre>
-                </>
-              )}
-              {analysisTechniqueNotes.trim() && (
-                   <>
-                  <p className="font-medium mt-2 mb-1">Notas Adicionales del Análisis ({analysisTechnique || 'General'}):</p>
-                  <p className="pl-2 whitespace-pre-line">{analysisTechniqueNotes}</p>
-                </>
-              )}
+                {timelineEvents.length > 0 && (
+                  <div className='mb-4'>
+                    <h4 className="font-semibold text-primary flex items-center mb-2"><CalendarClock className="mr-2 h-4 w-4" />Línea de Tiempo</h4>
+                    <ul className="list-disc pl-5 space-y-1 text-xs border rounded-md p-3 bg-secondary/20">
+                      {timelineEvents.map(event => (
+                        <li key={event.id}>
+                           <strong>{format(parseISO(event.datetime), 'dd/MM/yyyy HH:mm', { locale: es })}:</strong> {event.description}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {brainstormingIdeas.length > 0 && (
+                  <div className='mb-4'>
+                    <h4 className="font-semibold text-primary flex items-center mb-2"><Lightbulb className="mr-2 h-4 w-4" />Lluvia de Ideas</h4>
+                    <ul className="list-disc pl-5 space-y-1 text-xs border rounded-md p-3 bg-secondary/20">
+                      {brainstormingIdeas.map(idea => (
+                        <li key={idea.id}>
+                          <strong>[{idea.type || 'Sin tipo'}]:</strong> {idea.description}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              
+                <h4 className="font-semibold text-primary flex items-center mb-2"><Network className="mr-2 h-4 w-4" />Técnica de Análisis Principal</h4>
+                <p className="pl-2 mb-2 font-semibold text-base">{analysisTechnique || "No seleccionada"}</p>
+                
+                {analysisTechnique === 'Ishikawa' && isIshikawaPopulated && (
+                    <div className='text-xs space-y-2'>
+                        {ishikawaData.map(category => (
+                            <div key={category.id}>
+                                <h5 className='font-semibold flex items-center'><Wrench className="mr-1.5 h-3.5 w-3.5" />{category.name}</h5>
+                                <ul className='list-disc pl-5'>
+                                    {category.causes.filter(c => c.description.trim()).map(cause => (
+                                        <li key={cause.id} className={cn(cause.status === 'accepted' ? 'text-green-700 font-medium' : cause.status === 'rejected' ? 'text-red-700 line-through' : '')}>
+                                            {cause.description} {cause.validationMethod && <span className='text-muted-foreground italic text-xs'>- Justificación: {cause.validationMethod}</span>}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {analysisTechnique === '5 Por qué' && is5WhysPopulated && (
+                    <div className='text-xs space-y-3'>
+                        {fiveWhysData.map((entry, idx) => (
+                            <div key={entry.id}>
+                                <h5 className='font-semibold'><HelpIcon5Whys className="mr-1.5 h-3.5 w-3.5 inline-block"/>Por qué #{idx + 1}: {entry.why}</h5>
+                                {entry.becauses.filter(b => b.description.trim()).map((because, bIdx) => (
+                                    <p key={because.id} className={cn('pl-4', because.status === 'accepted' ? 'text-green-700 font-medium' : because.status === 'rejected' ? 'text-red-700 line-through' : '')}>
+                                        <strong className="mr-1">Porque {idx+1}.{bIdx+1}:</strong>{because.description} {because.validationMethod && <span className='text-muted-foreground italic text-xs'>- Justificación: {because.validationMethod}</span>}
+                                    </p>
+                                ))}
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {analysisTechnique === 'CTM' && isCtmPopulated && (
+                    <div className='text-xs space-y-3'>
+                        {ctmData.map((fm, fmIdx) => (
+                            <div key={fm.id}>
+                                <h5 className='font-semibold'><CtmIcon className="mr-1.5 h-3.5 w-3.5 inline-block"/>Modo de Falla #{fmIdx+1}: {fm.description}</h5>
+                                {fm.hypotheses.filter(h => h.description.trim()).map((hyp, hIdx) => (
+                                    <div key={hyp.id} className={cn('pl-4', hyp.status === 'rejected' && 'opacity-50')}>
+                                        <p className='font-medium'>- Hipótesis #{hIdx+1}: {hyp.description}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {analysisTechniqueNotes.trim() && (
+                    <div className="mt-4">
+                        <h4 className="font-semibold text-primary mb-1">Notas Adicionales del Análisis</h4>
+                        <p className="whitespace-pre-wrap text-xs bg-secondary/30 p-2 rounded-md">{analysisTechniqueNotes}</p>
+                    </div>
+                )}
             </SectionContent>
           </section>
           <Separator className="my-4" />
@@ -570,53 +591,73 @@ export const Step5Results: FC<Step5ResultsProps> = ({
             </SectionContent>
           </section>
           
-          {isFinalized && (
-            <>
-                <Separator className="my-4" />
-                <section>
-                    <SectionTitle title="Verificación de la Eficacia del Análisis" icon={ShieldCheck} />
-                    <Card className="bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700">
-                        <CardContent className="pt-4">
-                            
-                            {efficacyVerification.status === 'verified' ? (
-                                <div>
-                                    <p className="text-sm font-semibold text-green-600">Eficacia Verificada por: {efficacyVerification.verifiedBy} el {efficacyVerification.verifiedAt ? format(parseISO(efficacyVerification.verifiedAt), "dd 'de' MMMM, yyyy") : "Fecha no registrada"}</p>
-                                    <p className="text-sm mt-1">Comentarios de Verificación:</p>
-                                    <p className="text-sm p-2 bg-background rounded-md whitespace-pre-wrap">{efficacyVerification.comments}</p>
+          <Separator className="my-4" />
+          
+          <section>
+            <SectionTitle title="Verificación de la Eficacia del Análisis" icon={ShieldCheck} />
+            <Card className="bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700">
+                <CardContent className="pt-4">
+                    
+                    {efficacyVerification.status === 'verified' ? (
+                        <div>
+                            <p className="text-sm font-semibold text-green-600">Eficacia Verificada por: {efficacyVerification.verifiedBy} el {efficacyVerification.verifiedAt ? format(parseISO(efficacyVerification.verifiedAt), "dd 'de' MMMM, yyyy", {locale: es}) : "Fecha no registrada"}</p>
+                            <p className="text-sm mt-1">Comentarios de Verificación:</p>
+                            <p className="text-sm p-2 bg-background rounded-md whitespace-pre-wrap">{efficacyVerification.comments}</p>
+                        </div>
+                    ) : (
+                        <>
+                            {canUserVerify && efficacyVerification.status === 'pending' && efficacyVerification.verificationDate ? (
+                                <div className="space-y-2">
+                                    <p className="text-sm text-blue-600">Verificación planificada para: <strong>{format(parseISO(efficacyVerification.verificationDate), "dd 'de' MMMM, yyyy", {locale: es})}</strong></p>
+                                    <div className="space-y-2 pt-2">
+                                      <Label htmlFor="verification-comments">Comentarios de Verificación</Label>
+                                      <Textarea 
+                                        id="verification-comments"
+                                        value={verificationComments}
+                                        onChange={(e) => setVerificationComments(e.target.value)}
+                                        placeholder="Confirme si las acciones fueron efectivas y si el problema se resolvió."
+                                        rows={4}
+                                      />
+                                    </div>
+                                    <Button onClick={() => onVerifyEfficacy(verificationComments, efficacyVerification.verificationDate)} disabled={isBusy || !verificationComments.trim()}>
+                                        <CheckSquare className="mr-2 h-4 w-4" /> Confirmar Verificación de Eficacia
+                                    </Button>
                                 </div>
+                            ) : canUserVerify && efficacyVerification.status === 'pending' ? (
+                                <Button onClick={() => setIsVerificationPlanningDialogOpen(true)} disabled={isBusy}>
+                                    Planificar Verificación de la Eficacia
+                                </Button>
                             ) : (
-                                <>
-                                    {canUserVerify && efficacyVerification.status === 'pending' && efficacyVerification.verificationDate ? (
-                                        <div className="space-y-2">
-                                            <p className="text-sm text-blue-600">Verificación planificada para: <strong>{format(parseISO(efficacyVerification.verificationDate), "dd 'de' MMMM, yyyy")}</strong></p>
-                                            <div className="space-y-2 pt-2">
-                                              <Label htmlFor="verification-comments">Comentarios de Verificación</Label>
-                                              <Textarea 
-                                                id="verification-comments"
-                                                value={verificationComments}
-                                                onChange={(e) => setVerificationComments(e.target.value)}
-                                                placeholder="Confirme si las acciones fueron efectivas y si el problema se resolvió."
-                                                rows={4}
-                                              />
-                                            </div>
-                                            <Button onClick={() => onVerifyEfficacy(verificationComments, efficacyVerification.verificationDate)} disabled={isBusy || !verificationComments.trim()}>
-                                                <CheckSquare className="mr-2 h-4 w-4" /> Confirmar Verificación de Eficacia
-                                            </Button>
-                                        </div>
-                                    ) : canUserVerify && efficacyVerification.status === 'pending' ? (
-                                        <Button onClick={() => setIsVerificationPlanningDialogOpen(true)} disabled={isBusy}>
-                                            Planificar Verificación de la Eficacia
-                                        </Button>
-                                    ) : (
-                                        <p className="text-sm text-muted-foreground">Esperando planificación y verificación por parte del Líder de Proyecto ({projectLeader}) o un Administrador.</p>
-                                    )}
-                                </>
+                                <p className="text-sm text-muted-foreground">Esperando planificación y verificación por parte del Líder de Proyecto ({projectLeader}) o un Administrador.</p>
                             )}
-                        </CardContent>
-                    </Card>
-                </section>
-            </>
-          )}
+                        </>
+                    )}
+                </CardContent>
+            </Card>
+          </section>
+
+          <Separator className="my-4" />
+
+          <section>
+             <SectionTitle title="Anexos" icon={FileText}/>
+             {preservedFacts && preservedFacts.length > 0 && (
+                <>
+                  <p className="font-medium mt-2 mb-1">Hechos Preservados / Documentación Adjunta:</p>
+                  <ul className="list-disc pl-6 space-y-1 text-xs">
+                    {preservedFacts.map(fact => (
+                      <li key={fact.id}>
+                        <strong>{fact.userGivenName || fact.fileName || 'Documento sin nombre especificado'}</strong> (Categoría: {fact.category || 'N/A'})
+                        {fact.description && <p className="pl-2 text-muted-foreground italic">"{fact.description}"</p>}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {preservedFacts.length === 0 && (
+                <p className="text-sm text-muted-foreground">No hay anexos (hechos preservados) adjuntos a este análisis.</p>
+              )}
+          </section>
+
 
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row justify-center items-center gap-3 mt-6 pt-4 border-t no-print">
