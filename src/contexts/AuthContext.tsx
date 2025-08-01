@@ -108,20 +108,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
             if (!isFirstEverUser) {
               try {
-                const superUsersQuery = query(usersCollectionRef, where("role", "in", ["Super User", "Admin"]));
-                const adminsSnapshot = await getDocs(superUsersQuery);
-                const adminEmails = adminsSnapshot.docs
-                  .map(docSnap => docSnap.data() as FullUserProfile)
-                  .filter(profile => profile.email && (profile.emailNotifications === undefined || profile.emailNotifications))
-                  .map(profile => profile.email!);
-                
-                if (adminEmails.length > 0) {
                   const emailSubject = `Nuevo Usuario Pendiente de Aprobación: ${newUserProfileData.name}`;
                   const emailBody = `Hola,\n\nUn nuevo usuario se ha registrado y está pendiente de aprobación:\n\nNombre: ${newUserProfileData.name}\nCorreo: ${newUserProfileData.email}\n\nPor favor, revise la lista de usuarios en la sección de Configuración para aprobar esta cuenta.\n\nSaludos,\nSistema Asistente ACR`;
-                  for (const adminEmail of adminEmails) {
-                    await sendEmailAction({ to: adminEmail, subject: emailSubject, body: emailBody });
-                  }
-                }
+                  
+                  await sendEmailAction({ 
+                    to: 'contacto@damc.cl', 
+                    subject: emailSubject, 
+                    body: emailBody 
+                  });
+
               } catch (notifyError) {
                 console.error("[AuthContext] Failed to notify admins about new auto-created pending user:", notifyError);
               }
