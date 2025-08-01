@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Sparkles, HardHat, ShieldCheck } from 'lucide-react'; // Added HardHat
+import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Sparkles, HardHat, ShieldCheck, CheckSquare } from 'lucide-react'; // Added HardHat
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
@@ -45,6 +45,7 @@ interface Step5ResultsProps {
   investigationObjective: string; // <-- Added Prop
   efficacyVerification: EfficacyVerification; // <-- Added Prop
   onVerifyEfficacy: (comments: string, verificationDate: string) => Promise<void>;
+  onPlanEfficacyVerification: (verificationDate: string) => Promise<void>; // New prop
 }
 
 const SectionTitle: FC<{ icon?: React.ElementType; title: string; className?: string }> = ({ icon: Icon, title, className }) => (
@@ -87,7 +88,7 @@ const EfficacyVerificationDialog: FC<{
         <DialogHeader>
           <DialogTitle>Planificar Verificación de Eficacia</DialogTitle>
           <DialogDescription>
-            Por favor, seleccione la fecha en que se realizará la verificación de eficacia.
+            Por favor, seleccione la fecha en que se realizará la verificación de eficacia. Esta acción creará una tarea para el Líder de Proyecto.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4">
@@ -106,7 +107,7 @@ const EfficacyVerificationDialog: FC<{
           <Button variant="outline" onClick={onClose} disabled={isProcessing}>Cancelar</Button>
           <Button onClick={handleConfirm} disabled={!verificationDate || isProcessing}>
             {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Planificar Verificación de Eficacia
+            Planificar Verificación
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -141,6 +142,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   investigationObjective,
   efficacyVerification,
   onVerifyEfficacy,
+  onPlanEfficacyVerification,
 }) => {
   const { toast } = useToast();
   const { userProfile } = useAuth();
@@ -151,7 +153,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [isVerificationDialogOpen, setIsVerificationDialogOpen] = useState(false);
+  const [isVerificationPlanningDialogOpen, setIsVerificationPlanningDialogOpen] = useState(false);
 
   const uniquePlannedActions = useMemo(() => {
     if (!Array.isArray(plannedActions)) {
@@ -354,10 +356,10 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     await onSaveAnalysis();
   };
 
-  const handleConfirmVerification = async (verificationDate: string) => {
+  const handlePlanVerification = async (verificationDate: string) => {
     setIsVerifying(true);
-    await onVerifyEfficacy(investigationObjective, verificationDate);
-    setIsVerificationDialogOpen(false);
+    await onPlanEfficacyVerification(verificationDate);
+    setIsVerificationPlanningDialogOpen(false);
     setIsVerifying(false);
   };
 
@@ -575,12 +577,19 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                                 </div>
                             ) : (
                                 <>
-                                    {canUserVerify ? (
-                                        <Button onClick={() => setIsVerificationDialogOpen(true)} disabled={isBusy}>
+                                    {canUserVerify && efficacyVerification.status === 'pending' && efficacyVerification.verificationDate ? (
+                                        <div className="space-y-2">
+                                            <p className="text-sm text-blue-600">Verificación planificada para: <strong>{format(parseISO(efficacyVerification.verificationDate), "dd 'de' MMMM, yyyy")}</strong></p>
+                                            <Button onClick={() => onVerifyEfficacy(investigationObjective, efficacyVerification.verificationDate)} disabled={isBusy}>
+                                                <CheckSquare className="mr-2 h-4 w-4" /> Confirmar Verificación de Eficacia
+                                            </Button>
+                                        </div>
+                                    ) : canUserVerify && efficacyVerification.status === 'pending' ? (
+                                        <Button onClick={() => setIsVerificationPlanningDialogOpen(true)} disabled={isBusy}>
                                             Planificar Verificación de la Eficacia
                                         </Button>
                                     ) : (
-                                        <p className="text-sm text-muted-foreground">Esperando verificación por parte del Líder de Proyecto ({projectLeader}) o un Administrador.</p>
+                                        <p className="text-sm text-muted-foreground">Esperando planificación y verificación por parte del Líder de Proyecto ({projectLeader}) o un Administrador.</p>
                                     )}
                                 </>
                             )}
@@ -674,9 +683,9 @@ export const Step5Results: FC<Step5ResultsProps> = ({
       </Dialog>
       
       <EfficacyVerificationDialog
-        isOpen={isVerificationDialogOpen}
-        onClose={() => setIsVerificationDialogOpen(false)}
-        onConfirm={handleConfirmVerification}
+        isOpen={isVerificationPlanningDialogOpen}
+        onClose={() => setIsVerificationPlanningDialogOpen(false)}
+        onConfirm={handlePlanVerification}
         isProcessing={isVerifying}
       />
     </>

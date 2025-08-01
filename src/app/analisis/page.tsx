@@ -1479,6 +1479,28 @@ function RCAAnalysisPageComponent() {
     }
     setIsSaving(false);
   };
+  
+  const handlePlanEfficacyVerification = async (verificationDate: string) => {
+    const efficacyUpdate: EfficacyVerification = {
+      ...efficacyVerification,
+      verificationDate: verificationDate,
+      // No cambiar el status a 'verified' aquí, solo planificar.
+    };
+    
+    setIsSaving(true);
+    const saveResult = await handleSaveAnalysisData(
+        false, 
+        { efficacyVerificationOverride: efficacyUpdate }
+    );
+    if (saveResult.success) {
+      toast({ title: "Verificación Planificada", description: "Se ha establecido la fecha para la verificación de eficacia. La tarea ahora aparecerá en el panel del Líder de Proyecto." });
+      // La actualización del estado local ya la hace `handleSaveAnalysisData`
+    } else {
+      toast({ title: "Error al Planificar", description: "No se pudo guardar la fecha de planificación.", variant: "destructive" });
+    }
+    setIsSaving(false);
+  };
+
 
   useEffect(() => {
     if (step > maxCompletedStep) {
@@ -1656,6 +1678,7 @@ function RCAAnalysisPageComponent() {
           investigationObjective={investigationObjective}
           efficacyVerification={efficacyVerification}
           onVerifyEfficacy={handleVerifyEfficacy}
+          onPlanEfficacyVerification={handlePlanEfficacyVerification}
         />
       )}
       <AlertDialog open={isRejectConfirmOpen} onOpenChange={(open) => {

@@ -247,13 +247,14 @@ export default function UserActionPlansPage() {
       if (
         rcaDoc.projectLeader === userProfile.name && 
         rcaDoc.isFinalized && 
-        (!rcaDoc.efficacyVerification || rcaDoc.efficacyVerification.status === 'pending')
+        rcaDoc.efficacyVerification?.status === 'pending' &&
+        rcaDoc.efficacyVerification?.verificationDate // Ensure it's planned
       ) {
          efficacyTasks.push({
             rcaId: rcaDoc.eventData.id,
             rcaTitle: rcaDoc.eventData.focusEventDescription || 'Sin título de ACR',
             objective: rcaDoc.investigationObjective || 'Sin objetivo definido',
-            finalizedDate: rcaDoc.updatedAt,
+            finalizedDate: rcaDoc.efficacyVerification.verificationDate,
          });
       }
     });
@@ -802,7 +803,7 @@ export default function UserActionPlansPage() {
               <Card className="shadow-md mt-4">
                 <CardHeader>
                   <CardTitle className="text-lg font-semibold text-primary flex items-center"><ShieldCheck className="mr-2"/> Verificación de Eficacia Pendiente</CardTitle>
-                  <CardDescription>Análisis finalizados que requieren su verificación final para confirmar que el objetivo se cumplió.</CardDescription>
+                  <CardDescription>Análisis finalizados cuya eficacia debe ser verificada en la fecha planificada.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {isLoadingActions ? (
@@ -814,7 +815,7 @@ export default function UserActionPlansPage() {
                           <TableRow>
                             <TableHead className="w-[30%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEfficacy('rcaTitle')}><div className="flex items-center gap-1">Análisis / Evento {renderSortIconEfficacy('rcaTitle')}</div></TableHead>
                             <TableHead className="w-[45%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEfficacy('objective')}><div className="flex items-center gap-1">Objetivo de la Investigación {renderSortIconEfficacy('objective')}</div></TableHead>
-                            <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEfficacy('finalizedDate')}><div className="flex items-center gap-1">Fecha Finalizado {renderSortIconEfficacy('finalizedDate')}</div></TableHead>
+                            <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEfficacy('finalizedDate')}><div className="flex items-center gap-1">Fecha Planificada {renderSortIconEfficacy('finalizedDate')}</div></TableHead>
                             <TableHead className="w-[10%] text-right">Acción</TableHead>
                           </TableRow>
                         </TableHeader>
