@@ -249,6 +249,7 @@ export interface EfficacyVerification {
   verifiedBy: string;
   verifiedAt: string; // ISO String
   comments: string;
+  verificationDate: string; // YYYY-MM-DD
 }
 
 export interface RCAAnalysisDocument {
@@ -295,6 +296,13 @@ export interface ReportedEvent {
     createdAt?: string; // ISO string
     updatedAt: string; // ISO string
     empresa?: string;
+}
+
+export interface EfficacyVerificationTask {
+    rcaId: string;
+    rcaTitle: string;
+    objective: string;
+    finalizedDate: string; // ISO string
 }
 
 export type ReportedEventType = 'Incidente' | 'Falla de Equipo' | 'Accidente' | 'No Conformidad' | 'Evento Operacional' | '';

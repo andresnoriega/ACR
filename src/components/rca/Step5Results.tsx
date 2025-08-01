@@ -44,7 +44,7 @@ interface Step5ResultsProps {
   isSaving: boolean;
   investigationObjective: string; // <-- Added Prop
   efficacyVerification: EfficacyVerification; // <-- Added Prop
-  onVerifyEfficacy: (comments: string) => Promise<void>; // <-- Added Prop
+  onVerifyEfficacy: (comments: string, verificationDate: string) => Promise<void>;
 }
 
 const SectionTitle: FC<{ icon?: React.ElementType; title: string; className?: string }> = ({ icon: Icon, title, className }) => (
@@ -64,19 +64,23 @@ const SectionContent: FC<{ children: React.ReactNode; className?: string }> = ({
 const EfficacyVerificationDialog: FC<{
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (comments: string) => void;
+  onConfirm: (comments: string, verificationDate: string) => void;
   isProcessing: boolean;
 }> = ({ isOpen, onClose, onConfirm, isProcessing }) => {
   const [comments, setComments] = useState('');
+  const [verificationDate, setVerificationDate] = useState('');
 
   const handleConfirm = () => {
-    if (comments.trim()) {
-      onConfirm(comments);
+    if (comments.trim() && verificationDate) {
+      onConfirm(comments, verificationDate);
     }
   };
 
   useEffect(() => {
-    if (isOpen) setComments('');
+    if (isOpen) {
+        setComments('');
+        setVerificationDate(new Date().toISOString().split('T')[0]); // Default to today
+    }
   }, [isOpen]);
 
   return (
@@ -85,23 +89,35 @@ const EfficacyVerificationDialog: FC<{
         <DialogHeader>
           <DialogTitle>Confirmar Verificación de Eficacia</DialogTitle>
           <DialogDescription>
-            Por favor, añada sus comentarios finales sobre la eficacia de las acciones implementadas antes de marcar el análisis como verificado.
+            Por favor, añada sus comentarios y la fecha de la verificación.
           </DialogDescription>
         </DialogHeader>
-        <div className="py-4">
-          <Label htmlFor="efficacy-comments">Comentarios de Verificación <span className="text-destructive">*</span></Label>
-          <Textarea
-            id="efficacy-comments"
-            value={comments}
-            onChange={(e) => setComments(e.target.value)}
-            placeholder="Ej: Se confirmó en terreno que la nueva guarda está instalada y el personal fue capacitado en el nuevo procedimiento. El objetivo se considera cumplido."
-            rows={4}
-            className="mt-1"
-          />
+        <div className="py-4 space-y-4">
+          <div>
+            <Label htmlFor="efficacy-date">Fecha de Verificación <span className="text-destructive">*</span></Label>
+            <Input 
+              id="efficacy-date"
+              type="date"
+              value={verificationDate}
+              onChange={(e) => setVerificationDate(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label htmlFor="efficacy-comments">Comentarios de Verificación <span className="text-destructive">*</span></Label>
+            <Textarea
+              id="efficacy-comments"
+              value={comments}
+              onChange={(e) => setComments(e.target.value)}
+              placeholder="Ej: Se confirmó en terreno que la nueva guarda está instalada y el personal fue capacitado en el nuevo procedimiento. El objetivo se considera cumplido."
+              rows={4}
+              className="mt-1"
+            />
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isProcessing}>Cancelar</Button>
-          <Button onClick={handleConfirm} disabled={!comments.trim() || isProcessing}>
+          <Button onClick={handleConfirm} disabled={!comments.trim() || !verificationDate || isProcessing}>
             {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Confirmar y Verificar
           </Button>
@@ -351,9 +367,9 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     await onSaveAnalysis();
   };
 
-  const handleConfirmVerification = async (comments: string) => {
+  const handleConfirmVerification = async (comments: string, verificationDate: string) => {
     setIsVerifying(true);
-    await onVerifyEfficacy(comments);
+    await onVerifyEfficacy(comments, verificationDate);
     setIsVerificationDialogOpen(false);
     setIsVerifying(false);
   };
@@ -566,7 +582,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                             
                             {efficacyVerification.status === 'verified' ? (
                                 <div>
-                                    <p className="text-sm font-semibold text-green-600">Eficacia Verificada por: {efficacyVerification.verifiedBy} el {format(parseISO(efficacyVerification.verifiedAt), "dd 'de' MMMM, yyyy")}</p>
+                                    <p className="text-sm font-semibold text-green-600">Eficacia Verificada por: {efficacyVerification.verifiedBy} el {efficacyVerification.verificationDate ? format(parseISO(efficacyVerification.verificationDate), "dd 'de' MMMM, yyyy") : "Fecha no registrada"}</p>
                                     <p className="text-sm mt-1">Comentarios de Verificación:</p>
                                     <p className="text-sm p-2 bg-background rounded-md whitespace-pre-wrap">{efficacyVerification.comments}</p>
                                 </div>

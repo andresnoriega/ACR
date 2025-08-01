@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, ChangeEvent } from 'react';
-import type { FullUserProfile, RCAAnalysisDocument, PlannedAction as FirestorePlannedAction, Evidence as FirestoreEvidence, Validation, Site, ActionPlan } from '@/types/rca';
+import type { FullUserProfile, RCAAnalysisDocument, PlannedAction as FirestorePlannedAction, Evidence as FirestoreEvidence, Validation, Site, ActionPlan, EfficacyVerificationTask } from '@/types/rca';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -11,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from "@/hooks/use-toast";
-import { ListTodo, FileText, ImageIcon, Paperclip, CheckCircle2, Save, Info, MessageSquare, Loader2, CalendarCheck, History, Trash2, Mail, ArrowUp, ArrowDown, ChevronsUpDown, UserCircle, FolderKanban, CheckSquare, Link2, ExternalLink, XCircle } from 'lucide-react';
+import { ListTodo, FileText, ImageIcon, Paperclip, CheckCircle2, Save, Info, MessageSquare, Loader2, CalendarCheck, History, Trash2, Mail, ArrowUp, ArrowDown, ChevronsUpDown, UserCircle, FolderKanban, CheckSquare, Link2, ExternalLink, XCircle, ShieldCheck } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
@@ -44,6 +43,7 @@ interface ValidationTask {
 
 type SortableActionPlanKey = 'accionResumen' | 'id' | 'estado' | 'plazoLimite' | 'validatorName' | 'codigoRCA';
 type SortableValidationTaskKey = 'rcaTitle' | 'actionDescription' | 'actionResponsible' | 'actionMarkedReadyAt';
+type SortableEfficacyTaskKey = 'rcaTitle' | 'objective' | 'finalizedDate'; // <-- New sort key type
 
 interface SortConfigAssigned {
   key: SortableActionPlanKey | null;
@@ -52,6 +52,10 @@ interface SortConfigAssigned {
 interface SortConfigValidation {
   key: SortableValidationTaskKey | null;
   direction: 'ascending' | 'descending';
+}
+interface SortConfigEfficacy { // <-- New sort config
+    key: SortableEfficacyTaskKey | null;
+    direction: 'ascending' | 'descending';
 }
 
 
@@ -73,6 +77,7 @@ export default function UserActionPlansPage() {
   
   const [sortConfigAssigned, setSortConfigAssigned] = useState<SortConfigAssigned>({ key: 'plazoLimite', direction: 'ascending' });
   const [sortConfigValidation, setSortConfigValidation] = useState<SortConfigValidation>({ key: 'actionMarkedReadyAt', direction: 'descending' });
+  const [sortConfigEfficacy, setSortConfigEfficacy] = useState<SortConfigEfficacy>({ key: 'finalizedDate', direction: 'descending' });
 
 
   const fetchUsersAndSites = useCallback(async () => {
@@ -145,13 +150,14 @@ export default function UserActionPlansPage() {
   }, [userProfile, fetchRcaDocuments]);
 
 
-  const { assignedActionPlans, validationActionPlans } = useMemo(() => {
+  const { assignedActionPlans, validationActionPlans, efficacyVerificationTasks } = useMemo(() => {
     if (loadingAuth || !userProfile || !userProfile.name || allRcaDocuments.length === 0) {
-      return { assignedActionPlans: [], validationActionPlans: [] };
+      return { assignedActionPlans: [], validationActionPlans: [], efficacyVerificationTasks: [] };
     }
 
     const assignedPlans: ActionPlan[] = [];
     const validationTasks: ValidationTask[] = [];
+    const efficacyTasks: EfficacyVerificationTask[] = [];
     const uniqueAssignedTracker = new Set<string>();
 
     allRcaDocuments.forEach(rcaDoc => {
@@ -236,8 +242,22 @@ export default function UserActionPlansPage() {
           }
         });
       }
+      
+      // Populate Efficacy Verification Tasks
+      if (
+        rcaDoc.projectLeader === userProfile.name && 
+        rcaDoc.isFinalized && 
+        (!rcaDoc.efficacyVerification || rcaDoc.efficacyVerification.status === 'pending')
+      ) {
+         efficacyTasks.push({
+            rcaId: rcaDoc.eventData.id,
+            rcaTitle: rcaDoc.eventData.focusEventDescription || 'Sin título de ACR',
+            objective: rcaDoc.investigationObjective || 'Sin objetivo definido',
+            finalizedDate: rcaDoc.updatedAt,
+         });
+      }
     });
-    return { assignedActionPlans: assignedPlans, validationActionPlans: validationTasks };
+    return { assignedActionPlans: assignedPlans, validationActionPlans: validationTasks, efficacyVerificationTasks: efficacyTasks };
   }, [userProfile, allRcaDocuments, loadingAuth]);
 
 
@@ -315,6 +335,34 @@ export default function UserActionPlansPage() {
     return sortableItems;
   }, [validationActionPlans, sortConfigValidation]);
 
+  const requestSortEfficacy = (key: SortableEfficacyTaskKey) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfigEfficacy.key === key && sortConfigEfficacy.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfigEfficacy({ key, direction });
+  };
+  
+  const sortedEfficacyTasks = useMemo(() => {
+    let sortableItems = [...efficacyVerificationTasks];
+    if (sortConfigEfficacy.key) {
+      sortableItems.sort((a, b) => {
+        const valA = a[sortConfigEfficacy.key!];
+        const valB = b[sortConfigEfficacy.key!];
+        if (sortConfigEfficacy.key === 'finalizedDate') {
+          return new Date(valB).getTime() - new Date(valA).getTime();
+        }
+        if (typeof valA === 'string' && typeof valB === 'string') {
+          return valA.localeCompare(valB);
+        }
+        return 0;
+      });
+      if (sortConfigEfficacy.direction === 'descending') {
+        sortableItems.reverse();
+      }
+    }
+    return sortableItems;
+  }, [efficacyVerificationTasks, sortConfigEfficacy]);
 
   const summary = useMemo(() => {
     return {
@@ -324,8 +372,9 @@ export default function UserActionPlansPage() {
       assignedCompletadas: assignedActionPlans.filter(p => p.estado === 'Completado').length,
       assignedRechazadas: assignedActionPlans.filter(p => p.estado === 'Rechazado').length,
       totalValidationPending: validationActionPlans.length,
+      totalEfficacyPending: efficacyVerificationTasks.length,
     };
-  }, [assignedActionPlans, validationActionPlans]);
+  }, [assignedActionPlans, validationActionPlans, efficacyVerificationTasks]);
 
   const handleSelectPlan = (plan: ActionPlan) => {
     if (selectedPlan?.id === plan.id && selectedPlan?._originalRcaDocId === plan._originalRcaDocId) {
@@ -524,6 +573,13 @@ export default function UserActionPlansPage() {
     }
     return <ChevronsUpDown className="h-3 w-3 opacity-30" />;
   };
+  
+  const renderSortIconEfficacy = (columnKey: SortableEfficacyTaskKey) => {
+    if (sortConfigEfficacy.key === columnKey) {
+      return sortConfigEfficacy.direction === 'ascending' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+    }
+    return <ChevronsUpDown className="h-3 w-3 opacity-30" />;
+  };
 
 
   if (isLoadingPage) {
@@ -542,6 +598,15 @@ export default function UserActionPlansPage() {
       </div>
     );
   }
+  
+  const tabsToShow = [
+    { value: "assigned", label: `Mis Tareas Asignadas (${assignedActionPlans.length})`, icon: ListTodo, content: <></> },
+    { value: "validation", label: `Tareas por Validar (${validationActionPlans.length})`, icon: CheckSquare, content: <></> },
+  ];
+
+  if (efficacyVerificationTasks.length > 0) {
+    tabsToShow.push({ value: "efficacy", label: `Eficacia por Verificar (${efficacyVerificationTasks.length})`, icon: ShieldCheck, content: <></> });
+  }
 
   return (
     <div className="space-y-6 py-8">
@@ -558,7 +623,7 @@ export default function UserActionPlansPage() {
         <CardHeader>
           <CardTitle className="text-lg font-semibold text-primary">Resumen Rápido</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 text-center">
+        <CardContent className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 text-center">
           <div className="p-3 bg-secondary/40 rounded-md">
             <p className="text-2xl font-bold text-orange-600">{isLoadingActions ? <Loader2 className="h-6 w-6 animate-spin inline" /> : summary.assignedPendientes}</p>
             <p className="text-xs text-muted-foreground">Asignadas Pendientes</p>
@@ -583,13 +648,20 @@ export default function UserActionPlansPage() {
             <p className="text-2xl font-bold text-indigo-600">{isLoadingActions ? <Loader2 className="h-6 w-6 animate-spin inline" /> : summary.totalValidationPending}</p>
             <p className="text-xs text-muted-foreground">Tareas por Validar</p>
           </div>
+          <div className="p-3 bg-teal-400/20 rounded-md">
+            <p className="text-2xl font-bold text-teal-600">{isLoadingActions ? <Loader2 className="h-6 w-6 animate-spin inline" /> : summary.totalEfficacyPending}</p>
+            <p className="text-xs text-muted-foreground">Eficacia por Verificar</p>
+          </div>
         </CardContent>
       </Card>
 
       <Tabs defaultValue="assigned" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="assigned" className="flex items-center gap-2"><ListTodo className="h-4 w-4" /> Mis Tareas Asignadas ({assignedActionPlans.length})</TabsTrigger>
-          <TabsTrigger value="validation" className="flex items-center gap-2"><CheckSquare className="h-4 w-4" /> Tareas por Validar ({validationActionPlans.length})</TabsTrigger>
+        <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${tabsToShow.length}, 1fr)` }}>
+            {tabsToShow.map(tab => (
+              <TabsTrigger key={tab.value} value={tab.value} className="flex items-center gap-2">
+                <tab.icon className="h-4 w-4" /> {tab.label}
+              </TabsTrigger>
+            ))}
         </TabsList>
 
         <TabsContent value="assigned">
@@ -724,6 +796,50 @@ export default function UserActionPlansPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        
+        {efficacyVerificationTasks.length > 0 && (
+            <TabsContent value="efficacy">
+              <Card className="shadow-md mt-4">
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold text-primary flex items-center"><ShieldCheck className="mr-2"/> Verificación de Eficacia Pendiente</CardTitle>
+                  <CardDescription>Análisis finalizados que requieren su verificación final para confirmar que el objetivo se cumplió.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingActions ? (
+                    <div className="flex justify-center items-center h-24"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2 text-muted-foreground">Cargando verificaciones pendientes...</p></div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[30%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEfficacy('rcaTitle')}><div className="flex items-center gap-1">Análisis / Evento {renderSortIconEfficacy('rcaTitle')}</div></TableHead>
+                            <TableHead className="w-[45%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEfficacy('objective')}><div className="flex items-center gap-1">Objetivo de la Investigación {renderSortIconEfficacy('objective')}</div></TableHead>
+                            <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEfficacy('finalizedDate')}><div className="flex items-center gap-1">Fecha Finalizado {renderSortIconEfficacy('finalizedDate')}</div></TableHead>
+                            <TableHead className="w-[10%] text-right">Acción</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {sortedEfficacyTasks.map((task) => (
+                            <TableRow key={task.rcaId}>
+                              <TableCell className="font-medium text-sm">{task.rcaTitle}</TableCell>
+                              <TableCell className="text-sm italic text-muted-foreground">{task.objective}</TableCell>
+                              <TableCell className="text-sm">{isValidDate(parseISO(task.finalizedDate)) ? format(parseISO(task.finalizedDate), 'dd/MM/yyyy') : 'N/A'}</TableCell>
+                              <TableCell className="text-right">
+                                <Button variant="outline" size="sm" onClick={() => router.push(`/analisis?id=${task.rcaId}&step=5`)}>
+                                  Ir a Verificar
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+        )}
+        
       </Tabs>
 
       <Card className="mt-6 bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700">

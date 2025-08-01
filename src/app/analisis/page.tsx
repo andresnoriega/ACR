@@ -80,7 +80,7 @@ const initialRCAAnalysisState: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedA
   rejectionDetails: undefined,
   createdBy: undefined,
   empresa: undefined,
-  efficacyVerification: { status: 'pending', verifiedBy: '', verifiedAt: '', comments: '' } // Added
+  efficacyVerification: { status: 'pending', verifiedBy: '', verifiedAt: '', comments: '', verificationDate: '' } // Added
 };
 
 // Helper function to convert old 'cuando' string to datetime-local format
@@ -293,7 +293,7 @@ function RCAAnalysisPageComponent() {
         setValidations(data.validations || []);
         setFinalComments(data.finalComments || '');
         setIsFinalized(data.isFinalized || false);
-        setEfficacyVerification(data.efficacyVerification || { status: 'pending', verifiedBy: '', verifiedAt: '', comments: '' });
+        setEfficacyVerification(data.efficacyVerification || { status: 'pending', verifiedBy: '', verifiedAt: '', comments: '', verificationDate: '' });
         setRejectionDetails(data.rejectionDetails);
         setCreatedBy(data.createdBy);
         setAnalysisDocumentId(id);
@@ -1452,7 +1452,7 @@ function RCAAnalysisPageComponent() {
     setIsSaving(false);
   };
   
-  const handleVerifyEfficacy = async (comments: string) => {
+  const handleVerifyEfficacy = async (comments: string, verificationDate: string) => {
     if (!userProfile) {
         toast({ title: "Error", description: "No se pudo identificar al usuario para la verificación.", variant: "destructive" });
         return;
@@ -1462,6 +1462,7 @@ function RCAAnalysisPageComponent() {
         verifiedBy: userProfile.name,
         verifiedAt: new Date().toISOString(),
         comments: comments,
+        verificationDate: verificationDate,
     };
     setEfficacyVerification(efficacyUpdate);
     setIsSaving(true);
