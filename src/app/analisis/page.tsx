@@ -1459,7 +1459,7 @@ function RCAAnalysisPageComponent() {
     }
     const efficacyUpdate: EfficacyVerification = {
         status: 'verified',
-        verifiedBy: userProfile.name,
+        verifiedBy: userProfile.name, // <-- Correctly use user name
         verifiedAt: new Date().toISOString(),
         comments: comments,
         verificationDate: verificationDate,

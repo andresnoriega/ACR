@@ -577,7 +577,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                             
                             {efficacyVerification.status === 'verified' ? (
                                 <div>
-                                    <p className="text-sm font-semibold text-green-600">Eficacia Verificada por: {efficacyVerification.verifiedBy} el {efficacyVerification.verificationDate ? format(parseISO(efficacyVerification.verificationDate), "dd 'de' MMMM, yyyy") : "Fecha no registrada"}</p>
+                                    <p className="text-sm font-semibold text-green-600">Eficacia Verificada por: {efficacyVerification.verifiedBy} el {efficacyVerification.verifiedAt ? format(parseISO(efficacyVerification.verifiedAt), "dd 'de' MMMM, yyyy") : "Fecha no registrada"}</p>
                                     <p className="text-sm mt-1">Comentarios de Verificación:</p>
                                     <p className="text-sm p-2 bg-background rounded-md whitespace-pre-wrap">{efficacyVerification.comments}</p>
                                 </div>
