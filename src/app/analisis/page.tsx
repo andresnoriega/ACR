@@ -1481,12 +1481,17 @@ function RCAAnalysisPageComponent() {
   };
   
   const handlePlanEfficacyVerification = async (verificationDate: string) => {
+    if (!userProfile) return;
     const efficacyUpdate: EfficacyVerification = {
       ...efficacyVerification,
+      status: 'pending', // It's planned, not verified yet.
+      verifiedBy: '', // Clear previous verifier if any
+      verifiedAt: '', // Clear previous verification time
+      comments: investigationObjective, // Pre-fill comments with the objective
       verificationDate: verificationDate,
-      // No cambiar el status a 'verified' aquí, solo planificar.
     };
     
+    setEfficacyVerification(efficacyUpdate);
     setIsSaving(true);
     const saveResult = await handleSaveAnalysisData(
         false, 
@@ -1494,9 +1499,11 @@ function RCAAnalysisPageComponent() {
     );
     if (saveResult.success) {
       toast({ title: "Verificación Planificada", description: "Se ha establecido la fecha para la verificación de eficacia. La tarea ahora aparecerá en el panel del Líder de Proyecto." });
-      // La actualización del estado local ya la hace `handleSaveAnalysisData`
+      // The update of local state is now handled by the successful save logic, no need to set again.
     } else {
       toast({ title: "Error al Planificar", description: "No se pudo guardar la fecha de planificación.", variant: "destructive" });
+      // Revert local state on failure
+      setEfficacyVerification(efficacyVerification);
     }
     setIsSaving(false);
   };
