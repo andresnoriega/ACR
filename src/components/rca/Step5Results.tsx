@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Sparkles, HardHat, ShieldCheck, CheckSquare, CalendarClock, CalendarCheck, Lightbulb, Fish, HelpCircle as HelpIcon5Whys, Share2 as CtmIcon, Network, Wrench, Box, Ruler, Leaf } from 'lucide-react';
+import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Sparkles, HardHat, ShieldCheck, CheckSquare, CalendarClock, CalendarCheck, Lightbulb, Fish, HelpCircle as HelpIcon5Whys, Share2 as CtmIcon, Network, Wrench, Box, Ruler, Leaf, Edit } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
@@ -113,6 +113,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationComments, setVerificationComments] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
   
   // State for the new verification planning fields
   const [verificationResponsible, setVerificationResponsible] = useState('');
@@ -300,6 +301,11 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     setIsFinalizing(false);
   };
 
+  const handleSaveChanges = async () => {
+    setIsEditing(false); // Go back to read-only mode
+    await onSaveAnalysis(true); // Save and show toast
+  };
+
   const handleSaveFinalComments = async () => {
     await onSaveAnalysis();
   };
@@ -363,7 +369,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                   variant="outline"
                   size="sm"
                   className="w-full sm:w-auto"
-                  disabled={isBusy || isFinalized}
+                  disabled={isBusy || (isFinalized && !isEditing)}
                   title="Generar un borrador para la sección de Comentarios Finales usando IA."
                 >
                   {isGeneratingInsights ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
@@ -384,7 +390,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
               placeholder="Escriba aquí la introducción, resumen ejecutivo o comentarios finales del análisis..."
               rows={8}
               className="text-sm"
-              disabled={isFinalized || isBusy}
+              disabled={isFinalized && !isEditing || isBusy}
             />
           </section>
           <Separator className="my-4" />
@@ -635,7 +641,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                 placeholder="Describe aquí las lecciones aprendidas relevantes, sugerencias para el futuro o recomendaciones institucionales..."
                 rows={5}
                 className="text-sm"
-                disabled={isFinalized || isBusy}
+                disabled={(isFinalized && !isEditing) || isBusy}
               />
               <p className="text-xs text-muted-foreground mt-2">
                 Comparte aprendizajes, buenas prácticas o mejoras detectadas durante el análisis que puedan ser útiles para la organización.
@@ -675,7 +681,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                 
                 {preservedFacts && preservedFacts.length > 0 && (
                   <div>
-                    <p className="font-medium mt-2 mb-1 text-primary text-base">Hechos Preservados / Documentación Adjunta:</p>
+                    <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><Paperclip className="mr-2 h-4 w-4" />Hechos Preservados / Documentación Adjunta:</h4>
                     <ul className="list-disc pl-6 space-y-1 text-xs">
                       {preservedFacts.map(fact => (
                         <li key={fact.id}>
@@ -699,15 +705,35 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           <Button onClick={handleOpenEmailDialog} variant="outline" className="w-full sm:w-auto" disabled={isBusy}>
             <Send className="mr-2 h-4 w-4" /> Enviar por correo
           </Button>
-          <Button
-            onClick={handleFinalize}
-            variant="secondary"
-            className="w-full sm:w-auto"
-            disabled={isFinalized || isBusy}
-          >
-            {isFinalizing || (isSaving && isFinalized) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-            {isFinalized ? "Análisis Finalizado" : "Finalizar"}
-          </Button>
+          
+          {isFinalized ? (
+            isEditing ? (
+              <>
+                <Button onClick={handleSaveChanges} variant="secondary" className="w-full sm:w-auto" disabled={isBusy}>
+                  {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  Guardar Cambios
+                </Button>
+                <Button onClick={() => setIsEditing(false)} variant="ghost" className="w-full sm:w-auto" disabled={isBusy}>
+                  Cancelar Edición
+                </Button>
+              </>
+            ) : (
+              <Button onClick={() => setIsEditing(true)} variant="outline" className="w-full sm:w-auto" disabled={isBusy}>
+                <Edit className="mr-2 h-4 w-4" /> Editar Informe
+              </Button>
+            )
+          ) : (
+            <Button
+              onClick={handleFinalize}
+              variant="secondary"
+              className="w-full sm:w-auto"
+              disabled={isFinalized || isBusy}
+            >
+              {isFinalizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+              Finalizar Análisis
+            </Button>
+          )}
+
         </CardFooter>
       </Card>
       <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
