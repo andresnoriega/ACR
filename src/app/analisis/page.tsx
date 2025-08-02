@@ -1154,56 +1154,37 @@ function RCAAnalysisPageComponent() {
   };
 
   const handleAddPreservedFact = async (
-    factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>,
-    file: File | null
+    factData: Omit<PreservedFact, 'id' | 'eventId'>
   ) => {
     setIsSaving(true);
     try {
-      if (!file) {
-        throw new Error("No se seleccionó ningún archivo.");
-      }
-      
       let currentEventId = analysisDocumentId;
       if (!currentEventId) {
-        // First save creates the document and gives us an ID
         const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
         if (!saveResult.success || !saveResult.newEventId) {
           throw new Error("No se pudo crear el documento de análisis antes de subir el archivo.");
         }
         currentEventId = saveResult.newEventId;
       }
-
-      toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
-      const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
-      const fileStorageRef = storageRef(storage, filePath);
-      
-      const uploadResult = await uploadBytes(fileStorageRef, file);
-      const downloadURL = await getDownloadURL(uploadResult.ref);
-
+  
       const newFact: PreservedFact = {
-        ...factMetadata,
+        ...factData,
         id: generateClientSideId('pf'),
-        uploadDate: new Date().toISOString(),
         eventId: currentEventId,
-        downloadURL: downloadURL,
-        storagePath: uploadResult.ref.fullPath,
       };
-
-      const rcaDocRef = doc(db, "rcaAnalyses", currentEventId!);
-      // Use an update operation to just add the new fact, which is more efficient.
+  
+      const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
       await updateDoc(rcaDocRef, {
         preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
         updatedAt: new Date().toISOString()
       });
-
-      // Update local state to match
+  
       setPreservedFacts(prev => [...prev, newFact]);
-      toast({ title: "Hecho Preservado Añadido", description: `Se añadió y subió "${newFact.userGivenName}".` });
-
+      toast({ title: "Hecho Preservado Añadido", description: `Se añadió "${newFact.userGivenName}".` });
+  
     } catch (error: any) {
-      console.error("Error detallado al subir hecho preservado:", error);
-      toast({ title: "Error al Subir", description: `No se pudo subir el archivo. Verifique la consola. Código: ${error.code || 'Desconocido'}`, variant: "destructive" });
-      setIsSaving(false);
+      console.error("Error detallado al guardar hecho preservado:", error);
+      toast({ title: "Error al Guardar", description: `No se pudo guardar el hecho. ${error.message}`, variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -1219,21 +1200,8 @@ function RCAAnalysisPageComponent() {
 
     setIsSaving(true);
     
-    // First, try to delete from storage if a path exists
-    if (factToRemove.storagePath) {
-      try {
-        const fileRef = storageRef(storage, factToRemove.storagePath);
-        await deleteObject(fileRef);
-        toast({ title: "Archivo Eliminado de Storage", variant: "default" });
-      } catch (error: any) {
-        if (error.code !== 'storage/object-not-found') {
-          console.error("Error deleting file from Storage:", error);
-          toast({ title: "Error al Eliminar Archivo", description: "No se pudo eliminar el archivo de Storage, pero se eliminará la referencia.", variant: "destructive" });
-        }
-      }
-    }
+    // No need to delete from storage with Data URL approach
     
-    // Then, remove from Firestore using arrayRemove and update local state
     const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
     try {
       await updateDoc(rcaDocRef, {

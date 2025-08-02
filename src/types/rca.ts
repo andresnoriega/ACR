@@ -1,3 +1,4 @@
+'use client';
 // --- Common Enums and Types ---
 export type EventType = 'Incidente' | 'Falla de Equipo' | 'Accidente' | 'No Conformidad' | 'Evento Operacional' | '';
 export type PriorityType = 'Alta' | 'Media' | 'Baja' | '';
@@ -92,8 +93,7 @@ export interface PreservedFact {
   fileType: string;
   fileSize: number;
   uploadDate: string; // ISO string
-  downloadURL: string;
-  storagePath: string; // Full path in Firebase Storage
+  dataUrl: string;
 }
 
 export interface InvestigationTeamMember {
