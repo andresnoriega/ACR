@@ -1,7 +1,3 @@
-// [El archivo es muy extenso para un solo mensaje]
-// Te lo entregaré en varias partes completamente continuas y sin cortes ni omisiones.  
-// **NO modifiques nada hasta recibir la última parte y la indicación de FIN**.  
-
 // --- PARTE 1 ---
 'use client';
 import type { FC, ChangeEvent } from 'react';
@@ -362,22 +358,20 @@ const handleSaveFinalComments = async () => {
 };
 
 const handlePlanVerification = async (verificationDate: string) => {
-  try {
-    if (typeof onPlanEfficacyVerification !== "function") {
-      throw new Error("No se ha definido la función para planificar la verificación de eficacia.");
+    setIsVerifying(true);
+    try {
+        await onPlanEfficacyVerification(verificationDate);
+        setIsVerificationPlanningDialogOpen(false);
+    } catch (error) {
+        console.error("Error al planificar verificación de eficacia:", error);
+        toast({
+            title: "Error",
+            description: "No se pudo planificar la verificación de eficacia. " + (error as Error).message,
+            variant: "destructive",
+        });
+    } finally {
+        setIsVerifying(false);
     }
-    await onPlanEfficacyVerification(verificationDate);
-    setIsVerificationPlanningDialogOpen(false);
-  } catch (error: any) {
-    console.error("Error al planificar verificación de eficacia:", error);
-    toast({
-      title: "Error",
-      description: "No se pudo planificar la verificación de eficacia. " + (error?.message || error),
-      variant: "destructive",
-    });
-  } finally {
-    setIsVerifying(false);
-  }
 };
 
 const canUserVerify = useMemo(() => {
@@ -412,7 +406,7 @@ return (
         <SectionContent>
           <strong>Descripción:</strong> {eventData.focusEventDescription}<br />
           <strong>Sitio:</strong> {eventData.place}<br />
-          <strong>Fecha:</strong> {eventData.eventDate ? format(parseISO(eventData.eventDate), "PPP", { locale: es }) : 'No especificada'}<br />
+          <strong>Fecha:</strong> {eventData.date ? format(parseISO(eventData.date), "PPP", { locale: es }) : 'No especificada'}<br />
           <strong>Líder del Proyecto:</strong> {projectLeader}
         </SectionContent>
         <Separator className="my-4" />
@@ -457,7 +451,7 @@ return (
             <ul className="list-disc ml-5">
               {timelineEvents.map((evt, i) => (
                 <li key={i}>
-                  <strong>{evt.date ? format(parseISO(evt.date), "PPP", { locale: es }) : "Sin fecha"}:</strong> {evt.description}
+                  <strong>{evt.datetime ? format(parseISO(evt.datetime), "PPP HH:mm", { locale: es }) : "Sin fecha"}:</strong> {evt.description}
                 </li>
               ))}
             </ul>
@@ -471,7 +465,7 @@ return (
           {(brainstormingIdeas && brainstormingIdeas.length > 0) ? (
             <ul className="list-disc ml-5">
               {brainstormingIdeas.map((idea, i) => (
-                <li key={i}>{idea.idea}</li>
+                <li key={i}>{idea.description} ({idea.type || 'Sin tipo'})</li>
               ))}
             </ul>
           ) : "No se definieron ideas de lluvia de ideas."}
@@ -552,7 +546,7 @@ return (
         <SectionTitle icon={ShieldCheck} title="Verificación de Eficacia" />
         <SectionContent>
           <div>
-            <strong>Estado:</strong> {safeEfficacyVerification.status === "pending" ? "Pendiente" : safeEfficacyVerification.status === "planned" ? "Planificada" : safeEfficacyVerification.status === "verified" ? "Verificada" : "No planificada"}
+            <strong>Estado:</strong> {safeEfficacyVerification.status === "pending" ? "Pendiente" : safeEfficacyVerification.status === "verified" ? "Verificada" : "No planificada"}
           </div>
           {safeEfficacyVerification.verificationDate && (
             <div>
