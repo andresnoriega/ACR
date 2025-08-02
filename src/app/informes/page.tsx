@@ -553,6 +553,21 @@ export default function DashboardRCAPage() {
     { name: "last_7_days", label: "Últimos 7 días", getRange: () => ({ from: sub(new Date(), { days: 6 }), to: new Date() }) },
     { name: "last_30_days", label: "Últimos 30 días", getRange: () => ({ from: sub(new Date(), { days: 29 }), to: new Date() }) },
   ];
+  
+  const calendarFooter = (
+    <div className="flex flex-wrap justify-center sm:justify-end gap-2 p-2 border-t">
+      {datePresets.map(({ name, label, getRange }) => (
+        <Button
+          key={name}
+          variant="ghost"
+          size="sm"
+          onClick={() => handleFilterChange('dateRange', getRange())}
+        >
+          {label}
+        </Button>
+      ))}
+    </div>
+  );
 
   return (
     <div className="space-y-6 py-8">
@@ -653,27 +668,14 @@ export default function DashboardRCAPage() {
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
-                    initialFocus
-                    mode="range"
-                    defaultMonth={filters.dateRange?.from}
-                    selected={filters.dateRange}
-                    onSelect={(range) => handleFilterChange('dateRange', range)}
-                    numberOfMonths={2}
-                    locale={es}
-                    footer={
-                        <div className="flex justify-end space-x-2 p-2 border-t">
-                            {datePresets.map(({ name, label, getRange }) => (
-                                <Button
-                                key={name}
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleFilterChange('dateRange', getRange())}
-                                >
-                                {label}
-                                </Button>
-                            ))}
-                        </div>
-                    }
+                      initialFocus
+                      mode="range"
+                      defaultMonth={filters.dateRange?.from}
+                      selected={filters.dateRange}
+                      onSelect={(range) => handleFilterChange('dateRange', range)}
+                      numberOfMonths={2}
+                      locale={es}
+                      footer={calendarFooter}
                     />
                 </PopoverContent>
             </Popover>
@@ -1006,4 +1008,3 @@ export default function DashboardRCAPage() {
     </div>
   );
 }
-
