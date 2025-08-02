@@ -1,4 +1,3 @@
-
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
@@ -565,7 +564,7 @@ function RCAAnalysisPageComponent() {
         rejectedBy: userProfile?.name || "Sistema",
         rejectedAt: new Date().toISOString(),
       };
-    } else if (statusOverride === "En análisis" || statusOverride === "Pendiente" || statusOverride === "Finalizado" || statusOverride === "Verificado") {
+    } else if ( (statusOverride === "En análisis" || statusOverride === "Pendiente" || statusOverride === "Finalizado" || statusOverride === "Verificado") && currentRejectionDetailsToSave ) {
         currentRejectionDetailsToSave = undefined; 
     }
 
@@ -1488,13 +1487,11 @@ function RCAAnalysisPageComponent() {
   const handlePlanEfficacyVerification = async (verificationDate: string) => {
     if (!userProfile) return;
   
-    const currentEfficacyState = efficacyVerification || {};
     const efficacyUpdate: EfficacyVerification = {
-      ...currentEfficacyState,
       status: 'pending',
       verifiedBy: '',
       verifiedAt: '',
-      comments: investigationObjective || currentEfficacyState.comments || '',
+      comments: investigationObjective || (efficacyVerification?.comments ?? ''),
       verificationDate: verificationDate,
     };
   
