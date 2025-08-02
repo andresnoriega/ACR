@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -88,8 +89,9 @@ interface ChartDataItem {
 }
 
 interface DrilldownState {
-  level: 'site' | 'equipo';
-  filter: string | null;
+  level: 'site' | 'equipo' | 'causa';
+  siteFilter: string | null;
+  equipoFilter: string | null;
 }
 
 
@@ -116,6 +118,8 @@ export default function DashboardRCAPage() {
   const [planesAccionPendientes, setPlanesAccionPendientes] = useState<PlanAccionPendienteItem[]>([]);
   const [eventsBySiteData, setEventsBySiteData] = useState<ChartDataItem[]>([]);
   const [eventsByEquipoData, setEventsByEquipoData] = useState<ChartDataItem[]>([]);
+  const [rootCausesByEquipoData, setRootCausesByEquipoData] = useState<ChartDataItem[]>([]);
+
 
   const [availableUsers, setAvailableUsers] = useState<FullUserProfile[]>([]);
   const [availableSites, setAvailableSites] = useState<Site[]>([]);
@@ -123,7 +127,7 @@ export default function DashboardRCAPage() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [remindingActionId, setRemindingActionId] = useState<string | null>(null);
   
-  const [drilldown, setDrilldown] = useState<DrilldownState>({ level: 'site', filter: null });
+  const [drilldown, setDrilldown] = useState<DrilldownState>({ level: 'site', siteFilter: null, equipoFilter: null });
 
   const [filters, setFilters] = useState<DashboardFilters>({
     site: '',
@@ -207,18 +211,48 @@ export default function DashboardRCAPage() {
     let currentRcaPendientesCount = 0;
     let currentRcaVerificadosCount = 0;
     const siteCounts: Record<string, number> = {};
-    const equipoCounts: Record<string, number> = {};
-
-    const reportedEventsMap = new Map<string, ReportedEventStatus>();
+    
+    const reportedEventsMap = new Map<string, ReportedEvent>();
     allReportedEvents.forEach(event => {
-      reportedEventsMap.set(event.id, event.status);
+      reportedEventsMap.set(event.id, event);
       if (event.site) siteCounts[event.site] = (siteCounts[event.site] || 0) + 1;
-      if (event.equipo) equipoCounts[event.equipo] = (equipoCounts[event.equipo] || 0) + 1;
     });
 
+    // Process Equipo counts based on siteFilter
+    const equipoCounts: Record<string, number> = {};
+    if (drilldown.level === 'equipo' && drilldown.siteFilter) {
+      allReportedEvents
+        .filter(event => event.site === drilldown.siteFilter && event.equipo)
+        .forEach(event => {
+          equipoCounts[event.equipo!] = (equipoCounts[event.equipo!] || 0) + 1;
+        });
+    }
+    setEventsByEquipoData(Object.entries(equipoCounts).map(([name, total]) => ({ name, total })));
+
+    // Process Root Cause counts based on site and equipo filters
+    const rootCauseCounts: Record<string, number> = {};
+    if (drilldown.level === 'causa' && drilldown.siteFilter && drilldown.equipoFilter) {
+      const relevantEventIds = new Set(
+        allReportedEvents
+          .filter(e => e.site === drilldown.siteFilter && e.equipo === drilldown.equipoFilter)
+          .map(e => e.id)
+      );
+      allRcaDocuments
+        .filter(doc => relevantEventIds.has(doc.eventData.id) && doc.identifiedRootCauses?.length > 0)
+        .forEach(doc => {
+          doc.identifiedRootCauses.forEach(rc => {
+            if (rc.description && rc.description.trim()) {
+              rootCauseCounts[rc.description.trim()] = (rootCauseCounts[rc.description.trim()] || 0) + 1;
+            }
+          });
+        });
+    }
+    setRootCausesByEquipoData(Object.entries(rootCauseCounts).map(([name, total]) => ({ name, total })));
+    
     allRcaDocuments.forEach(rcaDoc => {
       const rcaId = rcaDoc.eventData.id;
-      const eventStatus = reportedEventsMap.get(rcaId);
+      const eventInfo = reportedEventsMap.get(rcaId);
+      const eventStatus = eventInfo?.status;
 
       if (eventStatus === 'Rechazado') return;
       
@@ -257,18 +291,20 @@ export default function DashboardRCAPage() {
     setAnalisisEnCurso(currentAnalysesInProgress);
     setPlanesAccionPendientes(currentPendingActionPlans);
 
-    reportedEventsMap.forEach((status) => {
-        if ((status === 'Pendiente' || status === 'En análisis' || status === 'En validación')) currentRcaPendientesCount++;
-        if (status === 'Verificado') currentRcaVerificadosCount++;
+    let finalRcaPendientesCount = 0;
+    let finalRcaVerificadosCount = 0;
+    reportedEventsMap.forEach((event) => {
+        if ((event.status === 'Pendiente' || event.status === 'En análisis' || event.status === 'En validación')) finalRcaPendientesCount++;
+        if (event.status === 'Verificado') finalRcaVerificadosCount++;
     });
 
-    const currentTotalRCAs = currentRcaPendientesCount + currentRcaFinalizadosCount + currentRcaVerificadosCount;
-    const rcaCompletionRateValue = currentTotalRCAs > 0 ? ((currentRcaFinalizadosCount + currentRcaVerificadosCount) / currentTotalRCAs) * 100 : 0;
+    const currentTotalRCAs = finalRcaPendientesCount + currentRcaFinalizadosCount + finalRcaVerificadosCount;
+    const rcaCompletionRateValue = currentTotalRCAs > 0 ? ((currentRcaFinalizadosCount + finalRcaVerificadosCount) / currentTotalRCAs) * 100 : 0;
     
-    setRcaSummaryData({ totalRCAs: currentTotalRCAs, rcaPendientes: currentRcaPendientesCount, rcaFinalizados: currentRcaFinalizadosCount, rcaVerificados: currentRcaVerificadosCount, rcaCompletionRate: rcaCompletionRateValue });
+    setRcaSummaryData({ totalRCAs: currentTotalRCAs, rcaPendientes: finalRcaPendientesCount, rcaFinalizados: currentRcaFinalizadosCount, rcaVerificados: finalRcaVerificadosCount, rcaCompletionRate: rcaCompletionRateValue });
     setEventsBySiteData(Object.entries(siteCounts).map(([name, total]) => ({ name, total })));
-    setEventsByEquipoData(Object.entries(equipoCounts).map(([name, total]) => ({ name, total })));
-  }, [allRcaDocuments, allReportedEvents]);
+    
+  }, [allRcaDocuments, allReportedEvents, drilldown]);
 
 
   useEffect(() => {
@@ -311,7 +347,7 @@ export default function DashboardRCAPage() {
   const applyFilters = () => {
     toast({ title: "Aplicando Filtros...", description: "Recargando datos del dashboard." });
     fetchAllDashboardData(filters);
-    setDrilldown({ level: 'site', filter: null });
+    setDrilldown({ level: 'site', siteFilter: null, equipoFilter: null });
   };
 
   const clearFilters = () => {
@@ -324,7 +360,7 @@ export default function DashboardRCAPage() {
     setFilters(emptyFilters);
     toast({ title: "Filtros Limpiados", description: "Recargando todos los datos del dashboard." });
     fetchAllDashboardData(emptyFilters);
-    setDrilldown({ level: 'site', filter: null });
+    setDrilldown({ level: 'site', siteFilter: null, equipoFilter: null });
   };
 
   const isLoading = isLoadingData || isLoadingSites || loadingAuth;
@@ -368,31 +404,42 @@ export default function DashboardRCAPage() {
   
   const barChartData = useMemo(() => {
     if (drilldown.level === 'site') {
-      return eventsBySiteData;
+      return eventsBySiteData.sort((a, b) => b.total - a.total);
     }
-    if (drilldown.level === 'equipo' && drilldown.filter) {
-      const equipoCounts: Record<string, number> = {};
-      allReportedEvents
-        .filter(event => event.site === drilldown.filter && event.equipo)
-        .forEach(event => {
-          equipoCounts[event.equipo!] = (equipoCounts[event.equipo!] || 0) + 1;
-        });
-      return Object.entries(equipoCounts)
-        .map(([name, total]) => ({ name, total }))
-        .sort((a, b) => b.total - a.total);
+    if (drilldown.level === 'equipo') {
+      return eventsByEquipoData.sort((a, b) => b.total - a.total);
+    }
+    if (drilldown.level === 'causa') {
+      return rootCausesByEquipoData.sort((a, b) => b.total - a.total);
     }
     return [];
-  }, [drilldown, eventsBySiteData, allReportedEvents]);
+  }, [drilldown, eventsBySiteData, eventsByEquipoData, rootCausesByEquipoData]);
+
 
   const handleBarClick = (data: any) => {
-    if (drilldown.level === 'site' && data && data.activePayload && data.activePayload[0]) {
-      const siteName = data.activePayload[0].payload.name;
-      setDrilldown({ level: 'equipo', filter: siteName });
+    if (!data || !data.activePayload || !data.activePayload[0]) return;
+    const itemName = data.activePayload[0].payload.name;
+
+    if (drilldown.level === 'site') {
+      setDrilldown({ level: 'equipo', siteFilter: itemName, equipoFilter: null });
+    } else if (drilldown.level === 'equipo') {
+      setDrilldown({ level: 'causa', siteFilter: drilldown.siteFilter, equipoFilter: itemName });
     }
   };
 
   const resetDrilldown = () => {
-    setDrilldown({ level: 'site', filter: null });
+    if (drilldown.level === 'causa') {
+      setDrilldown({ level: 'equipo', siteFilter: drilldown.siteFilter, equipoFilter: null });
+    } else if (drilldown.level === 'equipo') {
+      setDrilldown({ level: 'site', siteFilter: null, equipoFilter: null });
+    }
+  };
+
+  const getDrilldownTitle = () => {
+    if (drilldown.level === 'site') return 'Eventos por Sitio/Planta';
+    if (drilldown.level === 'equipo') return `Eventos por Equipo en ${drilldown.siteFilter}`;
+    if (drilldown.level === 'causa') return `Causas Raíz para Equipo ${drilldown.equipoFilter} en ${drilldown.siteFilter}`;
+    return 'Gráfico de Eventos';
   };
 
 
@@ -922,11 +969,11 @@ export default function DashboardRCAPage() {
             <div className="flex justify-between items-center">
               <CardTitle className="text-xl flex items-center gap-2">
                 <RCASummaryIcon className="h-5 w-5 text-primary" />
-                {drilldown.level === 'site' ? 'Eventos por Sitio/Planta' : `Eventos por Equipo en ${drilldown.filter}`}
+                {getDrilldownTitle()}
               </CardTitle>
-              {drilldown.level === 'equipo' && (
+              {drilldown.level !== 'site' && (
                 <Button variant="outline" size="sm" onClick={resetDrilldown}>
-                  Volver a la vista por Sitio
+                  Volver a vista {drilldown.level === 'causa' ? 'por Equipo' : 'por Sitio'}
                 </Button>
               )}
             </div>
@@ -939,9 +986,9 @@ export default function DashboardRCAPage() {
                 <BarChart data={barChartData} margin={{ top: 5, right: 20, left: -10, bottom: 60 }} onClick={handleBarClick}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" angle={-45} textAnchor="end" interval={0} height={100} style={{ fontSize: '10px' }} />
-                  <YAxis />
+                  <YAxis allowDecimals={false}/>
                   <RechartsTooltip cursor={{ fill: 'rgba(var(--primary-rgb), 0.1)' }}/>
-                  <Bar dataKey="total" fill="hsl(var(--chart-1))" name="Total Eventos" barSize={30} radius={[4, 4, 0, 0]} cursor={drilldown.level === 'site' ? 'pointer' : 'default'}/>
+                  <Bar dataKey="total" fill="hsl(var(--chart-1))" name="Total Eventos" barSize={30} radius={[4, 4, 0, 0]} cursor={drilldown.level !== 'causa' ? 'pointer' : 'default'}/>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
