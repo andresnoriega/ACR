@@ -245,8 +245,10 @@ export default function UserActionPlansPage() {
       }
       
       // Populate Efficacy Verification Tasks
-      const canVerifyEfficacy = userProfile.role === 'Super User' || userProfile.role === 'Admin' || userProfile.name === rcaDoc.efficacyVerification?.verifiedBy;
-
+      const canVerifyEfficacy = userProfile.role === 'Super User' || 
+                              userProfile.role === 'Admin' || 
+                              (rcaDoc.efficacyVerification?.verifiedBy === userProfile.name);
+      
       if (
         canVerifyEfficacy &&
         rcaDoc.isFinalized && 
@@ -604,13 +606,10 @@ export default function UserActionPlansPage() {
   }
   
   const tabsToShow = [
-    { value: "assigned", label: `Mis Tareas Asignadas (${assignedActionPlans.length})`, icon: ListTodo },
-    { value: "validation", label: `Tareas por Validar (${validationActionPlans.length})`, icon: CheckSquare },
+    { value: "assigned", label: `Mis Tareas Asignadas (${assignedActionPlans.length})`, icon: ListTodo, disabled: false },
+    { value: "validation", label: `Tareas por Validar (${validationActionPlans.length})`, icon: CheckSquare, disabled: false },
+    { value: "efficacy", label: `Eficacia por Verificar (${efficacyVerificationTasks.length})`, icon: ShieldCheck, disabled: efficacyVerificationTasks.length === 0 },
   ];
-  
-  if (efficacyVerificationTasks.length > 0) {
-      tabsToShow.push({ value: "efficacy", label: `Eficacia por Verificar (${efficacyVerificationTasks.length})`, icon: ShieldCheck });
-  }
 
 
   return (
@@ -663,7 +662,7 @@ export default function UserActionPlansPage() {
       <Tabs defaultValue="assigned" className="w-full">
         <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${tabsToShow.length}, 1fr)` }}>
             {tabsToShow.map(tab => (
-              <TabsTrigger key={tab.value} value={tab.value} className="flex items-center gap-2">
+              <TabsTrigger key={tab.value} value={tab.value} className="flex items-center gap-2" disabled={tab.disabled}>
                 <tab.icon className="h-4 w-4" /> {tab.label}
               </TabsTrigger>
             ))}
