@@ -1,4 +1,3 @@
-
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useEffect } from 'react';
@@ -384,7 +383,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           <section>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2">
               <SectionTitle title="Introducción / Comentarios Finales" icon={BarChart3} className="mb-0 sm:mb-2"/>
-              <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0">
+              <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0 no-print">
                 <Button
                   onClick={handleGenerateInsights}
                   variant="outline"
