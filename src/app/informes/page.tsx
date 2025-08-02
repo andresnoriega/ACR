@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -9,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PieChart as PieChartIcon, ListChecks, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, Flame, Search, RefreshCcw, Percent, FileText, ListTodo, BarChart3 as RCASummaryIcon, FileDown, ArrowUp, ArrowDown, ChevronsUpDown, XCircle, ShieldCheck, Calendar as CalendarIcon, HardHat, Home as SiteIcon } from 'lucide-react';
+import { PieChart as PieChartIcon, ListChecks, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, Flame, Search, RefreshCcw, Percent, FileText, ListTodo, BarChart3 as RCASummaryIcon, FileDown, ArrowUp, ArrowDown, ChevronsUpDown, XCircle, ShieldCheck, Calendar as CalendarIcon, HardHat, SiteIcon, MessageCircle } from 'lucide-react';
 import type { ReportedEvent, RCAAnalysisDocument, PlannedAction, Validation, Site, ReportedEventType, PriorityType, ReportedEventStatus, FullUserProfile } from '@/types/rca';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, Timestamp, where, orderBy, limit, QueryConstraint } from "firebase/firestore";
@@ -88,10 +87,17 @@ interface ChartDataItem {
     total: number;
 }
 
+interface RootCauseSummaryItem {
+  id: string;
+  site: string;
+  equipo: string;
+  cause: string;
+}
+
+
 interface DrilldownState {
-  level: 'site' | 'equipo' | 'causa';
+  level: 'site' | 'equipo';
   siteFilter: string | null;
-  equipoFilter: string | null;
 }
 
 
@@ -118,7 +124,6 @@ export default function DashboardRCAPage() {
   const [planesAccionPendientes, setPlanesAccionPendientes] = useState<PlanAccionPendienteItem[]>([]);
   const [eventsBySiteData, setEventsBySiteData] = useState<ChartDataItem[]>([]);
   const [eventsByEquipoData, setEventsByEquipoData] = useState<ChartDataItem[]>([]);
-  const [rootCausesByEquipoData, setRootCausesByEquipoData] = useState<ChartDataItem[]>([]);
 
 
   const [availableUsers, setAvailableUsers] = useState<FullUserProfile[]>([]);
@@ -127,7 +132,7 @@ export default function DashboardRCAPage() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [remindingActionId, setRemindingActionId] = useState<string | null>(null);
   
-  const [drilldown, setDrilldown] = useState<DrilldownState>({ level: 'site', siteFilter: null, equipoFilter: null });
+  const [drilldown, setDrilldown] = useState<DrilldownState>({ level: 'site', siteFilter: null });
 
   const [filters, setFilters] = useState<DashboardFilters>({
     site: '',
@@ -228,26 +233,6 @@ export default function DashboardRCAPage() {
         });
     }
     setEventsByEquipoData(Object.entries(equipoCounts).map(([name, total]) => ({ name, total })));
-
-    // Process Root Cause counts based on site and equipo filters
-    const rootCauseCounts: Record<string, number> = {};
-    if (drilldown.level === 'causa' && drilldown.siteFilter && drilldown.equipoFilter) {
-      const relevantEventIds = new Set(
-        allReportedEvents
-          .filter(e => e.site === drilldown.siteFilter && e.equipo === drilldown.equipoFilter)
-          .map(e => e.id)
-      );
-      allRcaDocuments
-        .filter(doc => relevantEventIds.has(doc.eventData.id) && doc.identifiedRootCauses?.length > 0)
-        .forEach(doc => {
-          doc.identifiedRootCauses.forEach(rc => {
-            if (rc.description && rc.description.trim()) {
-              rootCauseCounts[rc.description.trim()] = (rootCauseCounts[rc.description.trim()] || 0) + 1;
-            }
-          });
-        });
-    }
-    setRootCausesByEquipoData(Object.entries(rootCauseCounts).map(([name, total]) => ({ name, total })));
     
     allRcaDocuments.forEach(rcaDoc => {
       const rcaId = rcaDoc.eventData.id;
@@ -306,6 +291,25 @@ export default function DashboardRCAPage() {
     
   }, [allRcaDocuments, allReportedEvents, drilldown]);
 
+  const rootCauseSummaryData = useMemo(() => {
+    const summary: RootCauseSummaryItem[] = [];
+    allRcaDocuments.forEach(doc => {
+      if (doc.identifiedRootCauses && doc.identifiedRootCauses.length > 0) {
+        doc.identifiedRootCauses.forEach(cause => {
+          if(cause.description && cause.description.trim()) {
+            summary.push({
+              id: `${doc.eventData.id}-${cause.id}`,
+              site: doc.eventData.place,
+              equipo: doc.eventData.equipo,
+              cause: cause.description,
+            });
+          }
+        });
+      }
+    });
+    return summary;
+  }, [allRcaDocuments]);
+
 
   useEffect(() => {
     const fetchSitesData = async () => {
@@ -347,7 +351,7 @@ export default function DashboardRCAPage() {
   const applyFilters = () => {
     toast({ title: "Aplicando Filtros...", description: "Recargando datos del dashboard." });
     fetchAllDashboardData(filters);
-    setDrilldown({ level: 'site', siteFilter: null, equipoFilter: null });
+    setDrilldown({ level: 'site', siteFilter: null });
   };
 
   const clearFilters = () => {
@@ -360,7 +364,7 @@ export default function DashboardRCAPage() {
     setFilters(emptyFilters);
     toast({ title: "Filtros Limpiados", description: "Recargando todos los datos del dashboard." });
     fetchAllDashboardData(emptyFilters);
-    setDrilldown({ level: 'site', siteFilter: null, equipoFilter: null });
+    setDrilldown({ level: 'site', siteFilter: null });
   };
 
   const isLoading = isLoadingData || isLoadingSites || loadingAuth;
@@ -409,11 +413,8 @@ export default function DashboardRCAPage() {
     if (drilldown.level === 'equipo') {
       return eventsByEquipoData.sort((a, b) => b.total - a.total);
     }
-    if (drilldown.level === 'causa') {
-      return rootCausesByEquipoData.sort((a, b) => b.total - a.total);
-    }
     return [];
-  }, [drilldown, eventsBySiteData, eventsByEquipoData, rootCausesByEquipoData]);
+  }, [drilldown, eventsBySiteData, eventsByEquipoData]);
 
 
   const handleBarClick = (data: any) => {
@@ -421,24 +422,17 @@ export default function DashboardRCAPage() {
     const itemName = data.activePayload[0].payload.name;
 
     if (drilldown.level === 'site') {
-      setDrilldown({ level: 'equipo', siteFilter: itemName, equipoFilter: null });
-    } else if (drilldown.level === 'equipo') {
-      setDrilldown({ level: 'causa', siteFilter: drilldown.siteFilter, equipoFilter: itemName });
+      setDrilldown({ level: 'equipo', siteFilter: itemName });
     }
   };
 
   const resetDrilldown = () => {
-    if (drilldown.level === 'causa') {
-      setDrilldown({ level: 'equipo', siteFilter: drilldown.siteFilter, equipoFilter: null });
-    } else if (drilldown.level === 'equipo') {
-      setDrilldown({ level: 'site', siteFilter: null, equipoFilter: null });
-    }
+    setDrilldown({ level: 'site', siteFilter: null });
   };
 
   const getDrilldownTitle = () => {
     if (drilldown.level === 'site') return 'Eventos por Sitio/Planta';
     if (drilldown.level === 'equipo') return `Eventos por Equipo en ${drilldown.siteFilter}`;
-    if (drilldown.level === 'causa') return `Causas Raíz para Equipo ${drilldown.equipoFilter} en ${drilldown.siteFilter}`;
     return 'Gráfico de Eventos';
   };
 
@@ -973,7 +967,7 @@ export default function DashboardRCAPage() {
               </CardTitle>
               {drilldown.level !== 'site' && (
                 <Button variant="outline" size="sm" onClick={resetDrilldown}>
-                  Volver a vista {drilldown.level === 'causa' ? 'por Equipo' : 'por Sitio'}
+                  Volver a vista por Sitio
                 </Button>
               )}
             </div>
@@ -988,13 +982,62 @@ export default function DashboardRCAPage() {
                   <XAxis dataKey="name" angle={-45} textAnchor="end" interval={0} height={100} style={{ fontSize: '10px' }} />
                   <YAxis allowDecimals={false}/>
                   <RechartsTooltip cursor={{ fill: 'rgba(var(--primary-rgb), 0.1)' }}/>
-                  <Bar dataKey="total" fill="hsl(var(--chart-1))" name="Total Eventos" barSize={30} radius={[4, 4, 0, 0]} cursor={drilldown.level !== 'causa' ? 'pointer' : 'default'}/>
+                  <Bar dataKey="total" fill="hsl(var(--chart-1))" name="Total Eventos" barSize={30} radius={[4, 4, 0, 0]} cursor="pointer"/>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
               <div className="flex items-center justify-center h-full"><p className="text-muted-foreground">No hay datos para mostrar en este gráfico.</p></div>
             )}
           </CardContent>
+        </Card>
+
+        <Card className="shadow-lg">
+            <CardHeader>
+                <div className="flex items-center gap-3">
+                    <MessageCircle className="h-6 w-6 text-primary" />
+                    <CardTitle className="text-2xl">Resumen de Causas Raíz Identificadas</CardTitle>
+                </div>
+                <CardDescription>
+                    Una lista de todas las causas raíz identificadas en los análisis que coinciden con los filtros actuales.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                {isLoadingData ? (
+                    <div className="flex justify-center items-center h-24">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <p className="ml-2 text-muted-foreground">Cargando causas raíz...</p>
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto max-h-96">
+                        <Table>
+                            <TableHeader className="sticky top-0 bg-card z-10">
+                                <TableRow>
+                                    <TableHead className="w-[25%]">Sitio/Planta</TableHead>
+                                    <TableHead className="w-[25%]">Equipo</TableHead>
+                                    <TableHead className="w-[50%]">Causa Raíz Identificada</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {rootCauseSummaryData.length > 0 ? (
+                                    rootCauseSummaryData.map((item) => (
+                                        <TableRow key={item.id}>
+                                            <TableCell>{item.site}</TableCell>
+                                            <TableCell>{item.equipo}</TableCell>
+                                            <TableCell className="font-medium">{item.cause}</TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="text-center text-muted-foreground h-24">
+                                            No se encontraron causas raíz para los filtros seleccionados.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                )}
+            </CardContent>
         </Card>
 
       <Card className="shadow-lg">
