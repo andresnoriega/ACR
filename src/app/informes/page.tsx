@@ -9,11 +9,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PieChart as PieChartIcon, ListChecks, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, Flame, Search, RefreshCcw, Percent, FileText, ListTodo, BarChart3 as RCASummaryIcon, FileDown, ArrowUp, ArrowDown, ChevronsUpDown, XCircle, ShieldCheck } from 'lucide-react'; // Added XCircle and ShieldCheck
+import { PieChart as PieChartIcon, ListChecks, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, Flame, Search, RefreshCcw, Percent, FileText, ListTodo, BarChart3 as RCASummaryIcon, FileDown, ArrowUp, ArrowDown, ChevronsUpDown, XCircle, ShieldCheck, Calendar as CalendarIcon } from 'lucide-react';
 import type { ReportedEvent, RCAAnalysisDocument, PlannedAction, Validation, Site, ReportedEventType, PriorityType, ReportedEventStatus, FullUserProfile } from '@/types/rca';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, Timestamp, where, orderBy, limit, QueryConstraint } from "firebase/firestore";
-import { format, parseISO, isValid, formatDistanceToNowStrict } from "date-fns";
+import { format, parseISO, isValid, formatDistanceToNowStrict, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -28,6 +28,10 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { useAuth } from '@/contexts/AuthContext';
 import { sendEmailAction } from '@/app/actions';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { type DateRange } from 'react-day-picker';
+import { cn } from '@/lib/utils';
 
 
 const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Falla de Equipo', 'Accidente', 'No Conformidad', 'Evento Operacional'];
@@ -71,7 +75,9 @@ interface DashboardFilters {
   site: string;
   type: ReportedEventType;
   priority: PriorityType;
+  dateRange?: DateRange;
 }
+
 
 type SortableAnalisisEnCursoKey = 'proyecto' | 'currentStep' | 'progreso' | 'updatedAt';
 interface SortConfigAnalisisEnCurso {
@@ -105,6 +111,7 @@ export default function DashboardRCAPage() {
     site: '',
     type: '' as ReportedEventType,
     priority: '' as PriorityType,
+    dateRange: undefined,
   });
 
   const [sortConfigAnalisis, setSortConfigAnalisis] = useState<SortConfigAnalisisEnCurso>({ key: 'updatedAt', direction: 'descending' });
@@ -155,6 +162,10 @@ export default function DashboardRCAPage() {
         eventQueryConstraintsForCounts.push(where("priority", "==", currentFilters.priority));
       }
 
+      // Date Range Filtering (Client-Side)
+      const { dateRange } = currentFilters;
+      const interval = dateRange?.from && dateRange?.to ? { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) } : null;
+
       const rcaAnalysesRef = collection(db, "rcaAnalyses");
       const rcaQueryInstance = query(rcaAnalysesRef, ...rcaQueryConstraints);
       const rcaSnapshot = await getDocs(rcaQueryInstance);
@@ -164,11 +175,19 @@ export default function DashboardRCAPage() {
       const filteredReportedEventsSnapshot = await getDocs(eventsForCountsQuery);
       
       const reportedEventsMap = new Map<string, ReportedEventStatus>();
-      filteredReportedEventsSnapshot.forEach(doc => {
-        reportedEventsMap.set(doc.id, doc.data().status as ReportedEventStatus);
-      });
+      filteredReportedEventsSnapshot.docs
+        .filter(doc => {
+            if (!interval) return true;
+            const eventDate = parseISO(doc.data().date);
+            return isValid(eventDate) && isWithinInterval(eventDate, interval);
+        })
+        .forEach(doc => {
+            reportedEventsMap.set(doc.id, doc.data().status as ReportedEventStatus);
+        });
 
-      rcaSnapshot.forEach(docSnap => {
+      rcaSnapshot.docs
+        .filter(docSnap => reportedEventsMap.has(docSnap.id))
+        .forEach(docSnap => {
         const rcaDoc = docSnap.data() as RCAAnalysisDocument;
         const rcaId = docSnap.id;
         const eventStatus = reportedEventsMap.get(rcaId);
@@ -232,8 +251,7 @@ export default function DashboardRCAPage() {
       setPlanesAccionPendientes(currentPendingActionPlans); 
       
       currentRcaPendientesCount = 0;
-      filteredReportedEventsSnapshot.forEach(doc => {
-          const status = doc.data().status as ReportedEventStatus;
+      reportedEventsMap.forEach((status, eventId) => {
           if ((status === 'Pendiente' || status === 'En análisis' || status === 'En validación')) {
             currentRcaPendientesCount++;
           }
@@ -313,6 +331,7 @@ export default function DashboardRCAPage() {
         site: '',
         type: '' as ReportedEventType,
         priority: '' as PriorityType,
+        dateRange: undefined,
     };
     setFilters(emptyFilters);
     toast({ title: "Filtros Limpiados", description: "Recargando todos los datos del dashboard." });
@@ -549,7 +568,7 @@ export default function DashboardRCAPage() {
             <CardTitle className="text-2xl">Filtros de Búsqueda</CardTitle>
           </div>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-4">
           <div>
             <Label htmlFor="filter-site" className="flex items-center mb-1"><Globe className="mr-1.5 h-4 w-4 text-muted-foreground"/>Sitio/Planta</Label>
             <Select
@@ -597,6 +616,46 @@ export default function DashboardRCAPage() {
                 {priorityOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
               </SelectContent>
             </Select>
+          </div>
+          <div className="lg:col-span-1">
+            <Label htmlFor="filter-date-range" className="flex items-center mb-1"><CalendarIcon className="mr-1.5 h-4 w-4 text-muted-foreground"/>Rango de Fechas</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  id="filter-date-range"
+                  variant={"outline"}
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !filters.dateRange && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {filters.dateRange?.from ? (
+                    filters.dateRange.to ? (
+                      <>
+                        {format(filters.dateRange.from, "LLL dd, y", { locale: es })} -{" "}
+                        {format(filters.dateRange.to, "LLL dd, y", { locale: es })}
+                      </>
+                    ) : (
+                      format(filters.dateRange.from, "LLL dd, y", { locale: es })
+                    )
+                  ) : (
+                    <span>Seleccione un rango</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={filters.dateRange?.from}
+                  selected={filters.dateRange}
+                  onSelect={(range) => handleFilterChange('dateRange', range)}
+                  numberOfMonths={2}
+                  locale={es}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         </CardContent>
         <CardFooter className="flex justify-start gap-3 pt-4 border-t">
@@ -926,4 +985,3 @@ export default function DashboardRCAPage() {
     </div>
   );
 }
-
