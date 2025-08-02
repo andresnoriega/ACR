@@ -364,6 +364,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   const isIshikawaPopulated = (ishikawaData ?? []).some(cat => cat.causes.length > 0);
   const is5WhysPopulated = (fiveWhysData ?? []).length > 0;
   const isCtmPopulated = (ctmData ?? []).some(fm => fm.hypotheses.length > 0);
+  const isIshikawaWithValidatedCauses = (ishikawaData ?? []).some(cat => cat.causes.some(c => c.status === 'accepted'));
 
   return (
     <>
@@ -463,7 +464,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
             <SectionContent>
                 <h4 className="font-semibold text-primary flex items-center mb-2"><Network className="mr-2 h-4 w-4" />Técnica de Análisis Principal Utilizada</h4>
                 <p className="pl-2 mb-2 font-semibold text-base">{analysisTechnique || "No seleccionada"}</p>
-                {analysisTechniqueNotes.trim() && (
+                {analysisTechniqueNotes && analysisTechniqueNotes.trim() && (
                     <div className="mt-4">
                         <h4 className="font-semibold text-primary mb-1">Notas Adicionales del Análisis</h4>
                         <p className="whitespace-pre-wrap text-xs bg-secondary/30 p-2 rounded-md">{analysisTechniqueNotes}</p>
@@ -476,12 +477,11 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           <section>
             <SectionTitle title="Causas Raíz" icon={Zap}/>
             <SectionContent>
-              {identifiedRootCauses.length > 0 ? (
+              {identifiedRootCauses && identifiedRootCauses.length > 0 && identifiedRootCauses.some(rc => rc.description.trim()) ? (
                 <ul className="list-disc pl-6 space-y-1">
                   {identifiedRootCauses.map((rc, index) => (
                     rc.description.trim() && <li key={rc.id}><strong>Causa Raíz #{index + 1}:</strong> {rc.description}</li>
                   ))}
-                   {identifiedRootCauses.every(rc => !rc.description.trim()) && <p>Se han añadido entradas de causa raíz pero ninguna tiene descripción.</p>}
                 </ul>
               ) : (
                 <p>No se han definido causas raíz específicas.</p>
@@ -571,9 +571,9 @@ export const Step5Results: FC<Step5ResultsProps> = ({
 
           <section>
              <SectionTitle title="Anexos" icon={FileText}/>
-             { (timelineEvents && timelineEvents.length > 0) || (brainstormingIdeas && brainstormingIdeas.length > 0) || (isIshikawaPopulated || is5WhysPopulated || isCtmPopulated) || (preservedFacts && preservedFacts.length > 0) ? (
+             { (timelineEvents?.length > 0) || (brainstormingIdeas?.length > 0) || isIshikawaWithValidatedCauses || is5WhysPopulated || isCtmPopulated || (preservedFacts?.length > 0) ? (
                  <div className="space-y-4">
-                    {(timelineEvents ?? []).length > 0 && (
+                    {timelineEvents && timelineEvents.length > 0 && (
                       <div>
                         <h4 className="font-semibold text-primary flex items-center mb-2"><CalendarClock className="mr-2 h-4 w-4" />Línea de Tiempo</h4>
                         <ul className="list-disc pl-5 space-y-1 text-xs border rounded-md p-3 bg-secondary/20">
@@ -585,7 +585,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                         </ul>
                       </div>
                     )}
-                    {(brainstormingIdeas ?? []).length > 0 && (
+                    {brainstormingIdeas && brainstormingIdeas.length > 0 && (
                       <div>
                         <h4 className="font-semibold text-primary flex items-center mb-2"><Lightbulb className="mr-2 h-4 w-4" />Lluvia de Ideas</h4>
                         <ul className="list-disc pl-5 space-y-1 text-xs border rounded-md p-3 bg-secondary/20">
@@ -598,15 +598,15 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                       </div>
                     )}
                     
-                    {analysisTechnique === 'Ishikawa' && isIshikawaPopulated && (
+                    {isIshikawaWithValidatedCauses && (
                         <div className='text-xs space-y-2'>
-                            <h4 className="font-semibold text-primary flex items-center mb-2"><Fish className="mr-2 h-4 w-4" />Detalle Análisis Ishikawa</h4>
-                            {ishikawaData.map(category => (
+                            <h4 className="font-semibold text-primary flex items-center mb-2"><Fish className="mr-2 h-4 w-4" />Detalle Análisis Ishikawa (Causas Validadas)</h4>
+                            {ishikawaData.filter(cat => cat.causes.some(c => c.status === 'accepted')).map(category => (
                                 <div key={category.id}>
                                     <h5 className='font-semibold flex items-center'><Wrench className="mr-1.5 h-3.5 w-3.5" />{category.name}</h5>
                                     <ul className='list-disc pl-5'>
-                                        {category.causes.filter(c => c.description.trim()).map(cause => (
-                                            <li key={cause.id} className={cn(cause.status === 'accepted' ? 'text-green-700 font-medium' : cause.status === 'rejected' ? 'text-red-700 line-through' : '')}>
+                                        {category.causes.filter(c => c.status === 'accepted').map(cause => (
+                                            <li key={cause.id} className='text-green-700 font-medium'>
                                                 {cause.description} {cause.validationMethod && <span className='text-muted-foreground italic text-xs'>- Justificación: {cause.validationMethod}</span>}
                                             </li>
                                         ))}
@@ -615,7 +615,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                             ))}
                         </div>
                     )}
-                    {analysisTechnique === '5 Por qué' && is5WhysPopulated && (
+                    {is5WhysPopulated && (
                         <div className='text-xs space-y-3'>
                             <h4 className="font-semibold text-primary flex items-center mb-2"><HelpIcon5Whys className="mr-2 h-4 w-4" />Detalle Análisis 5 Porqués</h4>
                             {fiveWhysData.map((entry, idx) => (
@@ -630,7 +630,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                             ))}
                         </div>
                     )}
-                    {analysisTechnique === 'CTM' && isCtmPopulated && (
+                    {isCtmPopulated && (
                         <div className='text-xs space-y-3'>
                             <h4 className="font-semibold text-primary flex items-center mb-2"><CtmIcon className="mr-2 h-4 w-4" />Detalle Análisis CTM</h4>
                             {ctmData.map((fm, fmIdx) => (
@@ -645,7 +645,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                             ))}
                         </div>
                     )}
-                    {(preservedFacts ?? []).length > 0 && (
+                    {preservedFacts && preservedFacts.length > 0 && (
                       <div>
                         <p className="font-medium mt-2 mb-1">Hechos Preservados / Documentación Adjunta:</p>
                         <ul className="list-disc pl-6 space-y-1 text-xs">
@@ -757,3 +757,4 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     </>
   );
 };
+
