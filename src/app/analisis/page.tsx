@@ -1491,7 +1491,7 @@ function RCAAnalysisPageComponent() {
       status: 'pending',
       verifiedBy: '',
       verifiedAt: '',
-      comments: investigationObjective || (efficacyVerification?.comments ?? ''),
+      comments: investigationObjective || '',
       verificationDate: verificationDate,
     };
   

@@ -327,7 +327,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     if (checked) {
       setSelectedUserEmails(prev => [...prev, userEmail]);
     } else {
-      setSelectedUserEmails(prev => prev.filter(email => email !== userEmail));
+      setSelectedUserEmails(prev => prev.filter(email => email !== email));
     }
   };
 
@@ -350,7 +350,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     setIsVerifying(true);
     try {
       await onPlanEfficacyVerification(verificationDate);
-      setIsVerificationPlanningDialogOpen(false);
     } catch (error) {
       console.error("Error al planificar verificación de eficacia:", error);
       toast({
@@ -359,7 +358,8 @@ export const Step5Results: FC<Step5ResultsProps> = ({
         variant: "destructive",
       });
     } finally {
-      setIsVerifying(false);
+        setIsVerifying(false);
+        setIsVerificationPlanningDialogOpen(false);
     }
   };
 
