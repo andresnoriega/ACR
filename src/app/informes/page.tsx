@@ -90,6 +90,7 @@ interface ChartDataItem {
 
 interface RootCauseSummaryItem {
   id: string;
+  eventDate: string;
   site: string;
   equipo: string;
   cause: string;
@@ -113,6 +114,13 @@ interface SortConfigPlanesAccion {
   key: SortablePlanesAccionKey | null;
   direction: 'ascending' | 'descending';
 }
+
+type SortableCausesKey = 'eventDate' | 'site' | 'equipo' | 'cause';
+interface SortConfigCauses {
+  key: SortableCausesKey | null;
+  direction: 'ascending' | 'descending';
+}
+
 
 export default function DashboardRCAPage() {
   const { toast } = useToast();
@@ -144,6 +152,8 @@ export default function DashboardRCAPage() {
 
   const [sortConfigAnalisis, setSortConfigAnalisis] = useState<SortConfigAnalisisEnCurso>({ key: 'updatedAt', direction: 'descending' });
   const [sortConfigPlanes, setSortConfigPlanes] = useState<SortConfigPlanesAccion>({ key: 'fechaLimite', direction: 'ascending' });
+  const [sortConfigCauses, setSortConfigCauses] = useState<SortConfigCauses>({ key: 'eventDate', direction: 'descending' });
+
 
   const [allRcaDocuments, setAllRcaDocuments] = useState<RCAAnalysisDocument[]>([]);
   const [allReportedEvents, setAllReportedEvents] = useState<ReportedEvent[]>([]);
@@ -300,6 +310,7 @@ export default function DashboardRCAPage() {
           if(cause.description && cause.description.trim()) {
             summary.push({
               id: `${doc.eventData.id}-${cause.id}`,
+              eventDate: doc.eventData.date,
               site: doc.eventData.place,
               equipo: doc.eventData.equipo,
               cause: cause.description,
@@ -523,6 +534,55 @@ export default function DashboardRCAPage() {
     return <ChevronsUpDown className="h-3 w-3 opacity-30" />;
   };
 
+  const requestSortCauses = (key: SortableCausesKey) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfigCauses.key === key && sortConfigCauses.direction === 'ascending') {
+        direction = 'descending';
+    }
+    setSortConfigCauses({ key, direction });
+  };
+
+  const sortedRootCauseSummaryData = useMemo(() => {
+      let sortableItems = [...rootCauseSummaryData];
+      if (sortConfigCauses.key) {
+          sortableItems.sort((a, b) => {
+              const valA = a[sortConfigCauses.key!];
+              const valB = b[sortConfigCauses.key!];
+
+              if (sortConfigCauses.key === 'eventDate') {
+                  const dateA = valA ? parseISO(valA).getTime() : 0;
+                  const dateB = valB ? parseISO(valB).getTime() : 0;
+                  return dateA - dateB;
+              }
+              if (typeof valA === 'string' && typeof valB === 'string') {
+                  return valA.localeCompare(valB);
+              }
+              return 0;
+          });
+          if (sortConfigCauses.direction === 'descending') {
+              sortableItems.reverse();
+          }
+      }
+      return sortableItems;
+  }, [rootCauseSummaryData, sortConfigCauses]);
+  
+  const renderSortIconCauses = (columnKey: SortableCausesKey) => {
+    if (sortConfigCauses.key === columnKey) {
+        return sortConfigCauses.direction === 'ascending' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+    }
+    return <ChevronsUpDown className="h-3 w-3 opacity-30" />;
+  };
+  
+  const formatDateForDisplay = (dateString: string) => {
+    if (!dateString) return 'N/A';
+    try {
+        const dateObj = parseISO(dateString);
+        if (isValid(dateObj)) {
+            return format(dateObj, 'dd/MM/yyyy', { locale: es });
+        }
+    } catch (error) {}
+    return dateString;
+  };
 
   const handleExportToExcel = () => {
     if (sortedPlanesAccionPendientes.length === 0) {
@@ -570,7 +630,7 @@ export default function DashboardRCAPage() {
   };
 
   const handleExportRootCausesToExcel = () => {
-    if (rootCauseSummaryData.length === 0) {
+    if (sortedRootCauseSummaryData.length === 0) {
       toast({
         title: "Sin Datos para Exportar",
         description: "No hay causas raíz en la tabla para exportar.",
@@ -579,14 +639,15 @@ export default function DashboardRCAPage() {
       return;
     }
 
-    const dataToExport = rootCauseSummaryData.map(item => ({
+    const dataToExport = sortedRootCauseSummaryData.map(item => ({
+      'Fecha del Evento': formatDateForDisplay(item.eventDate),
       'Sitio/Planta': item.site,
       'Equipo': item.equipo,
       'Causa Raíz Identificada': item.cause,
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    worksheet['!cols'] = [ { wch: 30 }, { wch: 30 }, { wch: 60 } ];
+    worksheet['!cols'] = [ { wch: 15 }, { wch: 30 }, { wch: 30 }, { wch: 60 } ];
     
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Causas Raíz");
@@ -1041,15 +1102,17 @@ export default function DashboardRCAPage() {
                         <Table>
                             <TableHeader className="sticky top-0 bg-card z-10">
                                 <TableRow>
-                                    <TableHead className="w-[25%]">Sitio/Planta</TableHead>
-                                    <TableHead className="w-[25%]">Equipo</TableHead>
-                                    <TableHead className="w-[50%]">Causa Raíz Identificada</TableHead>
+                                    <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortCauses('eventDate')}><div className="flex items-center gap-1">Fecha Evento {renderSortIconCauses('eventDate')}</div></TableHead>
+                                    <TableHead className="w-[20%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortCauses('site')}><div className="flex items-center gap-1">Sitio/Planta {renderSortIconCauses('site')}</div></TableHead>
+                                    <TableHead className="w-[20%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortCauses('equipo')}><div className="flex items-center gap-1">Equipo {renderSortIconCauses('equipo')}</div></TableHead>
+                                    <TableHead className="w-[45%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortCauses('cause')}><div className="flex items-center gap-1">Causa Raíz Identificada {renderSortIconCauses('cause')}</div></TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {rootCauseSummaryData.length > 0 ? (
-                                    rootCauseSummaryData.map((item) => (
+                                {sortedRootCauseSummaryData.length > 0 ? (
+                                    sortedRootCauseSummaryData.map((item) => (
                                         <TableRow key={item.id}>
+                                            <TableCell>{formatDateForDisplay(item.eventDate)}</TableCell>
                                             <TableCell>{item.site}</TableCell>
                                             <TableCell>{item.equipo}</TableCell>
                                             <TableCell className="font-medium">{item.cause}</TableCell>
@@ -1057,7 +1120,7 @@ export default function DashboardRCAPage() {
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={3} className="text-center text-muted-foreground h-24">
+                                        <TableCell colSpan={4} className="text-center text-muted-foreground h-24">
                                             No se encontraron causas raíz para los filtros seleccionados.
                                         </TableCell>
                                     </TableRow>
@@ -1072,7 +1135,7 @@ export default function DashboardRCAPage() {
                 variant="outline"
                 size="sm"
                 onClick={handleExportRootCausesToExcel}
-                disabled={isLoadingData || rootCauseSummaryData.length === 0}
+                disabled={isLoadingData || sortedRootCauseSummaryData.length === 0}
               >
                 <FileDown className="mr-1.5 h-3.5 w-3.5" /> Exportar a Excel
               </Button>
