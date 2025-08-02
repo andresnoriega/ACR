@@ -362,7 +362,6 @@ const handleSaveFinalComments = async () => {
 };
 
 const handlePlanVerification = async (verificationDate: string) => {
-  setIsVerifying(true);
   try {
     if (typeof onPlanEfficacyVerification !== "function") {
       throw new Error("No se ha definido la función para planificar la verificación de eficacia.");
@@ -485,7 +484,7 @@ return (
           {isIshikawaPopulated ? (
             <ul className="list-disc ml-5">
               {ishikawaData.map((cat, i) => (
-                <li key={i}><strong>{cat.category}:</strong> {cat.causes.map(c => c.cause).join(", ")}</li>
+                <li key={i}><strong>{cat.name}:</strong> {cat.causes.map(c => c.description).join(", ")}</li>
               ))}
             </ul>
           ) : "No se ingresaron causas en Ishikawa."}
@@ -497,8 +496,13 @@ return (
         <SectionContent>
           {is5WhysPopulated ? (
             <ul className="list-decimal ml-6">
-              {fiveWhysData.map((why, i) => (
-                <li key={i}>{why}</li>
+              {fiveWhysData.map((entry, i) => (
+                <li key={i}>
+                  <strong>¿Por qué?</strong> {entry.why}
+                  <ul className="list-disc ml-6">
+                    {entry.becauses.map((cause, j) => <li key={j}><strong>Porque:</strong> {cause.description}</li>)}
+                  </ul>
+                </li>
               ))}
             </ul>
           ) : "No se completó el análisis de 5 Porqués."}
@@ -511,7 +515,7 @@ return (
           {isCtmPopulated ? (
             <ul className="list-disc ml-5">
               {ctmData.map((fm, i) => (
-                <li key={i}><strong>{fm.mainFactor}:</strong> {fm.hypotheses.map(h => h.description).join(", ")}</li>
+                <li key={i}><strong>{fm.description}:</strong> {fm.hypotheses.map(h => h.description).join(", ")}</li>
               ))}
             </ul>
           ) : "No se completó el análisis CTM."}

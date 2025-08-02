@@ -1493,10 +1493,8 @@ function RCAAnalysisPageComponent() {
     setIsSaving(true);
     try {
         const efficacyUpdate: EfficacyVerification = {
+            ...efficacyVerification,
             status: 'pending',
-            verifiedBy: '',
-            verifiedAt: '',
-            comments: investigationObjective || '',
             verificationDate: verificationDate,
         };
         const saveResult = await handleSaveAnalysisData(
