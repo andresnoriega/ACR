@@ -13,7 +13,7 @@ import { PieChart as PieChartIcon, ListChecks, PlusCircle, ExternalLink, LineCha
 import type { ReportedEvent, RCAAnalysisDocument, PlannedAction, Validation, Site, ReportedEventType, PriorityType, ReportedEventStatus, FullUserProfile } from '@/types/rca';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, Timestamp, where, orderBy, limit, QueryConstraint } from "firebase/firestore";
-import { format, parseISO, isValid, formatDistanceToNowStrict, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { format, parseISO, isValid, formatDistanceToNowStrict, isWithinInterval, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, sub } from "date-fns";
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -546,6 +546,13 @@ export default function DashboardRCAPage() {
     setRemindingActionId(null);
   };
 
+  const datePresets = [
+    { name: "this_week", label: "Esta semana", getRange: () => ({ from: startOfWeek(new Date(), { weekStartsOn: 1 }), to: endOfWeek(new Date(), { weekStartsOn: 1 }) }) },
+    { name: "this_month", label: "Este mes", getRange: () => ({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) }) },
+    { name: "this_year", label: "Este año", getRange: () => ({ from: startOfYear(new Date()), to: endOfYear(new Date()) }) },
+    { name: "last_7_days", label: "Últimos 7 días", getRange: () => ({ from: sub(new Date(), { days: 6 }), to: new Date() }) },
+    { name: "last_30_days", label: "Últimos 30 días", getRange: () => ({ from: sub(new Date(), { days: 29 }), to: new Date() }) },
+  ];
 
   return (
     <div className="space-y-6 py-8">
@@ -620,41 +627,55 @@ export default function DashboardRCAPage() {
           <div className="lg:col-span-1">
             <Label htmlFor="filter-date-range" className="flex items-center mb-1"><CalendarIcon className="mr-1.5 h-4 w-4 text-muted-foreground"/>Rango de Fechas</Label>
             <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  id="filter-date-range"
-                  variant={"outline"}
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !filters.dateRange && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {filters.dateRange?.from ? (
-                    filters.dateRange.to ? (
-                      <>
-                        {format(filters.dateRange.from, "LLL dd, y", { locale: es })} -{" "}
-                        {format(filters.dateRange.to, "LLL dd, y", { locale: es })}
-                      </>
+                <PopoverTrigger asChild>
+                    <Button
+                    id="filter-date-range"
+                    variant={"outline"}
+                    className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !filters.dateRange && "text-muted-foreground"
+                    )}
+                    >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {filters.dateRange?.from ? (
+                        filters.dateRange.to ? (
+                        <>
+                            {format(filters.dateRange.from, "LLL dd, y", { locale: es })} -{" "}
+                            {format(filters.dateRange.to, "LLL dd, y", { locale: es })}
+                        </>
+                        ) : (
+                        format(filters.dateRange.from, "LLL dd, y", { locale: es })
+                        )
                     ) : (
-                      format(filters.dateRange.from, "LLL dd, y", { locale: es })
-                    )
-                  ) : (
-                    <span>Seleccione un rango</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  initialFocus
-                  mode="range"
-                  defaultMonth={filters.dateRange?.from}
-                  selected={filters.dateRange}
-                  onSelect={(range) => handleFilterChange('dateRange', range)}
-                  numberOfMonths={2}
-                  locale={es}
-                />
-              </PopoverContent>
+                        <span>Seleccione un rango</span>
+                    )}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={filters.dateRange?.from}
+                    selected={filters.dateRange}
+                    onSelect={(range) => handleFilterChange('dateRange', range)}
+                    numberOfMonths={2}
+                    locale={es}
+                    footer={
+                        <div className="flex justify-end space-x-2 p-2 border-t">
+                            {datePresets.map(({ name, label, getRange }) => (
+                                <Button
+                                key={name}
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleFilterChange('dateRange', getRange())}
+                                >
+                                {label}
+                                </Button>
+                            ))}
+                        </div>
+                    }
+                    />
+                </PopoverContent>
             </Popover>
           </div>
         </CardContent>
@@ -985,3 +1006,4 @@ export default function DashboardRCAPage() {
     </div>
   );
 }
+
