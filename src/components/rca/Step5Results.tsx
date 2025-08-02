@@ -1,3 +1,4 @@
+
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useEffect } from 'react';
@@ -643,14 +644,13 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           </section>
           <Separator className="my-4" />
 
-          {/* ...Anexos igual que antes... */}
           <section>
             <SectionTitle title="Anexos" icon={FileText}/>
             {(timelineEvents?.length > 0) || (brainstormingIdeas?.length > 0) || (preservedFacts?.length > 0) ? (
               <div className="space-y-4">
                 {timelineEvents && timelineEvents.length > 0 && (
                   <div>
-                    <h4 className="font-semibold text-primary flex items-center mb-2"><CalendarClock className="mr-2 h-4 w-4" />Línea de Tiempo</h4>
+                    <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><CalendarClock className="mr-2 h-4 w-4" />Línea de Tiempo</h4>
                     <ul className="list-disc pl-5 space-y-1 text-xs border rounded-md p-3 bg-secondary/20">
                       {timelineEvents.map(event => (
                         <li key={event.id}>
@@ -662,7 +662,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                 )}
                 {brainstormingIdeas && brainstormingIdeas.length > 0 && (
                   <div>
-                    <h4 className="font-semibold text-primary flex items-center mb-2"><Lightbulb className="mr-2 h-4 w-4" />Lluvia de Ideas</h4>
+                    <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><Lightbulb className="mr-2 h-4 w-4" />Lluvia de Ideas</h4>
                     <ul className="list-disc pl-5 space-y-1 text-xs border rounded-md p-3 bg-secondary/20">
                       {brainstormingIdeas.map(idea => (
                         <li key={idea.id}>
@@ -675,7 +675,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                 
                 {preservedFacts && preservedFacts.length > 0 && (
                   <div>
-                    <p className="font-medium mt-2 mb-1">Hechos Preservados / Documentación Adjunta:</p>
+                    <p className="font-medium mt-2 mb-1 text-primary text-base">Hechos Preservados / Documentación Adjunta:</p>
                     <ul className="list-disc pl-6 space-y-1 text-xs">
                       {preservedFacts.map(fact => (
                         <li key={fact.id}>
