@@ -87,6 +87,11 @@ interface ChartDataItem {
     total: number;
 }
 
+interface DrilldownState {
+  level: 'site' | 'equipo';
+  filter: string | null;
+}
+
 
 type SortableAnalisisEnCursoKey = 'proyecto' | 'currentStep' | 'progreso' | 'updatedAt';
 interface SortConfigAnalisisEnCurso {
@@ -117,6 +122,8 @@ export default function DashboardRCAPage() {
   const [isLoadingSites, setIsLoadingSites] = useState(true);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [remindingActionId, setRemindingActionId] = useState<string | null>(null);
+  
+  const [drilldown, setDrilldown] = useState<DrilldownState>({ level: 'site', filter: null });
 
   const [filters, setFilters] = useState<DashboardFilters>({
     site: '',
@@ -128,6 +135,9 @@ export default function DashboardRCAPage() {
   const [sortConfigAnalisis, setSortConfigAnalisis] = useState<SortConfigAnalisisEnCurso>({ key: 'updatedAt', direction: 'descending' });
   const [sortConfigPlanes, setSortConfigPlanes] = useState<SortConfigPlanesAccion>({ key: 'fechaLimite', direction: 'ascending' });
 
+  const [allRcaDocuments, setAllRcaDocuments] = useState<RCAAnalysisDocument[]>([]);
+  const [allReportedEvents, setAllReportedEvents] = useState<ReportedEvent[]>([]);
+
 
   const fetchAllDashboardData = useCallback(async (currentFilters: DashboardFilters) => {
     setIsLoadingData(true);
@@ -135,7 +145,59 @@ export default function DashboardRCAPage() {
       setIsLoadingData(false);
       return;
     }
+  
+    try {
+      const rcaQueryConstraints: QueryConstraint[] = [];
+      const eventQueryConstraints: QueryConstraint[] = [];
+  
+      if (userProfile.role !== 'Super User' && userProfile.empresa) {
+        rcaQueryConstraints.push(where("empresa", "==", userProfile.empresa));
+        eventQueryConstraints.push(where("empresa", "==", userProfile.empresa));
+      }
+  
+      if (currentFilters.site && currentFilters.site !== ALL_FILTER_VALUE) {
+        rcaQueryConstraints.push(where("eventData.place", "==", currentFilters.site));
+        eventQueryConstraints.push(where("site", "==", currentFilters.site));
+      }
+      if (currentFilters.type && currentFilters.type !== ALL_FILTER_VALUE) {
+        rcaQueryConstraints.push(where("eventData.eventType", "==", currentFilters.type));
+        eventQueryConstraints.push(where("type", "==", currentFilters.type));
+      }
+      if (currentFilters.priority && currentFilters.priority !== ALL_FILTER_VALUE) {
+        rcaQueryConstraints.push(where("eventData.priority", "==", currentFilters.priority));
+        eventQueryConstraints.push(where("priority", "==", currentFilters.priority));
+      }
+  
+      const { dateRange } = currentFilters;
+      const interval = dateRange?.from && dateRange?.to ? { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) } : null;
+  
+      const rcaAnalysesRef = collection(db, "rcaAnalyses");
+      const rcaQueryInstance = query(rcaAnalysesRef, ...rcaQueryConstraints);
+      const rcaSnapshot = await getDocs(rcaQueryInstance);
+      const rcaDocsData = rcaSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as RCAAnalysisDocument))
+        .filter(doc => !interval || (doc.eventData.date && isValid(parseISO(doc.eventData.date)) && isWithinInterval(parseISO(doc.eventData.date), interval)));
+      setAllRcaDocuments(rcaDocsData);
+      
+      const reportedEventsRef = collection(db, "reportedEvents");
+      const eventsQueryInstance = query(reportedEventsRef, ...eventQueryConstraints);
+      const eventsSnapshot = await getDocs(eventsQueryInstance);
+      const eventsData = eventsSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as ReportedEvent))
+        .filter(event => !interval || (event.date && isValid(parseISO(event.date)) && isWithinInterval(parseISO(event.date), interval)));
+      setAllReportedEvents(eventsData);
 
+    } catch (error) {
+      console.error("Error fetching dashboard data: ", error);
+      toast({ title: "Error al Cargar Datos del Dashboard", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setIsLoadingData(false);
+    }
+  }, [toast, userProfile, loadingAuth]);
+
+
+  useEffect(() => {
+    // Process data whenever the source documents or drilldown state changes
     let totalAccionesGlobal = 0;
     let accionesPendientesGlobal = 0;
     let accionesValidadasGlobal = 0;
@@ -143,169 +205,70 @@ export default function DashboardRCAPage() {
     const currentPendingActionPlans: PlanAccionPendienteItem[] = [];
     let currentRcaFinalizadosCount = 0;
     let currentRcaPendientesCount = 0;
-    let currentRcaVerificadosCount = 0; // New counter
+    let currentRcaVerificadosCount = 0;
     const siteCounts: Record<string, number> = {};
     const equipoCounts: Record<string, number> = {};
 
-    try {
-      // Fetch users first to have them available for reminders
-      const usersQuery = query(collection(db, "users"), orderBy("name", "asc"));
-      const usersSnapshot = await getDocs(usersQuery);
-      setAvailableUsers(usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FullUserProfile)));
+    const reportedEventsMap = new Map<string, ReportedEventStatus>();
+    allReportedEvents.forEach(event => {
+      reportedEventsMap.set(event.id, event.status);
+      if (event.site) siteCounts[event.site] = (siteCounts[event.site] || 0) + 1;
+      if (event.equipo) equipoCounts[event.equipo] = (equipoCounts[event.equipo] || 0) + 1;
+    });
 
-      const rcaQueryConstraints: QueryConstraint[] = [];
-      const eventQueryConstraintsForCounts: QueryConstraint[] = [];
+    allRcaDocuments.forEach(rcaDoc => {
+      const rcaId = rcaDoc.eventData.id;
+      const eventStatus = reportedEventsMap.get(rcaId);
 
-      // Company Scoping at the query level
-      if (userProfile.role !== 'Super User' && userProfile.empresa) {
-        rcaQueryConstraints.push(where("empresa", "==", userProfile.empresa));
-        eventQueryConstraintsForCounts.push(where("empresa", "==", userProfile.empresa));
-      }
-
-      if (currentFilters.site && currentFilters.site !== ALL_FILTER_VALUE) {
-        rcaQueryConstraints.push(where("eventData.place", "==", currentFilters.site));
-        eventQueryConstraintsForCounts.push(where("site", "==", currentFilters.site));
-      }
-      if (currentFilters.type && currentFilters.type !== ALL_FILTER_VALUE) {
-        rcaQueryConstraints.push(where("eventData.eventType", "==", currentFilters.type));
-        eventQueryConstraintsForCounts.push(where("type", "==", currentFilters.type));
-      }
-      if (currentFilters.priority && currentFilters.priority !== ALL_FILTER_VALUE) {
-        rcaQueryConstraints.push(where("eventData.priority", "==", currentFilters.priority));
-        eventQueryConstraintsForCounts.push(where("priority", "==", currentFilters.priority));
-      }
-
-      // Date Range Filtering (Client-Side)
-      const { dateRange } = currentFilters;
-      const interval = dateRange?.from && dateRange?.to ? { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) } : null;
-
-      const rcaAnalysesRef = collection(db, "rcaAnalyses");
-      const rcaQueryInstance = query(rcaAnalysesRef, ...rcaQueryConstraints);
-      const rcaSnapshot = await getDocs(rcaQueryInstance);
+      if (eventStatus === 'Rechazado') return;
       
-      const reportedEventsRef = collection(db, "reportedEvents");
-      const eventsForCountsQuery = query(reportedEventsRef, ...eventQueryConstraintsForCounts);
-      const filteredReportedEventsSnapshot = await getDocs(eventsForCountsQuery);
-      
-      const reportedEventsMap = new Map<string, ReportedEventStatus>();
-      const filteredEventDocs = filteredReportedEventsSnapshot.docs.filter(doc => {
-          if (!interval) return true;
-          const eventDate = parseISO(doc.data().date);
-          return isValid(eventDate) && isWithinInterval(eventDate, interval);
-      });
+      if (rcaDoc.isFinalized && eventStatus === 'Finalizado') currentRcaFinalizadosCount++;
 
-      filteredEventDocs.forEach(doc => {
-          const event = doc.data() as ReportedEvent;
-          reportedEventsMap.set(doc.id, event.status as ReportedEventStatus);
-          
-          if(event.site) siteCounts[event.site] = (siteCounts[event.site] || 0) + 1;
-          if(event.equipo) equipoCounts[event.equipo] = (equipoCounts[event.equipo] || 0) + 1;
-      });
+      if (rcaDoc.plannedActions?.length) {
+        rcaDoc.plannedActions.forEach(action => {
+          totalAccionesGlobal++;
+          const validation = rcaDoc.validations?.find(v => v.actionId === action.id);
+          const isActionValidated = validation?.status === 'validated';
+          if (isActionValidated) accionesValidadasGlobal++;
+          else accionesPendientesGlobal++;
 
-
-      rcaSnapshot.docs
-        .filter(docSnap => reportedEventsMap.has(docSnap.id))
-        .forEach(docSnap => {
-        const rcaDoc = docSnap.data() as RCAAnalysisDocument;
-        const rcaId = docSnap.id;
-        const eventStatus = reportedEventsMap.get(rcaId);
-
-        if (eventStatus === 'Rechazado') {
-          return;
-        }
-        
-        // Finalizados count is now only for those that are finalized but not yet verified
-        if (rcaDoc.isFinalized && eventStatus === 'Finalizado') {
-          currentRcaFinalizadosCount++;
-        }
-
-        if (rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
-          rcaDoc.plannedActions.forEach(action => {
-            totalAccionesGlobal++;
-            const validation = rcaDoc.validations?.find(v => v.actionId === action.id);
-            const isActionValidated = validation && validation.status === 'validated';
-
-            if (isActionValidated) {
-              accionesValidadasGlobal++;
-            } else {
-              accionesPendientesGlobal++;
-            }
-
-            if (!rcaDoc.isFinalized && !isActionValidated && eventStatus !== 'Rechazado') {
-                 currentPendingActionPlans.push({
-                    actionId: action.id,
-                    rcaId: rcaId,
-                    accion: action.description,
-                    responsable: action.responsible,
-                    fechaLimite: action.dueDate && isValid(parseISO(action.dueDate)) ? format(parseISO(action.dueDate), 'dd/MM/yyyy', { locale: es }) : 'N/A',
-                    estado: 'Activa',
-                    rcaTitle: rcaDoc.eventData?.focusEventDescription || `Análisis ID ${rcaId.substring(0,8)}...`
-                });
-            }
-          });
-        }
-
-        if (!rcaDoc.isFinalized && eventStatus !== 'Rechazado' && eventStatus !== 'Verificado') {
-            let proyecto = rcaDoc.eventData?.focusEventDescription || `Análisis ID: ${rcaId.substring(0,8)}...`;
-            let currentStep = 1;
-            if (rcaDoc.finalComments && rcaDoc.finalComments.trim() !== '') currentStep = 5;
-            else if (rcaDoc.validations && rcaDoc.validations.length > 0 && rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) currentStep = 4;
-            else if (rcaDoc.analysisTechnique || (rcaDoc.analysisTechniqueNotes && rcaDoc.analysisTechniqueNotes.trim() !== '') || (rcaDoc.identifiedRootCauses && rcaDoc.identifiedRootCauses.length > 0) || (rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0)) currentStep = 3;
-            else if (rcaDoc.projectLeader || (rcaDoc.detailedFacts && Object.values(rcaDoc.detailedFacts).some(v => !!v)) || (rcaDoc.analysisDetails && rcaDoc.analysisDetails.trim() !== '') || (rcaDoc.preservedFacts && rcaDoc.preservedFacts.length > 0)) currentStep = 2;
-
-            const progreso = Math.round((currentStep / 5) * 100);
-            currentAnalysesInProgress.push({ 
-              id: rcaId, 
-              proyecto, 
-              currentStep, 
-              progreso,
-              updatedAt: rcaDoc.updatedAt || new Date(0).toISOString() 
+          if (!rcaDoc.isFinalized && !isActionValidated && eventStatus !== 'Rechazado') {
+            currentPendingActionPlans.push({
+              actionId: action.id, rcaId, accion: action.description, responsable: action.responsible,
+              fechaLimite: action.dueDate && isValid(parseISO(action.dueDate)) ? format(parseISO(action.dueDate), 'dd/MM/yyyy', { locale: es }) : 'N/A',
+              estado: 'Activa', rcaTitle: rcaDoc.eventData.focusEventDescription || `Análisis ID ${rcaId.substring(0,8)}...`
             });
-        }
-      });
-
-      setActionStatsData({ totalAcciones: totalAccionesGlobal, accionesPendientes: accionesPendientesGlobal, accionesValidadas: accionesValidadasGlobal });
-      setAnalisisEnCurso(currentAnalysesInProgress); 
-      setPlanesAccionPendientes(currentPendingActionPlans); 
-      
-      currentRcaPendientesCount = 0;
-      reportedEventsMap.forEach((status, eventId) => {
-          if ((status === 'Pendiente' || status === 'En análisis' || status === 'En validación')) {
-            currentRcaPendientesCount++;
           }
-          if (status === 'Verificado') {
-              currentRcaVerificadosCount++;
-          }
-      });
+        });
+      }
 
-      const currentTotalRCAs = currentRcaPendientesCount + currentRcaFinalizadosCount + currentRcaVerificadosCount;
-      const rcaCompletionRateValue = currentTotalRCAs > 0 ? ((currentRcaFinalizadosCount + currentRcaVerificadosCount) / currentTotalRCAs) * 100 : 0;
+      if (!rcaDoc.isFinalized && eventStatus !== 'Rechazado' && eventStatus !== 'Verificado') {
+        let currentStep = 1;
+        if (rcaDoc.finalComments?.trim()) currentStep = 5;
+        else if (rcaDoc.validations?.length > 0 && rcaDoc.plannedActions?.length > 0) currentStep = 4;
+        else if (rcaDoc.analysisTechnique || rcaDoc.analysisTechniqueNotes?.trim() || rcaDoc.identifiedRootCauses?.length > 0 || rcaDoc.plannedActions?.length > 0) currentStep = 3;
+        else if (rcaDoc.projectLeader || Object.values(rcaDoc.detailedFacts).some(v => !!v) || rcaDoc.analysisDetails?.trim() || rcaDoc.preservedFacts?.length > 0) currentStep = 2;
+        const progreso = Math.round((currentStep / 5) * 100);
+        currentAnalysesInProgress.push({ id: rcaId, proyecto: rcaDoc.eventData.focusEventDescription || `Análisis ID: ${rcaId.substring(0,8)}...`, currentStep, progreso, updatedAt: rcaDoc.updatedAt || new Date(0).toISOString() });
+      }
+    });
 
+    setActionStatsData({ totalAcciones: totalAccionesGlobal, accionesPendientes: accionesPendientesGlobal, accionesValidadas: accionesValidadasGlobal });
+    setAnalisisEnCurso(currentAnalysesInProgress);
+    setPlanesAccionPendientes(currentPendingActionPlans);
 
-      setRcaSummaryData({
-        totalRCAs: currentTotalRCAs,
-        rcaPendientes: currentRcaPendientesCount,
-        rcaFinalizados: currentRcaFinalizadosCount,
-        rcaVerificados: currentRcaVerificadosCount,
-        rcaCompletionRate: rcaCompletionRateValue,
-      });
+    reportedEventsMap.forEach((status) => {
+        if ((status === 'Pendiente' || status === 'En análisis' || status === 'En validación')) currentRcaPendientesCount++;
+        if (status === 'Verificado') currentRcaVerificadosCount++;
+    });
 
-      setEventsBySiteData(Object.entries(siteCounts).map(([name, total]) => ({ name, total })));
-      setEventsByEquipoData(Object.entries(equipoCounts).map(([name, total]) => ({ name, total })).sort((a,b) => b.total - a.total).slice(0, 10));
-
-
-    } catch (error) {
-      console.error("Error fetching dashboard data: ", error);
-      setActionStatsData({ totalAcciones: 0, accionesPendientes: 0, accionesValidadas: 0 });
-      setRcaSummaryData({ totalRCAs: 0, rcaPendientes: 0, rcaFinalizados: 0, rcaVerificados: 0, rcaCompletionRate: 0 });
-      setAnalisisEnCurso([]);
-      setPlanesAccionPendientes([]);
-      setEventsBySiteData([]);
-      setEventsByEquipoData([]);
-      toast({ title: "Error al Cargar Datos del Dashboard", description: (error as Error).message, variant: "destructive" });
-    }
-    setIsLoadingData(false);
-  }, [toast, userProfile, loadingAuth]);
+    const currentTotalRCAs = currentRcaPendientesCount + currentRcaFinalizadosCount + currentRcaVerificadosCount;
+    const rcaCompletionRateValue = currentTotalRCAs > 0 ? ((currentRcaFinalizadosCount + currentRcaVerificadosCount) / currentTotalRCAs) * 100 : 0;
+    
+    setRcaSummaryData({ totalRCAs: currentTotalRCAs, rcaPendientes: currentRcaPendientesCount, rcaFinalizados: currentRcaFinalizadosCount, rcaVerificados: currentRcaVerificadosCount, rcaCompletionRate: rcaCompletionRateValue });
+    setEventsBySiteData(Object.entries(siteCounts).map(([name, total]) => ({ name, total })));
+    setEventsByEquipoData(Object.entries(equipoCounts).map(([name, total]) => ({ name, total })));
+  }, [allRcaDocuments, allReportedEvents]);
 
 
   useEffect(() => {
@@ -348,6 +311,7 @@ export default function DashboardRCAPage() {
   const applyFilters = () => {
     toast({ title: "Aplicando Filtros...", description: "Recargando datos del dashboard." });
     fetchAllDashboardData(filters);
+    setDrilldown({ level: 'site', filter: null });
   };
 
   const clearFilters = () => {
@@ -360,6 +324,7 @@ export default function DashboardRCAPage() {
     setFilters(emptyFilters);
     toast({ title: "Filtros Limpiados", description: "Recargando todos los datos del dashboard." });
     fetchAllDashboardData(emptyFilters);
+    setDrilldown({ level: 'site', filter: null });
   };
 
   const isLoading = isLoadingData || isLoadingSites || loadingAuth;
@@ -400,6 +365,36 @@ export default function DashboardRCAPage() {
     }
     return (actionStatsData.accionesValidadas / actionStatsData.totalAcciones) * 100;
   }, [actionStatsData]);
+  
+  const barChartData = useMemo(() => {
+    if (drilldown.level === 'site') {
+      return eventsBySiteData;
+    }
+    if (drilldown.level === 'equipo' && drilldown.filter) {
+      const equipoCounts: Record<string, number> = {};
+      allReportedEvents
+        .filter(event => event.site === drilldown.filter && event.equipo)
+        .forEach(event => {
+          equipoCounts[event.equipo!] = (equipoCounts[event.equipo!] || 0) + 1;
+        });
+      return Object.entries(equipoCounts)
+        .map(([name, total]) => ({ name, total }))
+        .sort((a, b) => b.total - a.total);
+    }
+    return [];
+  }, [drilldown, eventsBySiteData, allReportedEvents]);
+
+  const handleBarClick = (data: any) => {
+    if (drilldown.level === 'site' && data && data.activePayload && data.activePayload[0]) {
+      const siteName = data.activePayload[0].payload.name;
+      setDrilldown({ level: 'equipo', filter: siteName });
+    }
+  };
+
+  const resetDrilldown = () => {
+    setDrilldown({ level: 'site', filter: null });
+  };
+
 
   const requestSortAnalisis = (key: SortableAnalisisEnCursoKey) => {
     let direction: 'ascending' | 'descending' = 'ascending';
@@ -572,10 +567,10 @@ export default function DashboardRCAPage() {
 
   const datePresets = [
     { name: "this_week", label: "Esta semana", getRange: () => ({ from: startOfWeek(new Date(), { weekStartsOn: 1 }), to: endOfWeek(new Date(), { weekStartsOn: 1 }) }) },
-    { name: "this_month", label: "Este mes", getRange: () => ({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) }) },
-    { name: "this_year", label: "Este año", getRange: () => ({ from: startOfYear(new Date()), to: endOfYear(new Date()) }) },
     { name: "last_7_days", label: "Últimos 7 días", getRange: () => ({ from: sub(new Date(), { days: 6 }), to: new Date() }) },
+    { name: "this_month", label: "Este mes", getRange: () => ({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) }) },
     { name: "last_30_days", label: "Últimos 30 días", getRange: () => ({ from: sub(new Date(), { days: 29 }), to: new Date() }) },
+    { name: "this_year", label: "Este año", getRange: () => ({ from: startOfYear(new Date()), to: endOfYear(new Date()) }) },
   ];
   
   return (
@@ -675,29 +670,27 @@ export default function DashboardRCAPage() {
                     )}
                     </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                    <div className="flex flex-col">
-                        <Calendar
-                          initialFocus
-                          mode="range"
-                          defaultMonth={filters.dateRange?.from}
-                          selected={filters.dateRange}
-                          onSelect={(range) => handleFilterChange('dateRange', range)}
-                          numberOfMonths={2}
-                          locale={es}
-                        />
-                        <div className="flex flex-wrap justify-center sm:justify-end gap-2 p-2 border-t">
-                            {datePresets.map(({ name, label, getRange }) => (
-                                <Button
-                                key={name}
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleFilterChange('dateRange', getRange())}
-                                >
-                                {label}
-                                </Button>
-                            ))}
-                        </div>
+                <PopoverContent className="w-auto p-0 flex flex-col" align="start">
+                    <Calendar
+                      initialFocus
+                      mode="range"
+                      defaultMonth={filters.dateRange?.from}
+                      selected={filters.dateRange}
+                      onSelect={(range) => handleFilterChange('dateRange', range)}
+                      numberOfMonths={2}
+                      locale={es}
+                    />
+                    <div className="flex flex-wrap justify-center sm:justify-end gap-2 p-2 border-t">
+                        {datePresets.map(({ name, label, getRange }) => (
+                            <Button
+                            key={name}
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleFilterChange('dateRange', getRange())}
+                            >
+                            {label}
+                            </Button>
+                        ))}
                     </div>
                 </PopoverContent>
             </Popover>
@@ -924,54 +917,38 @@ export default function DashboardRCAPage() {
         </Card>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle className="text-xl flex items-center gap-2"><SiteIcon className="h-5 w-5 text-primary" /> Eventos por Sitio/Planta</CardTitle>
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-xl flex items-center gap-2">
+                <RCASummaryIcon className="h-5 w-5 text-primary" />
+                {drilldown.level === 'site' ? 'Eventos por Sitio/Planta' : `Eventos por Equipo en ${drilldown.filter}`}
+              </CardTitle>
+              {drilldown.level === 'equipo' && (
+                <Button variant="outline" size="sm" onClick={resetDrilldown}>
+                  Volver a la vista por Sitio
+                </Button>
+              )}
+            </div>
           </CardHeader>
-          <CardContent className="h-[300px]">
+          <CardContent className="h-[400px]">
             {isLoadingData ? (
               <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-            ) : eventsBySiteData.length > 0 ? (
+            ) : barChartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={eventsBySiteData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <BarChart data={barChartData} margin={{ top: 5, right: 20, left: -10, bottom: 60 }} onClick={handleBarClick}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 10 }} />
+                  <XAxis dataKey="name" angle={-45} textAnchor="end" interval={0} height={100} style={{ fontSize: '10px' }} />
+                  <YAxis />
                   <RechartsTooltip cursor={{ fill: 'rgba(var(--primary-rgb), 0.1)' }}/>
-                  <Bar dataKey="total" fill="hsl(var(--chart-1))" name="Total Eventos" />
+                  <Bar dataKey="total" fill="hsl(var(--chart-1))" name="Total Eventos" barSize={30} radius={[4, 4, 0, 0]} cursor={drilldown.level === 'site' ? 'pointer' : 'default'}/>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-full"><p className="text-muted-foreground">No hay datos de eventos por sitio.</p></div>
+              <div className="flex items-center justify-center h-full"><p className="text-muted-foreground">No hay datos para mostrar en este gráfico.</p></div>
             )}
           </CardContent>
         </Card>
-
-        <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-xl flex items-center gap-2"><HardHat className="h-5 w-5 text-primary" /> Eventos por Equipo (Top 10)</CardTitle>
-          </CardHeader>
-          <CardContent className="h-[300px]">
-            {isLoadingData ? (
-              <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-            ) : eventsByEquipoData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={eventsByEquipoData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 10 }} />
-                  <RechartsTooltip cursor={{ fill: 'rgba(var(--primary-rgb), 0.1)' }}/>
-                  <Bar dataKey="total" fill="hsl(var(--chart-3))" name="Total Eventos" />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-full"><p className="text-muted-foreground">No hay datos de eventos por equipo.</p></div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
 
       <Card className="shadow-lg">
         <CardHeader>
