@@ -1,4 +1,3 @@
-
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect, useMemo } from 'react';
@@ -19,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
 import { InvestigationTeamManager } from './InvestigationTeamManager';
 import { paraphrasePhenomenon, type ParaphrasePhenomenonInput } from '@/ai/flows/paraphrase-phenomenon';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Step2FactsProps {
   eventData: RCAEventData;
@@ -127,9 +127,11 @@ const PreservedFactDialog: FC<{
                 <SelectValue placeholder="-- Seleccione una categoría --" />
               </SelectTrigger>
               <SelectContent>
-                {PRESERVED_FACT_CATEGORIES.map(cat => (
-                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                ))}
+                <ScrollArea className="h-[200px]">
+                  {PRESERVED_FACT_CATEGORIES.map(cat => (
+                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  ))}
+                </ScrollArea>
               </SelectContent>
             </Select>
           </div>
