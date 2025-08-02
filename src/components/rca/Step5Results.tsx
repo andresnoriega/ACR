@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { sendEmailAction } from '@/app/actions';
 import { generateRcaInsights, type GenerateRcaInsightsInput } from '@/ai/flows/generate-rca-insights';
 import { useAuth } from '@/contexts/AuthContext';
-import { format, parseISO, isValid as isValidDate } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 interface Step5ResultsProps {
@@ -81,16 +81,17 @@ const EfficacyVerificationDialog: FC<{
   };
 
   useEffect(() => {
-    const today = new Date();
-    const todayString = today.toISOString().split('T')[0];
-    setMinDate(todayString);
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowString = tomorrow.toISOString().split('T')[0];
+    setMinDate(tomorrowString);
     if (isOpen) {
-      setVerificationDate(todayString);
+      setVerificationDate(tomorrowString);
     }
   }, [isOpen]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !isProcessing && onClose()}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Planificar Verificación de Eficacia</DialogTitle>
@@ -100,7 +101,7 @@ const EfficacyVerificationDialog: FC<{
         </DialogHeader>
         <div className="py-4 space-y-4">
           <div>
-            <Label htmlFor="efficacy-date">Fecha de Verificación <span className="text-destructive">*</span></Label>
+            <Label htmlFor="efficacy-date">Fecha de Verificación (solo fechas futuras)<span className="text-destructive">*</span></Label>
             <Input
               id="efficacy-date"
               type="date"
@@ -108,7 +109,6 @@ const EfficacyVerificationDialog: FC<{
               onChange={(e) => setVerificationDate(e.target.value)}
               className="mt-1"
               min={minDate}
-              disabled={isProcessing}
             />
           </div>
         </div>
@@ -123,7 +123,6 @@ const EfficacyVerificationDialog: FC<{
     </Dialog>
   );
 };
-
 
 export const Step5Results: FC<Step5ResultsProps> = ({
   eventId,
@@ -167,7 +166,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   const [isVerifying, setIsVerifying] = useState(false);
   const [isVerificationPlanningDialogOpen, setIsVerificationPlanningDialogOpen] = useState(false);
   const [verificationComments, setVerificationComments] = useState('');
-  const [leccionesAprendidas, setLeccionesAprendidas] = useState('');
+  const [leccionesAprendidas, setLeccionesAprendidas] = useState(''); // NUEVO
 
   const safeEfficacyVerification = useMemo(() => {
     if (efficacyVerification && typeof efficacyVerification === 'object') {
@@ -259,442 +258,517 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     setIsGeneratingInsights(false);
   }, [eventId]);
 
-const handleOpenEmailDialog = () => {
-  setSelectedUserEmails([]);
-  setEmailSearchTerm('');
-  setIsEmailDialogOpen(true);
-};
-
-const handleConfirmSendEmail = async () => {
-  setIsSendingEmails(true);
-  if (selectedUserEmails.length === 0) {
-    toast({ title: "No se seleccionaron destinatarios", description: "Por favor, seleccione al menos un destinatario.", variant: "destructive" });
-    setIsSendingEmails(false);
-    return;
-  }
-
-  const emailSubject = `Informe RCA: ${eventData.focusEventDescription || `Evento ID ${eventId}`}`;
-  const emailBody = `Estimado/a,\n\nSe ha completado el Análisis de Causa Raíz para el evento: "${eventData.focusEventDescription || eventId}" (ID: ${eventId}).\n\nEl informe completo está disponible en la aplicación o puede ser exportado a PDF desde el Paso 5.\n\nSaludos,\nSistema Asistente ACR`;
-
-  let emailsSentCount = 0;
-
-  for (const email of selectedUserEmails) {
-    const result = await sendEmailAction({
-      to: email,
-      subject: emailSubject,
-      body: emailBody,
-    });
-    if (result.success) emailsSentCount++;
-  }
-
-  toast({
-    title: "Envío de Informes",
-    description: `${emailsSentCount} de ${selectedUserEmails.length} correos fueron procesados "exitosamente". Verifique la consola del servidor.`
-  });
-  setIsSendingEmails(false);
-  setIsEmailDialogOpen(false);
-};
-
-const filteredUsers = useMemo(() => {
-  if (!availableUsers || !Array.isArray(availableUsers)) return [];
-
-  let usersToFilter = availableUsers;
-  if (userProfile?.role !== 'Super User') {
-    const siteDetails = availableSites.find(s => s.name === eventData.place);
-    const eventCompany = siteDetails?.empresa;
-
-    if (eventCompany) {
-      usersToFilter = availableUsers.filter(u => u.empresa === eventCompany);
-    } else {
-      usersToFilter = availableUsers.filter(u => !u.empresa);
-    }
-  }
-
-  return usersToFilter.filter(user =>
-    user.name.toLowerCase().includes(emailSearchTerm.toLowerCase()) ||
-    (user.email && user.email.toLowerCase().includes(emailSearchTerm.toLowerCase()))
-  );
-}, [availableUsers, availableSites, eventData.place, emailSearchTerm, userProfile]);
-
-const handleSelectAllUsers = (checked: boolean) => {
-  if (checked) {
-    setSelectedUserEmails(filteredUsers.map(user => user.email).filter(Boolean));
-  } else {
+  const handleOpenEmailDialog = () => {
     setSelectedUserEmails([]);
-  }
-};
+    setEmailSearchTerm('');
+    setIsEmailDialogOpen(true);
+  };
 
-const handleUserSelectionChange = (userEmail: string, checked: boolean) => {
-  if (checked) {
-    setSelectedUserEmails(prev => [...prev, userEmail]);
-  } else {
-    setSelectedUserEmails(prev => prev.filter(email => email !== userEmail));
-  }
-};
-
-const areAllFilteredUsersSelected = useMemo(() => {
-  if (filteredUsers.length === 0) return false;
-  return filteredUsers.every(user => user.email && selectedUserEmails.includes(user.email));
-}, [filteredUsers, selectedUserEmails]);
-
-const handleFinalize = async () => {
-  setIsFinalizing(true);
-  await onMarkAsFinalized();
-  setIsFinalizing(false);
-};
-
-const handleSaveFinalComments = async () => {
-  await onSaveAnalysis();
-};
-
-const handlePlanVerification = async (verificationDate: string) => {
-    setIsVerifying(true);
-    try {
-        await onPlanEfficacyVerification(verificationDate);
-        setIsVerificationPlanningDialogOpen(false);
-    } catch (error) {
-        console.error("Error al planificar verificación de eficacia:", error);
-        toast({
-            title: "Error",
-            description: "No se pudo planificar la verificación de eficacia. " + (error as Error).message,
-            variant: "destructive",
-        });
-    } finally {
-        setIsVerifying(false);
+  const handleConfirmSendEmail = async () => {
+    setIsSendingEmails(true);
+    if (selectedUserEmails.length === 0) {
+      toast({ title: "No se seleccionaron destinatarios", description: "Por favor, seleccione al menos un destinatario.", variant: "destructive" });
+      setIsSendingEmails(false);
+      return;
     }
-};
 
-const canUserVerify = useMemo(() => {
-  if (!userProfile) return false;
-  if (userProfile.role === 'Super User') return true;
-  if (userProfile.role === 'Admin') return true;
-  return userProfile.name === projectLeader;
-}, [userProfile, projectLeader]);
+    const emailSubject = `Informe RCA: ${eventData.focusEventDescription || `Evento ID ${eventId}`}`;
+    const emailBody = `Estimado/a,\n\nSe ha completado el Análisis de Causa Raíz para el evento: "${eventData.focusEventDescription || eventId}" (ID: ${eventId}).\n\nEl informe completo está disponible en la aplicación o puede ser exportado a PDF desde el Paso 5.\n\nSaludos,\nSistema Asistente ACR`;
 
-const isBusy = isSaving || isSendingEmails || isFinalizing || isGeneratingInsights || isVerifying;
+    let emailsSentCount = 0;
 
-const isIshikawaPopulated = (ishikawaData ?? []).some(cat => cat.causes.length > 0);
-const is5WhysPopulated = (fiveWhysData ?? []).length > 0;
-const isCtmPopulated = (ctmData ?? []).some(fm => fm.hypotheses.length > 0);
-const isIshikawaWithValidatedCauses = (ishikawaData ?? []).some(cat => cat.causes.some(c => c.status === 'accepted'));
+    for (const email of selectedUserEmails) {
+      const result = await sendEmailAction({
+        to: email,
+        subject: emailSubject,
+        body: emailBody,
+      });
+      if (result.success) emailsSentCount++;
+    }
 
-// ---- Renderizado principal ----
-return (
-  <>
-    <Card id="printable-report-area">
-      <CardHeader>
-        <CardTitle>
-          Informe de Análisis de Causa Raíz
-        </CardTitle>
-        <CardDescription>
-          Detalles del evento y resultados de la investigación, incluyendo causas raíz, acciones y verificación de eficacia.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {/* Sección: Información del Evento */}
-        <SectionTitle icon={FileText} title="Información del Evento" />
-        <SectionContent>
-          <strong>Descripción:</strong> {eventData.focusEventDescription}<br />
-          <strong>Sitio:</strong> {eventData.place}<br />
-          <strong>Fecha:</strong> {eventData.date ? format(parseISO(eventData.date), "PPP", { locale: es }) : 'No especificada'}<br />
-          <strong>Líder del Proyecto:</strong> {projectLeader}
-        </SectionContent>
-        <Separator className="my-4" />
+    toast({
+      title: "Envío de Informes",
+      description: `${emailsSentCount} de ${selectedUserEmails.length} correos fueron procesados "exitosamente". Verifique la consola del servidor.`
+    });
+    setIsSendingEmails(false);
+    setIsEmailDialogOpen(false);
+  };
 
-        {/* Sección: Hechos Detallados */}
-        <SectionTitle icon={Search} title="Hechos Detallados" />
-        <SectionContent>
-          {formatDetailedFacts()}
-          <br />
-          {preservedFacts && preservedFacts.length > 0 && (
-            <>
-              <strong>Documentos/Pruebas Preservados:</strong>
-              <ul className="list-disc ml-5">
-                {preservedFacts.map((fact, i) => (
-                  <li key={i}>
-                    {fact.userGivenName || fact.fileName} {fact.category && <>({fact.category})</>}
-                    {fact.description && <>: {fact.description}</>}
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-        </SectionContent>
-        <Separator className="my-4" />
+  const filteredUsers = useMemo(() => {
+    if (!availableUsers || !Array.isArray(availableUsers)) return [];
 
-        {/* Sección: Técnica de Análisis */}
-        <SectionTitle icon={Settings} title="Técnica de Análisis Utilizada" />
-        <SectionContent>
-          <strong>{analysisTechnique || "No especificada"}</strong>
-          {analysisTechniqueNotes && (
-            <div className="mt-2">
-              <strong>Notas:</strong> {analysisTechniqueNotes}
-            </div>
-          )}
-        </SectionContent>
-        <Separator className="my-4" />
+    let usersToFilter = availableUsers;
+    if (userProfile?.role !== 'Super User') {
+      const siteDetails = availableSites.find(s => s.name === eventData.place);
+      const eventCompany = siteDetails?.empresa;
 
-        {/* Sección: Línea de Tiempo */}
-        <SectionTitle icon={BarChart3} title="Línea de Tiempo" />
-        <SectionContent>
-          {(timelineEvents && timelineEvents.length > 0) ? (
-            <ul className="list-disc ml-5">
-              {timelineEvents.map((evt, i) => (
-                <li key={i}>
-                  <strong>{evt.datetime ? format(parseISO(evt.datetime), "PPP HH:mm", { locale: es }) : "Sin fecha"}:</strong> {evt.description}
-                </li>
-              ))}
-            </ul>
-          ) : "No se definieron eventos en la línea de tiempo."}
-        </SectionContent>
-        <Separator className="my-4" />
+      if (eventCompany) {
+        usersToFilter = availableUsers.filter(u => u.empresa === eventCompany);
+      } else {
+        usersToFilter = availableUsers.filter(u => !u.empresa);
+      }
+    }
 
-        {/* Sección: Ideas de Lluvia de Ideas */}
-        <SectionTitle icon={Lightbulb} title="Ideas de Lluvia de Ideas" />
-        <SectionContent>
-          {(brainstormingIdeas && brainstormingIdeas.length > 0) ? (
-            <ul className="list-disc ml-5">
-              {brainstormingIdeas.map((idea, i) => (
-                <li key={i}>{idea.description} ({idea.type || 'Sin tipo'})</li>
-              ))}
-            </ul>
-          ) : "No se definieron ideas de lluvia de ideas."}
-        </SectionContent>
-        <Separator className="my-4" />
+    return usersToFilter.filter(user =>
+      user.name.toLowerCase().includes(emailSearchTerm.toLowerCase()) ||
+      (user.email && user.email.toLowerCase().includes(emailSearchTerm.toLowerCase()))
+    );
+  }, [availableUsers, availableSites, eventData.place, emailSearchTerm, userProfile]);
 
-        {/* Sección: Ishikawa */}
-        <SectionTitle icon={Fish} title="Diagrama de Ishikawa" />
-        <SectionContent>
-          {isIshikawaPopulated ? (
-            <ul className="list-disc ml-5">
-              {ishikawaData.map((cat, i) => (
-                <li key={i}><strong>{cat.name}:</strong> {cat.causes.map(c => c.description).join(", ")}</li>
-              ))}
-            </ul>
-          ) : "No se ingresaron causas en Ishikawa."}
-        </SectionContent>
-        <Separator className="my-4" />
+  const handleSelectAllUsers = (checked: boolean) => {
+    if (checked) {
+      setSelectedUserEmails(filteredUsers.map(user => user.email).filter(Boolean));
+    } else {
+      setSelectedUserEmails([]);
+    }
+  };
 
-        {/* Sección: 5 Porqués */}
-        <SectionTitle icon={HelpIcon5Whys} title="5 Porqués" />
-        <SectionContent>
-          {is5WhysPopulated ? (
-            <ul className="list-decimal ml-6">
-              {fiveWhysData.map((entry, i) => (
-                <li key={i}>
-                  <strong>¿Por qué?</strong> {entry.why}
-                  <ul className="list-disc ml-6">
-                    {entry.becauses.map((cause, j) => <li key={j}><strong>Porque:</strong> {cause.description}</li>)}
-                  </ul>
-                </li>
-              ))}
-            </ul>
-          ) : "No se completó el análisis de 5 Porqués."}
-        </SectionContent>
-        <Separator className="my-4" />
+  const handleUserSelectionChange = (userEmail: string, checked: boolean) => {
+    if (checked) {
+      setSelectedUserEmails(prev => [...prev, userEmail]);
+    } else {
+      setSelectedUserEmails(prev => prev.filter(email => email !== email));
+    }
+  };
 
-        {/* Sección: CTM */}
-        <SectionTitle icon={CtmIcon} title="CTM" />
-        <SectionContent>
-          {isCtmPopulated ? (
-            <ul className="list-disc ml-5">
-              {ctmData.map((fm, i) => (
-                <li key={i}><strong>{fm.description}:</strong> {fm.hypotheses.map(h => h.description).join(", ")}</li>
-              ))}
-            </ul>
-          ) : "No se completó el análisis CTM."}
-        </SectionContent>
-        <Separator className="my-4" />
+  const areAllFilteredUsersSelected = useMemo(() => {
+    if (filteredUsers.length === 0) return false;
+    return filteredUsers.every(user => user.email && selectedUserEmails.includes(user.email));
+  }, [filteredUsers, selectedUserEmails]);
 
-        {/* Sección: Causas Raíz Identificadas */}
-        <SectionTitle icon={Target} title="Causas Raíz Identificadas" />
-        <SectionContent>
-          {(identifiedRootCauses && identifiedRootCauses.length > 0) ? (
-            <ul className="list-disc ml-5">
-              {identifiedRootCauses.map((rc, i) => (
-                <li key={i}>{rc.description}</li>
-              ))}
-            </ul>
-          ) : "No se identificaron causas raíz."}
-        </SectionContent>
-        <Separator className="my-4" />
+  const handleFinalize = async () => {
+    setIsFinalizing(true);
+    await onMarkAsFinalized();
+    setIsFinalizing(false);
+  };
 
-        {/* Sección: Acciones Planificadas */}
-        <SectionTitle icon={Wrench} title="Acciones Planificadas" />
-        <SectionContent>
-          {(uniquePlannedActions && uniquePlannedActions.length > 0) ? (
-            <ul className="list-disc ml-5">
-              {uniquePlannedActions.map((a, i) => (
-                <li key={i}>{a.description} {a.responsible && <>- <strong>Responsable:</strong> {a.responsible}</>} {a.dueDate && <>- <strong>Vencimiento:</strong> {format(parseISO(a.dueDate), "PPP", { locale: es })}</>}</li>
-              ))}
-            </ul>
-          ) : "No se registraron acciones."}
-        </SectionContent>
-        <Separator className="my-4" />
+  const handleSaveFinalComments = async () => {
+    await onSaveAnalysis();
+  };
 
-        {/* Sección: Verificación de Eficacia */}
-        <SectionTitle icon={ShieldCheck} title="Verificación de Eficacia" />
-        <SectionContent>
-          <div>
-            <strong>Estado:</strong> {safeEfficacyVerification.status === "pending" ? "Pendiente" : safeEfficacyVerification.status === "verified" ? "Verificada" : "No planificada"}
-          </div>
-          {safeEfficacyVerification.verificationDate && (
-            <div>
-              <strong>Fecha planificada:</strong> {format(parseISO(safeEfficacyVerification.verificationDate), "PPP", { locale: es })}
-            </div>
-          )}
-          {safeEfficacyVerification.verifiedAt && (
-            <div>
-              <strong>Verificada en:</strong> {format(parseISO(safeEfficacyVerification.verifiedAt), "PPP", { locale: es })}
-            </div>
-          )}
-          {safeEfficacyVerification.verifiedBy && (
-            <div>
-              <strong>Verificada por:</strong> {safeEfficacyVerification.verifiedBy}
-            </div>
-          )}
-          {safeEfficacyVerification.comments && (
-            <div>
-              <strong>Comentarios:</strong> {safeEfficacyVerification.comments}
-            </div>
-          )}
-          {/* Botón para abrir el diálogo de planificación */}
-          {canUserVerify && safeEfficacyVerification.status !== 'verified' && (
-            <div className="mt-2">
-              <Button
-                onClick={() => setIsVerificationPlanningDialogOpen(true)}
-                disabled={isBusy}
-                variant="outline"
-              >
-                <CalendarClock className="mr-2 h-4 w-4" />
-                Planificar Verificación de Eficacia
-              </Button>
-            </div>
-          )}
-        </SectionContent>
-        <Separator className="my-4" />
+  const handlePlanVerification = async (verificationDate: string) => {
+    setIsVerifying(true);
+    await onPlanEfficacyVerification(verificationDate);
+    setIsVerifying(false);
+    setIsVerificationPlanningDialogOpen(false); // Cierra el diálogo después de confirmar
+  };
 
-        {/* Sección: Lecciones Aprendidas */}
-        <SectionTitle icon={Leaf} title="Lecciones Aprendidas" />
-        <SectionContent>
-          <Textarea
-            value={leccionesAprendidas}
-            onChange={e => setLeccionesAprendidas(e.target.value)}
-            placeholder="Registre aquí las lecciones aprendidas de este evento."
-            rows={3}
-            className="w-full"
-          />
-        </SectionContent>
-        <Separator className="my-4" />
+  const canUserVerify = useMemo(() => {
+    if (!userProfile) return false;
+    if (userProfile.role === 'Super User') return true;
+    if (userProfile.role === 'Admin') return true;
+    return userProfile.name === projectLeader;
+  }, [userProfile, projectLeader]);
 
-        {/* Sección: Comentarios Finales */}
-        <SectionTitle icon={FileText} title="Comentarios Finales" />
-        <SectionContent>
-          <Textarea
-            value={finalComments}
-            onChange={e => onFinalCommentsChange(e.target.value)}
-            placeholder="Ingrese aquí los comentarios finales del informe."
-            rows={4}
-            className="w-full"
-            disabled={isFinalized}
-          />
-          <div className="flex gap-2 mt-2">
-            <Button
-              onClick={handleGenerateInsights}
-              variant="secondary"
-              disabled={isFinalized || isGeneratingInsights}
-              type="button"
-            >
-              {isGeneratingInsights ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-              Generar Borrador con IA
-            </Button>
-            <Button
-              onClick={handleSaveFinalComments}
-              variant="outline"
-              disabled={isFinalized || isSaving}
-              type="button"
-            >
-              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Guardar
-            </Button>
-          </div>
-        </SectionContent>
-      </CardContent>
-      <CardFooter className="flex flex-col sm:flex-row justify-center items-center gap-3 mt-6 pt-4 border-t no-print">
-        <Button onClick={onPrintReport} variant="default" className="w-full sm:w-auto" disabled={isBusy}>
-          <Printer className="mr-2 h-4 w-4" /> Exportar a PDF
-        </Button>
-        <Button onClick={handleOpenEmailDialog} variant="outline" className="w-full sm:w-auto" disabled={isBusy}>
-          <Send className="mr-2 h-4 w-4" /> Enviar por correo
-        </Button>
-        <Button
-          onClick={handleFinalize}
-          variant="secondary"
-          className="w-full sm:w-auto"
-          disabled={isFinalized || isBusy}
-        >
-          {isFinalizing || (isSaving && isFinalized) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-          {isFinalized ? "Análisis Finalizado" : "Finalizar"}
-        </Button>
-      </CardFooter>
-    </Card>
+  const isBusy = isSaving || isSendingEmails || isFinalizing || isGeneratingInsights || isVerifying;
 
-    {/* Diálogo de enviar correo */}
-    <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Enviar informe por correo electrónico</DialogTitle>
-          <DialogDescription>
-            Selecciona los destinatarios y confirma el envío.
-          </DialogDescription>
-        </DialogHeader>
-        <div>
-          <Input
-            placeholder="Buscar usuario por nombre o correo..."
-            value={emailSearchTerm}
-            onChange={e => setEmailSearchTerm(e.target.value)}
-            className="mb-2"
-            disabled={isSendingEmails}
-          />
-          <Checkbox
-            checked={areAllFilteredUsersSelected}
-            onCheckedChange={checked => handleSelectAllUsers(!!checked)}
-            className="mb-2"
-            disabled={filteredUsers.length === 0 || isSendingEmails}
-          >
-            Seleccionar todos
-          </Checkbox>
-          <ScrollArea className="max-h-48 border rounded">
-            {filteredUsers.map(user => (
-              <div key={user.email} className="flex items-center px-2 py-1">
-                <Checkbox
-                  checked={selectedUserEmails.includes(user.email)}
-                  onCheckedChange={checked => handleUserSelectionChange(user.email, !!checked)}
-                  disabled={isSendingEmails}
-                />
-                <span className="ml-2">{user.name} &lt;{user.email}&gt;</span>
+  const isIshikawaWithValidatedCauses = (ishikawaData ?? []).some(cat => cat.causes.some(c => c.status === 'accepted'));
+
+  return (
+    <>
+      <Card id="printable-report-area">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl sm:text-3xl font-bold font-headline text-primary">
+            | Paso 5: Presentación de Resultados |
+          </CardTitle>
+          <CardDescription>Informe Final del Análisis de Causa Raíz. Evento ID: <span className="font-semibold text-primary">{eventId || "No generado"}</span></CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6 px-4 md:px-6 py-6">
+          <section>
+            <SectionTitle title={`Título: Análisis del Incidente "${eventData.focusEventDescription || 'No Especificado'}"`} icon={FileText}/>
+            <Separator className="my-2" />
+          </section>
+
+          <section>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2">
+              <SectionTitle title="Introducción / Comentarios Finales" icon={BarChart3} className="mb-0 sm:mb-2"/>
+              <div className="flex flex-col sm:flex-row gap-2 mt-2 sm:mt-0 no-print">
+                <Button
+                  onClick={handleGenerateInsights}
+                  variant="outline"
+                  size="sm"
+                  className="w-full sm:w-auto"
+                  disabled={isBusy || isFinalized}
+                  title="Generar un borrador para la sección de Comentarios Finales usando IA."
+                >
+                  {isGeneratingInsights ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                  Generar Borrador con IA
+                </Button>
+                {!isFinalized && (
+                  <Button onClick={handleSaveFinalComments} size="sm" variant="outline" className="w-full sm:w-auto" disabled={isBusy}>
+                    {isSaving && finalComments !== (eventData as any).finalComments && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <Save className="mr-2 h-4 w-4" /> Guardar Comentarios
+                  </Button>
+                )}
               </div>
-            ))}
-            {filteredUsers.length === 0 && <div className="p-2 text-muted-foreground">Sin resultados.</div>}
-          </ScrollArea>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setIsEmailDialogOpen(false)} disabled={isSendingEmails}>Cancelar</Button>
-          <Button onClick={handleConfirmSendEmail} disabled={isSendingEmails || selectedUserEmails.length === 0}>
-            {isSendingEmails ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
-            Enviar
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            </div>
+            <Textarea
+              id="finalComments"
+              value={finalComments}
+              onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onFinalCommentsChange(e.target.value)}
+              placeholder="Escriba aquí la introducción, resumen ejecutivo o comentarios finales del análisis..."
+              rows={8}
+              className="text-sm"
+              disabled={isFinalized || isBusy}
+            />
+          </section>
+          <Separator className="my-4" />
 
-    {/* Diálogo de planificación de verificación de eficacia */}
-    <EfficacyVerificationDialog
-      isOpen={isVerificationPlanningDialogOpen}
-      onClose={() => setIsVerificationPlanningDialogOpen(false)}
-      onConfirm={handlePlanVerification}
-      isProcessing={isVerifying}
-    />
-  </>
-);
+          <section>
+            <SectionTitle title="Hechos" icon={Search}/>
+            <SectionContent>
+              <p className="font-medium mb-1">Evento Foco:</p>
+              <p className="pl-2 mb-2">{eventData.focusEventDescription || "No definido."}</p>
+              <p className="font-medium mb-1">Lugar:</p>
+              <p className="pl-2 mb-2">{eventData.place || "No definido."}</p>
+              <p className="font-medium mb-1 flex items-center"><HardHat className="mr-1.5 h-4 w-4 text-primary"/>Equipo Involucrado:</p>
+              <p className="pl-2 mb-2">{eventData.equipo || "No definido."}</p>
+
+              <p className="font-medium mt-2 mb-1">Líder del Proyecto:</p>
+              <p className="pl-2 mb-2">{projectLeader || "No asignado."}</p>
+
+              {(investigationSessions ?? []).length > 0 && (
+                <>
+                  <p className="font-medium mt-2 mb-1">Equipo de Investigación:</p>
+                  <div className="pl-2 mb-2 space-y-2">
+                    {investigationSessions.map((session, index) => (
+                      <div key={session.id} className="text-xs border rounded-md p-2 bg-secondary/30">
+                        <p className="font-semibold text-primary">Sesión #{index + 1} - Fecha: {format(parseISO(session.sessionDate), 'dd/MM/yyyy', { locale: es })}</p>
+                        <ul className="list-disc pl-5 mt-1">
+                          {session.members.map(member => (
+                            <li key={member.id}>
+                              {member.name} ({member.position}, {member.site}) - Rol: {member.role}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <p className="font-medium mt-2 mb-1">Descripción Detallada del Fenómeno:</p>
+              <p className="pl-2 whitespace-pre-line">{analysisDetails}</p>
+
+              <p className="font-medium mt-2 mb-1">Objetivo de la Investigación:</p>
+              <p className="pl-2 mb-2 whitespace-pre-line">{investigationObjective || "No se definió un objetivo explícito para la investigación."}</p>
+            </SectionContent>
+          </section>
+          <Separator className="my-4" />
+
+          <section>
+            <SectionTitle title="Análisis" icon={Settings}/>
+            <SectionContent>
+              <h4 className="font-semibold text-primary flex items-center mb-2"><Network className="mr-2 h-4 w-4" />Técnica de Análisis Principal Utilizada</h4>
+              <p className="pl-2 mb-2 font-semibold text-base">{analysisTechnique || "No seleccionada"}</p>
+              {analysisTechniqueNotes && analysisTechniqueNotes.trim() && (
+                <div className="mt-4">
+                  <h4 className="font-semibold text-primary mb-1">Notas Adicionales del Análisis</h4>
+                  <p className="whitespace-pre-wrap text-xs bg-secondary/30 p-2 rounded-md">{analysisTechniqueNotes}</p>
+                </div>
+              )}
+            </SectionContent>
+          </section>
+          <Separator className="my-4" />
+
+          <section>
+            <SectionTitle title="Causas Raíz" icon={Zap}/>
+            <SectionContent>
+              {identifiedRootCauses && identifiedRootCauses.length > 0 && identifiedRootCauses.some(rc => rc.description.trim()) ? (
+                <ul className="list-disc pl-6 space-y-1">
+                  {identifiedRootCauses.map((rc, index) => (
+                    rc.description.trim() && <li key={rc.id}><strong>Causa Raíz #{index + 1}:</strong> {rc.description}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No se han definido causas raíz específicas.</p>
+              )}
+            </SectionContent>
+          </section>
+          <Separator className="my-4" />
+
+          <section>
+            <SectionTitle title="Acciones Recomendadas" icon={Target}/>
+            <SectionContent>
+              {uniquePlannedActions.length > 0 ? (
+                <>
+                  <p className="font-medium mb-1">Plan de Acción Definido:</p>
+                  <ul className="list-none pl-0 space-y-2">
+                    {uniquePlannedActions.map(action => (
+                      <li key={action.id} className="border-b pb-2 mb-2">
+                        <span className="font-semibold">{action.description}</span>
+                        <p className="text-xs text-muted-foreground">Responsable: {action.responsible || 'N/A'} | Fecha Límite: {action.dueDate || 'N/A'}</p>
+                        {action.relatedRootCauseIds && action.relatedRootCauseIds.length > 0 && (
+                          <div className="mt-1">
+                            <span className="text-xs font-medium text-primary flex items-center"><Link2 className="h-3 w-3 mr-1"/>Aborda Causas Raíz:</span>
+                            <ul className="list-disc pl-5 text-xs">
+                              {action.relatedRootCauseIds.map(rcId => {
+                                const cause = identifiedRootCauses.find(c => c.id === rcId);
+                                return cause ? <li key={rcId}>{cause.description}</li> : <li key={rcId}>ID: {rcId} (no encontrada)</li>;
+                              })}
+                            </ul>
+                          </div>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <p>No se han definido acciones planificadas.</p>
+              )}
+            </SectionContent>
+          </section>
+          <Separator className="my-4" />
+
+          <section>
+            <SectionTitle title="Verificación de la Eficacia del Análisis" icon={ShieldCheck} />
+            <Card className="bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700">
+              <CardContent className="pt-4 space-y-3">
+                 <div>
+                  <h4 className="font-semibold text-primary flex items-center mb-1"><Target className="mr-2 h-4 w-4" />Objetivo de la Investigación a Verificar</h4>
+                  <p className="text-sm p-2 bg-background rounded-md whitespace-pre-wrap">{investigationObjective || "No se definió un objetivo explícito para la investigación."}</p>
+                </div>
+                {safeEfficacyVerification.status === 'verified' ? (
+                  <div className="space-y-2">
+                     <p className="font-semibold text-primary flex items-center"><Users className="mr-2 h-4 w-4" />Responsable de Verificación: <span className="font-normal text-foreground ml-1">{safeEfficacyVerification.verifiedBy || projectLeader}</span></p>
+                    <p className="font-semibold text-primary flex items-center"><CalendarCheck className="mr-2 h-4 w-4" />Fecha de Verificación: <span className="font-normal text-foreground ml-1">{safeEfficacyVerification.verifiedAt ? format(parseISO(safeEfficacyVerification.verifiedAt), "dd 'de' MMMM, yyyy", {locale: es}) : "Fecha no registrada"}</span></p>
+                    <p className="text-sm font-semibold text-green-600">Eficacia Verificada</p>
+                    <p className="text-sm mt-1">Comentarios de Verificación:</p>
+                    <p className="text-sm p-2 bg-background rounded-md whitespace-pre-wrap">{safeEfficacyVerification.comments}</p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="font-semibold text-primary flex items-center"><Users className="mr-2 h-4 w-4" />Responsable de Verificación: <span className="font-normal text-foreground ml-1">{projectLeader || "No asignado"}</span></p>
+                    {safeEfficacyVerification.verificationDate && (
+                      <p className="font-semibold text-primary flex items-center"><CalendarClock className="mr-2 h-4 w-4" />Fecha Planificada de Verificación: <span className="font-normal text-foreground ml-1">{format(parseISO(safeEfficacyVerification.verificationDate), "dd 'de' MMMM, yyyy", {locale: es})}</span></p>
+                    )}
+                    {canUserVerify && safeEfficacyVerification.status === 'pending' && safeEfficacyVerification.verificationDate ? (
+                      <div className="space-y-2 pt-2">
+                        <Label htmlFor="verification-comments">Comentarios de Verificación</Label>
+                        <Textarea
+                          id="verification-comments"
+                          value={verificationComments}
+                          onChange={(e) => setVerificationComments(e.target.value)}
+                          placeholder="Confirme si las acciones fueron efectivas y si el problema se resolvió."
+                          rows={4}
+                        />
+                        <Button onClick={() => onVerifyEfficacy(verificationComments, safeEfficacyVerification.verificationDate)} disabled={isBusy || !verificationComments.trim()}>
+                          <CheckSquare className="mr-2 h-4 w-4" /> Confirmar Verificación de Eficacia
+                        </Button>
+                      </div>
+                    ) : canUserVerify && safeEfficacyVerification.status === 'pending' ? (
+                      <Button onClick={() => setIsVerificationPlanningDialogOpen(true)} disabled={isBusy}>
+                        Planificar Verificación de la Eficacia
+                      </Button>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Esperando planificación y verificación por parte del Líder de Proyecto ({projectLeader}) o un Administrador.</p>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </section>
+          {/* === NUEVA SECCIÓN: Lecciones Aprendidas === */}
+          <section>
+            <SectionTitle title="Lecciones Aprendidas" icon={Lightbulb} />
+            <SectionContent>
+              <Textarea
+                id="lecciones-aprendidas"
+                value={leccionesAprendidas}
+                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setLeccionesAprendidas(e.target.value)}
+                placeholder="Describe aquí las lecciones aprendidas relevantes, sugerencias para el futuro o recomendaciones institucionales..."
+                rows={5}
+                className="text-sm"
+                disabled={isFinalized || isBusy}
+              />
+              <p className="text-xs text-muted-foreground mt-2">
+                Comparte aprendizajes, buenas prácticas o mejoras detectadas durante el análisis que puedan ser útiles para la organización.
+              </p>
+            </SectionContent>
+          </section>
+          <Separator className="my-4" />
+
+          {/* ...Anexos igual que antes... */}
+          <section>
+            <SectionTitle title="Anexos" icon={FileText}/>
+            {(timelineEvents?.length > 0) || (brainstormingIdeas?.length > 0) || isIshikawaWithValidatedCauses || (fiveWhysData && fiveWhysData.length > 0) || (ctmData && ctmData.length > 0) || (preservedFacts?.length > 0) ? (
+              <div className="space-y-4">
+                {timelineEvents && timelineEvents.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-primary flex items-center mb-2"><CalendarClock className="mr-2 h-4 w-4" />Línea de Tiempo</h4>
+                    <ul className="list-disc pl-5 space-y-1 text-xs border rounded-md p-3 bg-secondary/20">
+                      {timelineEvents.map(event => (
+                        <li key={event.id}>
+                          <strong>{format(parseISO(event.datetime), 'dd/MM/yyyy HH:mm', { locale: es })}:</strong> {event.description}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {brainstormingIdeas && brainstormingIdeas.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-primary flex items-center mb-2"><Lightbulb className="mr-2 h-4 w-4" />Lluvia de Ideas</h4>
+                    <ul className="list-disc pl-5 space-y-1 text-xs border rounded-md p-3 bg-secondary/20">
+                      {brainstormingIdeas.map(idea => (
+                        <li key={idea.id}>
+                          <strong>[{idea.type || 'Sin tipo'}]:</strong> {idea.description}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {isIshikawaWithValidatedCauses && (
+                  <div className='text-xs space-y-2'>
+                    <h4 className="font-semibold text-primary flex items-center mb-2"><Fish className="mr-2 h-4 w-4" />Detalle Análisis Ishikawa (Causas Validadas)</h4>
+                    {ishikawaData.filter(cat => cat.causes.some(c => c.status === 'accepted')).map(category => (
+                      <div key={category.id}>
+                        <h5 className='font-semibold flex items-center'><Wrench className="mr-1.5 h-3.5 w-3.5" />{category.name}</h5>
+                        <ul className='list-disc pl-5'>
+                          {category.causes.filter(c => c.status === 'accepted').map(cause => (
+                            <li key={cause.id} className='text-green-700 font-medium'>
+                              {cause.description} {cause.validationMethod && <span className='text-muted-foreground italic text-xs'>- Justificación: {cause.validationMethod}</span>}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {fiveWhysData && fiveWhysData.length > 0 && (
+                  <div className='text-xs space-y-3'>
+                    <h4 className="font-semibold text-primary flex items-center mb-2"><HelpIcon5Whys className="mr-2 h-4 w-4" />Detalle Análisis 5 Porqués</h4>
+                    {fiveWhysData.map((entry, idx) => (
+                      <div key={entry.id}>
+                        <h5 className='font-semibold'><HelpIcon5Whys className="mr-1.5 h-3.5 w-3.5 inline-block"/>Por qué #{idx + 1}: {entry.why}</h5>
+                        {entry.becauses.filter(b => b.description.trim()).map((because, bIdx) => (
+                          <p key={because.id} className={cn('pl-4', because.status === 'accepted' ? 'text-green-700 font-medium' : because.status === 'rejected' ? 'text-red-700 line-through' : '')}>
+                            <strong className="mr-1">Porque {idx+1}.{bIdx+1}:</strong>{because.description} {because.validationMethod && <span className='text-muted-foreground italic text-xs'>- Justificación: {because.validationMethod}</span>}
+                          </p>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {ctmData && ctmData.length > 0 && (
+                  <div className='text-xs space-y-3'>
+                    <h4 className="font-semibold text-primary flex items-center mb-2"><CtmIcon className="mr-2 h-4 w-4" />Detalle Análisis CTM</h4>
+                    {ctmData.map((fm, fmIdx) => (
+                      <div key={fm.id}>
+                        <h5 className='font-semibold'><CtmIcon className="mr-1.5 h-3.5 w-3.5 inline-block"/>Modo de Falla #{fmIdx+1}: {fm.description}</h5>
+                        {fm.hypotheses.filter(h => h.description.trim()).map((hyp, hIdx) => (
+                          <div key={hyp.id} className={cn('pl-4', hyp.status === 'rejected' && 'opacity-50')}>
+                            <p className='font-medium'>- Hipótesis #{hIdx+1}: {hyp.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {preservedFacts && preservedFacts.length > 0 && (
+                  <div>
+                    <p className="font-medium mt-2 mb-1">Hechos Preservados / Documentación Adjunta:</p>
+                    <ul className="list-disc pl-6 space-y-1 text-xs">
+                      {preservedFacts.map(fact => (
+                        <li key={fact.id}>
+                          <strong>{fact.userGivenName || fact.fileName || 'Documento sin nombre especificado'}</strong> (Categoría: {fact.category || 'N/A'})
+                          {fact.description && <p className="pl-2 text-muted-foreground italic">"{fact.description}"</p>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No hay anexos para mostrar.</p>
+            )}
+          </section>
+        </CardContent>
+        <CardFooter className="flex flex-col sm:flex-row justify-center items-center gap-3 mt-6 pt-4 border-t no-print">
+          <Button onClick={onPrintReport} variant="default" className="w-full sm:w-auto" disabled={isBusy}>
+            <Printer className="mr-2 h-4 w-4" /> Exportar a PDF
+          </Button>
+          <Button onClick={handleOpenEmailDialog} variant="outline" className="w-full sm:w-auto" disabled={isBusy}>
+            <Send className="mr-2 h-4 w-4" /> Enviar por correo
+          </Button>
+          <Button
+            onClick={handleFinalize}
+            variant="secondary"
+            className="w-full sm:w-auto"
+            disabled={isFinalized || isBusy}
+          >
+            {isFinalizing || (isSaving && isFinalized) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+            {isFinalized ? "Análisis Finalizado" : "Finalizar"}
+          </Button>
+        </CardFooter>
+      </Card>
+      <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center"><Mail className="mr-2 h-5 w-5" />Enviar Informe por Correo</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <Input
+              placeholder="Buscar por nombre o correo..."
+              value={emailSearchTerm}
+              onChange={(e) => setEmailSearchTerm(e.target.value)}
+            />
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="select-all-emails"
+                checked={areAllFilteredUsersSelected && filteredUsers.length > 0}
+                onCheckedChange={(checked) => handleSelectAllUsers(checked as boolean)}
+                disabled={filteredUsers.length === 0}
+              />
+              <Label htmlFor="select-all-emails" className="text-sm font-medium">
+                Seleccionar Todos ({filteredUsers.length}) / Deseleccionar Todos
+              </Label>
+            </div>
+            <ScrollArea className="h-[200px] w-full rounded-md border p-2">
+              {availableUsers.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No hay usuarios configurados para enviar correos.</p>
+              ) : filteredUsers.length > 0 ? (
+                filteredUsers.map(user => (
+                  <div key={user.id} className="flex items-center space-x-2 p-1.5 hover:bg-accent rounded-md">
+                    <Checkbox
+                      id={`user-email-${user.id}`}
+                      checked={user.email ? selectedUserEmails.includes(user.email) : false}
+                      onCheckedChange={(checked) => {
+                        if (user.email) handleUserSelectionChange(user.email, checked as boolean);
+                      }}
+                      disabled={!user.email}
+                    />
+                    <Label htmlFor={`user-email-${user.id}`} className="text-sm cursor-pointer flex-grow">
+                      {user.name} <span className="text-xs text-muted-foreground">({user.email || 'Sin correo'})</span>
+                    </Label>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">No hay usuarios que coincidan con la búsqueda.</p>
+              )}
+            </ScrollArea>
+            <div>
+              <p className="text-xs text-muted-foreground">
+                Seleccionados: {selectedUserEmails.length} de {availableUsers ? availableUsers.length : 0} usuarios.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" disabled={isSendingEmails}>Cancelar</Button>
+            </DialogClose>
+            <Button type="button" onClick={handleConfirmSendEmail} disabled={isSendingEmails}>
+              {isSendingEmails && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Enviar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <EfficacyVerificationDialog
+        isOpen={isVerificationPlanningDialogOpen}
+        onClose={() => setIsVerificationPlanningDialogOpen(false)}
+        onConfirm={handlePlanVerification}
+        isProcessing={isVerifying}
+      />
+    </>
+  );
 };
