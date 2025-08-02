@@ -66,14 +66,19 @@ export interface DetailedFacts {
 }
 
 export const PRESERVED_FACT_CATEGORIES = [
-  'Documento',
-  'Foto',
-  'Video',
-  'Audio',
-  'Entrevista',
-  'Registro de Sistema',
-  'Muestra Física',
-  'Otro',
+  'Partes',
+  'Posición',
+  'Personas',
+  'Papel',
+  'Paradigmas',
+  'Fotografías o videos del Evento',
+  'Datos operacionales (Sensores, Vibraciones, etc.)',
+  'Registro mantenimientos y pruebas realizadas',
+  'Procedimientos',
+  'Entrevistas',
+  'PT, AST, OT',
+  'Charlas',
+  'Manuales, planos, P&ID, catálogos, Normativa asociada, entre otras',
 ] as const;
 export type PreservedFactCategory = typeof PRESERVED_FACT_CATEGORIES[number];
 
@@ -272,6 +277,7 @@ export interface RCAAnalysisDocument {
   plannedActions: PlannedAction[];
   validations: Validation[];
   finalComments: string;
+  leccionesAprendidas: string;
   isFinalized: boolean;
   rejectionDetails?: RejectionDetails;
   efficacyVerification: EfficacyVerification;
