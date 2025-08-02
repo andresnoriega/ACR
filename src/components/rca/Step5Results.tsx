@@ -1,4 +1,3 @@
-
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useEffect } from 'react';
@@ -170,11 +169,20 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   const [isVerificationPlanningDialogOpen, setIsVerificationPlanningDialogOpen] = useState(false);
   const [verificationComments, setVerificationComments] = useState('');
 
+  // Robust check for efficacyVerification to prevent runtime errors with old data.
+  const safeEfficacyVerification = useMemo(() => {
+    if (efficacyVerification && typeof efficacyVerification === 'object') {
+      return efficacyVerification;
+    }
+    // Provide a default "pending" state for older documents that don't have this field.
+    return { status: 'pending', verifiedBy: '', verifiedAt: '', comments: '', verificationDate: '' };
+  }, [efficacyVerification]);
+
   useEffect(() => {
-    if (efficacyVerification?.status === 'pending' && investigationObjective) {
+    if (safeEfficacyVerification?.status === 'pending' && investigationObjective) {
       setVerificationComments(investigationObjective);
     }
-  }, [efficacyVerification, investigationObjective]);
+  }, [safeEfficacyVerification, investigationObjective]);
 
 
   const uniquePlannedActions = useMemo(() => {
@@ -529,17 +537,17 @@ export const Step5Results: FC<Step5ResultsProps> = ({
             <Card className="bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700">
                 <CardContent className="pt-4">
                     
-                    {efficacyVerification.status === 'verified' ? (
+                    {safeEfficacyVerification.status === 'verified' ? (
                         <div>
-                            <p className="text-sm font-semibold text-green-600">Eficacia Verificada por: {efficacyVerification.verifiedBy} el {efficacyVerification.verifiedAt ? format(parseISO(efficacyVerification.verifiedAt), "dd 'de' MMMM, yyyy", {locale: es}) : "Fecha no registrada"}</p>
+                            <p className="text-sm font-semibold text-green-600">Eficacia Verificada por: {safeEfficacyVerification.verifiedBy} el {safeEfficacyVerification.verifiedAt ? format(parseISO(safeEfficacyVerification.verifiedAt), "dd 'de' MMMM, yyyy", {locale: es}) : "Fecha no registrada"}</p>
                             <p className="text-sm mt-1">Comentarios de Verificación:</p>
-                            <p className="text-sm p-2 bg-background rounded-md whitespace-pre-wrap">{efficacyVerification.comments}</p>
+                            <p className="text-sm p-2 bg-background rounded-md whitespace-pre-wrap">{safeEfficacyVerification.comments}</p>
                         </div>
                     ) : (
                         <>
-                            {canUserVerify && efficacyVerification.status === 'pending' && efficacyVerification.verificationDate ? (
+                            {canUserVerify && safeEfficacyVerification.status === 'pending' && safeEfficacyVerification.verificationDate ? (
                                 <div className="space-y-2">
-                                    <p className="text-sm text-blue-600">Verificación planificada para: <strong>{format(parseISO(efficacyVerification.verificationDate), "dd 'de' MMMM, yyyy", {locale: es})}</strong></p>
+                                    <p className="text-sm text-blue-600">Verificación planificada para: <strong>{format(parseISO(safeEfficacyVerification.verificationDate), "dd 'de' MMMM, yyyy", {locale: es})}</strong></p>
                                     <div className="space-y-2 pt-2">
                                       <Label htmlFor="verification-comments">Comentarios de Verificación</Label>
                                       <Textarea 
@@ -550,11 +558,11 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                                         rows={4}
                                       />
                                     </div>
-                                    <Button onClick={() => onVerifyEfficacy(verificationComments, efficacyVerification.verificationDate)} disabled={isBusy || !verificationComments.trim()}>
+                                    <Button onClick={() => onVerifyEfficacy(verificationComments, safeEfficacyVerification.verificationDate)} disabled={isBusy || !verificationComments.trim()}>
                                         <CheckSquare className="mr-2 h-4 w-4" /> Confirmar Verificación de Eficacia
                                     </Button>
                                 </div>
-                            ) : canUserVerify && efficacyVerification.status === 'pending' ? (
+                            ) : canUserVerify && safeEfficacyVerification.status === 'pending' ? (
                                 <Button onClick={() => setIsVerificationPlanningDialogOpen(true)} disabled={isBusy}>
                                     Planificar Verificación de la Eficacia
                                 </Button>
@@ -757,4 +765,3 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     </>
   );
 };
-
