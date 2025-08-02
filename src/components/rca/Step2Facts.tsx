@@ -1,4 +1,5 @@
 'use client';
+
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect, useMemo } from 'react';
 import type { DetailedFacts, PreservedFact, PreservedFactCategory, FullUserProfile, RCAEventData, Site, InvestigationSession } from '@/types/rca'; 
@@ -8,10 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
-import { Calendar as CalendarIcon, PlusCircle, Trash2, FileText, Paperclip, UserCircle, Save, Loader2, ExternalLink, Users, Target, ClipboardList, Sparkles } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { PlusCircle, Trash2, FileText, Paperclip, UserCircle, Save, Loader2, ExternalLink, Target, ClipboardList, Sparkles } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
@@ -20,29 +20,7 @@ import { InvestigationTeamManager } from './InvestigationTeamManager';
 import { paraphrasePhenomenon, type ParaphrasePhenomenonInput } from '@/ai/flows/paraphrase-phenomenon';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-interface Step2FactsProps {
-  eventData: RCAEventData;
-  availableSites: Site[];
-  projectLeader: string;
-  onProjectLeaderChange: (value: string) => void;
-  availableUsers: FullUserProfile[]; 
-  detailedFacts: DetailedFacts;
-  onDetailedFactChange: (field: keyof DetailedFacts, value: string) => void;
-  investigationObjective: string;
-  onInvestigationObjectiveChange: (value: string) => void;
-  investigationSessions: InvestigationSession[];
-  onSetInvestigationSessions: (sessions: InvestigationSession[]) => void;
-  analysisDetails: string;
-  onAnalysisDetailsChange: (value: string) => void;
-  preservedFacts: PreservedFact[];
-  onAddPreservedFact: (factData: Omit<PreservedFact, 'id' | 'eventId'>) => void;
-  onRemovePreservedFact: (id: string) => void;
-  onPrevious: () => void;
-  onNext: () => void;
-  onSaveAnalysis: (showToast?: boolean) => Promise<void>;
-  isSaving: boolean;
-}
-
+// --- DIALOGO IGUAL A LOGICA FUNCIONANDO ---
 const PreservedFactDialog: FC<{
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -55,20 +33,10 @@ const PreservedFactDialog: FC<{
   const { toast } = useToast();
   const [isSubmittingFact, setIsSubmittingFact] = useState(false);
 
+  // IDÉNTICO AL QUE FUNCIONA
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      if (file.size > 700 * 1024) { // 700KB limit
-        toast({
-          title: "Archivo Demasiado Grande",
-          description: "El archivo no puede superar los 700 KB para ser guardado directamente.",
-          variant: "destructive",
-        });
-        setSelectedFile(null);
-        event.target.value = ''; // Reset file input
-        return;
-      }
-      setSelectedFile(file);
+    if (event.target.files && event.target.files[0]) {
+      setSelectedFile(event.target.files[0]);
     } else {
       setSelectedFile(null);
     }
@@ -84,49 +52,51 @@ const PreservedFactDialog: FC<{
       return;
     }
     if (!selectedFile) {
-        toast({ title: "Error", description: "Debe seleccionar un archivo para adjuntar.", variant: "destructive" });
-        return;
+      toast({ title: "Error", description: "Debe seleccionar un archivo para adjuntar.", variant: "destructive" });
+      return;
     }
-
+    if (selectedFile.size > 700 * 1024) {
+      toast({ title: "Archivo Demasiado Grande", description: "El archivo no puede superar los 700 KB.", variant: "destructive" });
+      return;
+    }
     setIsSubmittingFact(true);
-    
+
     try {
-        const reader = new FileReader();
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = (error) => reject(error);
-            reader.readAsDataURL(selectedFile);
-        });
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = (error) => reject(error);
+        reader.readAsDataURL(selectedFile);
+      });
 
-        onSave({
-          userGivenName,
-          category,
-          description,
-          fileName: selectedFile.name,
-          fileType: selectedFile.type,
-          fileSize: selectedFile.size,
-          uploadDate: new Date().toISOString(),
-          dataUrl: dataUrl,
-        });
+      await onSave({
+        userGivenName,
+        category,
+        description,
+        fileName: selectedFile.name,
+        fileType: selectedFile.type,
+        fileSize: selectedFile.size,
+        uploadDate: new Date().toISOString(),
+        dataUrl,
+      });
 
-        // Reset form
-        setUserGivenName('');
-        setCategory('');
-        setDescription('');
-        setSelectedFile(null);
-        if (document.getElementById('pf-file')) {
-          (document.getElementById('pf-file') as HTMLInputElement).value = '';
-        }
-        onOpenChange(false);
-    } catch(error) {
-        toast({title: "Error al Procesar Archivo", description: "No se pudo convertir el archivo a Data URL.", variant: "destructive"});
+      // Limpiar solo después de guardar exitosamente
+      setUserGivenName('');
+      setCategory('');
+      setDescription('');
+      setSelectedFile(null);
+      const fileInput = document.getElementById('pf-file') as HTMLInputElement | null;
+      if (fileInput) fileInput.value = '';
+      onOpenChange(false);
+    } catch (error) {
+      toast({ title: "Error detallado al subir hecho preservado", description: `Error: ${(error as Error).message}`, variant: "destructive" });
     } finally {
-        setIsSubmittingFact(false);
+      setIsSubmittingFact(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => { if(!isSubmittingFact) onOpenChange(isOpen); }}>
+    <Dialog open={open} onOpenChange={isOpen => { if (!isSubmittingFact) onOpenChange(isOpen); }}>
       <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
           <DialogTitle className="flex items-center"><Paperclip className="mr-2 h-5 w-5" />Añadir Hecho Preservado</DialogTitle>
@@ -138,7 +108,7 @@ const PreservedFactDialog: FC<{
           </div>
           <div className="space-y-2">
             <Label htmlFor="pf-category">Categoría <span className="text-destructive">*</span></Label>
-            <Select value={category} onValueChange={(value) => setCategory(value as PreservedFactCategory)}>
+            <Select value={category} onValueChange={value => setCategory(value as PreservedFactCategory)}>
               <SelectTrigger>
                 <SelectValue placeholder="-- Seleccione una categoría --" />
               </SelectTrigger>
@@ -162,7 +132,7 @@ const PreservedFactDialog: FC<{
           )}
           <div className="space-y-2">
             <Label htmlFor="pf-description">Descripción</Label>
-            <Textarea id="pf-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Detalles adicionales sobre el hecho o documento..." />
+            <Textarea id="pf-description" value={description} onChange={e => setDescription(e.target.value)} placeholder="Detalles adicionales sobre el hecho o documento..." />
           </div>
         </div>
         <DialogFooter>
@@ -179,8 +149,29 @@ const PreservedFactDialog: FC<{
   );
 };
 
-
-export const Step2Facts: FC<Step2FactsProps> = ({
+// ------ COMPONENTE PRINCIPAL, IGUAL AL RESTO DE TU LÓGICA ------
+export const Step2Facts: FC<{
+  eventData: RCAEventData;
+  availableSites: Site[];
+  projectLeader: string;
+  onProjectLeaderChange: (value: string) => void;
+  availableUsers: FullUserProfile[];
+  detailedFacts: DetailedFacts;
+  onDetailedFactChange: (field: keyof DetailedFacts, value: string) => void;
+  investigationObjective: string;
+  onInvestigationObjectiveChange: (value: string) => void;
+  investigationSessions: InvestigationSession[];
+  onSetInvestigationSessions: (sessions: InvestigationSession[]) => void;
+  analysisDetails: string;
+  onAnalysisDetailsChange: (value: string) => void;
+  preservedFacts: PreservedFact[];
+  onAddPreservedFact: (factData: Omit<PreservedFact, 'id' | 'eventId'>) => void;
+  onRemovePreservedFact: (id: string) => void;
+  onPrevious: () => void;
+  onNext: () => void;
+  onSaveAnalysis: (showToast?: boolean) => Promise<void>;
+  isSaving: boolean;
+}> = ({
   eventData,
   availableSites,
   projectLeader,
