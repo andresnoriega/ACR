@@ -407,26 +407,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
               <p className="font-medium mt-2 mb-1">Líder del Proyecto:</p>
               <p className="pl-2 mb-2">{projectLeader || "No asignado."}</p>
 
-              {(investigationSessions ?? []).length > 0 && (
-                <>
-                  <p className="font-medium mt-2 mb-1">Equipo de Investigación:</p>
-                  <div className="pl-2 mb-2 space-y-2">
-                    {investigationSessions.map((session, index) => (
-                      <div key={session.id} className="text-xs border rounded-md p-2 bg-secondary/30">
-                        <p className="font-semibold text-primary">Sesión #{index + 1} - Fecha: {format(parseISO(session.sessionDate), 'dd/MM/yyyy', { locale: es })}</p>
-                        <ul className="list-disc pl-5 mt-1">
-                          {session.members.map(member => (
-                            <li key={member.id}>
-                              {member.name} ({member.position}, {member.site}) - Rol: {member.role}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-
               <p className="font-medium mt-2 mb-1">Descripción Detallada del Fenómeno:</p>
               <p className="pl-2 whitespace-pre-line">{analysisDetails}</p>
 
@@ -649,7 +629,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
 
           <section>
             <SectionTitle title="Anexos" icon={FileText}/>
-            {(timelineEvents?.length > 0) || (brainstormingIdeas?.length > 0) || (preservedFacts?.length > 0) ? (
+            {(timelineEvents?.length > 0) || (brainstormingIdeas?.length > 0) || (preservedFacts?.length > 0) || (investigationSessions?.length > 0)? (
               <div className="space-y-4">
                 {timelineEvents && timelineEvents.length > 0 && (
                   <div>
@@ -689,6 +669,27 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                     </ul>
                   </div>
                 )}
+
+                {(investigationSessions ?? []).length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><Users className="mr-2 h-4 w-4" />Equipo de Investigación</h4>
+                    <div className="pl-2 space-y-2 text-xs">
+                      {investigationSessions.map((session, index) => (
+                        <div key={session.id} className="border rounded-md p-2 bg-secondary/30">
+                          <p className="font-semibold text-primary">Sesión #{index + 1} - Fecha: {format(parseISO(session.sessionDate), 'dd/MM/yyyy', { locale: es })}</p>
+                          <ul className="list-disc pl-5 mt-1">
+                            {session.members.map(member => (
+                              <li key={member.id}>
+                                {member.name} ({member.position}, {member.site}) - Rol: {member.role}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">No hay anexos para mostrar.</p>
