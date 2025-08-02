@@ -1,3 +1,4 @@
+
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useEffect } from 'react';
@@ -10,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Sparkles, HardHat, ShieldCheck, CheckSquare, CalendarClock, CalendarCheck, Lightbulb, Fish, HelpCircle as HelpIcon5Whys, Share2 as CtmIcon, Network, Wrench, Box, Ruler, Leaf, Edit } from 'lucide-react';
+import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Sparkles, HardHat, ShieldCheck, CheckSquare, CalendarClock, CalendarCheck, Lightbulb, Fish, HelpCircle as HelpIcon5Whys, Share2 as CtmIcon, Network, Wrench, Box, Ruler, Leaf, Edit, Paperclip } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
@@ -134,7 +135,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   }, [efficacyVerification]);
   
   useEffect(() => {
-    setVerificationComments(safeEfficacyVerification.comments || investigationObjective || '');
+    setVerificationComments(safeEfficacyVerification.comments || '');
     setVerificationResponsible(safeEfficacyVerification.verifiedBy || projectLeader || '');
     setVerificationDate(safeEfficacyVerification.verificationDate || '');
   }, [safeEfficacyVerification, investigationObjective, projectLeader]);
