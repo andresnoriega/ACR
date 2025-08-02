@@ -1,4 +1,3 @@
-// --- PARTE 1 ---
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useEffect } from 'react';
@@ -18,10 +17,9 @@ import { cn } from "@/lib/utils";
 import { sendEmailAction } from '@/app/actions';
 import { generateRcaInsights, type GenerateRcaInsightsInput } from '@/ai/flows/generate-rca-insights';
 import { useAuth } from '@/contexts/AuthContext';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-// --- PARTE 2 ---
 interface Step5ResultsProps {
   eventId: string;
   eventData: RCAEventData;
@@ -83,17 +81,16 @@ const EfficacyVerificationDialog: FC<{
   };
 
   useEffect(() => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowString = tomorrow.toISOString().split('T')[0];
-    setMinDate(tomorrowString);
+    const today = new Date();
+    const todayString = today.toISOString().split('T')[0];
+    setMinDate(todayString);
     if (isOpen) {
-      setVerificationDate(tomorrowString);
+      setVerificationDate(todayString);
     }
   }, [isOpen]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => !isProcessing && onClose()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Planificar Verificación de Eficacia</DialogTitle>
@@ -103,7 +100,7 @@ const EfficacyVerificationDialog: FC<{
         </DialogHeader>
         <div className="py-4 space-y-4">
           <div>
-            <Label htmlFor="efficacy-date">Fecha de Verificación (solo fechas futuras)<span className="text-destructive">*</span></Label>
+            <Label htmlFor="efficacy-date">Fecha de Verificación <span className="text-destructive">*</span></Label>
             <Input
               id="efficacy-date"
               type="date"
@@ -127,11 +124,7 @@ const EfficacyVerificationDialog: FC<{
   );
 };
 
-// --- PARTE 3 ---
-// [Sigue con el componente Step5Results, toda la lógica, hooks, manejo de estado, rendering, secciones y JSX completo]
 
-// [Dime "Siguiente" para continuar, o pide una sección específica si la necesitas antes.]
-// --- PARTE 3 ---
 export const Step5Results: FC<Step5ResultsProps> = ({
   eventId,
   eventData,
@@ -266,9 +259,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     setIsGeneratingInsights(false);
   }, [eventId]);
 
-  // ...continúa con toda la lógica y renderizado de las secciones del informe...
-// --- PARTE 4 ---
-// Renderizado de las secciones y acciones principales
 const handleOpenEmailDialog = () => {
   setSelectedUserEmails([]);
   setEmailSearchTerm('');
