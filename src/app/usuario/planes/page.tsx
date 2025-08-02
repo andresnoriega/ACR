@@ -222,7 +222,7 @@ export default function UserActionPlansPage() {
 
       // Populate Validation Tasks
       const canCurrentUserValidate = userProfile.role === 'Super User' || 
-                                   (userProfile.role === 'Admin' && userProfile.permissionLevel === 'Total') ||
+                                   userProfile.role === 'Admin' ||
                                    rcaDoc.projectLeader === userProfile.name;
 
       if (canCurrentUserValidate && rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
@@ -245,8 +245,10 @@ export default function UserActionPlansPage() {
       }
       
       // Populate Efficacy Verification Tasks
+      const canVerifyEfficacy = userProfile.role === 'Super User' || userProfile.role === 'Admin' || userProfile.name === rcaDoc.efficacyVerification?.verifiedBy;
+
       if (
-        rcaDoc.efficacyVerification?.verifiedBy === userProfile.name && 
+        canVerifyEfficacy &&
         rcaDoc.isFinalized && 
         rcaDoc.efficacyVerification?.status === 'pending' &&
         rcaDoc.efficacyVerification?.verificationDate
