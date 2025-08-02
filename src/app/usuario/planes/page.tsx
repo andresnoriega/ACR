@@ -602,13 +602,14 @@ export default function UserActionPlansPage() {
   }
   
   const tabsToShow = [
-    { value: "assigned", label: `Mis Tareas Asignadas (${assignedActionPlans.length})`, icon: ListTodo, content: <></> },
-    { value: "validation", label: `Tareas por Validar (${validationActionPlans.length})`, icon: CheckSquare, content: <></> },
+    { value: "assigned", label: `Mis Tareas Asignadas (${assignedActionPlans.length})`, icon: ListTodo },
+    { value: "validation", label: `Tareas por Validar (${validationActionPlans.length})`, icon: CheckSquare },
   ];
-
+  
   if (efficacyVerificationTasks.length > 0) {
-    tabsToShow.push({ value: "efficacy", label: `Eficacia por Verificar (${efficacyVerificationTasks.length})`, icon: ShieldCheck, content: <></> });
+      tabsToShow.push({ value: "efficacy", label: `Eficacia por Verificar (${efficacyVerificationTasks.length})`, icon: ShieldCheck });
   }
+
 
   return (
     <div className="space-y-6 py-8">
@@ -799,48 +800,46 @@ export default function UserActionPlansPage() {
           </Card>
         </TabsContent>
         
-        {tabsToShow.some(tab => tab.value === 'efficacy') && (
-            <TabsContent value="efficacy">
-              <Card className="shadow-md mt-4">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold text-primary flex items-center"><ShieldCheck className="mr-2"/> Verificación de Eficacia Pendiente</CardTitle>
-                  <CardDescription>Análisis finalizados cuya eficacia debe ser verificada en la fecha planificada.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {isLoadingActions ? (
-                    <div className="flex justify-center items-center h-24"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2 text-muted-foreground">Cargando verificaciones pendientes...</p></div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-[30%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEfficacy('rcaTitle')}><div className="flex items-center gap-1">Análisis / Evento {renderSortIconEfficacy('rcaTitle')}</div></TableHead>
-                            <TableHead className="w-[45%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEfficacy('objective')}><div className="flex items-center gap-1">Objetivo de la Investigación {renderSortIconEfficacy('objective')}</div></TableHead>
-                            <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEfficacy('finalizedDate')}><div className="flex items-center gap-1">Fecha Planificada {renderSortIconEfficacy('finalizedDate')}</div></TableHead>
-                            <TableHead className="w-[10%] text-right">Acción</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {sortedEfficacyTasks.map((task) => (
-                            <TableRow key={task.rcaId}>
-                              <TableCell className="font-medium text-sm">{task.rcaTitle}</TableCell>
-                              <TableCell className="text-sm italic text-muted-foreground">{task.objective}</TableCell>
-                              <TableCell className="text-sm">{isValidDate(parseISO(task.finalizedDate)) ? format(parseISO(task.finalizedDate), 'dd/MM/yyyy') : 'N/A'}</TableCell>
-                              <TableCell className="text-right">
-                                <Button variant="outline" size="sm" onClick={() => router.push(`/analisis?id=${task.rcaId}&step=5`)}>
-                                  Ir a Verificar
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-        )}
+        <TabsContent value="efficacy">
+          <Card className="shadow-md mt-4">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-primary flex items-center"><ShieldCheck className="mr-2"/> Verificación de Eficacia Pendiente</CardTitle>
+              <CardDescription>Análisis finalizados cuya eficacia debe ser verificada en la fecha planificada.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingActions ? (
+                <div className="flex justify-center items-center h-24"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2 text-muted-foreground">Cargando verificaciones pendientes...</p></div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[30%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEfficacy('rcaTitle')}><div className="flex items-center gap-1">Análisis / Evento {renderSortIconEfficacy('rcaTitle')}</div></TableHead>
+                        <TableHead className="w-[45%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEfficacy('objective')}><div className="flex items-center gap-1">Objetivo de la Investigación {renderSortIconEfficacy('objective')}</div></TableHead>
+                        <TableHead className="w-[15%] cursor-pointer hover:bg-muted/50" onClick={() => requestSortEfficacy('finalizedDate')}><div className="flex items-center gap-1">Fecha Planificada {renderSortIconEfficacy('finalizedDate')}</div></TableHead>
+                        <TableHead className="w-[10%] text-right">Acción</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sortedEfficacyTasks.map((task) => (
+                        <TableRow key={task.rcaId}>
+                          <TableCell className="font-medium text-sm">{task.rcaTitle}</TableCell>
+                          <TableCell className="text-sm italic text-muted-foreground">{task.objective}</TableCell>
+                          <TableCell className="text-sm">{isValidDate(parseISO(task.finalizedDate)) ? format(parseISO(task.finalizedDate), 'dd/MM/yyyy') : 'N/A'}</TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="outline" size="sm" onClick={() => router.push(`/analisis?id=${task.rcaId}&step=5`)}>
+                              Ir a Verificar
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
         
       </Tabs>
 
