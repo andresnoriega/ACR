@@ -554,21 +554,6 @@ export default function DashboardRCAPage() {
     { name: "last_30_days", label: "Últimos 30 días", getRange: () => ({ from: sub(new Date(), { days: 29 }), to: new Date() }) },
   ];
   
-  const calendarFooter = (
-    <div className="flex flex-wrap justify-center sm:justify-end gap-2 p-2 border-t">
-      {datePresets.map(({ name, label, getRange }) => (
-        <Button
-          key={name}
-          variant="ghost"
-          size="sm"
-          onClick={() => handleFilterChange('dateRange', getRange())}
-        >
-          {label}
-        </Button>
-      ))}
-    </div>
-  );
-
   return (
     <div className="space-y-6 py-8">
       <header className="text-center mb-8 space-y-2">
@@ -667,16 +652,29 @@ export default function DashboardRCAPage() {
                     </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      initialFocus
-                      mode="range"
-                      defaultMonth={filters.dateRange?.from}
-                      selected={filters.dateRange}
-                      onSelect={(range) => handleFilterChange('dateRange', range)}
-                      numberOfMonths={2}
-                      locale={es}
-                      footer={calendarFooter}
-                    />
+                    <div className="flex flex-col">
+                        <Calendar
+                          initialFocus
+                          mode="range"
+                          defaultMonth={filters.dateRange?.from}
+                          selected={filters.dateRange}
+                          onSelect={(range) => handleFilterChange('dateRange', range)}
+                          numberOfMonths={2}
+                          locale={es}
+                        />
+                        <div className="flex flex-wrap justify-center sm:justify-end gap-2 p-2 border-t">
+                            {datePresets.map(({ name, label, getRange }) => (
+                                <Button
+                                key={name}
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleFilterChange('dateRange', getRange())}
+                                >
+                                {label}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
                 </PopoverContent>
             </Popover>
           </div>
