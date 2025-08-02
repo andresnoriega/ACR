@@ -1,3 +1,4 @@
+
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useEffect } from 'react';
@@ -360,9 +361,9 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   
   const isBusy = isSaving || isSendingEmails || isFinalizing || isGeneratingInsights || isVerifying;
 
-  const isIshikawaPopulated = ishikawaData?.some(cat => cat.causes.length > 0);
-  const is5WhysPopulated = fiveWhysData?.length > 0;
-  const isCtmPopulated = ctmData?.some(fm => fm.hypotheses.length > 0);
+  const isIshikawaPopulated = (ishikawaData ?? []).some(cat => cat.causes.length > 0);
+  const is5WhysPopulated = (fiveWhysData ?? []).length > 0;
+  const isCtmPopulated = (ctmData ?? []).some(fm => fm.hypotheses.length > 0);
 
   return (
     <>
@@ -428,7 +429,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
               <p className="font-medium mt-2 mb-1">Líder del Proyecto:</p>
               <p className="pl-2 mb-2">{projectLeader || "No asignado."}</p>
               
-              {investigationSessions && investigationSessions.length > 0 && (
+              {(investigationSessions ?? []).length > 0 && (
                 <>
                   <p className="font-medium mt-2 mb-1">Equipo de Investigación:</p>
                   <div className="pl-2 mb-2 space-y-2">
@@ -460,78 +461,8 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           <section>
             <SectionTitle title="Análisis" icon={Settings}/>
             <SectionContent>
-                {(timelineEvents ?? []).length > 0 && (
-                  <div className='mb-4'>
-                    <h4 className="font-semibold text-primary flex items-center mb-2"><CalendarClock className="mr-2 h-4 w-4" />Línea de Tiempo</h4>
-                    <ul className="list-disc pl-5 space-y-1 text-xs border rounded-md p-3 bg-secondary/20">
-                      {timelineEvents.map(event => (
-                        <li key={event.id}>
-                           <strong>{format(parseISO(event.datetime), 'dd/MM/yyyy HH:mm', { locale: es })}:</strong> {event.description}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {(brainstormingIdeas ?? []).length > 0 && (
-                  <div className='mb-4'>
-                    <h4 className="font-semibold text-primary flex items-center mb-2"><Lightbulb className="mr-2 h-4 w-4" />Lluvia de Ideas</h4>
-                    <ul className="list-disc pl-5 space-y-1 text-xs border rounded-md p-3 bg-secondary/20">
-                      {brainstormingIdeas.map(idea => (
-                        <li key={idea.id}>
-                          <strong>[{idea.type || 'Sin tipo'}]:</strong> {idea.description}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              
-                <h4 className="font-semibold text-primary flex items-center mb-2"><Network className="mr-2 h-4 w-4" />Técnica de Análisis Principal</h4>
+                <h4 className="font-semibold text-primary flex items-center mb-2"><Network className="mr-2 h-4 w-4" />Técnica de Análisis Principal Utilizada</h4>
                 <p className="pl-2 mb-2 font-semibold text-base">{analysisTechnique || "No seleccionada"}</p>
-                
-                {analysisTechnique === 'Ishikawa' && isIshikawaPopulated && (
-                    <div className='text-xs space-y-2'>
-                        {ishikawaData.map(category => (
-                            <div key={category.id}>
-                                <h5 className='font-semibold flex items-center'><Wrench className="mr-1.5 h-3.5 w-3.5" />{category.name}</h5>
-                                <ul className='list-disc pl-5'>
-                                    {category.causes.filter(c => c.description.trim()).map(cause => (
-                                        <li key={cause.id} className={cn(cause.status === 'accepted' ? 'text-green-700 font-medium' : cause.status === 'rejected' ? 'text-red-700 line-through' : '')}>
-                                            {cause.description} {cause.validationMethod && <span className='text-muted-foreground italic text-xs'>- Justificación: {cause.validationMethod}</span>}
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        ))}
-                    </div>
-                )}
-                {analysisTechnique === '5 Por qué' && is5WhysPopulated && (
-                    <div className='text-xs space-y-3'>
-                        {fiveWhysData.map((entry, idx) => (
-                            <div key={entry.id}>
-                                <h5 className='font-semibold'><HelpIcon5Whys className="mr-1.5 h-3.5 w-3.5 inline-block"/>Por qué #{idx + 1}: {entry.why}</h5>
-                                {entry.becauses.filter(b => b.description.trim()).map((because, bIdx) => (
-                                    <p key={because.id} className={cn('pl-4', because.status === 'accepted' ? 'text-green-700 font-medium' : because.status === 'rejected' ? 'text-red-700 line-through' : '')}>
-                                        <strong className="mr-1">Porque {idx+1}.{bIdx+1}:</strong>{because.description} {because.validationMethod && <span className='text-muted-foreground italic text-xs'>- Justificación: {because.validationMethod}</span>}
-                                    </p>
-                                ))}
-                            </div>
-                        ))}
-                    </div>
-                )}
-                {analysisTechnique === 'CTM' && isCtmPopulated && (
-                    <div className='text-xs space-y-3'>
-                        {ctmData.map((fm, fmIdx) => (
-                            <div key={fm.id}>
-                                <h5 className='font-semibold'><CtmIcon className="mr-1.5 h-3.5 w-3.5 inline-block"/>Modo de Falla #{fmIdx+1}: {fm.description}</h5>
-                                {fm.hypotheses.filter(h => h.description.trim()).map((hyp, hIdx) => (
-                                    <div key={hyp.id} className={cn('pl-4', hyp.status === 'rejected' && 'opacity-50')}>
-                                        <p className='font-medium'>- Hipótesis #{hIdx+1}: {hyp.description}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        ))}
-                    </div>
-                )}
                 {analysisTechniqueNotes.trim() && (
                     <div className="mt-4">
                         <h4 className="font-semibold text-primary mb-1">Notas Adicionales del Análisis</h4>
@@ -640,21 +571,96 @@ export const Step5Results: FC<Step5ResultsProps> = ({
 
           <section>
              <SectionTitle title="Anexos" icon={FileText}/>
-             {(preservedFacts ?? []).length > 0 && (
-                <>
-                  <p className="font-medium mt-2 mb-1">Hechos Preservados / Documentación Adjunta:</p>
-                  <ul className="list-disc pl-6 space-y-1 text-xs">
-                    {preservedFacts.map(fact => (
-                      <li key={fact.id}>
-                        <strong>{fact.userGivenName || fact.fileName || 'Documento sin nombre especificado'}</strong> (Categoría: {fact.category || 'N/A'})
-                        {fact.description && <p className="pl-2 text-muted-foreground italic">"{fact.description}"</p>}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-              {(!preservedFacts || preservedFacts.length === 0) && (
-                <p className="text-sm text-muted-foreground">No hay anexos (hechos preservados) adjuntos a este análisis.</p>
+             { (timelineEvents && timelineEvents.length > 0) || (brainstormingIdeas && brainstormingIdeas.length > 0) || (isIshikawaPopulated || is5WhysPopulated || isCtmPopulated) || (preservedFacts && preservedFacts.length > 0) ? (
+                 <div className="space-y-4">
+                    {(timelineEvents ?? []).length > 0 && (
+                      <div>
+                        <h4 className="font-semibold text-primary flex items-center mb-2"><CalendarClock className="mr-2 h-4 w-4" />Línea de Tiempo</h4>
+                        <ul className="list-disc pl-5 space-y-1 text-xs border rounded-md p-3 bg-secondary/20">
+                          {timelineEvents.map(event => (
+                            <li key={event.id}>
+                              <strong>{format(parseISO(event.datetime), 'dd/MM/yyyy HH:mm', { locale: es })}:</strong> {event.description}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {(brainstormingIdeas ?? []).length > 0 && (
+                      <div>
+                        <h4 className="font-semibold text-primary flex items-center mb-2"><Lightbulb className="mr-2 h-4 w-4" />Lluvia de Ideas</h4>
+                        <ul className="list-disc pl-5 space-y-1 text-xs border rounded-md p-3 bg-secondary/20">
+                          {brainstormingIdeas.map(idea => (
+                            <li key={idea.id}>
+                              <strong>[{idea.type || 'Sin tipo'}]:</strong> {idea.description}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    
+                    {analysisTechnique === 'Ishikawa' && isIshikawaPopulated && (
+                        <div className='text-xs space-y-2'>
+                            <h4 className="font-semibold text-primary flex items-center mb-2"><Fish className="mr-2 h-4 w-4" />Detalle Análisis Ishikawa</h4>
+                            {ishikawaData.map(category => (
+                                <div key={category.id}>
+                                    <h5 className='font-semibold flex items-center'><Wrench className="mr-1.5 h-3.5 w-3.5" />{category.name}</h5>
+                                    <ul className='list-disc pl-5'>
+                                        {category.causes.filter(c => c.description.trim()).map(cause => (
+                                            <li key={cause.id} className={cn(cause.status === 'accepted' ? 'text-green-700 font-medium' : cause.status === 'rejected' ? 'text-red-700 line-through' : '')}>
+                                                {cause.description} {cause.validationMethod && <span className='text-muted-foreground italic text-xs'>- Justificación: {cause.validationMethod}</span>}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {analysisTechnique === '5 Por qué' && is5WhysPopulated && (
+                        <div className='text-xs space-y-3'>
+                            <h4 className="font-semibold text-primary flex items-center mb-2"><HelpIcon5Whys className="mr-2 h-4 w-4" />Detalle Análisis 5 Porqués</h4>
+                            {fiveWhysData.map((entry, idx) => (
+                                <div key={entry.id}>
+                                    <h5 className='font-semibold'><HelpIcon5Whys className="mr-1.5 h-3.5 w-3.5 inline-block"/>Por qué #{idx + 1}: {entry.why}</h5>
+                                    {entry.becauses.filter(b => b.description.trim()).map((because, bIdx) => (
+                                        <p key={because.id} className={cn('pl-4', because.status === 'accepted' ? 'text-green-700 font-medium' : because.status === 'rejected' ? 'text-red-700 line-through' : '')}>
+                                            <strong className="mr-1">Porque {idx+1}.{bIdx+1}:</strong>{because.description} {because.validationMethod && <span className='text-muted-foreground italic text-xs'>- Justificación: {because.validationMethod}</span>}
+                                        </p>
+                                    ))}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {analysisTechnique === 'CTM' && isCtmPopulated && (
+                        <div className='text-xs space-y-3'>
+                            <h4 className="font-semibold text-primary flex items-center mb-2"><CtmIcon className="mr-2 h-4 w-4" />Detalle Análisis CTM</h4>
+                            {ctmData.map((fm, fmIdx) => (
+                                <div key={fm.id}>
+                                    <h5 className='font-semibold'><CtmIcon className="mr-1.5 h-3.5 w-3.5 inline-block"/>Modo de Falla #{fmIdx+1}: {fm.description}</h5>
+                                    {fm.hypotheses.filter(h => h.description.trim()).map((hyp, hIdx) => (
+                                        <div key={hyp.id} className={cn('pl-4', hyp.status === 'rejected' && 'opacity-50')}>
+                                            <p className='font-medium'>- Hipótesis #{hIdx+1}: {hyp.description}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    {(preservedFacts ?? []).length > 0 && (
+                      <div>
+                        <p className="font-medium mt-2 mb-1">Hechos Preservados / Documentación Adjunta:</p>
+                        <ul className="list-disc pl-6 space-y-1 text-xs">
+                          {preservedFacts.map(fact => (
+                            <li key={fact.id}>
+                              <strong>{fact.userGivenName || fact.fileName || 'Documento sin nombre especificado'}</strong> (Categoría: {fact.category || 'N/A'})
+                              {fact.description && <p className="pl-2 text-muted-foreground italic">"{fact.description}"</p>}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                 </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No hay anexos para mostrar.</p>
               )}
           </section>
 
