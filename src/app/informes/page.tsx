@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -9,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PieChart as PieChartIcon, ListChecks, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, Flame, Search, RefreshCcw, Percent, FileText, ListTodo, BarChart3 as RCASummaryIcon, FileDown, ArrowUp, ArrowDown, ChevronsUpDown, XCircle, ShieldCheck, Calendar as CalendarIcon } from 'lucide-react';
+import { PieChart as PieChartIcon, ListChecks, PlusCircle, ExternalLink, LineChart, Activity, CalendarCheck, Bell, Loader2, AlertTriangle, CheckSquare, ListFilter as FilterIcon, Globe, Flame, Search, RefreshCcw, Percent, FileText, ListTodo, BarChart3 as RCASummaryIcon, FileDown, ArrowUp, ArrowDown, ChevronsUpDown, XCircle, ShieldCheck, Calendar as CalendarIcon, HardHat, Home as SiteIcon } from 'lucide-react';
 import type { ReportedEvent, RCAAnalysisDocument, PlannedAction, Validation, Site, ReportedEventType, PriorityType, ReportedEventStatus, FullUserProfile } from '@/types/rca';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, Timestamp, where, orderBy, limit, QueryConstraint } from "firebase/firestore";
@@ -23,6 +22,11 @@ import {
   Tooltip as RechartsTooltip,
   Legend as RechartsLegend,
   ResponsiveContainer,
+  BarChart,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Bar,
 } from 'recharts';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -78,6 +82,11 @@ interface DashboardFilters {
   dateRange?: DateRange;
 }
 
+interface ChartDataItem {
+    name: string;
+    total: number;
+}
+
 
 type SortableAnalisisEnCursoKey = 'proyecto' | 'currentStep' | 'progreso' | 'updatedAt';
 interface SortConfigAnalisisEnCurso {
@@ -100,6 +109,8 @@ export default function DashboardRCAPage() {
   const [rcaSummaryData, setRcaSummaryData] = useState<RCASummaryData | null>(null);
   const [analisisEnCurso, setAnalisisEnCurso] = useState<AnalisisEnCursoItem[]>([]);
   const [planesAccionPendientes, setPlanesAccionPendientes] = useState<PlanAccionPendienteItem[]>([]);
+  const [eventsBySiteData, setEventsBySiteData] = useState<ChartDataItem[]>([]);
+  const [eventsByEquipoData, setEventsByEquipoData] = useState<ChartDataItem[]>([]);
 
   const [availableUsers, setAvailableUsers] = useState<FullUserProfile[]>([]);
   const [availableSites, setAvailableSites] = useState<Site[]>([]);
@@ -133,6 +144,8 @@ export default function DashboardRCAPage() {
     let currentRcaFinalizadosCount = 0;
     let currentRcaPendientesCount = 0;
     let currentRcaVerificadosCount = 0; // New counter
+    const siteCounts: Record<string, number> = {};
+    const equipoCounts: Record<string, number> = {};
 
     try {
       // Fetch users first to have them available for reminders
@@ -175,15 +188,20 @@ export default function DashboardRCAPage() {
       const filteredReportedEventsSnapshot = await getDocs(eventsForCountsQuery);
       
       const reportedEventsMap = new Map<string, ReportedEventStatus>();
-      filteredReportedEventsSnapshot.docs
-        .filter(doc => {
-            if (!interval) return true;
-            const eventDate = parseISO(doc.data().date);
-            return isValid(eventDate) && isWithinInterval(eventDate, interval);
-        })
-        .forEach(doc => {
-            reportedEventsMap.set(doc.id, doc.data().status as ReportedEventStatus);
-        });
+      const filteredEventDocs = filteredReportedEventsSnapshot.docs.filter(doc => {
+          if (!interval) return true;
+          const eventDate = parseISO(doc.data().date);
+          return isValid(eventDate) && isWithinInterval(eventDate, interval);
+      });
+
+      filteredEventDocs.forEach(doc => {
+          const event = doc.data() as ReportedEvent;
+          reportedEventsMap.set(doc.id, event.status as ReportedEventStatus);
+          
+          if(event.site) siteCounts[event.site] = (siteCounts[event.site] || 0) + 1;
+          if(event.equipo) equipoCounts[event.equipo] = (equipoCounts[event.equipo] || 0) + 1;
+      });
+
 
       rcaSnapshot.docs
         .filter(docSnap => reportedEventsMap.has(docSnap.id))
@@ -272,12 +290,18 @@ export default function DashboardRCAPage() {
         rcaCompletionRate: rcaCompletionRateValue,
       });
 
+      setEventsBySiteData(Object.entries(siteCounts).map(([name, total]) => ({ name, total })));
+      setEventsByEquipoData(Object.entries(equipoCounts).map(([name, total]) => ({ name, total })).sort((a,b) => b.total - a.total).slice(0, 10));
+
+
     } catch (error) {
       console.error("Error fetching dashboard data: ", error);
       setActionStatsData({ totalAcciones: 0, accionesPendientes: 0, accionesValidadas: 0 });
       setRcaSummaryData({ totalRCAs: 0, rcaPendientes: 0, rcaFinalizados: 0, rcaVerificados: 0, rcaCompletionRate: 0 });
       setAnalisisEnCurso([]);
       setPlanesAccionPendientes([]);
+      setEventsBySiteData([]);
+      setEventsByEquipoData([]);
       toast({ title: "Error al Cargar Datos del Dashboard", description: (error as Error).message, variant: "destructive" });
     }
     setIsLoadingData(false);
@@ -895,6 +919,54 @@ export default function DashboardRCAPage() {
               <div className="flex items-center justify-center h-full">
                 <p className="text-muted-foreground">No hay datos de acciones para mostrar.</p>
               </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-xl flex items-center gap-2"><SiteIcon className="h-5 w-5 text-primary" /> Eventos por Sitio/Planta</CardTitle>
+          </CardHeader>
+          <CardContent className="h-[300px]">
+            {isLoadingData ? (
+              <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+            ) : eventsBySiteData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={eventsBySiteData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" />
+                  <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 10 }} />
+                  <RechartsTooltip cursor={{ fill: 'rgba(var(--primary-rgb), 0.1)' }}/>
+                  <Bar dataKey="total" fill="hsl(var(--chart-1))" name="Total Eventos" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full"><p className="text-muted-foreground">No hay datos de eventos por sitio.</p></div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-xl flex items-center gap-2"><HardHat className="h-5 w-5 text-primary" /> Eventos por Equipo (Top 10)</CardTitle>
+          </CardHeader>
+          <CardContent className="h-[300px]">
+            {isLoadingData ? (
+              <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+            ) : eventsByEquipoData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={eventsByEquipoData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" />
+                  <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 10 }} />
+                  <RechartsTooltip cursor={{ fill: 'rgba(var(--primary-rgb), 0.1)' }}/>
+                  <Bar dataKey="total" fill="hsl(var(--chart-3))" name="Total Eventos" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full"><p className="text-muted-foreground">No hay datos de eventos por equipo.</p></div>
             )}
           </CardContent>
         </Card>
