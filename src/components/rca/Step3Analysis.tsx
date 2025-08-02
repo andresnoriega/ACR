@@ -639,7 +639,7 @@ export const Step3Analysis: FC<Step3AnalysisProps> = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Ishikawa"><div className="flex items-center"><Fish className="mr-2 h-4 w-4" />Ishikawa</div></SelectItem>
-                  <SelectItem value="5 Por qué"><div className="flex items-center"><HelpIcon5Whys className="mr-2 h-4 w-4" />5 Por qué</div></SelectItem>
+                  <SelectItem value="5 Por qué"><div className="flex items-center"><HelpCircle className="mr-2 h-4 w-4" />5 Por qué</div></SelectItem>
                   <SelectItem value="CTM"><div className="flex items-center"><CtmIcon className="mr-2 h-4 w-4" />Árbol de Causas (CTM)</div></SelectItem>
                 </SelectContent>
               </Select>
