@@ -1,4 +1,3 @@
-
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
@@ -1204,6 +1203,7 @@ function RCAAnalysisPageComponent() {
     } catch (error: any) {
       console.error("Error detallado al subir hecho preservado:", error);
       toast({ title: "Error al Subir", description: `No se pudo subir el archivo. Verifique la consola. Código: ${error.code || 'Desconocido'}`, variant: "destructive" });
+      setIsSaving(false);
     } finally {
       setIsSaving(false);
     }
