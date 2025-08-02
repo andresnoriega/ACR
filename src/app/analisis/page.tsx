@@ -1419,8 +1419,12 @@ function RCAAnalysisPageComponent() {
   const handlePrintReport = () => {
     const nonPrintableElements = document.querySelectorAll('.no-print');
     nonPrintableElements.forEach(el => el.classList.add('hidden'));
-    window.print();
-    nonPrintableElements.forEach(el => el.classList.remove('hidden'));
+    
+    // Give the browser a moment to apply the 'hidden' class before printing
+    setTimeout(() => {
+      window.print();
+      nonPrintableElements.forEach(el => el.classList.remove('hidden'));
+    }, 100);
   };
 
   const handleMarkAsFinalized = async () => {
