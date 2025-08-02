@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Sparkles, HardHat, ShieldCheck, CheckSquare, CalendarClock, Lightbulb, Fish, HelpCircle as HelpIcon5Whys, Share2 as CtmIcon, Network, Wrench, Box, Ruler, Leaf, FileWord } from 'lucide-react';
+import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Sparkles, HardHat, ShieldCheck, CheckSquare, CalendarClock, Lightbulb, Fish, HelpCircle as HelpIcon5Whys, Share2 as CtmIcon, Network, Wrench, Box, Ruler, Leaf } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
@@ -19,9 +19,6 @@ import { generateRcaInsights, type GenerateRcaInsightsInput } from '@/ai/flows/g
 import { useAuth } from '@/contexts/AuthContext';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-
-// Opcional: importa 'html-docx-js' si lo tienes instalado o instala con: npm i html-docx-js
-import htmlDocx from 'html-docx-js/dist/html-docx'; // Si tienes problemas de import, puede ser htmlDocx from 'html-docx-js'
 
 interface Step5ResultsProps {
   eventId: string;
@@ -380,31 +377,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   const isCtmPopulated = (ctmData ?? []).some(fm => fm.hypotheses.length > 0);
   const isIshikawaWithValidatedCauses = (ishikawaData ?? []).some(cat => cat.causes.some(c => c.status === 'accepted'));
 
-  /**
-   * Export report content as Word (.docx) using html-docx-js.
-   * Puedes instalar con: npm install html-docx-js
-   */
-  const handleExportWord = () => {
-    // Selecciona el área imprimible (igual que para PDF)
-    const printableElement = document.getElementById('printable-report-area');
-    if (!printableElement) {
-      toast({ title: "Error", description: "No se pudo encontrar el área para exportar.", variant: "destructive" });
-      return;
-    }
-    // Opcional: podrías clonar el nodo y quitar botones antes de exportar
-    // Convierte el HTML a docx Blob
-    const html = printableElement.outerHTML;
-    const docx = htmlDocx.asBlob(html, { orientation: 'portrait', margins: { top: 720, right: 720, bottom: 720, left: 720 } });
-    // Descarga
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(docx);
-    link.download = `RCA_${eventId || 'reporte'}.docx`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast({ title: "Exportación Word", description: "El reporte se exportó exitosamente como archivo Word." });
-  };
-
   return (
     <>
       <Card id="printable-report-area">
@@ -720,9 +692,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
         <CardFooter className="flex flex-col sm:flex-row justify-center items-center gap-3 mt-6 pt-4 border-t no-print">
           <Button onClick={onPrintReport} variant="default" className="w-full sm:w-auto" disabled={isBusy}>
             <Printer className="mr-2 h-4 w-4" /> Exportar a PDF
-          </Button>
-          <Button onClick={handleExportWord} variant="outline" className="w-full sm:w-auto" disabled={isBusy}>
-            <FileWord className="mr-2 h-4 w-4" /> Exportar a Word
           </Button>
           <Button onClick={handleOpenEmailDialog} variant="outline" className="w-full sm:w-auto" disabled={isBusy}>
             <Send className="mr-2 h-4 w-4" /> Enviar por correo
