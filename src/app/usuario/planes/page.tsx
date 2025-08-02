@@ -245,22 +245,18 @@ export default function UserActionPlansPage() {
       }
       
       // Populate Efficacy Verification Tasks
-      const canVerifyEfficacy = userProfile.role === 'Super User' || 
-                              userProfile.role === 'Admin' || 
-                              (rcaDoc.efficacyVerification?.verifiedBy === userProfile.name);
-      
       if (
-        canVerifyEfficacy &&
-        rcaDoc.isFinalized && 
+        rcaDoc.isFinalized &&
         rcaDoc.efficacyVerification?.status === 'pending' &&
-        rcaDoc.efficacyVerification?.verificationDate
+        rcaDoc.efficacyVerification?.verificationDate &&
+        rcaDoc.efficacyVerification?.verifiedBy === userProfile.name
       ) {
-         efficacyTasks.push({
-            rcaId: rcaDoc.eventData.id,
-            rcaTitle: rcaDoc.eventData.focusEventDescription || 'Sin título de ACR',
-            objective: rcaDoc.investigationObjective || 'Sin objetivo definido',
-            finalizedDate: rcaDoc.efficacyVerification.verificationDate,
-         });
+        efficacyTasks.push({
+          rcaId: rcaDoc.eventData.id,
+          rcaTitle: rcaDoc.eventData.focusEventDescription || 'Sin título de ACR',
+          objective: rcaDoc.investigationObjective || 'Sin objetivo definido',
+          finalizedDate: rcaDoc.efficacyVerification.verificationDate,
+        });
       }
     });
     return { assignedActionPlans: assignedPlans, validationActionPlans: validationTasks, efficacyVerificationTasks: efficacyTasks };
