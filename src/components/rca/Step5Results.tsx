@@ -348,20 +348,11 @@ export const Step5Results: FC<Step5ResultsProps> = ({
 
   const handlePlanVerification = async (verificationDate: string) => {
     setIsVerifying(true);
-    try {
-      await onPlanEfficacyVerification(verificationDate);
-    } catch (error) {
-      console.error("Error al planificar verificación de eficacia:", error);
-      toast({
-        title: "Error",
-        description: "No se pudo planificar la verificación de eficacia. Intenta nuevamente.",
-        variant: "destructive",
-      });
-    } finally {
-        setIsVerifying(false);
-        setIsVerificationPlanningDialogOpen(false);
-    }
+    await onPlanEfficacyVerification(verificationDate);
+    setIsVerifying(false);
+    setIsVerificationPlanningDialogOpen(false); // Cierra el diálogo después de confirmar
   };
+
 
   const canUserVerify = useMemo(() => {
     if (!userProfile) return false;
@@ -372,9 +363,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
 
   const isBusy = isSaving || isSendingEmails || isFinalizing || isGeneratingInsights || isVerifying;
 
-  const isIshikawaPopulated = (ishikawaData ?? []).some(cat => cat.causes.length > 0);
-  const is5WhysPopulated = (fiveWhysData ?? []).length > 0;
-  const isCtmPopulated = (ctmData ?? []).some(fm => fm.hypotheses.length > 0);
   const isIshikawaWithValidatedCauses = (ishikawaData ?? []).some(cat => cat.causes.some(c => c.status === 'accepted'));
 
   return (
@@ -597,7 +585,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           {/* ...Anexos igual que antes... */}
           <section>
             <SectionTitle title="Anexos" icon={FileText}/>
-            {(timelineEvents?.length > 0) || (brainstormingIdeas?.length > 0) || isIshikawaWithValidatedCauses || is5WhysPopulated || isCtmPopulated || (preservedFacts?.length > 0) ? (
+            {(timelineEvents?.length > 0) || (brainstormingIdeas?.length > 0) || isIshikawaWithValidatedCauses || (fiveWhysData && fiveWhysData.length > 0) || (ctmData && ctmData.length > 0) || (preservedFacts?.length > 0) ? (
               <div className="space-y-4">
                 {timelineEvents && timelineEvents.length > 0 && (
                   <div>
@@ -640,7 +628,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                     ))}
                   </div>
                 )}
-                {is5WhysPopulated && (
+                {fiveWhysData && fiveWhysData.length > 0 && (
                   <div className='text-xs space-y-3'>
                     <h4 className="font-semibold text-primary flex items-center mb-2"><HelpIcon5Whys className="mr-2 h-4 w-4" />Detalle Análisis 5 Porqués</h4>
                     {fiveWhysData.map((entry, idx) => (
@@ -655,7 +643,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                     ))}
                   </div>
                 )}
-                {isCtmPopulated && (
+                {ctmData && ctmData.length > 0 && (
                   <div className='text-xs space-y-3'>
                     <h4 className="font-semibold text-primary flex items-center mb-2"><CtmIcon className="mr-2 h-4 w-4" />Detalle Análisis CTM</h4>
                     {ctmData.map((fm, fmIdx) => (

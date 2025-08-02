@@ -1485,17 +1485,19 @@ function RCAAnalysisPageComponent() {
   };
   
   const handlePlanEfficacyVerification = async (verificationDate: string) => {
-    if (!userProfile) return;
+    if (!userProfile) {
+      toast({ title: "Error", description: "No se puede planificar sin un perfil de usuario.", variant: "destructive" });
+      return;
+    }
   
     const efficacyUpdate: EfficacyVerification = {
       status: 'pending',
-      verifiedBy: '',
-      verifiedAt: '',
-      comments: investigationObjective || '',
-      verificationDate: verificationDate,
+      verifiedBy: '', // This will be filled upon actual verification
+      verifiedAt: '', // This will be filled upon actual verification
+      comments: investigationObjective || '', // Pre-fill with objective
+      verificationDate: verificationDate, // The planned date
     };
   
-    setEfficacyVerification(efficacyUpdate);
     setIsSaving(true);
     const saveResult = await handleSaveAnalysisData(
         false, 
@@ -1503,10 +1505,11 @@ function RCAAnalysisPageComponent() {
     );
   
     if (saveResult.success) {
+      setEfficacyVerification(efficacyUpdate); // Ensure local state is updated on success
       toast({ title: "Verificación Planificada", description: "Se ha establecido la fecha para la verificación de eficacia. La tarea ahora aparecerá en el panel del Líder de Proyecto." });
     } else {
       toast({ title: "Error al Planificar", description: "No se pudo guardar la fecha de planificación.", variant: "destructive" });
-      setEfficacyVerification(efficacyVerification); // Revert on failure
+      // Do not revert on failure, let the user try again
     }
     setIsSaving(false);
   };
