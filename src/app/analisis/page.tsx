@@ -76,6 +76,7 @@ const initialRCAAnalysisState: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedA
   plannedActions: [],
   validations: [],
   finalComments: '',
+  leccionesAprendidas: '',
   isFinalized: false,
   rejectionDetails: undefined,
   createdBy: undefined,
@@ -181,6 +182,7 @@ function RCAAnalysisPageComponent() {
 
   const [validations, setValidations] = useState<Validation[]>(initialRCAAnalysisState.validations);
   const [finalComments, setFinalComments] = useState(initialRCAAnalysisState.finalComments);
+  const [leccionesAprendidas, setLeccionesAprendidas] = useState(initialRCAAnalysisState.leccionesAprendidas);
   const [isFinalized, setIsFinalized] = useState(initialRCAAnalysisState.isFinalized);
   const [efficacyVerification, setEfficacyVerification] = useState<EfficacyVerification>(initialRCAAnalysisState.efficacyVerification);
   const [analysisDocumentId, setAnalysisDocumentId] = useState<string | null>(null);
@@ -292,6 +294,7 @@ function RCAAnalysisPageComponent() {
 
         setValidations(data.validations || []);
         setFinalComments(data.finalComments || '');
+        setLeccionesAprendidas(data.leccionesAprendidas || '');
         setIsFinalized(data.isFinalized || false);
         setEfficacyVerification(data.efficacyVerification || { status: 'pending', verifiedBy: '', verifiedAt: '', comments: '', verificationDate: '' });
         setRejectionDetails(data.rejectionDetails);
@@ -335,6 +338,7 @@ function RCAAnalysisPageComponent() {
             setPlannedActionCounter(1);
             setValidations(initialRCAAnalysisState.validations);
             setFinalComments(initialRCAAnalysisState.finalComments);
+            setLeccionesAprendidas(initialRCAAnalysisState.leccionesAprendidas);
             setIsFinalized(initialRCAAnalysisState.isFinalized);
             setEfficacyVerification(initialRCAAnalysisState.efficacyVerification);
             setRejectionDetails(initialRCAAnalysisState.rejectionDetails);
@@ -371,6 +375,7 @@ function RCAAnalysisPageComponent() {
         setPlannedActionCounter(1);
         setValidations(initialRCAAnalysisState.validations);
         setFinalComments(initialRCAAnalysisState.finalComments);
+        setLeccionesAprendidas(initialRCAAnalysisState.leccionesAprendidas);
         setIsFinalized(initialRCAAnalysisState.isFinalized);
         setEfficacyVerification(initialRCAAnalysisState.efficacyVerification);
         setRejectionDetails(initialRCAAnalysisState.rejectionDetails);
@@ -441,6 +446,7 @@ function RCAAnalysisPageComponent() {
             setPlannedActionCounter(1);
             setValidations(initialRCAAnalysisState.validations);
             setFinalComments(initialRCAAnalysisState.finalComments);
+            setLeccionesAprendidas(initialRCAAnalysisState.leccionesAprendidas);
             setIsFinalized(initialRCAAnalysisState.isFinalized);
             setEfficacyVerification(initialRCAAnalysisState.efficacyVerification);
             setRejectionDetails(initialRCAAnalysisState.rejectionDetails);
@@ -583,6 +589,7 @@ function RCAAnalysisPageComponent() {
       plannedActions: (plannedActionsOverride !== undefined) ? plannedActionsOverride : plannedActions,
       validations: (validationsOverride !== undefined) ? validationsOverride : validations,
       finalComments, isFinalized: currentIsFinalized, efficacyVerification: currentEfficacyVerification,
+      leccionesAprendidas,
       rejectionDetails: currentRejectionDetailsToSave,
       createdBy: currentCreatedByState,
       empresa: siteEmpresa,
@@ -1456,17 +1463,17 @@ function RCAAnalysisPageComponent() {
     setIsSaving(false);
   };
   
-  const handleVerifyEfficacy = async (comments: string, verificationDate: string) => {
+  const handleVerifyEfficacy = async (comments: string) => {
     if (!userProfile) {
         toast({ title: "Error", description: "No se pudo identificar al usuario para la verificación.", variant: "destructive" });
         return;
     }
     const efficacyUpdate: EfficacyVerification = {
+        ...efficacyVerification,
         status: 'verified',
         verifiedBy: userProfile.name,
         verifiedAt: new Date().toISOString(),
         comments: comments,
-        verificationDate: verificationDate,
     };
     setEfficacyVerification(efficacyUpdate);
     setIsSaving(true);
@@ -1484,12 +1491,13 @@ function RCAAnalysisPageComponent() {
     setIsSaving(false);
   };
   
-  const handlePlanEfficacyVerification = async (verificationDate: string) => {
+  const handlePlanEfficacyVerification = async (responsible: string, verificationDate: string) => {
     setIsSaving(true);
     try {
         const efficacyUpdate: EfficacyVerification = {
             ...efficacyVerification,
             status: 'pending',
+            verifiedBy: responsible, // Store the assigned responsible
             verificationDate: verificationDate,
         };
         const saveResult = await handleSaveAnalysisData(
@@ -1681,6 +1689,8 @@ function RCAAnalysisPageComponent() {
           preservedFacts={preservedFacts}
           finalComments={finalComments}
           onFinalCommentsChange={setFinalComments}
+          leccionesAprendidas={leccionesAprendidas}
+          onLeccionesAprendidasChange={setLeccionesAprendidas}
           onPrintReport={handlePrintReport}
           availableUsers={availableUsersFromDB}
           isFinalized={isFinalized}

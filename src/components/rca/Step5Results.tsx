@@ -19,6 +19,7 @@ import { generateRcaInsights, type GenerateRcaInsightsInput } from '@/ai/flows/g
 import { useAuth } from '@/contexts/AuthContext';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface Step5ResultsProps {
   eventId: string;
@@ -40,6 +41,8 @@ interface Step5ResultsProps {
   preservedFacts: PreservedFact[];
   finalComments: string;
   onFinalCommentsChange: (value: string) => void;
+  leccionesAprendidas: string;
+  onLeccionesAprendidasChange: (value: string) => void;
   onPrintReport: () => void;
   availableUsers: FullUserProfile[];
   isFinalized: boolean;
@@ -48,8 +51,8 @@ interface Step5ResultsProps {
   isSaving: boolean;
   investigationObjective: string;
   efficacyVerification: EfficacyVerification;
-  onVerifyEfficacy: (comments: string, verificationDate: string) => Promise<void>;
-  onPlanEfficacyVerification: (verificationDate: string) => Promise<void>;
+  onVerifyEfficacy: (comments: string) => Promise<void>;
+  onPlanEfficacyVerification: (responsible: string, verificationDate: string) => Promise<void>;
 }
 
 const SectionTitle: FC<{ icon?: React.ElementType; title: string; className?: string }> = ({ icon: Icon, title, className }) => (
@@ -65,64 +68,6 @@ const SectionContent: FC<{ children: React.ReactNode; className?: string }> = ({
   </div>
 );
 
-const EfficacyVerificationDialog: FC<{
-  isOpen: boolean;
-  onClose: () => void;
-  onConfirm: (verificationDate: string) => void;
-  isProcessing: boolean;
-}> = ({ isOpen, onClose, onConfirm, isProcessing }) => {
-  const [verificationDate, setVerificationDate] = useState('');
-  const [minDate, setMinDate] = useState('');
-
-  const handleConfirm = () => {
-    if (verificationDate) {
-      onConfirm(verificationDate);
-    }
-  };
-
-  useEffect(() => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowString = tomorrow.toISOString().split('T')[0];
-    setMinDate(tomorrowString);
-    if (isOpen) {
-      setVerificationDate(tomorrowString);
-    }
-  }, [isOpen]);
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Planificar Verificación de Eficacia</DialogTitle>
-          <DialogDescription>
-            Por favor, seleccione la fecha en que se realizará la verificación de eficacia. Esta acción creará una tarea para el Líder de Proyecto.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="py-4 space-y-4">
-          <div>
-            <Label htmlFor="efficacy-date">Fecha de Verificación (solo fechas futuras)<span className="text-destructive">*</span></Label>
-            <Input
-              id="efficacy-date"
-              type="date"
-              value={verificationDate}
-              onChange={(e) => setVerificationDate(e.target.value)}
-              className="mt-1"
-              min={minDate}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isProcessing}>Cancelar</Button>
-          <Button onClick={handleConfirm} disabled={!verificationDate || isProcessing}>
-            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Planificar Verificación de Eficacia
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
 
 export const Step5Results: FC<Step5ResultsProps> = ({
   eventId,
@@ -144,6 +89,8 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   preservedFacts,
   finalComments,
   onFinalCommentsChange,
+  leccionesAprendidas,
+  onLeccionesAprendidasChange,
   onPrintReport,
   availableUsers,
   isFinalized,
@@ -164,9 +111,19 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [isVerificationPlanningDialogOpen, setIsVerificationPlanningDialogOpen] = useState(false);
   const [verificationComments, setVerificationComments] = useState('');
-  const [leccionesAprendidas, setLeccionesAprendidas] = useState(''); // NUEVO
+  
+  // State for the new verification planning fields
+  const [verificationResponsible, setVerificationResponsible] = useState('');
+  const [verificationDate, setVerificationDate] = useState('');
+  const [minDateForVerification, setMinDateForVerification] = useState('');
+
+  useEffect(() => {
+    // Set minimum date to tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    setMinDateForVerification(tomorrow.toISOString().split('T')[0]);
+  }, []);
 
   const safeEfficacyVerification = useMemo(() => {
     if (efficacyVerification && typeof efficacyVerification === 'object') {
@@ -174,12 +131,12 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     }
     return { status: 'pending', verifiedBy: '', verifiedAt: '', comments: '', verificationDate: '' };
   }, [efficacyVerification]);
-
+  
   useEffect(() => {
-    if (safeEfficacyVerification?.status === 'pending' && investigationObjective) {
-      setVerificationComments(investigationObjective);
-    }
-  }, [safeEfficacyVerification, investigationObjective]);
+    setVerificationComments(safeEfficacyVerification.comments || investigationObjective || '');
+    setVerificationResponsible(safeEfficacyVerification.verifiedBy || projectLeader || '');
+    setVerificationDate(safeEfficacyVerification.verificationDate || '');
+  }, [safeEfficacyVerification, investigationObjective, projectLeader]);
 
   const uniquePlannedActions = useMemo(() => {
     if (!Array.isArray(plannedActions)) {
@@ -346,19 +303,34 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     await onSaveAnalysis();
   };
 
-  const handlePlanVerification = async (verificationDate: string) => {
+  const handlePlanVerification = async () => {
+    if (!verificationResponsible || !verificationDate) {
+      toast({ title: "Campos requeridos", description: "Debe seleccionar un responsable y una fecha de verificación.", variant: "destructive" });
+      return;
+    }
     setIsVerifying(true);
-    await onPlanEfficacyVerification(verificationDate);
+    await onPlanEfficacyVerification(verificationResponsible, verificationDate);
     setIsVerifying(false);
-    setIsVerificationPlanningDialogOpen(false); // Cierra el diálogo después de confirmar
   };
+  
+  const handleConfirmVerifyEfficacy = async () => {
+    if (!verificationComments.trim()) {
+      toast({ title: "Comentarios requeridos", description: "Debe ingresar sus comentarios de verificación.", variant: "destructive" });
+      return;
+    }
+    setIsVerifying(true);
+    await onVerifyEfficacy(verificationComments);
+    setIsVerifying(false);
+  };
+
 
   const canUserVerify = useMemo(() => {
     if (!userProfile) return false;
     if (userProfile.role === 'Super User') return true;
     if (userProfile.role === 'Admin') return true;
-    return userProfile.name === projectLeader;
-  }, [userProfile, projectLeader]);
+    // The responsible person for verification is now stored in `verifiedBy` during planning.
+    return userProfile.name === safeEfficacyVerification.verifiedBy;
+  }, [userProfile, safeEfficacyVerification.verifiedBy]);
 
   const isBusy = isSaving || isSendingEmails || isFinalizing || isGeneratingInsights || isVerifying;
 
@@ -530,7 +502,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                 </div>
                 {safeEfficacyVerification.status === 'verified' ? (
                   <div className="space-y-2">
-                     <p className="font-semibold text-primary flex items-center"><Users className="mr-2 h-4 w-4" />Responsable de Verificación: <span className="font-normal text-foreground ml-1">{safeEfficacyVerification.verifiedBy || projectLeader}</span></p>
+                     <p className="font-semibold text-primary flex items-center"><Users className="mr-2 h-4 w-4" />Responsable de Verificación: <span className="font-normal text-foreground ml-1">{safeEfficacyVerification.verifiedBy || 'No asignado'}</span></p>
                     <p className="font-semibold text-primary flex items-center"><CalendarCheck className="mr-2 h-4 w-4" />Fecha de Verificación: <span className="font-normal text-foreground ml-1">{safeEfficacyVerification.verifiedAt ? format(parseISO(safeEfficacyVerification.verifiedAt), "dd 'de' MMMM, yyyy", {locale: es}) : "Fecha no registrada"}</span></p>
                     <p className="text-sm font-semibold text-green-600">Eficacia Verificada</p>
                     <p className="text-sm mt-1">Comentarios de Verificación:</p>
@@ -538,30 +510,58 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                   </div>
                 ) : (
                   <>
-                    <p className="font-semibold text-primary flex items-center"><Users className="mr-2 h-4 w-4" />Responsable de Verificación: <span className="font-normal text-foreground ml-1">{projectLeader || "No asignado"}</span></p>
-                    {safeEfficacyVerification.verificationDate && (
-                      <p className="font-semibold text-primary flex items-center"><CalendarClock className="mr-2 h-4 w-4" />Fecha Planificada de Verificación: <span className="font-normal text-foreground ml-1">{format(parseISO(safeEfficacyVerification.verificationDate), "dd 'de' MMMM, yyyy", {locale: es})}</span></p>
-                    )}
-                    {canUserVerify && safeEfficacyVerification.status === 'pending' && safeEfficacyVerification.verificationDate ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <Label htmlFor="verification-responsible">Responsable de Verificación</Label>
+                        <Select
+                          value={verificationResponsible}
+                          onValueChange={setVerificationResponsible}
+                          disabled={isBusy}
+                        >
+                          <SelectTrigger id="verification-responsible">
+                            <SelectValue placeholder="-- Seleccione responsable --" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableUsers.map(user => (
+                              <SelectItem key={user.id} value={user.name}>{user.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="verification-date">Fecha Planificada</Label>
+                        <Input
+                          id="verification-date"
+                          type="date"
+                          value={verificationDate}
+                          onChange={(e) => setVerificationDate(e.target.value)}
+                          min={minDateForVerification}
+                          disabled={isBusy}
+                        />
+                      </div>
+                    </div>
+                    {canUserVerify ? (
                       <div className="space-y-2 pt-2">
-                        <Label htmlFor="verification-comments">Comentarios de Verificación</Label>
+                        <Label htmlFor="verification-comments">Comentarios de Verificación (al confirmar)</Label>
                         <Textarea
                           id="verification-comments"
                           value={verificationComments}
                           onChange={(e) => setVerificationComments(e.target.value)}
-                          placeholder="Confirme si las acciones fueron efectivas y si el problema se resolvió."
+                          placeholder="Se cumple el objetivo, no se registran nuevos eventos"
                           rows={4}
+                          disabled={isBusy}
                         />
-                        <Button onClick={() => onVerifyEfficacy(verificationComments, safeEfficacyVerification.verificationDate)} disabled={isBusy || !verificationComments.trim()}>
-                          <CheckSquare className="mr-2 h-4 w-4" /> Confirmar Verificación de Eficacia
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                          <Button onClick={handlePlanVerification} disabled={isBusy || !verificationResponsible || !verificationDate} variant="secondary">
+                            <Save className="mr-2 h-4 w-4"/> Guardar Planificación
+                          </Button>
+                          <Button onClick={handleConfirmVerifyEfficacy} disabled={isBusy || !verificationComments.trim() || !safeEfficacyVerification.verificationDate}>
+                            <CheckSquare className="mr-2 h-4 w-4" /> Confirmar Verificación
+                          </Button>
+                        </div>
                       </div>
-                    ) : canUserVerify && safeEfficacyVerification.status === 'pending' ? (
-                      <Button onClick={() => setIsVerificationPlanningDialogOpen(true)} disabled={isBusy}>
-                        Planificar Verificación de la Eficacia
-                      </Button>
                     ) : (
-                      <p className="text-sm text-muted-foreground">Esperando planificación y verificación por parte del Líder de Proyecto ({projectLeader}) o un Administrador.</p>
+                      <p className="text-sm text-muted-foreground mt-2">Esperando planificación y verificación por parte del Líder de Proyecto ({projectLeader}) o un Administrador.</p>
                     )}
                   </>
                 )}
@@ -575,7 +575,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
               <Textarea
                 id="lecciones-aprendidas"
                 value={leccionesAprendidas}
-                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setLeccionesAprendidas(e.target.value)}
+                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onLeccionesAprendidasChange(e.target.value)}
                 placeholder="Describe aquí las lecciones aprendidas relevantes, sugerencias para el futuro o recomendaciones institucionales..."
                 rows={5}
                 className="text-sm"
@@ -763,12 +763,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <EfficacyVerificationDialog
-        isOpen={isVerificationPlanningDialogOpen}
-        onClose={() => setIsVerificationPlanningDialogOpen(false)}
-        onConfirm={handlePlanVerification}
-        isProcessing={isVerifying}
-      />
     </>
   );
 };
