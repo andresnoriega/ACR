@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -568,6 +569,34 @@ export default function DashboardRCAPage() {
     });
   };
 
+  const handleExportRootCausesToExcel = () => {
+    if (rootCauseSummaryData.length === 0) {
+      toast({
+        title: "Sin Datos para Exportar",
+        description: "No hay causas raíz en la tabla para exportar.",
+        variant: "default",
+      });
+      return;
+    }
+
+    const dataToExport = rootCauseSummaryData.map(item => ({
+      'Sitio/Planta': item.site,
+      'Equipo': item.equipo,
+      'Causa Raíz Identificada': item.cause,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    worksheet['!cols'] = [ { wch: 30 }, { wch: 30 }, { wch: 60 } ];
+    
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Causas Raíz");
+    
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    saveAs(new Blob([excelBuffer], {type:"application/octet-stream"}), `Causas_Raiz_ACR_${new Date().toISOString().split('T')[0]}.xlsx`);
+    toast({ title: "Exportación Iniciada", description: "El archivo de causas raíz ha comenzado a descargarse." });
+  };
+
+
   const handleSendReminder = async (item: PlanAccionPendienteItem) => {
     setRemindingActionId(item.actionId);
     const responsibleUser = availableUsers.find(u => u.name === item.responsable);
@@ -1038,6 +1067,16 @@ export default function DashboardRCAPage() {
                     </div>
                 )}
             </CardContent>
+            <CardFooter className="flex justify-end pt-4 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportRootCausesToExcel}
+                disabled={isLoadingData || rootCauseSummaryData.length === 0}
+              >
+                <FileDown className="mr-1.5 h-3.5 w-3.5" /> Exportar a Excel
+              </Button>
+            </CardFooter>
         </Card>
 
       <Card className="shadow-lg">
