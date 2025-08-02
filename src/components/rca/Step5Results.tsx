@@ -334,7 +334,9 @@ export const Step5Results: FC<Step5ResultsProps> = ({
 
   const isBusy = isSaving || isSendingEmails || isFinalizing || isGeneratingInsights || isVerifying;
 
-  const isIshikawaWithValidatedCauses = (ishikawaData ?? []).some(cat => cat.causes.some(c => c.status === 'accepted'));
+  const isIshikawaWithData = ishikawaData && ishikawaData.some(cat => cat.causes.some(c => c.description.trim() !== ''));
+  const is5WhysWithData = fiveWhysData && fiveWhysData.some(entry => entry.why.trim() !== '' && entry.becauses.some(b => b.description.trim() !== ''));
+  const isCtmWithData = ctmData && ctmData.some(fm => fm.description.trim() !== '' && fm.hypotheses.some(h => h.description.trim() !== ''));
 
   return (
     <>
@@ -429,18 +431,71 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           <Separator className="my-4" />
 
           <section>
-            <SectionTitle title="Análisis" icon={Settings}/>
-            <SectionContent>
-              <h4 className="font-semibold text-primary flex items-center mb-2"><Network className="mr-2 h-4 w-4" />Técnica de Análisis Principal Utilizada</h4>
-              <p className="pl-2 mb-2 font-semibold text-base">{analysisTechnique || "No seleccionada"}</p>
+            <SectionTitle title="Análisis de Causas" icon={Settings} />
+            <div className="space-y-4">
+              {isIshikawaWithData && (
+                <div className="text-xs space-y-2 border-l-2 pl-3">
+                  <h4 className="font-semibold text-primary flex items-center mb-1 text-base"><Fish className="mr-2 h-4 w-4" />Análisis Ishikawa (Causas Validadas)</h4>
+                  {ishikawaData.filter(cat => cat.causes.some(c => c.status === 'accepted')).map(category => (
+                    <div key={category.id}>
+                      <h5 className='font-semibold flex items-center'><Wrench className="mr-1.5 h-3.5 w-3.5" />{category.name}</h5>
+                      <ul className='list-disc pl-5'>
+                        {category.causes.filter(c => c.status === 'accepted').map(cause => (
+                          <li key={cause.id} className='text-green-700 font-medium'>
+                            {cause.description} {cause.validationMethod && <span className='text-muted-foreground italic text-xs'>- Justificación: {cause.validationMethod}</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {is5WhysWithData && (
+                <div className='text-xs space-y-3 border-l-2 pl-3'>
+                  <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><HelpIcon5Whys className="mr-2 h-4 w-4" />Análisis 5 Porqués</h4>
+                  {fiveWhysData.map((entry, idx) => (
+                    <div key={entry.id}>
+                      <h5 className='font-semibold'><HelpIcon5Whys className="mr-1.5 h-3.5 w-3.5 inline-block"/>Por qué #{idx + 1}: {entry.why}</h5>
+                      {entry.becauses.filter(b => b.description.trim()).map((because, bIdx) => (
+                        <p key={because.id} className={cn('pl-4', because.status === 'accepted' ? 'text-green-700 font-medium' : because.status === 'rejected' ? 'text-red-700 line-through' : '')}>
+                          <strong className="mr-1">Porque {idx+1}.{bIdx+1}:</strong>{because.description} {because.validationMethod && <span className='text-muted-foreground italic text-xs'>- Justificación: {because.validationMethod}</span>}
+                        </p>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {isCtmWithData && (
+                  <div className='text-xs space-y-3 border-l-2 pl-3'>
+                      <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><CtmIcon className="mr-2 h-4 w-4" />Análisis de Árbol de Causas (CTM)</h4>
+                      {ctmData.map((fm, fmIdx) => (
+                          <div key={fm.id}>
+                              <h5 className='font-semibold'><CtmIcon className="mr-1.5 h-3.5 w-3.5 inline-block"/>Modo de Falla #{fmIdx+1}: {fm.description}</h5>
+                              {fm.hypotheses.filter(h => h.description.trim()).map((hyp, hIdx) => (
+                                  <div key={hyp.id} className={cn('pl-4', hyp.status === 'rejected' && 'opacity-50')}>
+                                      <p className='font-medium'>- Hipótesis #{hIdx+1}: {hyp.description}</p>
+                                  </div>
+                              ))}
+                          </div>
+                      ))}
+                  </div>
+              )}
+
               {analysisTechniqueNotes && analysisTechniqueNotes.trim() && (
-                <div className="mt-4">
-                  <h4 className="font-semibold text-primary mb-1">Notas Adicionales del Análisis</h4>
+                <div className="mt-4 border-l-2 pl-3">
+                  <h4 className="font-semibold text-primary mb-1 text-base">Notas Adicionales del Análisis</h4>
                   <p className="whitespace-pre-wrap text-xs bg-secondary/30 p-2 rounded-md">{analysisTechniqueNotes}</p>
                 </div>
               )}
-            </SectionContent>
+
+              { !isIshikawaWithData && !is5WhysWithData && !isCtmWithData && !(analysisTechniqueNotes && analysisTechniqueNotes.trim()) && (
+                  <p className="text-sm text-muted-foreground">No se ha registrado información en las técnicas de análisis.</p>
+              )}
+            </div>
           </section>
+
           <Separator className="my-4" />
 
           <section>
@@ -591,7 +646,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           {/* ...Anexos igual que antes... */}
           <section>
             <SectionTitle title="Anexos" icon={FileText}/>
-            {(timelineEvents?.length > 0) || (brainstormingIdeas?.length > 0) || isIshikawaWithValidatedCauses || (fiveWhysData && fiveWhysData.length > 0) || (ctmData && ctmData.length > 0) || (preservedFacts?.length > 0) ? (
+            {(timelineEvents?.length > 0) || (brainstormingIdeas?.length > 0) || (preservedFacts?.length > 0) ? (
               <div className="space-y-4">
                 {timelineEvents && timelineEvents.length > 0 && (
                   <div>
@@ -617,53 +672,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                     </ul>
                   </div>
                 )}
-                {isIshikawaWithValidatedCauses && (
-                  <div className='text-xs space-y-2'>
-                    <h4 className="font-semibold text-primary flex items-center mb-2"><Fish className="mr-2 h-4 w-4" />Detalle Análisis Ishikawa (Causas Validadas)</h4>
-                    {ishikawaData.filter(cat => cat.causes.some(c => c.status === 'accepted')).map(category => (
-                      <div key={category.id}>
-                        <h5 className='font-semibold flex items-center'><Wrench className="mr-1.5 h-3.5 w-3.5" />{category.name}</h5>
-                        <ul className='list-disc pl-5'>
-                          {category.causes.filter(c => c.status === 'accepted').map(cause => (
-                            <li key={cause.id} className='text-green-700 font-medium'>
-                              {cause.description} {cause.validationMethod && <span className='text-muted-foreground italic text-xs'>- Justificación: {cause.validationMethod}</span>}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {fiveWhysData && fiveWhysData.length > 0 && (
-                  <div className='text-xs space-y-3'>
-                    <h4 className="font-semibold text-primary flex items-center mb-2"><HelpIcon5Whys className="mr-2 h-4 w-4" />Detalle Análisis 5 Porqués</h4>
-                    {fiveWhysData.map((entry, idx) => (
-                      <div key={entry.id}>
-                        <h5 className='font-semibold'><HelpIcon5Whys className="mr-1.5 h-3.5 w-3.5 inline-block"/>Por qué #{idx + 1}: {entry.why}</h5>
-                        {entry.becauses.filter(b => b.description.trim()).map((because, bIdx) => (
-                          <p key={because.id} className={cn('pl-4', because.status === 'accepted' ? 'text-green-700 font-medium' : because.status === 'rejected' ? 'text-red-700 line-through' : '')}>
-                            <strong className="mr-1">Porque {idx+1}.{bIdx+1}:</strong>{because.description} {because.validationMethod && <span className='text-muted-foreground italic text-xs'>- Justificación: {because.validationMethod}</span>}
-                          </p>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {ctmData && ctmData.length > 0 && (
-                  <div className='text-xs space-y-3'>
-                    <h4 className="font-semibold text-primary flex items-center mb-2"><CtmIcon className="mr-2 h-4 w-4" />Detalle Análisis CTM</h4>
-                    {ctmData.map((fm, fmIdx) => (
-                      <div key={fm.id}>
-                        <h5 className='font-semibold'><CtmIcon className="mr-1.5 h-3.5 w-3.5 inline-block"/>Modo de Falla #{fmIdx+1}: {fm.description}</h5>
-                        {fm.hypotheses.filter(h => h.description.trim()).map((hyp, hIdx) => (
-                          <div key={hyp.id} className={cn('pl-4', hyp.status === 'rejected' && 'opacity-50')}>
-                            <p className='font-medium'>- Hipótesis #{hIdx+1}: {hyp.description}</p>
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                
                 {preservedFacts && preservedFacts.length > 0 && (
                   <div>
                     <p className="font-medium mt-2 mb-1">Hechos Preservados / Documentación Adjunta:</p>
