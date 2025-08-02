@@ -23,6 +23,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRouter } from 'next/navigation';
 import { Progress } from '@/components/ui/progress';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 let idCounter = Date.now();
 const generateClientSideId = (prefix: string) => {
@@ -245,10 +246,10 @@ export default function UserActionPlansPage() {
       
       // Populate Efficacy Verification Tasks
       if (
-        rcaDoc.projectLeader === userProfile.name && 
+        rcaDoc.efficacyVerification?.verifiedBy === userProfile.name && 
         rcaDoc.isFinalized && 
         rcaDoc.efficacyVerification?.status === 'pending' &&
-        rcaDoc.efficacyVerification?.verificationDate // Ensure it's planned
+        rcaDoc.efficacyVerification?.verificationDate
       ) {
          efficacyTasks.push({
             rcaId: rcaDoc.eventData.id,
@@ -798,7 +799,7 @@ export default function UserActionPlansPage() {
           </Card>
         </TabsContent>
         
-        {efficacyVerificationTasks.length > 0 && (
+        {tabsToShow.some(tab => tab.value === 'efficacy') && (
             <TabsContent value="efficacy">
               <Card className="shadow-md mt-4">
                 <CardHeader>
