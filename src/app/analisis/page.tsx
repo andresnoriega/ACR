@@ -1485,18 +1485,11 @@ function RCAAnalysisPageComponent() {
   };
   
   const handlePlanEfficacyVerification = async (verificationDate: string) => {
-    if (!userProfile) {
-        toast({ title: "Error", description: "No se puede planificar sin un perfil de usuario.", variant: "destructive" });
-        return;
-    }
-    
     setIsSaving(true);
     try {
         const efficacyUpdate: EfficacyVerification = {
+            ...efficacyVerification,
             status: 'pending',
-            verifiedBy: '',
-            verifiedAt: '',
-            comments: '',
             verificationDate: verificationDate,
         };
         const saveResult = await handleSaveAnalysisData(
@@ -1505,17 +1498,17 @@ function RCAAnalysisPageComponent() {
         );
         if (saveResult.success) {
             setEfficacyVerification(efficacyUpdate);
-            toast({ title: "Verificación Planificada", description: "Se ha establecido la fecha para la verificación de eficacia. La tarea ahora aparecerá en el panel del Líder de Proyecto." });
+            toast({ title: "Verificación Planificada", description: "Se ha establecido la fecha para la verificación de eficacia." });
         } else {
             toast({ title: "Error al Planificar", description: "No se pudo guardar la fecha de planificación." + (saveResult.needsNavigationUrl ? " Navegación pendiente, recargue." : ""), variant: "destructive" });
         }
     } catch (error) {
         console.error("Error al planificar verificación de eficacia:", error);
-        toast({ title: "Error", description: `No se pudo planificar la verificación de eficacia. Error: ${(error as Error).message}`, variant: "destructive" });
+        toast({ title: "Error", description: `Ocurrió un error: ${(error as Error).message}`, variant: "destructive" });
     } finally {
         setIsSaving(false);
     }
-};
+  };
 
 
   useEffect(() => {
