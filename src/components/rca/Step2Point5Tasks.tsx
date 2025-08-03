@@ -1,7 +1,7 @@
 'use client';
 import { useState, useMemo, FC } from 'react';
 import type { FullUserProfile, RCAAnalysisDocument, ActionPlan } from '@/types/rca';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -83,59 +83,59 @@ export const Step2Point5Tasks: FC<Step2Point5TasksProps> = ({
     <Card>
       <CardHeader>
         <CardTitle className="font-headline">Paso 3: Tareas y Evidencias</CardTitle>
-        <CardContent>
-          <Tabs defaultValue="assigned" className="w-full">
-            <TabsList>
-              <TabsTrigger value="assigned" className="flex items-center gap-2">
-                <ListTodo className="h-4 w-4" /> Mis Tareas Asignadas ({assignedActionPlans.length})
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="assigned">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Planes de Acción Asignados a Mí</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead></TableHead>
-                        <TableHead>Acción (Resumen)</TableHead>
-                        <TableHead>Estado</TableHead>
-                        <TableHead>Plazo Límite</TableHead>
+      </CardHeader>
+      <CardContent>
+        <Tabs defaultValue="assigned" className="w-full">
+          <TabsList>
+            <TabsTrigger value="assigned" className="flex items-center gap-2">
+              <ListTodo className="h-4 w-4" /> Mis Tareas Asignadas ({assignedActionPlans.length})
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="assigned">
+            <Card>
+              <CardHeader>
+                <CardTitle>Planes de Acción Asignados a Mí</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead></TableHead>
+                      <TableHead>Acción (Resumen)</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Plazo Límite</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {assignedActionPlans.map(plan => (
+                      <TableRow key={plan.id}>
+                        <TableCell><Checkbox /></TableCell>
+                        <TableCell>{plan.accionResumen}</TableCell>
+                        <TableCell>
+                          <span className={cn("px-2 py-0.5 rounded-full text-xs font-semibold",
+                            plan.estado === 'Pendiente' && 'bg-orange-100 text-orange-700',
+                            plan.estado === 'En Validación' && 'bg-blue-100 text-blue-700',
+                            plan.estado === 'Completado' && 'bg-green-100 text-green-700',
+                            plan.estado === 'Rechazado' && 'bg-destructive/10 text-destructive'
+                          )}>{plan.estado}</span>
+                        </TableCell>
+                        <TableCell>{plan.plazoLimite}</TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {assignedActionPlans.map(plan => (
-                        <TableRow key={plan.id}>
-                          <TableCell><Checkbox /></TableCell>
-                          <TableCell>{plan.accionResumen}</TableCell>
-                          <TableCell>
-                            <span className={cn("px-2 py-0.5 rounded-full text-xs font-semibold",
-                              plan.estado === 'Pendiente' && 'bg-orange-100 text-orange-700',
-                              plan.estado === 'En Validación' && 'bg-blue-100 text-blue-700',
-                              plan.estado === 'Completado' && 'bg-green-100 text-green-700',
-                              plan.estado === 'Rechazado' && 'bg-destructive/10 text-destructive'
-                            )}>{plan.estado}</span>
-                          </TableCell>
-                          <TableCell>{plan.plazoLimite}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-        <CardFooter className="flex justify-between">
-          <Button onClick={onPrevious} variant="outline" disabled={isSaving}>Anterior</Button>
-          <Button onClick={onNext} disabled={isSaving}>
-            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Siguiente
-          </Button>
-        </CardFooter>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </CardContent>
+      <CardFooter className="flex justify-between">
+        <Button onClick={onPrevious} variant="outline" disabled={isSaving}>Anterior</Button>
+        <Button onClick={onNext} disabled={isSaving}>
+          {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Siguiente
+        </Button>
+      </CardFooter>
     </Card>
   );
 }
