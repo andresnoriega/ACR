@@ -1457,6 +1457,9 @@ function RCAAnalysisPageComponent() {
           loadingAuth={loadingAuth}
           plannedActions={plannedActions}
           validations={validations}
+          evidences={evidences}
+          onAddEvidence={handleAddEvidence}
+          onRemoveEvidence={handleRemoveEvidence}
         />
       )}
       </div>
