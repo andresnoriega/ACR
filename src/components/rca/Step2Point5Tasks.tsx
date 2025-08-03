@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo, FC, ChangeEvent } from 'react';
+import { useState, useMemo, FC, ChangeEvent, useEffect } from 'react';
 import type { FullUserProfile, RCAAnalysisDocument, PlannedAction as FirestorePlannedAction, Evidence as FirestoreEvidence } from '@/types/rca';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,25 @@ const generateClientSideId = (prefix: string) => {
 };
 
 
+// Define el tipo para las props de ActionPlanCard
+interface ActionPlan {
+    id: string;
+    _originalRcaDocId: string;
+    _originalActionId: string;
+    accionResumen: string;
+    estado: 'Pendiente' | 'En proceso' | 'En Validación' | 'Completado' | 'Rechazado';
+    plazoLimite: string; // 'dd/MM/yyyy'
+    asignadoPor: string;
+    validatorName: string;
+    tituloDetalle: string;
+    descripcionDetallada: string;
+    responsableDetalle: string;
+    codigoRCA: string;
+    evidencias: FirestoreEvidence[];
+    userComments: string;
+}
+
+
 const getEvidenceIconLocal = (tipo?: FirestoreEvidence['tipo']) => {
     if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
     switch (tipo) {
@@ -39,7 +58,7 @@ interface ActionPlanCardProps {
   plan: ActionPlan;
   availableUsers: FullUserProfile[];
   userProfile: FullUserProfile | null;
-  onUpdate: (updatedPlan: ActionPlan, newFile?: File | null) => Promise<void>;
+  onUpdate: (updatedPlan: ActionPlan, newFile?: File | null, newEvidenceComment?: string) => Promise<void>;
   onRemoveEvidence: (plan: ActionPlan, evidenceId: string) => Promise<void>;
 }
 
@@ -50,19 +69,24 @@ const ActionPlanCard: FC<ActionPlanCardProps> = ({ plan, availableUsers, userPro
   const [evidenceComment, setEvidenceComment] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
   const { toast } = useToast();
+  
+  useEffect(() => {
+    setLocalPlan(plan);
+  }, [plan]);
 
   const handleUpdate = async () => {
     setIsUpdating(true);
-    await onUpdate(localPlan, fileToUpload);
+    await onUpdate(localPlan, fileToUpload, evidenceComment);
     setIsUpdating(false);
     setFileToUpload(null);
     setEvidenceComment('');
+    const fileInput = document.getElementById(`evidence-file-input-${plan.id}`) as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
   };
   
   const handleInternalRemoveEvidence = async (evidenceId: string) => {
     setIsUpdating(true);
     await onRemoveEvidence(plan, evidenceId);
-    // The parent will re-render, so we just need to wait.
     setIsUpdating(false);
   };
 
@@ -76,7 +100,7 @@ const ActionPlanCard: FC<ActionPlanCardProps> = ({ plan, availableUsers, userPro
 
 
   return (
-    <Card className="shadow-lg animate-in fade-in-50 duration-300 mt-4">
+    <Card className="shadow-lg animate-in fade-in-50 duration-300">
       <CardHeader>
         <div className='flex justify-between items-start'>
             <div>
@@ -85,6 +109,7 @@ const ActionPlanCard: FC<ActionPlanCardProps> = ({ plan, availableUsers, userPro
             </div>
             <span className={cn("px-2 py-0.5 rounded-full text-xs font-semibold",
                 plan.estado === 'Pendiente' && 'bg-orange-100 text-orange-700',
+                 plan.estado === 'En proceso' && 'bg-yellow-100 text-yellow-700',
                 plan.estado === 'En Validación' && 'bg-blue-100 text-blue-700',
                 plan.estado === 'Completado' && 'bg-green-100 text-green-700',
                 plan.estado === 'Rechazado' && 'bg-destructive/10 text-destructive'
@@ -97,13 +122,13 @@ const ActionPlanCard: FC<ActionPlanCardProps> = ({ plan, availableUsers, userPro
         <div><Label className="font-semibold">Plazo límite:</Label> <p>{plan.plazoLimite}</p></div>
         
         <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Evidencias Adjuntas]</h4>
-            {plan.evidencias.length > 0 ? (<ul className="space-y-1.5">
-                {plan.evidencias.map(ev => (<li key={ev.id} className="flex items-start justify-between text-xs border p-2 rounded-md bg-muted/10">
+            {localPlan.evidencias.length > 0 ? (<ul className="space-y-1.5">
+                {localPlan.evidencias.map(ev => (<li key={ev.id} className="flex items-start justify-between text-xs border p-2 rounded-md bg-muted/10">
                     <div className="flex-grow"><div className="flex items-center">{getEvidenceIconLocal(ev.tipo)}<span className="font-medium">{ev.nombre}</span></div>
                       {ev.comment && <p className="text-xs text-muted-foreground ml-[calc(1rem+0.5rem)] mt-0.5">Comentario: {ev.comment}</p>}</div>
                     <div className="flex-shrink-0 ml-2">
                         <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mr-2"><a href={ev.dataUrl} target="_blank" rel="noopener noreferrer" download={ev.nombre}><ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar</a></Button>
-                        <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-destructive/10" onClick={() => handleInternalRemoveEvidence(ev.id)} disabled={isUpdating || plan.estado === 'Completado' || plan.estado === 'Rechazado'} aria-label="Eliminar evidencia"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-destructive/10" onClick={() => handleInternalRemoveEvidence(ev.id)} disabled={isUpdating || localPlan.estado === 'Completado' || localPlan.estado === 'Rechazado'} aria-label="Eliminar evidencia"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                     </div>
                     </li>))}</ul>
             ) : <p className="text-xs text-muted-foreground">No hay evidencias adjuntas.</p>}
@@ -112,9 +137,9 @@ const ActionPlanCard: FC<ActionPlanCardProps> = ({ plan, availableUsers, userPro
         <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Adjuntar nueva evidencia]</h4>
             <div className="space-y-2">
               <Label htmlFor={`evidence-file-input-${plan.id}`}>Archivo de Evidencia</Label>
-              <Input id={`evidence-file-input-${plan.id}`} type="file" onChange={handleFileChange} className="text-xs h-9" disabled={isUpdating || plan.estado === 'Completado' || plan.estado === 'Rechazado'} />
+              <Input id={`evidence-file-input-${plan.id}`} type="file" onChange={handleFileChange} className="text-xs h-9" disabled={isUpdating || localPlan.estado === 'Completado' || localPlan.estado === 'Rechazado'} />
               <Label htmlFor={`evidence-comment-${plan.id}`}>Comentario para esta evidencia (opcional)</Label>
-              <Input id={`evidence-comment-${plan.id}`} type="text" placeholder="Ej: Foto de la reparación, documento de capacitación..." value={evidenceComment} onChange={(e) => setEvidenceComment(e.target.value)} className="text-xs h-9" disabled={isUpdating || plan.estado === 'Completado' || plan.estado === 'Rechazado'} />
+              <Input id={`evidence-comment-${plan.id}`} type="text" placeholder="Ej: Foto de la reparación, documento de capacitación..." value={evidenceComment} onChange={(e) => setEvidenceComment(e.target.value)} className="text-xs h-9" disabled={isUpdating || localPlan.estado === 'Completado' || localPlan.estado === 'Rechazado'} />
             </div>
             {fileToUpload && <p className="text-xs text-muted-foreground mt-1">Archivo seleccionado: {fileToUpload.name}</p>}
         </div>
@@ -123,17 +148,17 @@ const ActionPlanCard: FC<ActionPlanCardProps> = ({ plan, availableUsers, userPro
             <div className="flex justify-between items-center mb-1">
                 <h4 className="font-semibold text-primary flex items-center"><MessageSquare className="mr-1.5 h-4 w-4" />[Comentarios Generales]</h4>
             </div>
-            <Textarea value={localPlan.userComments || ''} onChange={(e) => setLocalPlan(prev => ({ ...prev, userComments: e.target.value }))} placeholder="Añada sus comentarios sobre el progreso..." rows={3} className="text-sm" disabled={isUpdating || plan.estado === 'Completado' || plan.estado === 'Rechazado'} />
+            <Textarea value={localPlan.userComments || ''} onChange={(e) => setLocalPlan(prev => ({ ...prev, userComments: e.target.value }))} placeholder="Añada sus comentarios sobre el progreso..." rows={3} className="text-sm" disabled={isUpdating || localPlan.estado === 'Completado' || localPlan.estado === 'Rechazado'} />
         </div>
         
         <div className="pt-2">
             <h4 className="font-semibold text-primary mb-1">[Actualizar estado]</h4>
             <div className="flex items-center gap-2">
-                <Button size="sm" variant="default" onClick={handleUpdate} disabled={isUpdating || ['Completado', 'En Validación', 'Rechazado'].includes(plan.estado) || (!fileToUpload && plan.userComments === localPlan.userComments)} title={plan.estado === 'Completado' ? "Esta tarea ya ha sido validada." : ['En Validación', 'Rechazado'].includes(plan.estado) ? `La tarea ya está en estado '${plan.estado}'` : (!fileToUpload && plan.userComments === localPlan.userComments) ? "Debe adjuntar un archivo o modificar los comentarios para actualizar." : "Guardar y marcar la tarea como lista para validación."}>
+                <Button size="sm" variant="default" onClick={handleUpdate} disabled={isUpdating || ['Completado', 'En Validación', 'Rechazado'].includes(localPlan.estado) || (!fileToUpload && plan.userComments === localPlan.userComments)} title={localPlan.estado === 'Completado' ? "Esta tarea ya ha sido validada." : ['En Validación', 'Rechazado'].includes(localPlan.estado) ? `La tarea ya está en estado '${localPlan.estado}'` : (!fileToUpload && plan.userComments === localPlan.userComments) ? "Debe adjuntar un archivo o modificar los comentarios para actualizar." : "Guardar y marcar la tarea como lista para validación."}>
                   {isUpdating ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />} 
                   {isUpdating ? 'Procesando...' : 'Marcar como listo para validación'}
                 </Button>
-                {plan.estado === 'En Validación' && (<span className="text-xs text-green-600 flex items-center ml-2 p-1.5 bg-green-50 border border-green-200 rounded-md"><CheckCircle2 className="mr-1 h-3.5 w-3.5" />Listo para Validar</span>)}
+                {localPlan.estado === 'En Validación' && (<span className="text-xs text-green-600 flex items-center ml-2 p-1.5 bg-green-50 border border-green-200 rounded-md"><CheckCircle2 className="mr-1 h-3.5 w-3.5" />Listo para Validar</span>)}
             </div>
         </div>
       </CardContent>
@@ -183,6 +208,7 @@ export const Step2Point5Tasks: FC<Step2Point5TasksProps> = ({
         if (validation?.status === 'validated') estado = 'Completado';
         else if (validation?.status === 'rejected') estado = 'Rechazado';
         else if (pa.markedAsReadyAt) estado = 'En Validación';
+        else if (pa.evidencias?.length > 0 || pa.userComments?.trim()) estado = 'En proceso';
 
         plans.push({
           id: pa.id,
@@ -205,7 +231,7 @@ export const Step2Point5Tasks: FC<Step2Point5TasksProps> = ({
     return plans;
   }, [userProfile, internalDocs, loadingAuth]);
   
-  const handleUpdateAction = async (updatedPlan: ActionPlan, newFile?: File | null) => {
+  const handleUpdateAction = async (updatedPlan: ActionPlan, newFile?: File | null, newEvidenceComment?: string) => {
     if (!userProfile) return;
     
     try {
@@ -225,7 +251,7 @@ export const Step2Point5Tasks: FC<Step2Point5TasksProps> = ({
           id: generateClientSideId('ev'),
           nombre: newFile.name,
           tipo: (newFile.type.split('/')[1] as FirestoreEvidence['tipo']) || 'other',
-          comment: '', // Comment handling would need to be added to the card state
+          comment: newEvidenceComment,
           dataUrl: dataUrl,
         };
       }
@@ -277,7 +303,7 @@ export const Step2Point5Tasks: FC<Step2Point5TasksProps> = ({
         const currentRcaDoc = docSnap.data() as RCAAnalysisDocument;
         const updatedPlannedActions = currentRcaDoc.plannedActions.map(action => {
             if (action.id === plan._originalActionId) {
-                return { ...action, evidencias: action.evidencias.filter(e => e.id !== evidenceId) };
+                return { ...action, evidencias: (action.evidencias || []).filter(e => e.id !== evidenceId) };
             }
             return action;
         });
@@ -319,7 +345,7 @@ export const Step2Point5Tasks: FC<Step2Point5TasksProps> = ({
           </div>
         ) : (
           <div className="text-center text-muted-foreground py-10">
-            No hay planes de acción definidos para este análisis.
+            No hay planes de acción definidos para este análisis. Vaya al Paso 3 para añadirlos.
           </div>
         )}
       </CardContent>
