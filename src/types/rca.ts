@@ -1,3 +1,4 @@
+
 'use client';
 // --- Common Enums and Types ---
 export type EventType = 'Incidente' | 'Falla de Equipo' | 'Accidente' | 'No Conformidad' | 'Evento Operacional' | '';
