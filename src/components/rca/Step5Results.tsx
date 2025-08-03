@@ -36,7 +36,6 @@ interface Step5ResultsProps {
   ctmData: CTMData;
   timelineEvents: TimelineEvent[];
   brainstormingIdeas: BrainstormIdea[];
-  preservedFacts: Evidence[];
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
   finalComments: string;
@@ -96,7 +95,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   ctmData,
   timelineEvents,
   brainstormingIdeas,
-  preservedFacts,
   identifiedRootCauses,
   plannedActions,
   finalComments,
@@ -635,32 +633,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           <section>
             <SectionTitle title="Anexos" icon={FileText}/>
             <div className="space-y-4">
-               {preservedFacts && preservedFacts.length > 0 && (
-                <div>
-                    <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><FileArchive className="mr-2 h-4 w-4" />Hechos Preservados</h4>
-                    <ul className="list-disc pl-5 space-y-2 text-xs border rounded-md p-3 bg-secondary/20">
-                    {preservedFacts.map(fact => (
-                        <li key={fact.id} className="flex items-center justify-between">
-                            <div className="flex items-center">
-                                {getEvidenceIconLocal(fact.tipo)}
-                                <div>
-                                    <span className="font-medium">{fact.category || 'Sin categoría'}: </span>
-                                    <span>{fact.nombre}</span>
-                                    {fact.comment && <span className="italic text-muted-foreground"> - "{fact.comment}"</span>}
-                                </div>
-                            </div>
-                            <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
-                                <a href={fact.dataUrl} target="_blank" rel="noopener noreferrer" download={fact.nombre}>
-                                    <ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar
-                                </a>
-                            </Button>
-                        </li>
-                    ))}
-                    </ul>
-                </div>
-                )}
-                
-                {timelineEvents && timelineEvents.length > 0 && (
+                 {timelineEvents && timelineEvents.length > 0 && (
                   <div>
                     <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><CalendarClock className="mr-2 h-4 w-4" />Línea de Tiempo</h4>
                     <ul className="list-disc pl-5 space-y-1 text-xs border rounded-md p-3 bg-secondary/20">
@@ -704,8 +677,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                   </div>
                 )}
                  
-                 {(!preservedFacts || preservedFacts.length === 0) &&
-                  (!timelineEvents || timelineEvents.length === 0) &&
+                 {(!timelineEvents || timelineEvents.length === 0) &&
                   (!brainstormingIdeas || brainstormingIdeas.length === 0) &&
                   (!investigationSessions || investigationSessions.length === 0) && (
                     <p className="text-sm text-muted-foreground">No hay anexos para mostrar.</p>

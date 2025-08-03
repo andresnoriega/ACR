@@ -2,53 +2,20 @@
 
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect, useMemo } from 'react';
-import type { DetailedFacts, FullUserProfile, RCAEventData, Site, InvestigationSession, PreservedFact, Evidence } from '@/types/rca'; 
+import type { DetailedFacts, FullUserProfile, RCAEventData, Site, InvestigationSession, TimelineEvent } from '@/types/rca'; 
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserCircle, Save, Loader2, Target, ClipboardList, Sparkles, FileArchive, Trash2, FileText, ImageIcon, Paperclip, Link2, ExternalLink, PlusCircle } from 'lucide-react';
+import { UserCircle, Save, Loader2, Target, ClipboardList, Sparkles } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
 import { InvestigationTeamManager } from './InvestigationTeamManager';
 import { paraphrasePhenomenon, type ParaphrasePhenomenonInput } from '@/ai/flows/paraphrase-phenomenon';
-import { ScrollArea } from '@/components/ui/scroll-area';
-
-const getEvidenceIconLocal = (fileName?: string) => {
-    if (!fileName) {
-        return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
-    }
-    const extension = fileName.split('.').pop()?.toLowerCase();
-    switch (extension) {
-      case 'pdf': return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
-      case 'jpg': case 'jpeg': case 'png': case 'gif': return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
-      case 'doc': case 'docx': return <Paperclip className="h-4 w-4 mr-2 flex-shrink-0 text-sky-700" />;
-      default: return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
-    }
-};
-
-const factCategories = [
-  "Partes, Posición, Personas, Papel y Paradigmas",
-  "Fotografías o videos del Evento",
-  "Datos operacionales (Sensores, Vibraciones, etc.)",
-  "Registro mantenimientos y pruebas realizadas.",
-  "Procedimientos.",
-  "Entrevistas.",
-  "PT, AST, OT",
-  "Charlas",
-  "Manuales, planos, P&ID, catálogos, Normativa asociada",
-  "Otras."
-];
-
-let idCounter = Date.now();
-const generateClientSideId = (prefix: string) => {
-    idCounter++;
-    return `${prefix}-${idCounter}`;
-};
 
 
 // ------ COMPONENTE PRINCIPAL ------
@@ -64,9 +31,6 @@ export const Step2Facts: FC<{
   onSetInvestigationSessions: (sessions: InvestigationSession[]) => void;
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
-  preservedFacts: PreservedFact[];
-  onRemovePreservedFact: (factId: string) => void;
-  onAddPreservedFact: (newFact: PreservedFact) => void;
   isSaving: boolean;
   onPrevious: () => void;
   onNext: () => void;
@@ -83,9 +47,6 @@ export const Step2Facts: FC<{
   onSetInvestigationSessions,
   analysisDetails,
   onAnalysisDetailsChange,
-  preservedFacts,
-  onRemovePreservedFact,
-  onAddPreservedFact,
   isSaving,
   onPrevious,
   onNext,
@@ -95,15 +56,6 @@ export const Step2Facts: FC<{
   const [clientSideMaxDateTime, setClientSideMaxDateTime] = useState<string | undefined>(undefined);
   const { userProfile } = useAuth();
   const [isParaphrasing, setIsParaphrasing] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-
-  // State for the new evidence upload section
-  const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
-  const [evidenceUserGivenName, setEvidenceUserGivenName] = useState('');
-  const [evidenceComment, setEvidenceComment] = useState('');
-  const [evidenceCategory, setEvidenceCategory] = useState('');
-  const [showNewFactForm, setShowNewFactForm] = useState(false);
-
 
   const usersForDropdown = useMemo(() => {
     if (userProfile?.role === 'Super User') {
@@ -154,64 +106,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [constructedPhenomenonDescription]);
-
-  
-  const handleSaveWithNewFactClick = async () => {
-    if (!evidenceFile) {
-        toast({ title: "Archivo Requerido", description: "Por favor, seleccione un archivo para guardar el hecho preservado.", variant: "destructive" });
-        return;
-    }
-     if (!evidenceCategory) {
-        toast({ title: "Categoría Requerida", description: "Por favor, seleccione una categoría para el hecho preservado.", variant: "destructive" });
-        return;
-    }
-    if (evidenceFile.size > 700 * 1024) { // 700 KB limit
-        toast({
-          title: "Archivo Demasiado Grande",
-          description: "El archivo de evidencia no puede superar los 700 KB.",
-          variant: "destructive",
-        });
-        return;
-    }
-    
-    setIsUploading(true);
-    
-    try {
-      toast({ title: "Procesando archivo...", description: `Convirtiendo ${evidenceFile.name} a Data URL.` });
-      const reader = new FileReader();
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = (error) => reject(error);
-          reader.readAsDataURL(evidenceFile);
-      });
-
-      const newFact: PreservedFact = {
-        id: generateClientSideId('fact'),
-        userGivenName: evidenceUserGivenName.trim() || evidenceFile.name,
-        tipo: evidenceFile.type.split('/')[1] || 'other',
-        category: evidenceCategory,
-        comment: evidenceComment.trim() || undefined,
-        dataUrl: dataUrl,
-      };
-      
-      onAddPreservedFact(newFact);
-      
-      // Reset form
-      setEvidenceFile(null);
-      setEvidenceUserGivenName('');
-      setEvidenceComment('');
-      setEvidenceCategory('');
-      setShowNewFactForm(false);
-      const fileInput = document.getElementById('step2-evidence-file-input') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
-
-    } catch(error) {
-       console.error("Error during fact preservation:", error);
-       toast({ title: "Error al Procesar Archivo", description: `No se pudo leer el archivo: ${(error as Error).message}`, variant: "destructive" });
-    } finally {
-       setIsUploading(false);
-    }
-  };
 
   const handleNextWithSave = async () => {
     // This function will now be simpler as the save is consolidated in the parent.
@@ -341,115 +235,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
             </div>
           </CardContent>
         </Card>
-
-        <div className="space-y-4 pt-4 border-t">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold font-headline flex items-center">
-              <FileArchive className="mr-2 h-5 w-5 text-primary" />
-              Preservación de Hechos
-            </h3>
-            <Button variant="outline" size="sm" onClick={() => setShowNewFactForm(prev => !prev)} disabled={isSaving || isUploading}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Nuevo Hecho
-            </Button>
-          </div>
-
-          {showNewFactForm && (
-            <Card className="p-4 bg-secondary/30 space-y-3 shadow-inner">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <div className="space-y-2">
-                    <Label htmlFor="step2-evidence-category">Categoría <span className="text-destructive">*</span></Label>
-                    <Select value={evidenceCategory} onValueChange={setEvidenceCategory}>
-                        <SelectTrigger id="step2-evidence-category" disabled={isSaving || isUploading}>
-                            <SelectValue placeholder="-- Seleccione una categoría --" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {factCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                 </div>
-                 <div className="space-y-2">
-                    <Label htmlFor="step2-evidence-file-input">Hecho Preservado <span className="text-destructive">*</span></Label>
-                    <Input
-                    id="step2-evidence-file-input"
-                    type="file"
-                    onChange={(e) => {
-                        const file = e.target.files ? e.target.files[0] : null;
-                        setEvidenceFile(file);
-                        if (file) {
-                            setEvidenceUserGivenName(file.name);
-                        }
-                    }}
-                    className="text-xs h-9"
-                    disabled={isSaving || isUploading}
-                    />
-                 </div>
-              </div>
-               <div className="space-y-2">
-                <Label htmlFor="evidence-user-given-name">Nombre del Hecho (opcional)</Label>
-                <Input
-                  id="evidence-user-given-name"
-                  type="text"
-                  placeholder="Nombre descriptivo del archivo"
-                  value={evidenceUserGivenName}
-                  onChange={(e) => setEvidenceUserGivenName(e.target.value)}
-                  className="text-xs h-9"
-                  disabled={isSaving || isUploading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="step2-evidence-comment">Comentario (opcional)</Label>
-                <Input
-                  id="step2-evidence-comment"
-                  type="text"
-                  placeholder="Ej: Foto de la reparación, documento de capacitación..."
-                  value={evidenceComment}
-                  onChange={(e) => setEvidenceComment(e.target.value)}
-                  className="text-xs h-9"
-                  disabled={isSaving || isUploading}
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={handleSaveWithNewFactClick} disabled={isSaving || isUploading || !evidenceFile}>
-                  {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                  Guardar Hecho
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setShowNewFactForm(false)} disabled={isSaving || isUploading}>Cancelar</Button>
-              </div>
-            </Card>
-          )}
-
-          {preservedFacts && preservedFacts.length > 0 && (
-            <div className="space-y-2 mt-4">
-              <h4 className="font-medium text-sm">Hechos Preservados Adjuntos:</h4>
-              <ScrollArea className="h-48 w-full rounded-md border p-3">
-                <ul className="space-y-2">
-                  {preservedFacts.map((fact) => (
-                    <li key={fact.id} className="flex items-start justify-between text-sm border p-2 rounded-md bg-background">
-                      <div className="flex items-start">
-                        {getEvidenceIconLocal(fact.userGivenName)}
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-primary">{fact.category || 'Sin categoría'}</span>
-                          <span className="font-medium">{fact.userGivenName}</span>
-                          {fact.comment && <span className="text-xs italic text-muted-foreground">"{fact.comment}"</span>}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                        <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
-                          <a href={fact.dataUrl} target="_blank" rel="noopener noreferrer" download={fact.userGivenName}>
-                            <ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar
-                          </a>
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemovePreservedFact(fact.id)} disabled={isSaving || isUploading}>
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </ScrollArea>
-            </div>
-          )}
-        </div>
 
         <div className="space-y-4 pt-4 border-t">
           <div className="space-y-2">
