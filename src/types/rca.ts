@@ -164,6 +164,7 @@ export interface Evidence {
   tipo: 'link' | 'pdf' | 'jpg' | 'png' | 'doc' | 'other' | string; // Allow string for flexibility with MIME types
   dataUrl: string; // The content as a Data URL
   comment?: string;
+  category?: string;
 }
 
 export interface PlannedAction {

@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
 import { InvestigationTeamManager } from './InvestigationTeamManager';
 import { paraphrasePhenomenon, type ParaphrasePhenomenonInput } from '@/ai/flows/paraphrase-phenomenon';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const getEvidenceIconLocal = (tipo?: Evidence['tipo']) => {
   if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
@@ -28,6 +29,20 @@ const getEvidenceIconLocal = (tipo?: Evidence['tipo']) => {
     default: return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
   }
 };
+
+const factCategories = [
+  "Partes, Posición, Personas, Papel y Paradigmas",
+  "Fotografías o videos del Evento",
+  "Datos operacionales (Sensores, Vibraciones, etc.)",
+  "Registro mantenimientos y pruebas realizadas.",
+  "Procedimientos.",
+  "Entrevistas.",
+  "PT, AST, OT",
+  "Charlas",
+  "Manuales, planos, P&ID, catálogos, Normativa asociada",
+  "Otras."
+];
+
 
 // ------ COMPONENTE PRINCIPAL ------
 export const Step2Facts: FC<{
@@ -84,6 +99,7 @@ export const Step2Facts: FC<{
   // State for the new evidence upload section
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [evidenceComment, setEvidenceComment] = useState('');
+  const [evidenceCategory, setEvidenceCategory] = useState('');
   const [showNewFactForm, setShowNewFactForm] = useState(false);
 
 
@@ -168,6 +184,10 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
         toast({ title: "Archivo Requerido", description: "Por favor, seleccione un archivo para guardar el hecho preservado.", variant: "destructive" });
         return;
     }
+     if (!evidenceCategory) {
+        toast({ title: "Categoría Requerida", description: "Por favor, seleccione una categoría para el hecho preservado.", variant: "destructive" });
+        return;
+    }
     if (evidenceFile.size > 700 * 1024) { // 700 KB limit
         toast({
           title: "Archivo Demasiado Grande",
@@ -189,6 +209,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
         id: `preserved-${Date.now()}`,
         nombre: evidenceFile.name,
         tipo: evidenceFile.type.split('/')[1] as Evidence['tipo'] || 'other',
+        category: evidenceCategory,
         comment: evidenceComment.trim() || undefined,
         dataUrl: dataUrl,
     };
@@ -198,6 +219,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     // Reset form
     setEvidenceFile(null);
     setEvidenceComment('');
+    setEvidenceCategory('');
     setShowNewFactForm(false);
     const fileInput = document.getElementById('step2-evidence-file-input') as HTMLInputElement;
     if (fileInput) fileInput.value = '';
@@ -364,15 +386,28 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
 
           {showNewFactForm && (
             <Card className="p-4 bg-secondary/30 space-y-3 shadow-inner">
-              <div className="space-y-2">
-                <Label htmlFor="step2-evidence-file-input">Hecho Preservado <span className="text-destructive">*</span></Label>
-                <Input
-                  id="step2-evidence-file-input"
-                  type="file"
-                  onChange={(e) => setEvidenceFile(e.target.files ? e.target.files[0] : null)}
-                  className="text-xs h-9"
-                  disabled={isSaving || isUploading}
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div className="space-y-2">
+                    <Label htmlFor="step2-evidence-category">Categoría <span className="text-destructive">*</span></Label>
+                    <Select value={evidenceCategory} onValueChange={setEvidenceCategory}>
+                        <SelectTrigger id="step2-evidence-category" disabled={isSaving || isUploading}>
+                            <SelectValue placeholder="-- Seleccione una categoría --" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {factCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                 </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="step2-evidence-file-input">Hecho Preservado <span className="text-destructive">*</span></Label>
+                    <Input
+                    id="step2-evidence-file-input"
+                    type="file"
+                    onChange={(e) => setEvidenceFile(e.target.files ? e.target.files[0] : null)}
+                    className="text-xs h-9"
+                    disabled={isSaving || isUploading}
+                    />
+                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="step2-evidence-comment">Comentario (opcional)</Label>
@@ -399,29 +434,32 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
           {preservedFacts && preservedFacts.length > 0 && (
             <div className="space-y-2 mt-4">
               <h4 className="font-medium text-sm">Hechos Preservados Adjuntos:</h4>
-              <ul className="space-y-2">
-                {preservedFacts.map((fact) => (
-                  <li key={fact.id} className="flex items-center justify-between text-sm border p-2 rounded-md bg-background">
-                    <div className="flex items-center">
-                      {getEvidenceIconLocal(fact.tipo)}
-                      <div className="flex flex-col">
-                        <span className="font-medium">{fact.nombre}</span>
-                        {fact.comment && <span className="text-xs italic text-muted-foreground">"{fact.comment}"</span>}
+              <ScrollArea className="h-48 w-full rounded-md border p-3">
+                <ul className="space-y-2">
+                  {preservedFacts.map((fact) => (
+                    <li key={fact.id} className="flex items-start justify-between text-sm border p-2 rounded-md bg-background">
+                      <div className="flex items-start">
+                        {getEvidenceIconLocal(fact.tipo)}
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-primary">{fact.category || 'Sin categoría'}</span>
+                          <span className="font-medium">{fact.nombre}</span>
+                          {fact.comment && <span className="text-xs italic text-muted-foreground">"{fact.comment}"</span>}
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
-                        <a href={fact.dataUrl} target="_blank" rel="noopener noreferrer" download={fact.nombre}>
-                          <ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar
-                        </a>
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemovePreservedFact(fact.id)} disabled={isSaving}>
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                      <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                        <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
+                          <a href={fact.dataUrl} target="_blank" rel="noopener noreferrer" download={fact.nombre}>
+                            <ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar
+                          </a>
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemovePreservedFact(fact.id)} disabled={isSaving}>
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </ScrollArea>
             </div>
           )}
         </div>
