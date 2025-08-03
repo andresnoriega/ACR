@@ -1,3 +1,4 @@
+
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef, ChangeEvent } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification, Evidence } from '@/types/rca';
@@ -313,8 +314,8 @@ function RCAAnalysisPageComponent() {
         const isCtmPopulated = data.ctmData?.some(fm => fm.hypotheses.length > 0);
         const hasAnalysisContent = data.identifiedRootCauses?.length > 0 || isIshikawaPopulated || is5WhysPopulated || isCtmPopulated;
         
-        const hasFactsContent = data.projectLeader?.trim() || Object.values(data.detailedFacts).some(v => v?.trim());
-        const hasTasksContent = !!data.timelineEvents?.length || !!data.brainstormingIdeas?.length;
+        const hasFactsContent = Object.values(data.detailedFacts).some(v => v?.trim());
+        const hasTasksContent = !!data.timelineEvents?.length || !!data.brainstormingIdeas?.length || !!data.projectLeader?.trim();
         
         let newMaxCompletedStep = 1;
         if(hasFactsContent) newMaxCompletedStep = 2;
@@ -1011,7 +1012,6 @@ function RCAAnalysisPageComponent() {
     
     if (step === 2) {
         const missingFields = [];
-        if (!projectLeader) missingFields.push("Líder del Proyecto");
         if (!detailedFacts.como.trim()) missingFields.push("Hechos Detallados: CÓMO");
         if (!detailedFacts.que.trim()) missingFields.push("Hechos Detallados: QUÉ");
         if (!detailedFacts.donde.trim()) missingFields.push("Hechos Detallados: DÓNDE");
@@ -1467,15 +1467,10 @@ function RCAAnalysisPageComponent() {
       <div className={step === 2 ? "" : "print:hidden"}>
       {step === 2 && (
         <Step2Facts
-          projectLeader={projectLeader}
-          onProjectLeaderChange={handleProjectLeaderChange}
-          availableUsers={availableUsersFromDB}
           detailedFacts={detailedFacts}
           onDetailedFactChange={onDetailedFactChange}
           investigationObjective={investigationObjective}
           onInvestigationObjectiveChange={setInvestigationObjective}
-          investigationSessions={investigationSessions}
-          onSetInvestigationSessions={setInvestigationSessions}
           analysisDetails={analysisDetails}
           onAnalysisDetailsChange={setAnalysisDetails}
           evidences={evidences}
@@ -1499,6 +1494,11 @@ function RCAAnalysisPageComponent() {
             onPrevious={handlePreviousStep}
             onNext={() => handleGoToStep(4)}
             onSaveAnalysis={handleSaveAnalysisData}
+            projectLeader={projectLeader}
+            onProjectLeaderChange={handleProjectLeaderChange}
+            investigationSessions={investigationSessions}
+            onSetInvestigationSessions={setInvestigationSessions}
+            availableSites={availableSitesFromDB}
           />
        )}
       </div>

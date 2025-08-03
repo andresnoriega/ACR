@@ -15,22 +15,16 @@ import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
-import { InvestigationTeamManager } from './InvestigationTeamManager';
 import { paraphrasePhenomenon, type ParaphrasePhenomenonInput } from '@/ai/flows/paraphrase-phenomenon';
 import { EvidenceManager } from './EvidenceManager';
 
 
 // ------ COMPONENTE PRINCIPAL ------
 export const Step2Facts: FC<{
-  projectLeader: string;
-  onProjectLeaderChange: (value: string) => void;
-  availableUsers: FullUserProfile[];
   detailedFacts: DetailedFacts;
   onDetailedFactChange: (field: keyof DetailedFacts, value: string) => void;
   investigationObjective: string;
   onInvestigationObjectiveChange: (value: string) => void;
-  investigationSessions: InvestigationSession[];
-  onSetInvestigationSessions: (sessions: InvestigationSession[]) => void;
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
   evidences?: Evidence[];
@@ -41,15 +35,10 @@ export const Step2Facts: FC<{
   onNext: () => void;
   onSaveAnalysis: () => Promise<void>;
 }> = ({
-  projectLeader,
-  onProjectLeaderChange,
-  availableUsers,
   detailedFacts,
   onDetailedFactChange,
   investigationObjective,
   onInvestigationObjectiveChange,
-  investigationSessions,
-  onSetInvestigationSessions,
   analysisDetails,
   onAnalysisDetailsChange,
   evidences,
@@ -64,13 +53,6 @@ export const Step2Facts: FC<{
   const [clientSideMaxDateTime, setClientSideMaxDateTime] = useState<string | undefined>(undefined);
   const { userProfile } = useAuth();
   const [isParaphrasing, setIsParaphrasing] = useState(false);
-
-  const usersForDropdown = useMemo(() => {
-    if (userProfile?.role === 'Super User') {
-      return availableUsers;
-    }
-    return availableUsers;
-  }, [availableUsers, userProfile]);
 
   useEffect(() => {
     const now = new Date();
@@ -115,7 +97,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
 
   const validateFieldsForNext = (): boolean => {
     const missingFields = [];
-    if (!projectLeader) missingFields.push("Líder del Proyecto");
     if (!detailedFacts.como.trim()) missingFields.push("Hechos Detallados: CÓMO");
     if (!detailedFacts.que.trim()) missingFields.push("Hechos Detallados: QUÉ");
     if (!detailedFacts.donde.trim()) missingFields.push("Hechos Detallados: DÓNDE");
@@ -177,30 +158,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
         <CardDescription>Recopile y documente todos los hechos relevantes sobre el evento.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="space-y-2">
-          <Label htmlFor="projectLeader" className="flex items-center">
-            <UserCircle className="mr-2 h-4 w-4 text-primary" />
-            Líder del Proyecto <span className="text-destructive">*</span>
-          </Label>
-          <Select value={projectLeader} onValueChange={onProjectLeaderChange}>
-            <SelectTrigger id="projectLeader">
-              <SelectValue placeholder="-- Seleccione un líder --" />
-            </SelectTrigger>
-            <SelectContent>
-              {usersForDropdown.length > 0 ? usersForDropdown.map(user => (
-                <SelectItem key={user.id} value={user.name}>{user.name} ({user.role})</SelectItem>
-              )) : <SelectItem value="" disabled>No hay líderes disponibles para esta empresa</SelectItem>}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <InvestigationTeamManager
-          sessions={investigationSessions}
-          onSetSessions={onSetInvestigationSessions}
-          availableUsers={availableUsers}
-          availableSites={[]}
-          isSaving={isSaving}
-        />
         
         <Card className="shadow-inner bg-secondary/20">
           <CardHeader>
