@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { FC, ChangeEvent } from 'react';
@@ -303,7 +302,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
               <FileArchive className="mr-2 h-5 w-5 text-primary" />
               Preservación de Hechos
             </h3>
-            <Button onClick={onAddPreservedFact} variant="outline" size="sm">
+             <Button onClick={onAddPreservedFact} variant="outline" size="sm">
               <PlusCircle className="mr-2 h-4 w-4" /> Nuevo
             </Button>
           </div>
