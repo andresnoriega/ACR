@@ -1,7 +1,8 @@
+
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useEffect } from 'react';
-import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile, Site, InvestigationSession, EfficacyVerification, FiveWhysData, BrainstormIdea, TimelineEvent } from '@/types/rca';
+import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile, Site, InvestigationSession, EfficacyVerification, FiveWhysData, BrainstormIdea, TimelineEvent, Evidence } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -10,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Sparkles, HardHat, ShieldCheck, CheckSquare, CalendarClock, CalendarCheck, Lightbulb, Fish, HelpCircle as HelpIcon5Whys, Share2 as CtmIcon, Network, Wrench, Box, Ruler, Leaf, Edit, Paperclip, XCircle } from 'lucide-react';
+import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Sparkles, HardHat, ShieldCheck, CheckSquare, CalendarClock, CalendarCheck, Lightbulb, Fish, HelpCircle as HelpIcon5Whys, Share2 as CtmIcon, Network, Wrench, Box, Ruler, Leaf, Edit, Paperclip, XCircle, FileArchive, ImageIcon, ExternalLink } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
@@ -36,6 +37,7 @@ interface Step5ResultsProps {
   ctmData: CTMData;
   timelineEvents: TimelineEvent[];
   brainstormingIdeas: BrainstormIdea[];
+  preservedFacts: Evidence[];
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
   finalComments: string;
@@ -67,6 +69,18 @@ const SectionContent: FC<{ children: React.ReactNode; className?: string }> = ({
   </div>
 );
 
+const getEvidenceIconLocal = (tipo?: Evidence['tipo']) => {
+  if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
+  const safeTipo = tipo?.toLowerCase() || 'other';
+  switch (safeTipo) {
+    case 'link': return <Link2 className="h-4 w-4 mr-2 flex-shrink-0 text-indigo-600" />;
+    case 'pdf': return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
+    case 'jpg': case 'jpeg': case 'png': case 'gif': return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
+    case 'doc': case 'docx': return <Paperclip className="h-4 w-4 mr-2 flex-shrink-0 text-sky-700" />;
+    default: return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
+  }
+};
+
 
 export const Step5Results: FC<Step5ResultsProps> = ({
   eventId,
@@ -83,6 +97,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   ctmData,
   timelineEvents,
   brainstormingIdeas,
+  preservedFacts,
   identifiedRootCauses,
   plannedActions,
   finalComments,
@@ -620,8 +635,32 @@ export const Step5Results: FC<Step5ResultsProps> = ({
 
           <section>
             <SectionTitle title="Anexos" icon={FileText}/>
-            {(timelineEvents?.length > 0) || (brainstormingIdeas?.length > 0) || (investigationSessions?.length > 0)? (
-              <div className="space-y-4">
+            <div className="space-y-4">
+               {preservedFacts && preservedFacts.length > 0 && (
+                <div>
+                    <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><FileArchive className="mr-2 h-4 w-4" />Hechos Preservados</h4>
+                    <ul className="list-disc pl-5 space-y-2 text-xs border rounded-md p-3 bg-secondary/20">
+                    {preservedFacts.map(fact => (
+                        <li key={fact.id} className="flex items-center justify-between">
+                            <div className="flex items-center">
+                                {getEvidenceIconLocal(fact.tipo)}
+                                <div>
+                                    <span className="font-medium">{fact.category || 'Sin categoría'}: </span>
+                                    <span>{fact.nombre}</span>
+                                    {fact.comment && <span className="italic text-muted-foreground"> - "{fact.comment}"</span>}
+                                </div>
+                            </div>
+                            <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
+                                <a href={fact.dataUrl} target="_blank" rel="noopener noreferrer" download={fact.nombre}>
+                                    <ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar
+                                </a>
+                            </Button>
+                        </li>
+                    ))}
+                    </ul>
+                </div>
+                )}
+                
                 {timelineEvents && timelineEvents.length > 0 && (
                   <div>
                     <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><CalendarClock className="mr-2 h-4 w-4" />Línea de Tiempo</h4>
@@ -665,10 +704,14 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                     </div>
                   </div>
                 )}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No hay anexos para mostrar.</p>
-            )}
+                 
+                 {(!preservedFacts || preservedFacts.length === 0) &&
+                  (!timelineEvents || timelineEvents.length === 0) &&
+                  (!brainstormingIdeas || brainstormingIdeas.length === 0) &&
+                  (!investigationSessions || investigationSessions.length === 0) && (
+                    <p className="text-sm text-muted-foreground">No hay anexos para mostrar.</p>
+                 )}
+            </div>
           </section>
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row justify-center items-center gap-3 mt-6 pt-4 border-t no-print">
