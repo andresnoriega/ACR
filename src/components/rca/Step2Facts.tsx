@@ -301,7 +301,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
         <div className="space-y-4 pt-4 border-t">
           <h3 className="text-lg font-semibold font-headline flex items-center">
             <FileArchive className="mr-2 h-5 w-5 text-primary" />
-            Adjuntar Evidencia
+            Preservación de Hechos
           </h3>
           <div className="p-4 border rounded-md bg-secondary/30 space-y-3">
              <h4 className="font-semibold text-primary mb-1">[Adjuntar nueva evidencia]</h4>
