@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { FC, ChangeEvent } from 'react';
@@ -459,112 +460,127 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
             <TabsTrigger value="facts">Hechos Detallados</TabsTrigger>
             <TabsTrigger value="preservation">Preservación de Hechos y Tareas</TabsTrigger>
           </TabsList>
-          <TabsContent value="facts">
-            <Card className="shadow-inner bg-secondary/20 mt-4">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold flex items-center">
-                  <ClipboardList className="mr-2 h-5 w-5 text-primary"/>
-                  Hechos Detallados
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-4 pt-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="projectLeader" className="flex items-center">
-                        <UserCircle className="mr-2 h-4 w-4 text-primary" />
-                        Líder del Proyecto
-                      </Label>
-                      <Select value={projectLeader} onValueChange={onProjectLeaderChange}>
-                        <SelectTrigger id="projectLeader">
-                          <SelectValue placeholder="-- Seleccione un líder --" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {usersForDropdown.length > 0 ? (
-                            usersForDropdown.map(user => (
-                              <SelectItem key={user.id} value={user.name}>{user.name} ({user.role})</SelectItem>
-                            ))
-                          ) : (
-                            <SelectItem value="" disabled>No hay líderes disponibles para esta empresa</SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                     <InvestigationTeamManager
-                        sessions={investigationSessions}
-                        onSetSessions={onSetInvestigationSessions}
-                        availableUsers={availableUsers}
-                        availableSites={availableSites}
-                        isSaving={isSaving}
-                    />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t mt-4">
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="como">CÓMO (ocurrió la desviación) <span className="text-destructive">*</span></Label>
-                    <Input id="como" value={detailedFacts.como} onChange={(e) => handleInputChange(e, 'como')} placeholder="Ej: Durante operación normal" />
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="que">QUÉ (ocurrió) <span className="text-destructive">*</span></Label>
-                    <Textarea id="que" value={detailedFacts.que} onChange={(e) => handleInputChange(e, 'que')} placeholder="Ej: Trip por alta Temperatura Descanso 1" rows={2} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="donde">DÓNDE (ocurrió) <span className="text-destructive">*</span></Label>
-                    <Input id="donde" value={detailedFacts.donde} onChange={(e) => handleInputChange(e, 'donde')} placeholder="Ej: Planta Teno, Sistema Calcinación, Horno" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="cuando-input">CUÁNDO (Fecha y Hora) <span className="text-destructive">*</span></Label>
-                    <Input 
-                        id="cuando-input" 
-                        type="datetime-local"
-                        value={detailedFacts.cuando} 
-                        onChange={(e) => handleInputChange(e, 'cuando')}
-                        max={clientSideMaxDateTime}
-                        className="flex-grow"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="cualCuanto">CUÁL/CUÁNTO (tendencia e impacto) <span className="text-destructive">*</span></Label>
-                    <Input id="cualCuanto" value={detailedFacts.cualCuanto} onChange={(e) => handleInputChange(e, 'cualCuanto')} placeholder="Ej: Evento único / 2 Días de detención" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="quien">QUIÉN <span className="text-destructive">*</span></Label>
-                    <Input id="quien" value={detailedFacts.quien} onChange={(e) => handleInputChange(e, 'quien')} placeholder="Personas o equipos implicados (Ej: N/A, Operador Turno A)" />
-                  </div>
-                </div>
+          <TabsContent value="facts" className="mt-4">
+             <div className="space-y-4">
+                <Card className="shadow-inner">
+                    <CardHeader>
+                        <CardTitle className="text-lg font-semibold flex items-center">
+                            <UserCircle className="mr-2 h-5 w-5 text-primary" />
+                            Líder del Proyecto
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                         <Select value={projectLeader} onValueChange={onProjectLeaderChange}>
+                            <SelectTrigger id="projectLeader">
+                            <SelectValue placeholder="-- Seleccione un líder --" />
+                            </SelectTrigger>
+                            <SelectContent>
+                            {usersForDropdown.length > 0 ? (
+                                usersForDropdown.map(user => (
+                                <SelectItem key={user.id} value={user.name}>{user.name} ({user.role})</SelectItem>
+                                ))
+                            ) : (
+                                <SelectItem value="" disabled>No hay líderes disponibles para esta empresa</SelectItem>
+                            )}
+                            </SelectContent>
+                        </Select>
+                    </CardContent>
+                </Card>
 
-                <div className="space-y-2 pt-4">
-                  <div className="flex justify-between items-center">
-                    <Label className="font-semibold">DESCRIPCIÓN DEL FENÓMENO</Label>
-                    <Button variant="outline" size="sm" onClick={handleParaphrasePhenomenon} disabled={isParaphrasing || isSaving}>
-                      {isParaphrasing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                      Parafrasear con IA
-                    </Button>
-                  </div>
-                  <Textarea
-                    id="analysisDetails"
-                    value={analysisDetails}
-                    onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onAnalysisDetailsChange(e.target.value)}
-                    placeholder="La descripción del fenómeno aparecerá aquí. Puede editarla manualmente o usar la IA."
-                    rows={4}
-                    className="bg-background"
-                  />
-                </div>
-                 <div className="space-y-4 pt-4 border-t">
-                  <div className="space-y-2">
-                    <Label htmlFor="investigationObjective" className="flex items-center">
-                      <Target className="mr-2 h-4 w-4 text-primary" />
-                      Objetivo de la Investigación
-                    </Label>
-                    <Textarea
-                      id="investigationObjective"
-                      value={investigationObjective}
-                      onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onInvestigationObjectiveChange(e.target.value)}
-                      placeholder="Defina el alcance y el objetivo principal de este análisis de causa raíz..."
-                      rows={3}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                <Card className="shadow-inner">
+                    <CardContent className="pt-6">
+                        <InvestigationTeamManager
+                            sessions={investigationSessions}
+                            onSetSessions={onSetInvestigationSessions}
+                            availableUsers={availableUsers}
+                            availableSites={availableSites}
+                            isSaving={isSaving}
+                        />
+                    </CardContent>
+                </Card>
+
+                <Card className="shadow-inner">
+                    <CardHeader>
+                        <CardTitle className="text-lg font-semibold flex items-center">
+                            <ClipboardList className="mr-2 h-5 w-5 text-primary"/>
+                            Hechos Detallados
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="como">CÓMO (ocurrió la desviación) <span className="text-destructive">*</span></Label>
+                        <Input id="como" value={detailedFacts.como} onChange={(e) => handleInputChange(e, 'como')} placeholder="Ej: Durante operación normal" />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="que">QUÉ (ocurrió) <span className="text-destructive">*</span></Label>
+                        <Textarea id="que" value={detailedFacts.que} onChange={(e) => handleInputChange(e, 'que')} placeholder="Ej: Trip por alta Temperatura Descanso 1" rows={2} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="donde">DÓNDE (ocurrió) <span className="text-destructive">*</span></Label>
+                        <Input id="donde" value={detailedFacts.donde} onChange={(e) => handleInputChange(e, 'donde')} placeholder="Ej: Planta Teno, Sistema Calcinación, Horno" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="cuando-input">CUÁNDO (Fecha y Hora) <span className="text-destructive">*</span></Label>
+                        <Input 
+                            id="cuando-input" 
+                            type="datetime-local"
+                            value={detailedFacts.cuando} 
+                            onChange={(e) => handleInputChange(e, 'cuando')}
+                            max={clientSideMaxDateTime}
+                            className="flex-grow"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="cualCuanto">CUÁL/CUÁNTO (tendencia e impacto) <span className="text-destructive">*</span></Label>
+                        <Input id="cualCuanto" value={detailedFacts.cualCuanto} onChange={(e) => handleInputChange(e, 'cualCuanto')} placeholder="Ej: Evento único / 2 Días de detención" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="quien">QUIÉN <span className="text-destructive">*</span></Label>
+                        <Input id="quien" value={detailedFacts.quien} onChange={(e) => handleInputChange(e, 'quien')} placeholder="Personas o equipos implicados (Ej: N/A, Operador Turno A)" />
+                      </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="shadow-inner">
+                    <CardHeader>
+                        <div className="flex justify-between items-center">
+                            <CardTitle className="text-lg font-semibold">DESCRIPCIÓN DEL FENÓMENO</CardTitle>
+                            <Button variant="outline" size="sm" onClick={handleParaphrasePhenomenon} disabled={isParaphrasing || isSaving}>
+                              {isParaphrasing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                              Parafrasear con IA
+                            </Button>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <Textarea
+                          id="analysisDetails"
+                          value={analysisDetails}
+                          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onAnalysisDetailsChange(e.target.value)}
+                          placeholder="La descripción del fenómeno aparecerá aquí. Puede editarla manualmente o usar la IA."
+                          rows={4}
+                          className="bg-background"
+                        />
+                    </CardContent>
+                </Card>
+
+                 <Card className="shadow-inner">
+                    <CardHeader>
+                         <CardTitle className="text-lg font-semibold flex items-center">
+                          <Target className="mr-2 h-4 w-4 text-primary" />
+                          Objetivo de la Investigación
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <Textarea
+                          id="investigationObjective"
+                          value={investigationObjective}
+                          onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onInvestigationObjectiveChange(e.target.value)}
+                          placeholder="Defina el alcance y el objetivo principal de este análisis de causa raíz..."
+                          rows={3}
+                        />
+                    </CardContent>
+                </Card>
+            </div>
           </TabsContent>
           <TabsContent value="preservation">
             <Card className="shadow-inner bg-secondary/20 mt-4">
