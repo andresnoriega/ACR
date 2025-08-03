@@ -1,6 +1,6 @@
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef, ChangeEvent } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification, Evidence } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -166,7 +166,7 @@ function RCAAnalysisPageComponent() {
   const [investigationObjective, setInvestigationObjective] = useState(initialRCAAnalysisState.investigationObjective || '');
   const [investigationSessions, setInvestigationSessions] = useState<InvestigationSession[]>(initialRCAAnalysisState.investigationSessions || []);
   const [analysisDetails, setAnalysisDetails] = useState(initialRCAAnalysisState.analysisDetails);
-  const [preservedFacts, setPreservedFacts] = useState<Evidence[]>(initialRCAAnalysisState.preservedFacts);
+  const [preservedFacts, setPreservedFacts] = useState<PreservedFact[]>(initialRCAAnalysisState.preservedFacts);
 
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>(initialRCAAnalysisState.timelineEvents || []);
   const [brainstormingIdeas, setBrainstormingIdeas] = useState<BrainstormIdea[]>(initialRCAAnalysisState.brainstormingIdeas || []);
@@ -736,61 +736,62 @@ function RCAAnalysisPageComponent() {
     }
   };
   
-  const handleAddPreservedFact = async (newFact: Evidence) => {
-    let currentId = analysisDocumentId;
-    if (!currentId) {
-      const saveResult = await handleSaveAnalysisData(false);
-      if (!saveResult.success || !saveResult.newEventId) {
-        toast({ title: "Error", description: "No se pudo crear el documento de análisis antes de añadir el hecho.", variant: "destructive" });
-        return;
-      }
-      currentId = saveResult.newEventId;
-    }
-    
+  const handleSaveWithNewFact = async (
+    factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>,
+    file: File | null
+  ) => {
     setIsSaving(true);
     try {
-      const rcaDocRef = doc(db, "rcaAnalyses", currentId);
+      if (!file) throw new Error("No se seleccionó ningún archivo.");
+
+      // Ensure the analysis document exists and we have an ID
+      let currentEventId = analysisDocumentId;
+      if (!currentEventId) {
+        const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
+        if (!saveResult.success || !saveResult.newEventId) {
+          throw new Error("No se pudo crear el documento de análisis antes de subir el archivo.");
+        }
+        currentEventId = saveResult.newEventId;
+      }
+
+      toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
+      const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
+      const fileStorageRef = storageRef(storage, filePath);
+      
+      const uploadResult = await uploadBytes(fileStorageRef, file);
+      const downloadURL = await getDownloadURL(uploadResult.ref);
+
+      const newFact: PreservedFact = {
+        ...factMetadata,
+        id: generateClientSideId('pf'),
+        uploadDate: new Date().toISOString(),
+        eventId: currentEventId,
+        downloadURL: downloadURL,
+        storagePath: uploadResult.ref.fullPath,
+      };
+
+      const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
       await updateDoc(rcaDocRef, {
         preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
-        updatedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       });
+
       setPreservedFacts(prev => [...prev, newFact]);
-      toast({ title: "Hecho Preservado Añadido", description: `Se añadió y guardó "${newFact.nombre}".` });
-    } catch (error) {
-      console.error("Error adding new preserved fact:", error);
-      toast({ title: "Error al Guardar Hecho", description: `No se pudo guardar el nuevo hecho: ${(error as Error).message}`, variant: "destructive" });
+      toast({ title: "Hecho Preservado Añadido", description: `Se añadió y subió "${newFact.userGivenName}".` });
+
+    } catch (error: any) {
+      console.error("Error detallado al subir hecho preservado:", error);
+      toast({ title: "Error al Subir", description: `No se pudo subir el archivo. Verifique la consola. Error: ${error.message || 'Desconocido'}`, variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
   };
 
 
-  const handleSaveFromStep2 = async (showToast: boolean = true) => {
-    const saveResult = await handleSaveAnalysisData(showToast); 
-    if (!saveResult.success) return;
-
-    const currentIdToUpdate = saveResult.newEventId || analysisDocumentId; 
-    if (currentIdToUpdate) {
-      setIsSaving(true);
-      try {
-        const reportedEventRef = doc(db, "reportedEvents", currentIdToUpdate);
-        const reportedEventSnap = await getDoc(reportedEventRef);
-        if (reportedEventSnap.exists() && reportedEventSnap.data().status === "Pendiente") {
-          await updateDoc(reportedEventRef, sanitizeForFirestore({ status: "En análisis", updatedAt: new Date().toISOString() }));
-          setCurrentEventStatus("En análisis"); 
-          if (showToast) {
-            toast({ title: "Estado Actualizado", description: `El evento ${currentIdToUpdate} ahora está "En análisis".` });
-          }
-        }
-      } catch (error) {
-        console.error("Error updating ReportedEvent status from Step 2: ", error);
-        if (showToast) {
-          toast({ title: "Error al Actualizar Estado", description: "No se pudo actualizar el estado del evento reportado.", variant: "destructive" });
-        }
-      } finally {
-        setIsSaving(false);
-      }
-    }
+  const handleSaveFromStep2 = async () => {
+    // This function will now be responsible for saving the main data of step 2
+    // without handling file uploads, which are done separately.
+    await handleSaveAnalysisData(true);
   };
 
   const handleApproveEvent = async () => {
@@ -1068,6 +1069,9 @@ function RCAAnalysisPageComponent() {
   };
 
   const handleNextStep = async () => {
+    // First, save any pending changes from the current step's main form.
+    await handleSaveAnalysisData(false, { suppressNavigation: true });
+
     if (step === 1) {
       const step1Validation = validateStep1PreRequisites();
       if (!step1Validation.isValid) {
@@ -1078,23 +1082,12 @@ function RCAAnalysisPageComponent() {
         });
         return;
       }
-    }
-    
-    let currentId = analysisDocumentId;
-    let isNewEventCreationForNext = false;
-    if (!currentId && step >= 1) { 
-        const newId = ensureEventId();
-        currentId = newId;
-        setAnalysisDocumentId(newId); 
-        isNewEventCreationForNext = true;
-    }
-    
-    let saveOutcome: { success: boolean; newEventId?: string; needsNavigationUrl?: string } = { success: false };
-    if (step === 1) {
-      saveOutcome = await handleSaveAnalysisData(false, { suppressNavigation: false });
     } else if (step === 2) {
-      await handleSaveFromStep2(false); 
-      saveOutcome = { success: true };
+      const step2Validation = validateFieldsForNext(); // Assuming this function exists in Step2Facts
+      if (!step2Validation) {
+        // Toast is handled inside validateFieldsForNext
+        return;
+      }
     } else if (step === 3) {
        if (!isStep3ValidForNavigation) {
          toast({
@@ -1105,7 +1098,6 @@ function RCAAnalysisPageComponent() {
           });
         return;
       }
-      saveOutcome = await handleSaveAnalysisData(false);
     } else if (step === 4) {
         if (plannedActions.length > 0) {
             const allActionsDecided = plannedActions.every(pa => {
@@ -1123,23 +1115,13 @@ function RCAAnalysisPageComponent() {
                 return;
             }
         }
-        saveOutcome = await handleSaveAnalysisData(false);
-    } else {
-      saveOutcome = { success: true }; 
     }
 
-    if (saveOutcome.success) {
-      const newStep = Math.min(step + 1, 5);
-      const newMaxCompletedStep = Math.max(maxCompletedStep, step);
-      setStep(newStep);
-      setMaxCompletedStep(newMaxCompletedStep);
-      
-      const idForNav = saveOutcome.newEventId || analysisDocumentId || eventData.id;
-      if (idForNav && !saveOutcome.needsNavigationUrl && !isNewEventCreationForNext) { 
-         router.replace(`/analisis?id=${idForNav}&step=${newStep}`, { scroll: false });
-      } else if (idForNav && isNewEventCreationForNext && !saveOutcome.needsNavigationUrl){
-         router.replace(`/analisis?id=${idForNav}&step=${newStep}`, { scroll: false });
-      }
+    const newStep = Math.min(step + 1, 5);
+    setStep(newStep);
+    setMaxCompletedStep(Math.max(maxCompletedStep, step));
+    if (analysisDocumentId) {
+        router.replace(`/analisis?id=${analysisDocumentId}&step=${newStep}`, { scroll: false });
     }
   };
 
@@ -1186,24 +1168,39 @@ function RCAAnalysisPageComponent() {
   const onDetailedFactChange = (field: keyof DetailedFacts, value: string) => {
     setDetailedFacts(prev => ({ ...prev, [field]: value }));
   };
-
-  const handleRemovePreservedFact = async (factId: string) => {
+  
+  const handleRemovePreservedFact = async (id: string) => {
     if (!analysisDocumentId) {
       toast({ title: "Error", description: "ID del análisis no encontrado.", variant: "destructive" });
       return;
     }
-    const factToRemove = preservedFacts.find(fact => fact.id === factId);
+    const factToRemove = preservedFacts.find(fact => fact.id === id);
     if (!factToRemove) return;
 
     setIsSaving(true);
-    // Remove from Firestore using arrayRemove and update local state
+    
+    // First, try to delete from storage if a path exists
+    if (factToRemove.storagePath) {
+      try {
+        const fileRef = storageRef(storage, factToRemove.storagePath);
+        await deleteObject(fileRef);
+        toast({ title: "Archivo Eliminado de Storage", variant: "default" });
+      } catch (error: any) {
+        if (error.code !== 'storage/object-not-found') {
+          console.error("Error deleting file from Storage:", error);
+          toast({ title: "Error al Eliminar Archivo", description: "No se pudo eliminar el archivo de Storage, pero se eliminará la referencia.", variant: "destructive" });
+        }
+      }
+    }
+    
+    // Then, remove from Firestore using arrayRemove and update local state
     const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
     try {
       await updateDoc(rcaDocRef, {
           preservedFacts: arrayRemove(sanitizeForFirestore(factToRemove)),
           updatedAt: new Date().toISOString()
       });
-      setPreservedFacts(prev => prev.filter(fact => fact.id !== factId));
+      setPreservedFacts(prev => prev.filter(fact => fact.id !== id));
       toast({ title: "Hecho Preservado Eliminado", description: "La referencia se eliminó exitosamente.", variant: 'destructive' });
     } catch (error: any) {
       console.error("Error al actualizar Firestore después de eliminar hecho:", error);
@@ -1571,9 +1568,9 @@ function RCAAnalysisPageComponent() {
           analysisDetails={analysisDetails}
           onAnalysisDetailsChange={setAnalysisDetails}
           preservedFacts={preservedFacts}
-          onSetPreservedFacts={setPreservedFacts}
-          onAddPreservedFact={handleAddPreservedFact}
           onRemovePreservedFact={handleRemovePreservedFact}
+          onSaveWithNewFact={handleSaveWithNewFact}
+          isSaving={isSaving}
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
         />

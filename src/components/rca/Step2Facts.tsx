@@ -2,7 +2,7 @@
 
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect, useMemo } from 'react';
-import type { DetailedFacts, FullUserProfile, RCAEventData, Site, InvestigationSession, Evidence } from '@/types/rca'; 
+import type { DetailedFacts, FullUserProfile, RCAEventData, Site, InvestigationSession, PreservedFact, Evidence } from '@/types/rca'; 
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -18,16 +18,14 @@ import { InvestigationTeamManager } from './InvestigationTeamManager';
 import { paraphrasePhenomenon, type ParaphrasePhenomenonInput } from '@/ai/flows/paraphrase-phenomenon';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-const getEvidenceIconLocal = (tipo?: Evidence['tipo']) => {
-  if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
-  const safeTipo = tipo?.toLowerCase() || 'other';
-  switch (safeTipo) {
-    case 'link': return <Link2 className="h-4 w-4 mr-2 flex-shrink-0 text-indigo-600" />;
-    case 'pdf': return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
-    case 'jpg': case 'jpeg': case 'png': case 'gif': return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
-    case 'doc': case 'docx': return <Paperclip className="h-4 w-4 mr-2 flex-shrink-0 text-sky-700" />;
-    default: return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
-  }
+const getEvidenceIconLocal = (fileName: string) => {
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf': return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
+      case 'jpg': case 'jpeg': case 'png': case 'gif': return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
+      case 'doc': case 'docx': return <Paperclip className="h-4 w-4 mr-2 flex-shrink-0 text-sky-700" />;
+      default: return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
+    }
 };
 
 const factCategories = [
@@ -59,11 +57,9 @@ export const Step2Facts: FC<{
   onSetInvestigationSessions: (sessions: InvestigationSession[]) => void;
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
-  preservedFacts: Evidence[];
-  onSetPreservedFacts: (facts: Evidence[]) => void;
+  preservedFacts: PreservedFact[];
   onRemovePreservedFact: (factId: string) => Promise<void>;
-  onSaveAnalysis: (showToast?: boolean) => Promise<{ success: boolean; newEventId?: string; needsNavigationUrl?: string }>;
-  onSaveWithNewFact: (newFact: Evidence) => Promise<void>;
+  onSaveWithNewFact: (factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>, file: File) => Promise<void>;
   isSaving: boolean;
   onPrevious: () => void;
   onNext: () => void;
@@ -82,9 +78,7 @@ export const Step2Facts: FC<{
   analysisDetails,
   onAnalysisDetailsChange,
   preservedFacts,
-  onSetPreservedFacts,
   onRemovePreservedFact,
-  onSaveAnalysis,
   onSaveWithNewFact,
   isSaving,
   onPrevious,
@@ -179,7 +173,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     return true;
   };
   
-  const handleSaveWithNewFact = async () => {
+  const handleSaveWithNewFactClick = async () => {
     if (!evidenceFile) {
         toast({ title: "Archivo Requerido", description: "Por favor, seleccione un archivo para guardar el hecho preservado.", variant: "destructive" });
         return;
@@ -198,23 +192,14 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     }
     
     setIsUploading(true);
-    const reader = new FileReader();
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = (error) => reject(error);
-        reader.readAsDataURL(evidenceFile);
-    });
     
-    const newFact: Evidence = {
-        id: `preserved-${Date.now()}`,
-        nombre: evidenceFile.name,
-        tipo: evidenceFile.type.split('/')[1] as Evidence['tipo'] || 'other',
-        category: evidenceCategory,
-        comment: evidenceComment.trim() || undefined,
-        dataUrl: dataUrl,
+    const factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'> = {
+      userGivenName: evidenceFile.name,
+      category: evidenceCategory,
+      comment: evidenceComment.trim() || undefined,
     };
     
-    await onSaveWithNewFact(newFact);
+    await onSaveWithNewFact(factMetadata, evidenceFile);
     
     // Reset form
     setEvidenceFile(null);
@@ -230,7 +215,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     if (!validateFieldsForNext()) {
       return;
     }
-    await onSaveAnalysis(false);
+    // Logic now resides in the parent page for onNext
     onNext();
   };
 
@@ -422,7 +407,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                 />
               </div>
               <div className="flex gap-2">
-                <Button size="sm" onClick={handleSaveWithNewFact} disabled={isSaving || isUploading || !evidenceFile}>
+                <Button size="sm" onClick={handleSaveWithNewFactClick} disabled={isSaving || isUploading || !evidenceFile}>
                   {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                   Guardar
                 </Button>
@@ -439,16 +424,16 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                   {preservedFacts.map((fact) => (
                     <li key={fact.id} className="flex items-start justify-between text-sm border p-2 rounded-md bg-background">
                       <div className="flex items-start">
-                        {getEvidenceIconLocal(fact.tipo)}
+                        {getEvidenceIconLocal(fact.userGivenName)}
                         <div className="flex flex-col">
                           <span className="font-semibold text-primary">{fact.category || 'Sin categoría'}</span>
-                          <span className="font-medium">{fact.nombre}</span>
+                          <span className="font-medium">{fact.userGivenName}</span>
                           {fact.comment && <span className="text-xs italic text-muted-foreground">"{fact.comment}"</span>}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                         <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
-                          <a href={fact.dataUrl} target="_blank" rel="noopener noreferrer" download={fact.nombre}>
+                          <a href={fact.downloadURL} target="_blank" rel="noopener noreferrer">
                             <ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar
                           </a>
                         </Button>
@@ -468,11 +453,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
       <CardFooter className="flex flex-col sm:flex-row justify-between gap-2 pt-4 border-t">
         <Button onClick={onPrevious} variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>Anterior</Button>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Button onClick={() => onSaveAnalysis(true)} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
-                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                <Save className="mr-2 h-4 w-4" /> Guardar Avance
-            </Button>
-            <Button onClick={handleNextWithSave} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
+            <Button onClick={() => onNext()} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Siguiente
             </Button>
