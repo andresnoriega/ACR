@@ -327,7 +327,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
               </Button>
             </div>
           </div>
-
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -392,6 +391,13 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                     </TableRow>
                   ))
                 }
+                 {preservedFacts.length === 0 && (
+                    <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
+                           No hay hechos preservados. Haga clic en "Nuevo" para añadir uno.
+                        </TableCell>
+                    </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>
