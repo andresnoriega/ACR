@@ -809,5 +809,3 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     </>
   );
 };
-
-    

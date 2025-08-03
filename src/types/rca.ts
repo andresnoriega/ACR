@@ -168,7 +168,13 @@ export interface Evidence {
   category?: string;
 }
 
-export type PreservedFact = Evidence;
+export interface PreservedFact {
+  id: string;
+  nombre: string;
+  tipo: 'link' | 'pdf' | 'jpg' | 'png' | 'doc' | 'other' | string;
+  dataUrl: string;
+  comment?: string;
+}
 
 
 export interface PlannedAction {
