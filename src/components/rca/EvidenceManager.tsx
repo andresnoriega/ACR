@@ -11,11 +11,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from "@/hooks/use-toast";
 import { PlusCircle, Trash2, ImageIcon, FileText, Link2, Paperclip, Loader2, ExternalLink } from 'lucide-react';
 
-let idCounter = Date.now();
-const generateClientSideId = (prefix: string) => {
-    idCounter++;
-    return `${prefix}-${idCounter}`;
-};
 
 const getEvidenceIconLocal = (tipo?: Evidence['tipo']) => {
   if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
@@ -32,7 +27,7 @@ const getEvidenceIconLocal = (tipo?: Evidence['tipo']) => {
 interface EvidenceManagerProps {
   title: string;
   evidences: Evidence[];
-  onAddEvidence: (fact: Omit<Evidence, 'id' | 'dataUrl'>, file: File | null) => Promise<void>;
+  onAddEvidence: (newEvidence: Evidence) => void;
   onRemoveEvidence: (id: string) => void;
   isSaving: boolean;
 }
@@ -65,21 +60,48 @@ export const EvidenceManager: FC<EvidenceManagerProps> = ({ title, evidences, on
       return;
     }
 
-    const newEvidenceMetadata: Omit<Evidence, 'id' | 'dataUrl'> = {
-      nombre: userGivenName.trim(),
-      tipo: fileToUpload.type.split('/')[1] || 'other',
-      comment: evidenceComment.trim() || undefined,
-      userGivenName: userGivenName.trim(),
-    };
+    try {
+        if (fileToUpload.size > 700 * 1024) {
+            throw new Error("El archivo no puede superar los 700 KB.");
+        }
 
-    await onAddEvidence(newEvidenceMetadata, fileToUpload);
+        const reader = new FileReader();
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(fileToUpload);
+        });
 
-    // Reset form
-    setFileToUpload(null);
-    setEvidenceComment('');
-    setUserGivenName('');
-    const fileInput = document.getElementById('evidence-file-input') as HTMLInputElement;
-    if (fileInput) fileInput.value = '';
+        // Client-side ID generation, only happens on user interaction (in the browser)
+        const generateClientSideId = (prefix: string) => {
+            const randomPart = Math.random().toString(36).substring(2, 9);
+            const timePart = Date.now().toString(36);
+            return `${prefix}-${timePart}-${randomPart}`;
+        };
+
+        const newEvidence: Evidence = {
+          id: generateClientSideId('ev'),
+          nombre: fileToUpload.name,
+          tipo: fileToUpload.type.split('/')[1] || 'other',
+          comment: evidenceComment.trim() || undefined,
+          userGivenName: userGivenName.trim(),
+          dataUrl: dataUrl,
+        };
+
+        onAddEvidence(newEvidence);
+        
+        toast({ title: "Hecho Añadido Localmente", description: "La evidencia se ha añadido. Recuerde guardar el avance para persistir los cambios." });
+        
+        // Reset form
+        setFileToUpload(null);
+        setEvidenceComment('');
+        setUserGivenName('');
+        const fileInput = document.getElementById('evidence-file-input') as HTMLInputElement;
+        if (fileInput) fileInput.value = '';
+
+    } catch(error: any) {
+        toast({ title: "Error al Procesar Evidencia", description: error.message, variant: "destructive" });
+    }
   };
 
 
@@ -113,7 +135,7 @@ export const EvidenceManager: FC<EvidenceManagerProps> = ({ title, evidences, on
 
         <div className="space-y-2 pt-2">
             <h4 className="font-semibold text-primary mb-1">[Evidencias Adjuntas]</h4>
-            {evidences.length > 0 ? (
+            {evidences && evidences.length > 0 ? (
                 <ul className="space-y-1.5">
                     {evidences.map(ev => (
                         <li key={ev.id} className="flex items-start justify-between text-xs border p-2 rounded-md bg-background">

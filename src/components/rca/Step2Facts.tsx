@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { FC, ChangeEvent } from 'react';
@@ -20,12 +19,6 @@ import { paraphrasePhenomenon, type ParaphrasePhenomenonInput } from '@/ai/flows
 import { EvidenceManager } from './EvidenceManager';
 
 
-let idCounter = Date.now();
-const generateClientSideId = (prefix: string) => {
-    idCounter++;
-    return `${prefix}-${idCounter}`;
-};
-
 // ------ COMPONENTE PRINCIPAL ------
 export const Step2Facts: FC<{
   projectLeader: string;
@@ -40,7 +33,7 @@ export const Step2Facts: FC<{
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
   evidences?: Evidence[];
-  onAddEvidence: (fact: Omit<Evidence, 'id' | 'dataUrl'>, file: File | null) => Promise<void>;
+  onAddEvidence: (newEvidence: Evidence) => void;
   onRemoveEvidence: (id: string) => void;
   isSaving: boolean;
   onPrevious: () => void;
@@ -287,7 +280,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
         </div>
 
         <EvidenceManager
-            title="Preservación de Hechos"
+            title="Preservación de Hechos y Evidencias"
             evidences={evidences || []}
             onAddEvidence={onAddEvidence}
             onRemoveEvidence={onRemoveEvidence}
