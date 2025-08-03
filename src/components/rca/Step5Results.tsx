@@ -545,71 +545,66 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                   <h4 className="font-semibold text-primary flex items-center mb-1"><Target className="mr-2 h-4 w-4" />Objetivo de la Investigación a Verificar</h4>
                   <p className="text-sm p-2 bg-background rounded-md whitespace-pre-wrap">{investigationObjective || "No se definió un objetivo explícito para la investigación."}</p>
                 </div>
-                {safeEfficacyVerification.status === 'verified' ? (
-                  <div className="space-y-2">
-                     <p className="font-semibold text-primary flex items-center"><Users className="mr-2 h-4 w-4" />Responsable de Verificación: <span className="font-normal text-foreground ml-1">{safeEfficacyVerification.verifiedBy || 'No asignado'}</span></p>
-                    <p className="font-semibold text-primary flex items-center"><CalendarCheck className="mr-2 h-4 w-4" />Fecha de Verificación: <span className="font-normal text-foreground ml-1">{safeEfficacyVerification.verifiedAt ? format(parseISO(safeEfficacyVerification.verifiedAt), "dd 'de' MMMM, yyyy", {locale: es}) : "Fecha no registrada"}</span></p>
-                    <p className="text-sm font-semibold text-green-600">Eficacia Verificada</p>
-                    <p className="text-sm mt-1">Comentarios de Verificación:</p>
-                    <p className="text-sm p-2 bg-background rounded-md whitespace-pre-wrap">{safeEfficacyVerification.comments}</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label htmlFor="verification-responsible">Responsable de Verificación</Label>
+                    <Select
+                      value={verificationResponsible}
+                      onValueChange={setVerificationResponsible}
+                      disabled={isBusy}
+                    >
+                      <SelectTrigger id="verification-responsible">
+                        <SelectValue placeholder="-- Seleccione responsable --" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableUsers.map(user => (
+                          <SelectItem key={user.id} value={user.name}>{user.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <Label htmlFor="verification-responsible">Responsable de Verificación</Label>
-                        <Select
-                          value={verificationResponsible}
-                          onValueChange={setVerificationResponsible}
-                          disabled={isBusy}
-                        >
-                          <SelectTrigger id="verification-responsible">
-                            <SelectValue placeholder="-- Seleccione responsable --" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableUsers.map(user => (
-                              <SelectItem key={user.id} value={user.name}>{user.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="verification-date">Fecha Planificada</Label>
-                        <Input
-                          id="verification-date"
-                          type="date"
-                          value={verificationDate}
-                          onChange={(e) => setVerificationDate(e.target.value)}
-                          min={minDateForVerification}
-                          disabled={isBusy}
-                        />
-                      </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="verification-date">Fecha Planificada</Label>
+                    <Input
+                      id="verification-date"
+                      type="date"
+                      value={verificationDate}
+                      onChange={(e) => setVerificationDate(e.target.value)}
+                      min={minDateForVerification}
+                      disabled={isBusy}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-2">
+                  <Label htmlFor="verification-comments">Comentarios de Verificación (al confirmar)</Label>
+                  <Textarea
+                    id="verification-comments"
+                    value={verificationComments}
+                    onChange={(e) => setVerificationComments(e.target.value)}
+                    placeholder="Se cumple el objetivo, no se registran nuevos eventos..."
+                    rows={4}
+                    disabled={isBusy || (safeEfficacyVerification.status === 'verified' && !canUserVerify)}
+                  />
+                  {safeEfficacyVerification.status === 'verified' && (
+                    <div className="text-sm text-green-600 bg-green-100 border border-green-200 p-2 rounded-md">
+                      <p className="font-semibold flex items-center"><CheckSquare className="mr-2 h-4 w-4"/>Eficacia Verificada</p>
+                      <p>Por: {safeEfficacyVerification.verifiedBy} el {safeEfficacyVerification.verifiedAt ? format(parseISO(safeEfficacyVerification.verifiedAt), "dd/MM/yyyy") : 'N/A'}</p>
                     </div>
-                    {canUserVerify ? (
-                      <div className="space-y-2 pt-2">
-                        <Label htmlFor="verification-comments">Comentarios de Verificación (al confirmar)</Label>
-                        <Textarea
-                          id="verification-comments"
-                          value={verificationComments}
-                          onChange={(e) => setVerificationComments(e.target.value)}
-                          placeholder="Se cumple el objetivo, no se registran nuevos eventos"
-                          rows={4}
-                          disabled={isBusy}
-                        />
-                        <div className="flex flex-wrap gap-2">
-                          <Button onClick={handlePlanVerification} disabled={isBusy || !verificationResponsible || !verificationDate} variant="secondary">
-                            <Save className="mr-2 h-4 w-4"/> Guardar Planificación
-                          </Button>
-                          <Button onClick={handleConfirmVerifyEfficacy} disabled={isBusy || !verificationComments.trim() || !safeEfficacyVerification.verificationDate}>
-                            <CheckSquare className="mr-2 h-4 w-4" /> Confirmar Verificación
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground mt-2">Esperando planificación y verificación por parte del Líder de Proyecto ({projectLeader}) o un Administrador.</p>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    <Button onClick={handlePlanVerification} disabled={isBusy || !verificationResponsible || !verificationDate} variant="secondary">
+                      <Save className="mr-2 h-4 w-4"/> Guardar Planificación
+                    </Button>
+                    {canUserVerify && (
+                      <Button onClick={handleConfirmVerifyEfficacy} disabled={isBusy || !verificationComments.trim() || !safeEfficacyVerification.verificationDate}>
+                        <CheckSquare className="mr-2 h-4 w-4" /> Confirmar Verificación
+                      </Button>
                     )}
-                  </>
-                )}
+                  </div>
+                </div>
+
               </CardContent>
             </Card>
           </section>
