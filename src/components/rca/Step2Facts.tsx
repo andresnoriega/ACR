@@ -72,6 +72,7 @@ export const Step2Facts: FC<{
   const [clientSideMaxDateTime, setClientSideMaxDateTime] = useState<string | undefined>(undefined);
   const [isParaphrasing, setIsParaphrasing] = useState(false);
   const { userProfile } = useAuth();
+  const [activeTab, setActiveTab] = useState('facts');
   
 
   const usersForDropdown = useMemo(() => {
@@ -185,7 +186,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
         <CardDescription>Recopile y documente todos los hechos relevantes sobre el evento.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <Tabs defaultValue="facts">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="facts">Hechos Detallados</TabsTrigger>
             <TabsTrigger value="preservation">Preservación de Hechos</TabsTrigger>
