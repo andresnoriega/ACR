@@ -535,6 +535,80 @@ export const Step5Results: FC<Step5ResultsProps> = ({
             </SectionContent>
           </section>
           <Separator className="my-4" />
+          
+          <section>
+            <SectionTitle title="Anexos" icon={FileArchive}/>
+            <div className="space-y-4">
+                 {(preservedFacts ?? []).length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><FileText className="mr-2 h-4 w-4" />Hechos Preservados</h4>
+                     <ul className="space-y-1.5">
+                      {(preservedFacts ?? []).map(fact => (
+                        <li key={fact.id} className="flex items-start justify-between text-xs border p-2 rounded-md bg-muted/30">
+                          <div className="flex-grow">
+                            <div className="flex items-center">{getEvidenceIconLocal(fact.tipo)}<span className="font-medium">{fact.nombre}</span></div>
+                            {fact.comment && <p className="text-xs text-muted-foreground ml-[calc(1rem+0.5rem)] mt-0.5">Comentario: {fact.comment}</p>}
+                          </div>
+                          <div className="flex-shrink-0 ml-2">
+                            <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mr-2"><a href={fact.dataUrl} target="_blank" rel="noopener noreferrer" download={fact.nombre}><ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar</a></Button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                 )}
+                 {timelineEvents && timelineEvents.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><CalendarClock className="mr-2 h-4 w-4" />Línea de Tiempo</h4>
+                    <ul className="list-disc pl-5 space-y-1 text-xs border rounded-md p-3 bg-secondary/20">
+                      {timelineEvents.map(event => (
+                        <li key={event.id}>
+                          <strong>{format(parseISO(event.datetime), 'dd/MM/yyyy HH:mm', { locale: es })}:</strong> {event.description}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {brainstormingIdeas && brainstormingIdeas.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><Lightbulb className="mr-2 h-4 w-4" />Lluvia de Ideas</h4>
+                    <ul className="list-disc pl-5 space-y-1 text-xs border rounded-md p-3 bg-secondary/20">
+                      {brainstormingIdeas.map(idea => (
+                        <li key={idea.id}>
+                          <strong>[{idea.type || 'Sin tipo'}]:</strong> {idea.description}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {(investigationSessions ?? []).length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><Users className="mr-2 h-4 w-4" />Equipo de Investigación</h4>
+                    <div className="pl-2 space-y-2 text-xs">
+                      {investigationSessions.map((session, index) => (
+                        <div key={session.id} className="border rounded-md p-2 bg-secondary/30">
+                          <p className="font-semibold text-primary">Sesión #{index + 1} - Fecha: {format(parseISO(session.sessionDate), 'dd/MM/yyyy', { locale: es })}</p>
+                          <ul className="list-disc pl-5 mt-1">
+                            {session.members.map(member => (
+                              <li key={member.id}>
+                                {member.name} ({member.position}, {member.site}) - Rol: {member.role}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                 
+                 {(!preservedFacts || preservedFacts.length === 0) &&
+                  (!timelineEvents || timelineEvents.length === 0) &&
+                  (!brainstormingIdeas || brainstormingIdeas.length === 0) &&
+                  (!investigationSessions || investigationSessions.length === 0) && (
+                    <p className="text-sm text-muted-foreground">No hay anexos para mostrar.</p>
+                 )}
+            </div>
+          </section>
 
           <section>
             <SectionTitle title="Verificación de la Eficacia del Análisis" icon={ShieldCheck} />
@@ -631,80 +705,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
             </SectionContent>
           </section>
           <Separator className="my-4" />
-
-          <section>
-            <SectionTitle title="Anexos" icon={FileArchive}/>
-            <div className="space-y-4">
-                 {(preservedFacts ?? []).length > 0 && (
-                  <div>
-                    <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><FileText className="mr-2 h-4 w-4" />Hechos Preservados</h4>
-                     <ul className="space-y-1.5">
-                      {(preservedFacts ?? []).map(fact => (
-                        <li key={fact.id} className="flex items-start justify-between text-xs border p-2 rounded-md bg-muted/30">
-                          <div className="flex-grow">
-                            <div className="flex items-center">{getEvidenceIconLocal(fact.tipo)}<span className="font-medium">{fact.nombre}</span></div>
-                            {fact.comment && <p className="text-xs text-muted-foreground ml-[calc(1rem+0.5rem)] mt-0.5">Comentario: {fact.comment}</p>}
-                          </div>
-                          <div className="flex-shrink-0 ml-2">
-                            <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mr-2"><a href={fact.dataUrl} target="_blank" rel="noopener noreferrer" download={fact.nombre}><ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar</a></Button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                 )}
-                 {timelineEvents && timelineEvents.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><CalendarClock className="mr-2 h-4 w-4" />Línea de Tiempo</h4>
-                    <ul className="list-disc pl-5 space-y-1 text-xs border rounded-md p-3 bg-secondary/20">
-                      {timelineEvents.map(event => (
-                        <li key={event.id}>
-                          <strong>{format(parseISO(event.datetime), 'dd/MM/yyyy HH:mm', { locale: es })}:</strong> {event.description}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {brainstormingIdeas && brainstormingIdeas.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><Lightbulb className="mr-2 h-4 w-4" />Lluvia de Ideas</h4>
-                    <ul className="list-disc pl-5 space-y-1 text-xs border rounded-md p-3 bg-secondary/20">
-                      {brainstormingIdeas.map(idea => (
-                        <li key={idea.id}>
-                          <strong>[{idea.type || 'Sin tipo'}]:</strong> {idea.description}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {(investigationSessions ?? []).length > 0 && (
-                  <div>
-                    <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><Users className="mr-2 h-4 w-4" />Equipo de Investigación</h4>
-                    <div className="pl-2 space-y-2 text-xs">
-                      {investigationSessions.map((session, index) => (
-                        <div key={session.id} className="border rounded-md p-2 bg-secondary/30">
-                          <p className="font-semibold text-primary">Sesión #{index + 1} - Fecha: {format(parseISO(session.sessionDate), 'dd/MM/yyyy', { locale: es })}</p>
-                          <ul className="list-disc pl-5 mt-1">
-                            {session.members.map(member => (
-                              <li key={member.id}>
-                                {member.name} ({member.position}, {member.site}) - Rol: {member.role}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                 
-                 {(!preservedFacts || preservedFacts.length === 0) &&
-                  (!timelineEvents || timelineEvents.length === 0) &&
-                  (!brainstormingIdeas || brainstormingIdeas.length === 0) &&
-                  (!investigationSessions || investigationSessions.length === 0) && (
-                    <p className="text-sm text-muted-foreground">No hay anexos para mostrar.</p>
-                 )}
-            </div>
-          </section>
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row justify-center items-center gap-3 mt-6 pt-4 border-t no-print">
           <Button onClick={onPrintReport} variant="default" className="w-full sm:w-auto" disabled={isBusy}>
@@ -809,3 +809,5 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     </>
   );
 };
+
+    

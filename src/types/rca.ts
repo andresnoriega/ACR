@@ -287,3 +287,5 @@ export interface EfficacyVerificationTask {
 }
 
 export type ReportedEventType = 'Incidente' | 'Falla de Equipo' | 'Accidente' | 'No Conformidad' | 'Evento Operacional' | '';
+
+    
