@@ -297,14 +297,35 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
         </Card>
 
         <div className="space-y-4 pt-4 border-t">
+          <div className="space-y-2">
+            <Label htmlFor="investigationObjective" className="flex items-center">
+              <Target className="mr-2 h-4 w-4 text-primary" />
+              Objetivo de la Investigación
+            </Label>
+            <Textarea
+              id="investigationObjective"
+              value={investigationObjective}
+              onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onInvestigationObjectiveChange(e.target.value)}
+              placeholder="Defina el alcance y el objetivo principal de este análisis de causa raíz..."
+              rows={3}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-4 pt-4 border-t">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold font-headline flex items-center">
               <FileArchive className="mr-2 h-5 w-5 text-primary" />
               Preservación de Hechos
             </h3>
-             <Button onClick={onAddPreservedFact} variant="outline" size="sm">
-              <PlusCircle className="mr-2 h-4 w-4" /> Nuevo
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={onAddPreservedFact} variant="outline" size="sm">
+                <PlusCircle className="mr-2 h-4 w-4" /> Nuevo
+              </Button>
+              <Button onClick={onAddPreservedFact} variant="outline" size="sm">
+                <PlusCircle className="mr-2 h-4 w-4" /> Nuevo 2
+              </Button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -374,23 +395,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
               </TableBody>
             </Table>
           </div>
-        </div>
-
-
-        <div className="space-y-4 pt-4 border-t">
-            <div className="space-y-2">
-              <Label htmlFor="investigationObjective" className="flex items-center">
-                <Target className="mr-2 h-4 w-4 text-primary" />
-                Objetivo de la Investigación
-              </Label>
-              <Textarea
-                id="investigationObjective"
-                value={investigationObjective}
-                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onInvestigationObjectiveChange(e.target.value)}
-                placeholder="Defina el alcance y el objetivo principal de este análisis de causa raíz..."
-                rows={3}
-              />
-            </div>
         </div>
 
       </CardContent>
