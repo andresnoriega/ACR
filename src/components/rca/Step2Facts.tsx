@@ -47,6 +47,8 @@ export const Step2Facts: FC<{
   analysisId: string | null;
   preservedFacts: PreservedFact[];
   onEvidenceChange: () => void;
+  activeTab: string;
+  onTabChange: (tab: string) => void;
 }> = ({
   detailedFacts,
   onDetailedFactChange,
@@ -67,12 +69,13 @@ export const Step2Facts: FC<{
   analysisId,
   preservedFacts,
   onEvidenceChange,
+  activeTab,
+  onTabChange,
 }) => {
   const { toast } = useToast();
   const [clientSideMaxDateTime, setClientSideMaxDateTime] = useState<string | undefined>(undefined);
   const [isParaphrasing, setIsParaphrasing] = useState(false);
   const { userProfile } = useAuth();
-  const [activeTab, setActiveTab] = useState('facts');
   
 
   const usersForDropdown = useMemo(() => {
@@ -186,7 +189,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
         <CardDescription>Recopile y documente todos los hechos relevantes sobre el evento.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={onTabChange}>
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="facts">Hechos Detallados</TabsTrigger>
             <TabsTrigger value="preservation">Preservación de Hechos</TabsTrigger>
