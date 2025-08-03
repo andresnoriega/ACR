@@ -172,12 +172,13 @@ export interface PreservedFact {
 
 export interface Evidence {
   id: string;
-  nombre: string; // Original file name
-  tipo: string; // File extension or simplified type like 'pdf', 'image', etc.
-  dataUrl: string; // The base64 Data URL for embedding or downloading
+  nombre: string;
+  tipo: 'pdf' | 'jpg' | 'png' | 'jpeg' | 'doc' | 'docx' | 'link' | 'other';
+  dataUrl: string;
   comment?: string;
-  userGivenName: string; // User-defined name for the evidence
+  userGivenName: string;
 }
+
 
 export interface PlannedAction {
   id: string;
