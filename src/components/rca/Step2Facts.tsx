@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { FC, ChangeEvent } from 'react';
@@ -9,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserCircle, Save, Loader2, Target, ClipboardList, Sparkles, FileText, ImageIcon, Paperclip, Trash2, ExternalLink, Link2, MessageSquare, PlusCircle } from 'lucide-react';
+import { UserCircle, Save, Loader2, Target, ClipboardList, Sparkles } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
@@ -38,7 +39,7 @@ export const Step2Facts: FC<{
   onSetInvestigationSessions: (sessions: InvestigationSession[]) => void;
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
-  evidences: Evidence[];
+  evidences?: Evidence[];
   onAddEvidence: (fact: Omit<Evidence, 'id' | 'dataUrl'>, file: File | null) => Promise<void>;
   onRemoveEvidence: (id: string) => void;
   isSaving: boolean;
@@ -286,8 +287,8 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
         </div>
 
         <EvidenceManager
-            title="Preservación de Hechos y Evidencias"
-            evidences={evidences}
+            title="Preservación de Hechos"
+            evidences={evidences || []}
             onAddEvidence={onAddEvidence}
             onRemoveEvidence={onRemoveEvidence}
             isSaving={isSaving}

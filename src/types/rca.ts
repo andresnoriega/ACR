@@ -1,3 +1,4 @@
+
 'use client';
 // --- Common Enums and Types ---
 export type EventType = 'Incidente' | 'Falla de Equipo' | 'Accidente' | 'No Conformidad' | 'Evento Operacional' | '';
@@ -246,7 +247,7 @@ export interface RCAAnalysisDocument {
   ctmData: CTMData;
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
-  evidences: Evidence[];
+  evidences?: Evidence[];
   validations: Validation[];
   finalComments: string;
   leccionesAprendidas: string;
