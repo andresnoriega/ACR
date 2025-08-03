@@ -1,32 +1,30 @@
-
 'use client';
 import type { FC } from 'react';
 import { Button } from '@/components/ui/button';
-import { ClipboardList, FileText, Lightbulb, CheckSquare, Presentation } from 'lucide-react';
+import { ClipboardList, FileText, ListTodo, Lightbulb, CheckSquare, Presentation } from 'lucide-react';
 
 interface StepNavigationProps {
   currentStep: number;
   onNavigate: (step: number) => void;
   maxCompletedStep: number;
-  isStep3Valid?: boolean; // Nuevo prop para la validación del Paso 3
+  isStep4Valid?: boolean;
 }
 
 const steps = [
   { number: 1, label: 'Iniciación', icon: ClipboardList },
   { number: 2, label: 'Hechos', icon: FileText },
-  { number: 3, label: 'Análisis', icon: Lightbulb },
-  { number: 4, label: 'Validación', icon: CheckSquare },
-  { number: 5, label: 'Resultados', icon: Presentation },
+  { number: 3, label: 'Tareas', icon: ListTodo },
+  { number: 4, label: 'Análisis', icon: Lightbulb },
+  { number: 5, label: 'Validación', icon: CheckSquare },
+  { number: 6, label: 'Resultados', icon: Presentation },
 ];
 
-export const StepNavigation: FC<StepNavigationProps> = ({ currentStep, onNavigate, maxCompletedStep, isStep3Valid }) => {
+export const StepNavigation: FC<StepNavigationProps> = ({ currentStep, onNavigate, maxCompletedStep, isStep4Valid }) => {
   
   const isStepButtonDisabled = (stepNumber: number): boolean => {
-    // Regla general: no se puede saltar pasos ni ir más allá de lo completado + 1 (excepto volver al paso 1)
     let disabled = stepNumber > maxCompletedStep + 1 && stepNumber !== 1;
 
-    // Regla específica para el Paso 4: si estamos en el Paso 3 e isStep3Valid es false, deshabilitar Paso 4.
-    if (stepNumber === 4 && currentStep === 3 && isStep3Valid !== undefined && !isStep3Valid) {
+    if (stepNumber === 5 && currentStep === 4 && isStep4Valid !== undefined && !isStep4Valid) {
       disabled = true;
     }
     return disabled;

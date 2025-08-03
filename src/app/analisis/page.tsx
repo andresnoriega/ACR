@@ -1,10 +1,10 @@
-
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef, ChangeEvent } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification, Evidence } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
+import { Step2Point5Tasks } from '@/components/rca/Step2Point5Tasks';
 import { Step3Analysis } from '@/components/rca/Step3Analysis';
 import { Step4Validation } from '@/components/rca/Step4Validation';
 import { Step5Results } from '@/components/rca/Step5Results';
@@ -313,7 +313,7 @@ function RCAAnalysisPageComponent() {
         const isCtmPopulated = data.ctmData?.some(fm => fm.hypotheses.length > 0);
         const hasStep3Content = data.identifiedRootCauses?.length > 0 || isIshikawaPopulated || is5WhysPopulated || isCtmPopulated;
         
-        setMaxCompletedStep(prevMax => Math.max(prevMax, data.isFinalized ? 5 : (data.validations?.length > 0 && data.plannedActions?.every(pa => data.validations.find(v => v.actionId === pa.id)?.status === 'validated') ? 4 : (hasStep3Content ? 3 : (data.projectLeader ? 2 : 1)))));
+        setMaxCompletedStep(prevMax => Math.max(prevMax, data.isFinalized ? 6 : (data.validations?.length > 0 && data.plannedActions?.every(pa => data.validations.find(v => v.actionId === pa.id)?.status === 'validated') ? 5 : (hasStep3Content ? 4 : (data.projectLeader ? 2 : 1)))));
 
         return true;
       } else {
@@ -408,11 +408,11 @@ function RCAAnalysisPageComponent() {
             if (success) {
                 if (stepParam) {
                     const targetStep = parseInt(stepParam, 10);
-                    if (targetStep >= 1 && targetStep <= 5) {
+                    if (targetStep >= 1 && targetStep <= 6) {
                         setStep(targetStep);
                     }
                 } else if (previousLoadedId === currentId) {
-                    setStep(prevStep => (prevStep >= 1 && prevStep <= 5 ? prevStep : 1));
+                    setStep(prevStep => (prevStep >= 1 && prevStep <= 6 ? prevStep : 1));
                 } else {
                     setStep(1);
                 }
@@ -890,7 +890,7 @@ function RCAAnalysisPageComponent() {
   };
 
 
-  const isStep3ValidForNavigation = useMemo(() => {
+  const isStep4ValidForNavigation = useMemo(() => {
     const describedRootCauses = identifiedRootCauses.filter(rc => rc.description && rc.description.trim() !== '');
 
     if (identifiedRootCauses.length > 0 && describedRootCauses.length === 0) {
@@ -953,9 +953,9 @@ function RCAAnalysisPageComponent() {
   };
 
   const handleGoToStep = async (targetStep: number) => {
-    if (targetStep >= 4 && !isStep3ValidForNavigation) {
+    if (targetStep >= 5 && !isStep4ValidForNavigation) {
       toast({
-        title: "Validación Requerida en Paso 3",
+        title: "Validación Requerida en Paso 4",
         description: "Asegúrese de que todas las causas raíz descritas estén abordadas por un plan de acción antes de continuar.",
         variant: "destructive",
         duration: 7000
@@ -1018,17 +1018,17 @@ function RCAAnalysisPageComponent() {
           });
           return;
         }
-    } else if (step === 3) {
-      if (!isStep3ValidForNavigation) {
+    } else if (step === 4) {
+      if (!isStep4ValidForNavigation) {
         toast({
-          title: "Revisión Necesaria en Paso 3",
+          title: "Revisión Necesaria en Paso 4",
           description: "Verifique que todas las causas raíz descritas estén abordadas por un plan de acción completo.",
           variant: "destructive",
           duration: 7000,
         });
         return;
       }
-    } else if (step === 4) {
+    } else if (step === 5) {
       if (plannedActions.length > 0) {
         const allActionsDecided = plannedActions.every(pa => {
           if (!pa || !pa.id) return true; 
@@ -1039,7 +1039,7 @@ function RCAAnalysisPageComponent() {
         if (!allActionsDecided) {
           toast({
             title: "Acciones Pendientes de Decisión",
-            description: "Todas las acciones planificadas deben estar validadas o rechazadas para continuar al Paso 5.",
+            description: "Todas las acciones planificadas deben estar validadas o rechazadas para continuar al Paso 6.",
             variant: "destructive",
           });
           return;
@@ -1049,7 +1049,7 @@ function RCAAnalysisPageComponent() {
     
     await handleSaveAnalysisData(false);
 
-    const newStep = Math.min(step + 1, 5);
+    const newStep = Math.min(step + 1, 6);
     setStep(newStep);
     setMaxCompletedStep(Math.max(maxCompletedStep, step));
     if (analysisDocumentId) {
@@ -1420,7 +1420,7 @@ function RCAAnalysisPageComponent() {
          currentStep={step}
          onNavigate={handleGoToStep}
          maxCompletedStep={maxCompletedStep}
-         isStep3Valid={isStep3ValidForNavigation}
+         isStep4Valid={isStep4ValidForNavigation}
         />
         <Separator className="my-6" />
       </div>
@@ -1477,6 +1477,20 @@ function RCAAnalysisPageComponent() {
       </div>
       <div className={step === 3 ? "" : "print:hidden"}>
       {step === 3 && (
+        <Step2Point5Tasks
+          allRcaDocuments={analysisDocumentId ? [allRcaDocuments.find(d => d.eventData.id === analysisDocumentId)!].filter(Boolean) : []}
+          availableUsers={availableUsersFromDB}
+          userProfile={userProfile}
+          loadingAuth={loadingAuth}
+          onPrevious={handlePreviousStep}
+          onNext={handleNextStep}
+          onSaveAnalysis={handleSaveAnalysisData}
+          isSaving={isSaving}
+        />
+      )}
+      </div>
+      <div className={step === 4 ? "" : "print:hidden"}>
+      {step === 4 && (
         <Step3Analysis
           eventData={eventData}
           availableSites={availableSitesFromDB}
@@ -1512,8 +1526,8 @@ function RCAAnalysisPageComponent() {
         />
       )}
       </div>
-      <div className={step === 4 ? "" : "print:hidden"}>
-      {step === 4 && (
+      <div className={step === 5 ? "" : "print:hidden"}>
+      {step === 5 && (
         <Step4Validation
           plannedActions={plannedActions}
           validations={validations}
@@ -1527,7 +1541,7 @@ function RCAAnalysisPageComponent() {
         />
       )}
       </div>
-      {step === 5 && (
+      {step === 6 && (
         <Step5Results
           eventId={analysisDocumentId || eventData.id}
           eventData={eventData}
