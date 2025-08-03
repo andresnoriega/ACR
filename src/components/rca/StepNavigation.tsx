@@ -1,7 +1,7 @@
 'use client';
 import type { FC } from 'react';
 import { Button } from '@/components/ui/button';
-import { ClipboardList, FileText, ListTodo, Lightbulb, CheckSquare, Presentation } from 'lucide-react';
+import { ClipboardList, FileText, Lightbulb, CheckSquare, Presentation } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 
@@ -9,27 +9,26 @@ interface StepNavigationProps {
   currentStep: number;
   onNavigate: (step: number) => void;
   maxCompletedStep: number;
-  isStep4Valid?: boolean;
+  isStep3Valid?: boolean;
 }
 
 const steps = [
   { number: 1, label: 'Iniciación', icon: ClipboardList },
   { number: 2, label: 'Hechos', icon: FileText },
-  { number: 3, label: 'Tareas', icon: ListTodo },
-  { number: 4, label: 'Análisis', icon: Lightbulb },
-  { number: 5, label: 'Validación', icon: CheckSquare },
-  { number: 6, label: 'Resultados', icon: Presentation },
+  { number: 3, label: 'Análisis', icon: Lightbulb },
+  { number: 4, label: 'Validación', icon: CheckSquare },
+  { number: 5, label: 'Resultados', icon: Presentation },
 ];
 
-export const StepNavigation: FC<StepNavigationProps> = ({ currentStep, onNavigate, maxCompletedStep, isStep4Valid }) => {
+export const StepNavigation: FC<StepNavigationProps> = ({ currentStep, onNavigate, maxCompletedStep, isStep3Valid }) => {
   
   const isStepButtonDisabled = (stepNumber: number): boolean => {
     if (stepNumber > maxCompletedStep + 1 && stepNumber !== 1) {
       return true;
     }
     
-    // Specifically for step 5 (Validation), it should be disabled if we are on step 4 (Analysis) and it's not valid to proceed.
-    if (stepNumber >= 5 && currentStep === 4 && isStep4Valid !== undefined && !isStep4Valid) {
+    // Specifically for step 4 (Validation), it should be disabled if we are on step 3 (Analysis) and it's not valid to proceed.
+    if (stepNumber >= 4 && currentStep === 3 && isStep3Valid !== undefined && !isStep3Valid) {
       return true;
     }
     return false;

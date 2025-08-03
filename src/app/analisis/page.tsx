@@ -4,7 +4,6 @@ import type { RCAEventData, ImmediateAction, PlannedAction, Validation, Analysis
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
-import { Step2Point5Tasks } from '@/components/rca/Step2Point5Tasks';
 import { Step3Analysis } from '@/components/rca/Step3Analysis';
 import { Step4Validation } from '@/components/rca/Step4Validation';
 import { Step5Results } from '@/components/rca/Step5Results';
@@ -318,10 +317,9 @@ function RCAAnalysisPageComponent() {
         
         let newMaxCompletedStep = 1;
         if(hasFactsContent) newMaxCompletedStep = 2;
-        if(hasTasksContent) newMaxCompletedStep = 3;
-        if(hasAnalysisContent) newMaxCompletedStep = 4;
-        if(data.validations?.length > 0 && data.plannedActions?.every(pa => data.validations.find(v => v.actionId === pa.id)?.status === 'validated')) newMaxCompletedStep = 5;
-        if(data.isFinalized) newMaxCompletedStep = 6;
+        if(hasAnalysisContent) newMaxCompletedStep = 3;
+        if(data.validations?.length > 0 && data.plannedActions?.every(pa => data.validations.find(v => v.actionId === pa.id)?.status === 'validated')) newMaxCompletedStep = 4;
+        if(data.isFinalized) newMaxCompletedStep = 5;
 
         setMaxCompletedStep(prevMax => Math.max(prevMax, newMaxCompletedStep));
 
@@ -418,11 +416,11 @@ function RCAAnalysisPageComponent() {
             if (success) {
                 if (stepParam) {
                     const targetStep = parseInt(stepParam, 10);
-                    if (targetStep >= 1 && targetStep <= 6) {
+                    if (targetStep >= 1 && targetStep <= 5) {
                         setStep(targetStep);
                     }
                 } else if (previousLoadedId === currentId) {
-                    setStep(prevStep => (prevStep >= 1 && prevStep <= 6 ? prevStep : 1));
+                    setStep(prevStep => (prevStep >= 1 && prevStep <= 5 ? prevStep : 1));
                 } else {
                     setStep(1);
                 }
@@ -900,7 +898,7 @@ function RCAAnalysisPageComponent() {
   };
 
 
-  const isStep4ValidForNavigation = useMemo(() => {
+  const isStep3ValidForNavigation = useMemo(() => {
     const describedRootCauses = identifiedRootCauses.filter(rc => rc.description && rc.description.trim() !== '');
 
     if (identifiedRootCauses.length > 0 && describedRootCauses.length === 0) {
@@ -963,9 +961,9 @@ function RCAAnalysisPageComponent() {
   };
 
   const handleGoToStep = async (targetStep: number) => {
-    if (targetStep >= 5 && !isStep4ValidForNavigation) {
+    if (targetStep >= 4 && !isStep3ValidForNavigation) {
       toast({
-        title: "Validación Requerida en Paso 4",
+        title: "Validación Requerida en Paso 3",
         description: "Asegúrese de que todas las causas raíz descritas estén abordadas por un plan de acción antes de continuar.",
         variant: "destructive",
         duration: 7000
@@ -1027,17 +1025,17 @@ function RCAAnalysisPageComponent() {
           });
           return;
         }
-    } else if (step === 4) {
-      if (!isStep4ValidForNavigation) {
+    } else if (step === 3) {
+      if (!isStep3ValidForNavigation) {
         toast({
-          title: "Revisión Necesaria en Paso 4",
+          title: "Revisión Necesaria en Paso 3",
           description: "Verifique que todas las causas raíz descritas estén abordadas por un plan de acción completo.",
           variant: "destructive",
           duration: 7000,
         });
         return;
       }
-    } else if (step === 5) {
+    } else if (step === 4) {
       if (plannedActions.length > 0) {
         const allActionsDecided = plannedActions.every(pa => {
           if (!pa || !pa.id) return true; 
@@ -1048,7 +1046,7 @@ function RCAAnalysisPageComponent() {
         if (!allActionsDecided) {
           toast({
             title: "Acciones Pendientes de Decisión",
-            description: "Todas las acciones planificadas deben estar validadas o rechazadas para continuar al Paso 6.",
+            description: "Todas las acciones planificadas deben estar validadas o rechazadas para continuar al Paso 5.",
             variant: "destructive",
           });
           return;
@@ -1058,7 +1056,7 @@ function RCAAnalysisPageComponent() {
     
     await handleSaveAnalysisData(false);
 
-    const newStep = Math.min(step + 1, 6);
+    const newStep = Math.min(step + 1, 5);
     setStep(newStep);
     setMaxCompletedStep(Math.max(maxCompletedStep, step));
     if (analysisDocumentId) {
@@ -1372,34 +1370,6 @@ function RCAAnalysisPageComponent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const currentRcaDocument: RCAAnalysisDocument | null = analysisDocumentId ? {
-      eventData,
-      immediateActions,
-      projectLeader,
-      detailedFacts,
-      investigationObjective,
-      investigationSessions,
-      analysisDetails,
-      timelineEvents,
-      brainstormingIdeas,
-      analysisTechnique,
-      analysisTechniqueNotes,
-      ishikawaData,
-      fiveWhysData,
-      ctmData,
-      identifiedRootCauses,
-      plannedActions,
-      evidences,
-      validations,
-      finalComments,
-      leccionesAprendidas,
-      isFinalized,
-      rejectionDetails,
-      efficacyVerification,
-      createdAt: '', 
-      updatedAt: '', 
-  } : null;
-
 
   if (isLoadingPage || loadingAuth) {
     return (
@@ -1432,7 +1402,7 @@ function RCAAnalysisPageComponent() {
          currentStep={step}
          onNavigate={handleGoToStep}
          maxCompletedStep={maxCompletedStep}
-         isStep4Valid={isStep4ValidForNavigation}
+         isStep3Valid={isStep3ValidForNavigation}
         />
         <Separator className="my-6" />
       </div>
@@ -1485,26 +1455,16 @@ function RCAAnalysisPageComponent() {
           onNext={handleNextStep}
           onSaveAnalysis={handleSaveFromStep2}
           isSaving={isSaving}
+          allRcaDocuments={analysisDocumentId ? [{...initialRCAAnalysisState, eventData, projectLeader, plannedActions, validations}] : []}
+          userProfile={userProfile}
+          loadingAuth={loadingAuth}
+          plannedActions={plannedActions}
+          validations={validations}
         />
       )}
       </div>
       <div className={step === 3 ? "" : "print:hidden"}>
-       {step === 3 && currentRcaDocument && (
-          <Step2Point5Tasks
-            allRcaDocuments={[currentRcaDocument]}
-            availableUsers={availableUsersFromDB}
-            userProfile={userProfile}
-            loadingAuth={loadingAuth}
-            isSaving={isSaving}
-            onPrevious={handlePreviousStep}
-            onNext={() => handleGoToStep(4)}
-            onSaveAnalysis={handleSaveAnalysisData}
-            availableSites={availableSitesFromDB}
-          />
-       )}
-      </div>
-      <div className={step === 4 ? "" : "print:hidden"}>
-      {step === 4 && (
+      {step === 3 && (
         <Step3Analysis
           eventData={eventData}
           availableSites={availableSitesFromDB}
@@ -1540,8 +1500,8 @@ function RCAAnalysisPageComponent() {
         />
       )}
       </div>
-      <div className={step === 5 ? "" : "print:hidden"}>
-      {step === 5 && (
+      <div className={step === 4 ? "" : "print:hidden"}>
+      {step === 4 && (
         <Step4Validation
           plannedActions={plannedActions}
           validations={validations}
@@ -1555,7 +1515,7 @@ function RCAAnalysisPageComponent() {
         />
       )}
       </div>
-      {step === 6 && (
+      {step === 5 && (
         <Step5Results
           eventId={analysisDocumentId || eventData.id}
           eventData={eventData}

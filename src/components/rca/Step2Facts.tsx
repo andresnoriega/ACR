@@ -1,23 +1,159 @@
-
 'use client';
 
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import type { DetailedFacts, FullUserProfile, Site, InvestigationSession, Evidence } from '@/types/rca'; 
+import type { DetailedFacts, FullUserProfile, Site, InvestigationSession, Evidence, ActionPlan, PlannedAction as FirestorePlannedAction, Validation } from '@/types/rca';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserCircle, Save, Loader2, Target, ClipboardList, Sparkles } from 'lucide-react';
-import { format, parseISO, isValid } from 'date-fns';
+import { UserCircle, Save, Loader2, Target, ClipboardList, Sparkles, FolderKanban, CheckCircle2, MessageSquare, ExternalLink, Link2, Trash2, FileText, ImageIcon, Paperclip, CheckSquare, XCircle, ListTodo } from 'lucide-react';
+import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
 import { paraphrasePhenomenon, type ParaphrasePhenomenonInput } from '@/ai/flows/paraphrase-phenomenon';
 import { EvidenceManager } from './EvidenceManager';
 import { InvestigationTeamManager } from './InvestigationTeamManager';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
+import { sanitizeForFirestore } from '@/lib/utils';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { sendEmailAction } from '@/app/actions';
+
+
+let idCounter = Date.now();
+const generateClientSideId = (prefix: string) => {
+    idCounter++;
+    return `${prefix}-${idCounter}`;
+};
+
+// ------ CARD DE PLAN DE ACCIÓN INDIVIDUAL ------
+
+const getEvidenceIconLocal = (tipo?: FirestoreEvidence['tipo']) => {
+    if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
+    switch (tipo) {
+      case 'link': return <Link2 className="h-4 w-4 mr-2 flex-shrink-0 text-indigo-600" />;
+      case 'pdf': return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
+      case 'jpg': case 'jpeg': case 'png': return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
+      case 'doc': case 'docx': return <Paperclip className="h-4 w-4 mr-2 flex-shrink-0 text-sky-700" />;
+      default: return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
+    }
+};
+
+interface ActionPlanCardProps {
+  plan: ActionPlan;
+  availableUsers: FullUserProfile[];
+  userProfile: FullUserProfile | null;
+  onUpdate: (updatedPlan: ActionPlan, newFile?: File | null, newEvidenceComment?: string) => Promise<void>;
+  onRemoveEvidence: (plan: ActionPlan, evidenceId: string) => Promise<void>;
+}
+
+const ActionPlanCard: FC<ActionPlanCardProps> = ({ plan, availableUsers, userProfile, onUpdate, onRemoveEvidence }) => {
+  const [localPlan, setLocalPlan] = useState(plan);
+  const [fileToUpload, setFileToUpload] = useState<File | null>(null);
+  const [evidenceComment, setEvidenceComment] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
+  const { toast } = useToast();
+  
+  useEffect(() => {
+    setLocalPlan(plan);
+  }, [plan]);
+
+  const handleUpdate = async () => {
+    setIsUpdating(true);
+    await onUpdate(localPlan, fileToUpload, evidenceComment);
+    setIsUpdating(false);
+    setFileToUpload(null);
+    setEvidenceComment('');
+    const fileInput = document.getElementById(`evidence-file-input-${plan.id}`) as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
+  };
+  
+  const handleInternalRemoveEvidence = async (evidenceId: string) => {
+    setIsUpdating(true);
+    await onRemoveEvidence(plan, evidenceId);
+    setIsUpdating(false);
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      setFileToUpload(event.target.files[0]);
+    } else {
+      setFileToUpload(null);
+    }
+  };
+
+
+  return (
+    <Card className="shadow-lg animate-in fade-in-50 duration-300 bg-card">
+      <CardHeader>
+        <div className='flex justify-between items-start'>
+            <div>
+                <CardTitle className="text-lg font-semibold text-primary">{plan.accionResumen}</CardTitle>
+                <CardDescription>ID Acción: {plan.id}</CardDescription>
+            </div>
+            <span className={cn("px-2 py-0.5 rounded-full text-xs font-semibold",
+                plan.estado === 'Pendiente' && 'bg-orange-100 text-orange-700',
+                 plan.estado === 'En proceso' && 'bg-yellow-100 text-yellow-700',
+                plan.estado === 'En Validación' && 'bg-blue-100 text-blue-700',
+                plan.estado === 'Completado' && 'bg-green-100 text-green-700',
+                plan.estado === 'Rechazado' && 'bg-destructive/10 text-destructive'
+            )}>{plan.estado}</span>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4 text-sm">
+        <div><Label className="font-semibold">Descripción Completa:</Label><p className="whitespace-pre-line bg-muted/20 p-2 rounded-md">{plan.descripcionDetallada}</p></div>
+        <div><Label className="font-semibold">Responsable:</Label> <p>{plan.responsableDetalle}</p></div>
+        <div><Label className="font-semibold">Plazo límite:</Label> <p>{plan.plazoLimite}</p></div>
+        
+        <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Evidencias Adjuntas]</h4>
+            {localPlan.evidencias.length > 0 ? (<ul className="space-y-1.5">
+                {localPlan.evidencias.map(ev => (<li key={ev.id} className="flex items-start justify-between text-xs border p-2 rounded-md bg-muted/10">
+                    <div className="flex-grow"><div className="flex items-center">{getEvidenceIconLocal(ev.tipo)}<span className="font-medium">{ev.nombre}</span></div>
+                      {ev.comment && <p className="text-xs text-muted-foreground ml-[calc(1rem+0.5rem)] mt-0.5">Comentario: {ev.comment}</p>}</div>
+                    <div className="flex-shrink-0 ml-2">
+                        <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mr-2"><a href={ev.dataUrl} target="_blank" rel="noopener noreferrer" download={ev.nombre}><ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar</a></Button>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-destructive/10" onClick={() => handleInternalRemoveEvidence(ev.id)} disabled={isUpdating || localPlan.estado === 'Completado' || localPlan.estado === 'Rechazado'} aria-label="Eliminar evidencia"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                    </div>
+                    </li>))}</ul>
+            ) : <p className="text-xs text-muted-foreground">No hay evidencias adjuntas.</p>}
+        </div>
+        
+        <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Adjuntar nueva evidencia]</h4>
+            <div className="space-y-2">
+              <Label htmlFor={`evidence-file-input-${plan.id}`}>Archivo de Evidencia</Label>
+              <Input id={`evidence-file-input-${plan.id}`} type="file" onChange={handleFileChange} className="text-xs h-9" disabled={isUpdating || localPlan.estado === 'Completado' || localPlan.estado === 'Rechazado'} />
+              <Label htmlFor={`evidence-comment-${plan.id}`}>Comentario para esta evidencia (opcional)</Label>
+              <Input id={`evidence-comment-${plan.id}`} type="text" placeholder="Ej: Foto de la reparación, documento de capacitación..." value={evidenceComment} onChange={(e) => setEvidenceComment(e.target.value)} className="text-xs h-9" disabled={isUpdating || localPlan.estado === 'Completado' || localPlan.estado === 'Rechazado'} />
+            </div>
+            {fileToUpload && <p className="text-xs text-muted-foreground mt-1">Archivo seleccionado: {fileToUpload.name}</p>}
+        </div>
+
+        <div className="pt-2">
+            <div className="flex justify-between items-center mb-1">
+                <h4 className="font-semibold text-primary flex items-center"><MessageSquare className="mr-1.5 h-4 w-4" />[Comentarios Generales]</h4>
+            </div>
+            <Textarea value={localPlan.userComments || ''} onChange={(e) => setLocalPlan(prev => ({ ...prev, userComments: e.target.value }))} placeholder="Añada sus comentarios sobre el progreso..." rows={3} className="text-sm" disabled={isUpdating || localPlan.estado === 'Completado' || localPlan.estado === 'Rechazado'} />
+        </div>
+        
+        <div className="pt-2">
+            <h4 className="font-semibold text-primary mb-1">[Actualizar estado]</h4>
+            <div className="flex items-center gap-2">
+                <Button size="sm" variant="default" onClick={handleUpdate} disabled={isUpdating || ['Completado', 'En Validación', 'Rechazado'].includes(localPlan.estado) || (!fileToUpload && plan.userComments === localPlan.userComments)} title={localPlan.estado === 'Completado' ? "Esta tarea ya ha sido validada." : ['En Validación', 'Rechazado'].includes(localPlan.estado) ? `La tarea ya está en estado '${localPlan.estado}'` : (!fileToUpload && plan.userComments === localPlan.userComments) ? "Debe adjuntar un archivo o modificar los comentarios para actualizar." : "Guardar y marcar la tarea como lista para validación."}>
+                  {isUpdating ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />} 
+                  {isUpdating ? 'Procesando...' : 'Marcar como listo para validación'}
+                </Button>
+                {localPlan.estado === 'En Validación' && (<span className="text-xs text-green-600 flex items-center ml-2 p-1.5 bg-green-50 border border-green-200 rounded-md"><CheckCircle2 className="mr-1 h-3.5 w-3.5" />Listo para Validar</span>)}
+            </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 
 // ------ COMPONENTE PRINCIPAL ------
@@ -32,7 +168,7 @@ export const Step2Facts: FC<{
   onSetInvestigationSessions: (sessions: InvestigationSession[]) => void;
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
-  evidences?: Evidence[];
+  evidences: Evidence[];
   onAddEvidence: (newEvidence: Evidence) => void;
   onRemoveEvidence: (id: string) => void;
   availableUsers: FullUserProfile[];
@@ -41,6 +177,11 @@ export const Step2Facts: FC<{
   onPrevious: () => void;
   onNext: () => void;
   onSaveAnalysis: () => Promise<void>;
+  allRcaDocuments: any[];
+  userProfile: FullUserProfile | null;
+  loadingAuth: boolean;
+  plannedActions: FirestorePlannedAction[];
+  validations: Validation[];
 }> = ({
   detailedFacts,
   onDetailedFactChange,
@@ -61,11 +202,146 @@ export const Step2Facts: FC<{
   onPrevious,
   onNext,
   onSaveAnalysis,
+  allRcaDocuments,
+  userProfile,
+  loadingAuth,
+  plannedActions,
+  validations
 }) => {
   const { toast } = useToast();
   const [clientSideMaxDateTime, setClientSideMaxDateTime] = useState<string | undefined>(undefined);
-  const { userProfile } = useAuth();
   const [isParaphrasing, setIsParaphrasing] = useState(false);
+  const [internalDocs, setInternalDocs] = useState(allRcaDocuments);
+
+  useEffect(() => {
+    setInternalDocs(allRcaDocuments);
+  }, [allRcaDocuments]);
+
+
+  const assignedActionPlans = useMemo(() => {
+    if (loadingAuth || !userProfile || !userProfile.name || internalDocs.length === 0) {
+      return [];
+    }
+    const plans: ActionPlan[] = [];
+    const rcaDoc = internalDocs[0];
+    if (rcaDoc && rcaDoc.plannedActions && rcaDoc.plannedActions.length > 0) {
+      rcaDoc.plannedActions.forEach((pa: FirestorePlannedAction) => {
+        const validation = rcaDoc.validations?.find((v: Validation) => v.actionId === pa.id);
+        let estado: ActionPlan['estado'] = 'Pendiente';
+        if (validation?.status === 'validated') estado = 'Completado';
+        else if (validation?.status === 'rejected') estado = 'Rechazado';
+        else if (pa.markedAsReadyAt) estado = 'En Validación';
+        else if (pa.evidencias?.length > 0 || (pa.userComments && pa.userComments.trim())) estado = 'En proceso';
+
+        plans.push({
+          id: pa.id,
+          _originalRcaDocId: rcaDoc.eventData.id,
+          _originalActionId: pa.id,
+          accionResumen: pa.description.substring(0, 50) + (pa.description.length > 50 ? "..." : ""),
+          estado,
+          plazoLimite: pa.dueDate && isValidDate(parseISO(pa.dueDate)) ? format(parseISO(pa.dueDate), 'dd/MM/yyyy', { locale: es }) : 'N/A',
+          asignadoPor: rcaDoc.projectLeader || 'Sistema',
+          validatorName: rcaDoc.projectLeader || 'N/A',
+          tituloDetalle: rcaDoc.eventData.focusEventDescription || 'Sin título',
+          descripcionDetallada: pa.description,
+          responsableDetalle: pa.responsible,
+          codigoRCA: rcaDoc.eventData.id,
+          evidencias: pa.evidencias || [],
+          userComments: pa.userComments || '',
+        });
+      });
+    }
+    return plans;
+  }, [userProfile, internalDocs, loadingAuth]);
+
+
+  const handleUpdateAction = async (updatedPlan: ActionPlan, newFile?: File | null, newEvidenceComment?: string) => {
+    if (!userProfile) return;
+    
+    try {
+      let newEvidencePayload: FirestoreEvidence | null = null;
+      if (newFile) {
+        if (newFile.size > 700 * 1024) {
+          toast({ title: "Archivo Demasiado Grande", description: "El archivo de evidencia no puede superar los 700 KB.", variant: "destructive" });
+          return;
+        }
+        const reader = new FileReader();
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = error => reject(error);
+            reader.readAsDataURL(newFile);
+        });
+        newEvidencePayload = {
+          id: generateClientSideId('ev'),
+          nombre: newFile.name,
+          tipo: (newFile.type.split('/')[1] as FirestoreEvidence['tipo']) || 'other',
+          comment: newEvidenceComment,
+          dataUrl: dataUrl,
+          userGivenName: newFile.name,
+        };
+      }
+
+      const rcaDocRef = doc(db, 'rcaAnalyses', updatedPlan._originalRcaDocId);
+      const docSnap = await getDoc(rcaDocRef);
+      if (!docSnap.exists()) throw new Error("Documento de análisis no encontrado.");
+
+      const currentRcaDoc = docSnap.data() as any;
+      
+      const updatedPlannedActions = currentRcaDoc.plannedActions.map((action: FirestorePlannedAction) => {
+        if (action.id === updatedPlan._originalActionId) {
+          const updatedEvidences = newEvidencePayload ? [...(action.evidencias || []), newEvidencePayload] : action.evidencias;
+          return {
+            ...action,
+            evidencias: updatedEvidences,
+            userComments: updatedPlan.userComments,
+            markedAsReadyAt: new Date().toISOString()
+          };
+        }
+        return action;
+      });
+
+      const finalDoc = { ...currentRcaDoc, plannedActions: updatedPlannedActions, updatedAt: new Date().toISOString() };
+      await updateDoc(rcaDocRef, sanitizeForFirestore(finalDoc));
+      setInternalDocs([finalDoc]); // Update local state to re-render
+      toast({ title: "Tarea Actualizada", description: "La tarea ha sido marcada como lista para validación." });
+
+      // Notify validator
+      const validator = availableUsers.find(u => u.name === updatedPlan.validatorName);
+      if (validator?.email && (validator.emailNotifications === undefined || validator.emailNotifications)) {
+          const emailSubject = `Acción Lista para Validación: ${updatedPlan.accionResumen} (ACR: ${updatedPlan.codigoRCA})`;
+          const validationLink = `${window.location.origin}/analisis?id=${updatedPlan._originalRcaDocId}&step=4`;
+          const emailBody = `Estimado/a ${validator.name},\n\nEl usuario ${userProfile.name} ha marcado una acción como lista para su validación en el análisis "${updatedPlan.tituloDetalle}".\n\nAcción: ${updatedPlan.descripcionDetallada}\n\nPor favor, acceda al sistema para validar esta acción en el siguiente enlace:\n${validationLink}`;
+          sendEmailAction({ to: validator.email, subject: emailSubject, body: emailBody });
+      }
+
+    } catch (error) {
+      toast({ title: "Error al Actualizar", description: (error as Error).message, variant: "destructive" });
+    }
+  };
+
+  const handleRemoveActionEvidence = async (plan: ActionPlan, evidenceId: string) => {
+    try {
+        const rcaDocRef = doc(db, 'rcaAnalyses', plan._originalRcaDocId);
+        const docSnap = await getDoc(rcaDocRef);
+        if (!docSnap.exists()) throw new Error("Documento no encontrado.");
+
+        const currentRcaDoc = docSnap.data() as any;
+        const updatedPlannedActions = currentRcaDoc.plannedActions.map((action: FirestorePlannedAction) => {
+            if (action.id === plan._originalActionId) {
+                return { ...action, evidencias: (action.evidencias || []).filter((e: FirestoreEvidence) => e.id !== evidenceId) };
+            }
+            return action;
+        });
+
+        const finalDoc = { ...currentRcaDoc, plannedActions: updatedPlannedActions, updatedAt: new Date().toISOString() };
+        await updateDoc(rcaDocRef, sanitizeForFirestore(finalDoc));
+        setInternalDocs([finalDoc]);
+        toast({ title: "Evidencia Eliminada" });
+    } catch (error) {
+        toast({ title: "Error al Eliminar Evidencia", description: (error as Error).message, variant: "destructive" });
+    }
+  };
+
 
   const usersForDropdown = useMemo(() => {
     if (userProfile?.role === 'Super User') {
@@ -178,122 +454,160 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
         <CardDescription>Recopile y documente todos los hechos relevantes sobre el evento.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        
-        <Card className="shadow-inner bg-secondary/20">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold flex items-center">
-              <ClipboardList className="mr-2 h-5 w-5 text-primary"/>
-              Hechos Detallados
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="como">CÓMO (ocurrió la desviación) <span className="text-destructive">*</span></Label>
-                <Input id="como" value={detailedFacts.como} onChange={(e) => handleInputChange(e, 'como')} placeholder="Ej: Durante operación normal" />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="que">QUÉ (ocurrió) <span className="text-destructive">*</span></Label>
-                <Textarea id="que" value={detailedFacts.que} onChange={(e) => handleInputChange(e, 'que')} placeholder="Ej: Trip por alta Temperatura Descanso 1" rows={2} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="donde">DÓNDE (ocurrió) <span className="text-destructive">*</span></Label>
-                <Input id="donde" value={detailedFacts.donde} onChange={(e) => handleInputChange(e, 'donde')} placeholder="Ej: Planta Teno, Sistema Calcinación, Horno" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cuando-input">CUÁNDO (Fecha y Hora) <span className="text-destructive">*</span></Label>
-                <Input 
-                    id="cuando-input" 
-                    type="datetime-local"
-                    value={detailedFacts.cuando} 
-                    onChange={(e) => handleInputChange(e, 'cuando')}
-                    max={clientSideMaxDateTime}
-                    className="flex-grow"
+        <Tabs defaultValue="facts">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="facts">Hechos Detallados</TabsTrigger>
+            <TabsTrigger value="preservation">Preservación de Hechos y Tareas</TabsTrigger>
+          </TabsList>
+          <TabsContent value="facts">
+            <Card className="shadow-inner bg-secondary/20 mt-4">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold flex items-center">
+                  <ClipboardList className="mr-2 h-5 w-5 text-primary"/>
+                  Hechos Detallados
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="como">CÓMO (ocurrió la desviación) <span className="text-destructive">*</span></Label>
+                    <Input id="como" value={detailedFacts.como} onChange={(e) => handleInputChange(e, 'como')} placeholder="Ej: Durante operación normal" />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="que">QUÉ (ocurrió) <span className="text-destructive">*</span></Label>
+                    <Textarea id="que" value={detailedFacts.que} onChange={(e) => handleInputChange(e, 'que')} placeholder="Ej: Trip por alta Temperatura Descanso 1" rows={2} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="donde">DÓNDE (ocurrió) <span className="text-destructive">*</span></Label>
+                    <Input id="donde" value={detailedFacts.donde} onChange={(e) => handleInputChange(e, 'donde')} placeholder="Ej: Planta Teno, Sistema Calcinación, Horno" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cuando-input">CUÁNDO (Fecha y Hora) <span className="text-destructive">*</span></Label>
+                    <Input 
+                        id="cuando-input" 
+                        type="datetime-local"
+                        value={detailedFacts.cuando} 
+                        onChange={(e) => handleInputChange(e, 'cuando')}
+                        max={clientSideMaxDateTime}
+                        className="flex-grow"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cualCuanto">CUÁL/CUÁNTO (tendencia e impacto) <span className="text-destructive">*</span></Label>
+                    <Input id="cualCuanto" value={detailedFacts.cualCuanto} onChange={(e) => handleInputChange(e, 'cualCuanto')} placeholder="Ej: Evento único / 2 Días de detención" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="quien">QUIÉN <span className="text-destructive">*</span></Label>
+                    <Input id="quien" value={detailedFacts.quien} onChange={(e) => handleInputChange(e, 'quien')} placeholder="Personas o equipos implicados (Ej: N/A, Operador Turno A)" />
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-4">
+                  <div className="flex justify-between items-center">
+                    <Label className="font-semibold">DESCRIPCIÓN DEL FENÓMENO</Label>
+                    <Button variant="outline" size="sm" onClick={handleParaphrasePhenomenon} disabled={isParaphrasing || isSaving}>
+                      {isParaphrasing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                      Parafrasear con IA
+                    </Button>
+                  </div>
+                  <Textarea
+                    id="analysisDetails"
+                    value={analysisDetails}
+                    onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onAnalysisDetailsChange(e.target.value)}
+                    placeholder="La descripción del fenómeno aparecerá aquí. Puede editarla manualmente o usar la IA."
+                    rows={4}
+                    className="bg-background"
+                  />
+                </div>
+                 <div className="space-y-4 pt-4 border-t">
+                  <div className="space-y-2">
+                    <Label htmlFor="projectLeader" className="flex items-center">
+                      <UserCircle className="mr-2 h-4 w-4 text-primary" />
+                      Líder del Proyecto
+                    </Label>
+                    <Select value={projectLeader} onValueChange={onProjectLeaderChange}>
+                      <SelectTrigger id="projectLeader">
+                        <SelectValue placeholder="-- Seleccione un líder --" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {usersForDropdown.length > 0 ? (
+                          usersForDropdown.map(user => (
+                            <SelectItem key={user.id} value={user.name}>{user.name} ({user.role})</SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="" disabled>No hay líderes disponibles para esta empresa</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="investigationObjective" className="flex items-center">
+                      <Target className="mr-2 h-4 w-4 text-primary" />
+                      Objetivo de la Investigación
+                    </Label>
+                    <Textarea
+                      id="investigationObjective"
+                      value={investigationObjective}
+                      onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onInvestigationObjectiveChange(e.target.value)}
+                      placeholder="Defina el alcance y el objetivo principal de este análisis de causa raíz..."
+                      rows={3}
+                    />
+                  </div>
+                </div>
+                <InvestigationTeamManager
+                    sessions={investigationSessions}
+                    onSetSessions={onSetInvestigationSessions}
+                    availableUsers={availableUsers}
+                    availableSites={availableSites}
+                    isSaving={isSaving}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cualCuanto">CUÁL/CUÁNTO (tendencia e impacto) <span className="text-destructive">*</span></Label>
-                <Input id="cualCuanto" value={detailedFacts.cualCuanto} onChange={(e) => handleInputChange(e, 'cualCuanto')} placeholder="Ej: Evento único / 2 Días de detención" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="quien">QUIÉN <span className="text-destructive">*</span></Label>
-                <Input id="quien" value={detailedFacts.quien} onChange={(e) => handleInputChange(e, 'quien')} placeholder="Personas o equipos implicados (Ej: N/A, Operador Turno A)" />
-              </div>
-            </div>
-
-            <div className="space-y-2 pt-4">
-              <div className="flex justify-between items-center">
-                <Label className="font-semibold">DESCRIPCIÓN DEL FENÓMENO</Label>
-                <Button variant="outline" size="sm" onClick={handleParaphrasePhenomenon} disabled={isParaphrasing || isSaving}>
-                  {isParaphrasing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                  Parafrasear con IA
-                </Button>
-              </div>
-               <Textarea
-                id="analysisDetails"
-                value={analysisDetails}
-                onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onAnalysisDetailsChange(e.target.value)}
-                placeholder="La descripción del fenómeno aparecerá aquí. Puede editarla manualmente o usar la IA."
-                rows={4}
-                className="bg-background"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="space-y-4 pt-4 border-t">
-          <div className="space-y-2">
-            <Label htmlFor="projectLeader" className="flex items-center">
-              <UserCircle className="mr-2 h-4 w-4 text-primary" />
-              Líder del Proyecto
-            </Label>
-            <Select value={projectLeader} onValueChange={onProjectLeaderChange}>
-              <SelectTrigger id="projectLeader">
-                <SelectValue placeholder="-- Seleccione un líder --" />
-              </SelectTrigger>
-              <SelectContent>
-                {usersForDropdown.length > 0 ? (
-                  usersForDropdown.map(user => (
-                    <SelectItem key={user.id} value={user.name}>{user.name} ({user.role})</SelectItem>
-                  ))
-                ) : (
-                  <SelectItem value="" disabled>No hay líderes disponibles para esta empresa</SelectItem>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="investigationObjective" className="flex items-center">
-              <Target className="mr-2 h-4 w-4 text-primary" />
-              Objetivo de la Investigación
-            </Label>
-            <Textarea
-              id="investigationObjective"
-              value={investigationObjective}
-              onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onInvestigationObjectiveChange(e.target.value)}
-              placeholder="Defina el alcance y el objetivo principal de este análisis de causa raíz..."
-              rows={3}
-            />
-          </div>
-        </div>
-
-        <InvestigationTeamManager
-            sessions={investigationSessions}
-            onSetSessions={onSetInvestigationSessions}
-            availableUsers={availableUsers}
-            availableSites={availableSites}
-            isSaving={isSaving}
-        />
-
-        <EvidenceManager
-            title="Preservación de Hechos y Evidencias"
-            evidences={evidences || []}
-            onAddEvidence={onAddEvidence}
-            onRemoveEvidence={onRemoveEvidence}
-            isSaving={isSaving}
-        />
-
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="preservation">
+            <Card className="shadow-inner bg-secondary/20 mt-4">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold flex items-center">
+                  <FolderKanban className="mr-2 h-5 w-5 text-primary" />
+                  Preservación de Hechos y Gestión de Tareas
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                 <EvidenceManager
+                    title="Preservación de Hechos y Evidencias"
+                    evidences={evidences}
+                    onAddEvidence={onAddEvidence}
+                    onRemoveEvidence={onRemoveEvidence}
+                    isSaving={isSaving}
+                />
+                 <div className="mt-6 pt-6 border-t">
+                    <h3 className="text-lg font-semibold text-primary flex items-center mb-2">
+                        <ListTodo className="mr-2 h-5 w-5" /> Tareas del Plan de Acción
+                    </h3>
+                    {assignedActionPlans.length > 0 ? (
+                    <div className="space-y-4">
+                        {assignedActionPlans.map(plan => (
+                        <ActionPlanCard
+                            key={plan.id}
+                            plan={plan}
+                            availableUsers={availableUsers}
+                            userProfile={userProfile}
+                            onUpdate={handleUpdateAction}
+                            onRemoveEvidence={handleRemoveActionEvidence}
+                        />
+                        ))}
+                    </div>
+                    ) : (
+                    <div className="text-center text-muted-foreground py-10">
+                        No hay planes de acción definidos para este análisis. Vaya al Paso 3 para añadirlos.
+                    </div>
+                    )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </CardContent>
       <CardFooter className="flex flex-col sm:flex-row justify-between gap-2 pt-4 border-t">
         <Button onClick={onPrevious} variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>Anterior</Button>
