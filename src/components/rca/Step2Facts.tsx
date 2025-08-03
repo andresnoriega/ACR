@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { FC, ChangeEvent } from 'react';
@@ -318,14 +319,9 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
               <FileArchive className="mr-2 h-5 w-5 text-primary" />
               Preservación de Hechos
             </h3>
-            <div className="flex gap-2">
-              <Button onClick={onAddPreservedFact} variant="outline" size="sm">
-                <PlusCircle className="mr-2 h-4 w-4" /> Nuevo
-              </Button>
-              <Button onClick={onAddPreservedFact} variant="outline" size="sm">
-                <PlusCircle className="mr-2 h-4 w-4" /> Nuevo 2
-              </Button>
-            </div>
+            <Button onClick={onAddPreservedFact} variant="outline" size="sm">
+              <PlusCircle className="mr-2 h-4 w-4" /> Añadir Hecho Preservado
+            </Button>
           </div>
           <div className="overflow-x-auto">
             <Table>
@@ -394,7 +390,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                  {preservedFacts.length === 0 && (
                     <TableRow>
                         <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
-                           No hay hechos preservados. Haga clic en "Nuevo" para añadir uno.
+                           No hay hechos preservados. Haga clic en "Añadir Hecho Preservado" para agregar uno.
                         </TableCell>
                     </TableRow>
                 )}
