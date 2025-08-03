@@ -1,6 +1,6 @@
 'use client';
 
-import type { FC, ChangeEvent } from 'react';
+import type { FC } from 'react';
 import { useState } from 'react';
 import type { Evidence } from '@/types/rca';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,11 +10,19 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from "@/hooks/use-toast";
 import { PlusCircle, Trash2, ImageIcon, FileText, Link2, Paperclip, Loader2, ExternalLink } from 'lucide-react';
+import { db } from '@/lib/firebase';
+import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { sanitizeForFirestore } from '@/lib/utils';
 
+let idCounter = Date.now();
+const generateClientSideId = (prefix: string) => {
+    idCounter++;
+    return `${prefix}-${idCounter}`;
+};
 
 const getEvidenceIconLocal = (tipo?: string) => {
   if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
-  const simplifiedType = tipo.split('/')[1] || tipo; // Get 'pdf' from 'application/pdf'
+  const simplifiedType = tipo.split('/')[1] || tipo;
   switch (simplifiedType) {
     case 'pdf': return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
     case 'jpeg': case 'jpg': case 'png': case 'gif': return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
@@ -28,22 +36,22 @@ const getEvidenceIconLocal = (tipo?: string) => {
 
 interface EvidenceManagerProps {
   title: string;
+  analysisId: string | null;
   evidences: Evidence[];
-  onAddEvidence: (factMetadata: Omit<Evidence, 'id' | 'dataUrl'>, file: File) => Promise<void>;
-  onRemoveEvidence: (id: string) => void;
-  isSaving: boolean;
+  onEvidenceAdded: () => void; // Callback to notify parent about data change
 }
 
-export const EvidenceManager: FC<EvidenceManagerProps> = ({ title, evidences, onAddEvidence, onRemoveEvidence, isSaving }) => {
+export const EvidenceManager: FC<EvidenceManagerProps> = ({ title, analysisId, evidences, onEvidenceAdded }) => {
   const { toast } = useToast();
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
   const [evidenceComment, setEvidenceComment] = useState('');
   const [userGivenName, setUserGivenName] = useState('');
-  
+  const [isSaving, setIsSaving] = useState(false);
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.size > 700 * 1024) { // 700 KB limit for Data URL stability
+      if (file.size > 700 * 1024) {
         toast({
           title: "Archivo Demasiado Grande",
           description: "El archivo no puede superar los 700 KB para ser guardado directamente.",
@@ -51,7 +59,7 @@ export const EvidenceManager: FC<EvidenceManagerProps> = ({ title, evidences, on
           duration: 7000,
         });
         setFileToUpload(null);
-        event.target.value = ''; // Reset file input
+        event.target.value = '';
         return;
       }
       setFileToUpload(file);
@@ -62,8 +70,12 @@ export const EvidenceManager: FC<EvidenceManagerProps> = ({ title, evidences, on
       setFileToUpload(null);
     }
   };
-
+  
   const handleAddClick = async () => {
+    if (!analysisId) {
+      toast({ title: "Error", description: "El análisis debe guardarse al menos una vez antes de añadir evidencias.", variant: "destructive" });
+      return;
+    }
     if (!fileToUpload) {
       toast({ title: "Archivo requerido", description: "Por favor, seleccione un archivo para adjuntar.", variant: "destructive" });
       return;
@@ -73,23 +85,67 @@ export const EvidenceManager: FC<EvidenceManagerProps> = ({ title, evidences, on
       return;
     }
 
-    const factMetadata: Omit<Evidence, 'id' | 'dataUrl'> = {
-      nombre: userGivenName.trim(),
-      tipo: (fileToUpload.type as Evidence['tipo']) || 'other',
-      comment: evidenceComment.trim() || undefined,
-    };
+    setIsSaving(true);
+    try {
+      toast({ title: "Procesando archivo...", description: `Convirtiendo ${fileToUpload.name} a Data URL.` });
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = (error) => reject(error);
+          reader.readAsDataURL(fileToUpload);
+      });
+  
+      const newEvidence: Evidence = {
+        id: generateClientSideId('ev'),
+        nombre: userGivenName.trim(),
+        tipo: (fileToUpload.type as Evidence['tipo']) || 'other',
+        comment: evidenceComment.trim() || undefined,
+        dataUrl,
+      };
 
-    // The parent component will handle the async logic
-    await onAddEvidence(factMetadata, fileToUpload);
-    
-    // Reset form on success (the parent tells us via isSaving prop change)
-    setFileToUpload(null);
-    setEvidenceComment('');
-    setUserGivenName('');
-    const fileInput = document.getElementById('evidence-file-input') as HTMLInputElement;
-    if (fileInput) fileInput.value = '';
+      const rcaDocRef = doc(db, 'rcaAnalyses', analysisId);
+      await updateDoc(rcaDocRef, {
+          preservedFacts: arrayUnion(sanitizeForFirestore(newEvidence)),
+          updatedAt: new Date().toISOString()
+      });
+
+      toast({ title: "Evidencia Guardada", description: `Se añadió "${newEvidence.nombre}" al análisis.` });
+      onEvidenceAdded(); // Notify parent to refetch/update state
+      
+      // Reset form
+      setFileToUpload(null);
+      setEvidenceComment('');
+      setUserGivenName('');
+      const fileInput = document.getElementById('evidence-file-input') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+
+    } catch (error: any) {
+      console.error("[handleAddClick] Error detallado:", error);
+      toast({ title: "Error al Guardar Evidencia", description: `No se pudo procesar el archivo: ${error.message || 'Error desconocido'}`, variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
+  const handleRemoveEvidence = async (evidenceToRemove: Evidence) => {
+    if (!analysisId) return;
+    
+    setIsSaving(true);
+    try {
+      const rcaDocRef = doc(db, 'rcaAnalyses', analysisId);
+      await updateDoc(rcaDocRef, {
+        preservedFacts: arrayRemove(sanitizeForFirestore(evidenceToRemove)),
+        updatedAt: new Date().toISOString(),
+      });
+      toast({ title: "Evidencia Eliminada", variant: 'destructive' });
+      onEvidenceAdded(); // Notify parent to refetch/update state
+    } catch (error) {
+      console.error("Error removing evidence:", error);
+      toast({ title: "Error", description: `No se pudo eliminar la evidencia: ${(error as Error).message}`, variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <Card className="shadow-inner bg-secondary/20">
@@ -131,7 +187,7 @@ export const EvidenceManager: FC<EvidenceManagerProps> = ({ title, evidences, on
                             </div>
                             <div className="flex-shrink-0 ml-2">
                                 <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mr-2"><a href={ev.dataUrl} target="_blank" rel="noopener noreferrer" download={ev.nombre}><ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar</a></Button>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-destructive/10" onClick={() => onRemoveEvidence(ev.id)} disabled={isSaving} aria-label="Eliminar evidencia"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-destructive/10" onClick={() => handleRemoveEvidence(ev)} disabled={isSaving} aria-label="Eliminar evidencia"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                             </div>
                         </li>
                     ))}

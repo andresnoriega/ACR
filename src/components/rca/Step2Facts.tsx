@@ -44,9 +44,9 @@ export const Step2Facts: FC<{
   onPrevious: () => void;
   onNext: () => void;
   onSaveAnalysis: () => Promise<void>;
+  analysisId: string | null;
   preservedFacts: Evidence[];
-  onAddPreservedFact: (factMetadata: Omit<Evidence, 'id' | 'dataUrl'>, file: File) => Promise<void>;
-  onRemovePreservedFact: (id: string) => void;
+  onEvidenceChange: () => void;
 }> = ({
   detailedFacts,
   onDetailedFactChange,
@@ -64,9 +64,9 @@ export const Step2Facts: FC<{
   onPrevious,
   onNext,
   onSaveAnalysis,
+  analysisId,
   preservedFacts,
-  onAddPreservedFact,
-  onRemovePreservedFact,
+  onEvidenceChange,
 }) => {
   const { toast } = useToast();
   const [clientSideMaxDateTime, setClientSideMaxDateTime] = useState<string | undefined>(undefined);
@@ -315,10 +315,9 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
           <TabsContent value="preservation" className="mt-4">
              <EvidenceManager
                 title="Preservación de Hechos y Evidencias"
+                analysisId={analysisId}
                 evidences={preservedFacts}
-                onAddEvidence={onAddPreservedFact}
-                onRemoveEvidence={onRemovePreservedFact}
-                isSaving={isSaving}
+                onEvidenceAdded={onEvidenceChange}
               />
           </TabsContent>
         </Tabs>
@@ -330,7 +329,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Save className="mr-2 h-4 w-4" /> Guardar Avance
             </Button>
-            <Button onClick={handleNextWithSave} className="w-full sm:w-auto transition-transform hover:scale-105 sm:space-x-2" disabled={isSaving}>
+            <Button onClick={handleNextWithSave} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Siguiente
             </Button>

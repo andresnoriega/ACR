@@ -1112,75 +1112,6 @@ function RCAAnalysisPageComponent() {
     setDetailedFacts(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleAddPreservedFact = async (factMetadata: Omit<Evidence, 'id' | 'dataUrl'>, file: File) => {
-    setIsSaving(true);
-    try {
-      let currentEventId = analysisDocumentId;
-      if (!currentEventId) {
-        const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
-        if (!saveResult.success || !saveResult.newEventId) {
-          throw new Error("No se pudo crear el documento de análisis antes de subir el archivo.");
-        }
-        currentEventId = saveResult.newEventId;
-      }
-  
-      toast({ title: "Procesando archivo...", description: `Convirtiendo ${file.name} a Data URL.` });
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = (error) => reject(error);
-        reader.readAsDataURL(file);
-      });
-  
-      const newFact: Evidence = {
-        ...factMetadata,
-        id: generateClientSideId('pf'),
-        dataUrl,
-      };
-  
-      const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
-      await updateDoc(rcaDocRef, {
-        preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
-        updatedAt: new Date().toISOString()
-      });
-  
-      setPreservedFacts(prev => [...(prev || []), newFact]);
-      toast({ title: "Hecho Preservado Añadido", description: `Se añadió "${newFact.nombre}".` });
-  
-    } catch (error: any) {
-      console.error("[handleAddPreservedFact] Error detallado:", error);
-      toast({ title: "Error al Procesar Evidencia", description: `No se pudo procesar el archivo: ${error.message || 'Error desconocido'}`, variant: "destructive" });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-  
-  const handleRemovePreservedFact = async (id: string) => {
-    if (!analysisDocumentId) {
-      toast({ title: "Error", description: "ID del análisis no encontrado.", variant: "destructive" });
-      return;
-    }
-    const factToRemove = preservedFacts.find(fact => fact.id === id);
-    if (!factToRemove) return;
-
-    setIsSaving(true);
-    const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
-    try {
-      await updateDoc(rcaDocRef, {
-          preservedFacts: arrayRemove(sanitizeForFirestore(factToRemove)),
-          updatedAt: new Date().toISOString()
-      });
-      setPreservedFacts(prev => prev.filter(fact => fact.id !== id));
-      toast({ title: "Hecho Preservado Eliminado", description: "La referencia se eliminó exitosamente.", variant: 'destructive' });
-    } catch (error: any) {
-      console.error("Error al actualizar Firestore después de eliminar hecho:", error);
-      toast({ title: "Error de Sincronización", description: `No se pudo confirmar la eliminación en la base de datos: ${error.message}. Recargue la página.`, variant: 'destructive' });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);
     
@@ -1515,9 +1446,9 @@ function RCAAnalysisPageComponent() {
           onNext={handleNextStep}
           onSaveAnalysis={handleSaveFromStep2}
           isSaving={isSaving}
+          analysisId={analysisDocumentId}
           preservedFacts={preservedFacts}
-          onAddPreservedFact={handleAddPreservedFact}
-          onRemovePreservedFact={handleRemovePreservedFact}
+          onEvidenceChange={() => loadAnalysisData(analysisDocumentId!)}
         />
       )}
       </div>
