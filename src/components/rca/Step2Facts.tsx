@@ -46,10 +46,10 @@ export const Step2Facts: FC<{
   onAnalysisDetailsChange: (value: string) => void;
   preservedFacts: Evidence[];
   onRemovePreservedFact: (factId: string) => Promise<void>;
-  onPrevious: () => void;
-  onNext: () => void;
   onSaveAnalysis: (showToast?: boolean, newPreservedFact?: Evidence) => Promise<void>;
   isSaving: boolean;
+  onPrevious: () => void;
+  onNext: () => void;
 }> = ({
   eventData,
   availableSites,
@@ -66,10 +66,10 @@ export const Step2Facts: FC<{
   onAnalysisDetailsChange,
   preservedFacts,
   onRemovePreservedFact,
-  onPrevious,
-  onNext,
   onSaveAnalysis,
   isSaving,
+  onPrevious,
+  onNext,
 }) => {
   const { toast } = useToast();
   const [clientSideMaxDateTime, setClientSideMaxDateTime] = useState<string | undefined>(undefined);
@@ -157,53 +157,65 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
   };
 
   const handleSaveProgressLocal = async () => {
-    const options = evidenceFile ? { file: evidenceFile, comment: evidenceComment } : undefined;
-    if (options && options.file) {
-      // Logic from handleNextWithSave
-      if (!options.file) return;
-      const reader = new FileReader();
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = (error) => reject(error);
-          reader.readAsDataURL(options.file!);
-      });
-      const newFact: Evidence = {
-          id: `preserved-${Date.now()}`,
-          nombre: options.file.name,
-          tipo: options.file.type.split('/')[1] as Evidence['tipo'] || 'other',
-          comment: options.comment.trim() || undefined,
-          dataUrl: dataUrl,
-      };
-      await onSaveAnalysis(true, newFact);
+    if (evidenceFile) {
+        if (evidenceFile.size > 700 * 1024) { // 700 KB limit
+            toast({
+              title: "Archivo Demasiado Grande",
+              description: "El archivo de evidencia no puede superar los 700 KB.",
+              variant: "destructive",
+            });
+            return;
+        }
+        const reader = new FileReader();
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = (error) => reject(error);
+            reader.readAsDataURL(evidenceFile);
+        });
+        const newFact: Evidence = {
+            id: `preserved-${Date.now()}`,
+            nombre: evidenceFile.name,
+            tipo: evidenceFile.type.split('/')[1] as Evidence['tipo'] || 'other',
+            comment: evidenceComment.trim() || undefined,
+            dataUrl: dataUrl,
+        };
+        await onSaveAnalysis(true, newFact);
+        setEvidenceFile(null);
+        setEvidenceComment('');
+        const fileInput = document.getElementById('step2-evidence-file-input') as HTMLInputElement;
+        if (fileInput) fileInput.value = '';
     } else {
         await onSaveAnalysis(true);
     }
-    // Clear the form after saving
-    setEvidenceFile(null);
-    setEvidenceComment('');
-    const fileInput = document.getElementById('step2-evidence-file-input') as HTMLInputElement;
-    if (fileInput) fileInput.value = '';
   };
-
+  
   const handleNextWithSave = async () => {
     if (!validateFieldsForNext()) {
       return;
     }
     if (evidenceFile) {
-      const reader = new FileReader();
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = (error) => reject(error);
-          reader.readAsDataURL(evidenceFile);
-      });
-      const newFact: Evidence = {
-          id: `preserved-${Date.now()}`,
-          nombre: evidenceFile.name,
-          tipo: evidenceFile.type.split('/')[1] as Evidence['tipo'] || 'other',
-          comment: evidenceComment.trim() || undefined,
-          dataUrl: dataUrl,
-      };
-      await onSaveAnalysis(false, newFact);
+        if (evidenceFile.size > 700 * 1024) { // 700 KB limit
+            toast({
+              title: "Archivo Demasiado Grande",
+              description: "El archivo de evidencia no puede superar los 700 KB.",
+              variant: "destructive",
+            });
+            return;
+        }
+        const reader = new FileReader();
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = (error) => reject(error);
+            reader.readAsDataURL(evidenceFile);
+        });
+        const newFact: Evidence = {
+            id: `preserved-${Date.now()}`,
+            nombre: evidenceFile.name,
+            tipo: evidenceFile.type.split('/')[1] as Evidence['tipo'] || 'other',
+            comment: evidenceComment.trim() || undefined,
+            dataUrl: dataUrl,
+        };
+        await onSaveAnalysis(false, newFact);
     } else {
       await onSaveAnalysis(false);
     }
@@ -348,7 +360,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
             />
           </div>
         </div>
-
+        
         <div className="space-y-4 pt-4 border-t">
           <h3 className="text-lg font-semibold font-headline flex items-center">
             <FileArchive className="mr-2 h-5 w-5 text-primary" />
@@ -376,7 +388,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                 />
               </div>
           </div>
-          {preservedFacts.length > 0 && (
+          {preservedFacts && preservedFacts.length > 0 && (
             <div className="space-y-2 mt-4">
               <h4 className="font-medium text-sm">Hechos Preservados Adjuntos:</h4>
               <ul className="space-y-2">
