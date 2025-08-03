@@ -158,17 +158,6 @@ export interface IdentifiedRootCause {
   description: string;
 }
 
-export interface PreservedFact {
-  id: string;
-  userGivenName: string;
-  category?: string;
-  uploadDate: string; // ISO string
-  eventId: string;
-  storagePath: string; // Firebase Storage path
-  downloadURL: string;
-  comment?: string;
-}
-
 export interface Evidence {
   id: string;
   nombre: string;
@@ -177,6 +166,9 @@ export interface Evidence {
   comment?: string;
   category?: string;
 }
+
+export type PreservedFact = Evidence;
+
 
 export interface PlannedAction {
   id: string;

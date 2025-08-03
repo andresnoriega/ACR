@@ -1,6 +1,6 @@
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef, ChangeEvent } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification, Evidence } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -737,12 +737,14 @@ function RCAAnalysisPageComponent() {
   };
   
   const handleSaveWithNewFact = async (
-    factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>,
+    factMetadata: Omit<Evidence, 'id' | 'dataUrl'>,
     file: File | null
   ) => {
-    setIsSaving(true);
+    setIsSaving(true); // This should be handled by the child component state, but we set it here for safety.
     try {
-      if (!file) throw new Error("No se seleccionó ningún archivo.");
+      if (!file) {
+        throw new Error("No se seleccionó ningún archivo.");
+      }
 
       // Step 1: Ensure the analysis document exists and we have an ID
       let currentEventId = analysisDocumentId;
@@ -753,23 +755,24 @@ function RCAAnalysisPageComponent() {
         }
         currentEventId = saveResult.newEventId;
       }
-
-      // Step 2: Upload the file to Storage
-      toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
-      const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
-      const fileStorageRef = storageRef(storage, filePath);
       
-      const uploadResult = await uploadBytes(fileStorageRef, file);
-      const downloadURL = await getDownloadURL(uploadResult.ref);
+      // Step 2: Convert file to Data URL
+      toast({ title: "Procesando archivo...", description: `Convirtiendo ${file.name} a Data URL.` });
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = (error) => reject(error);
+          reader.readAsDataURL(file);
+      });
 
-      // Step 3: Create the PreservedFact object and update Firestore
+
+      // Step 3: Create the PreservedFact (Evidence) object and update Firestore
       const newFact: PreservedFact = {
         ...factMetadata,
-        id: generateClientSideId('pf'),
-        uploadDate: new Date().toISOString(),
-        eventId: currentEventId,
-        downloadURL: downloadURL,
-        storagePath: uploadResult.ref.fullPath,
+        id: generateClientSideId('fact'),
+        nombre: file.name,
+        tipo: file.type.split('/')[1] || 'other',
+        dataUrl,
       };
 
       const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
@@ -780,13 +783,13 @@ function RCAAnalysisPageComponent() {
 
       // Step 4: Update local state to reflect the change immediately
       setPreservedFacts(prev => [...prev, newFact]);
-      toast({ title: "Hecho Preservado Añadido", description: `Se añadió y subió "${newFact.userGivenName}".` });
+      toast({ title: "Hecho Preservado Añadido", description: `Se añadió y guardó "${newFact.nombre}".` });
 
     } catch (error: any) {
-      console.error("Error detallado al subir hecho preservado:", error);
-      toast({ title: "Error al Subir", description: `No se pudo subir el archivo. Verifique la consola. Error: ${error.message || 'Desconocido'}`, variant: "destructive" });
+      console.error("Error detallado al preservar hecho:", error);
+      toast({ title: "Error al Preservar Hecho", description: `No se pudo guardar el hecho. Error: ${error.message || 'Desconocido'}`, variant: "destructive" });
     } finally {
-      setIsSaving(false); // Ensure this always runs
+      setIsSaving(false);
     }
   };
 
@@ -1181,20 +1184,6 @@ function RCAAnalysisPageComponent() {
     if (!factToRemove) return;
 
     setIsSaving(true);
-    
-    // First, try to delete from storage if a path exists
-    if (factToRemove.storagePath) {
-      try {
-        const fileRef = storageRef(storage, factToRemove.storagePath);
-        await deleteObject(fileRef);
-        toast({ title: "Archivo Eliminado de Storage", variant: "default" });
-      } catch (error: any) {
-        if (error.code !== 'storage/object-not-found') {
-          console.error("Error deleting file from Storage:", error);
-          toast({ title: "Error al Eliminar Archivo", description: "No se pudo eliminar el archivo de Storage, pero se eliminará la referencia.", variant: "destructive" });
-        }
-      }
-    }
     
     // Then, remove from Firestore using arrayRemove and update local state
     const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);

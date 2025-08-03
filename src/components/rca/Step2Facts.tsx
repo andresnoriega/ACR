@@ -18,7 +18,7 @@ import { InvestigationTeamManager } from './InvestigationTeamManager';
 import { paraphrasePhenomenon, type ParaphrasePhenomenonInput } from '@/ai/flows/paraphrase-phenomenon';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-const getEvidenceIconLocal = (fileName: string | undefined) => {
+const getEvidenceIconLocal = (fileName?: string) => {
     if (!fileName) {
         return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
     }
@@ -62,7 +62,7 @@ export const Step2Facts: FC<{
   onAnalysisDetailsChange: (value: string) => void;
   preservedFacts: PreservedFact[];
   onRemovePreservedFact: (factId: string) => Promise<void>;
-  onSaveWithNewFact: (factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>, file: File) => Promise<void>;
+  onSaveWithNewFact: (factMetadata: Omit<Evidence, 'id' | 'dataUrl'>, file: File) => Promise<void>;
   isSaving: boolean;
   onPrevious: () => void;
   onNext: () => void;
@@ -197,8 +197,9 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     setIsUploading(true);
     
     try {
-      const factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'> = {
-        userGivenName: evidenceFile.name,
+      const factMetadata: Omit<Evidence, 'id' | 'dataUrl'> = {
+        nombre: evidenceFile.name,
+        tipo: evidenceFile.type.split('/')[1] || 'other',
         category: evidenceCategory,
         comment: evidenceComment.trim() || undefined,
       };
@@ -215,7 +216,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
 
     } catch(error) {
        console.error("Error during fact preservation:", error);
-       // The parent page (analisis) will show the toast for specific errors.
     } finally {
        setIsUploading(false);
     }
@@ -225,7 +225,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     if (!validateFieldsForNext()) {
       return;
     }
-    // Logic now resides in the parent page for onNext
     onNext();
   };
 
@@ -434,16 +433,16 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                   {preservedFacts.map((fact) => (
                     <li key={fact.id} className="flex items-start justify-between text-sm border p-2 rounded-md bg-background">
                       <div className="flex items-start">
-                        {getEvidenceIconLocal(fact.userGivenName)}
+                        {getEvidenceIconLocal(fact.nombre)}
                         <div className="flex flex-col">
                           <span className="font-semibold text-primary">{fact.category || 'Sin categoría'}</span>
-                          <span className="font-medium">{fact.userGivenName}</span>
+                          <span className="font-medium">{fact.nombre}</span>
                           {fact.comment && <span className="text-xs italic text-muted-foreground">"{fact.comment}"</span>}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                         <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
-                          <a href={fact.downloadURL} target="_blank" rel="noopener noreferrer">
+                          <a href={fact.dataUrl} target="_blank" rel="noopener noreferrer" download={fact.nombre}>
                             <ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar
                           </a>
                         </Button>
