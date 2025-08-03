@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { FC, ChangeEvent } from 'react';
@@ -93,7 +94,6 @@ const ActionPlanCard: FC<ActionPlanCardProps> = ({ plan, availableUsers, userPro
         <div className='flex justify-between items-start'>
             <div>
                 <CardTitle className="text-lg font-semibold text-primary">{plan.accionResumen}</CardTitle>
-                <CardDescription>ID Acción: {plan.id}</CardDescription>
             </div>
             <span className={cn("px-2 py-0.5 rounded-full text-xs font-semibold",
                 plan.estado === 'Pendiente' && 'bg-orange-100 text-orange-700',
@@ -105,9 +105,6 @@ const ActionPlanCard: FC<ActionPlanCardProps> = ({ plan, availableUsers, userPro
         </div>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
-        <div><Label className="font-semibold">Descripción Completa:</Label><p className="whitespace-pre-line bg-muted/20 p-2 rounded-md">{plan.descripcionDetallada}</p></div>
-        <div><Label className="font-semibold">Responsable:</Label> <p>{plan.responsableDetalle}</p></div>
-        <div><Label className="font-semibold">Plazo límite:</Label> <p>{plan.plazoLimite}</p></div>
         
         <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Evidencias Adjuntas]</h4>
             {localPlan.evidencias.length > 0 ? (<ul className="space-y-1.5">
@@ -496,16 +493,12 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
           <TabsContent value="preservation">
             <Card className="shadow-inner bg-secondary/20 mt-4">
               <CardHeader>
-                <CardTitle className="text-lg font-semibold flex items-center">
-                  <FolderKanban className="mr-2 h-5 w-5 text-primary" />
-                  Gestión de Tareas
+                <CardTitle className="text-lg font-semibold text-primary flex items-center">
+                  <ListTodo className="mr-2 h-5 w-5" /> Tareas del Plan de Acción
                 </CardTitle>
               </CardHeader>
               <CardContent>
                  <div className="mt-6 pt-6 border-t">
-                    <h3 className="text-lg font-semibold text-primary flex items-center mb-2">
-                        <ListTodo className="mr-2 h-5 w-5" /> Tareas del Plan de Acción
-                    </h3>
                     {assignedActionPlans.length > 0 ? (
                       <div className="space-y-4">
                           {assignedActionPlans.map(plan => (
@@ -521,7 +514,8 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                       </div>
                     ) : (
                       <div className="text-center text-muted-foreground py-10">
-                          No hay planes de acción definidos para este análisis. Vaya al Paso 3 para añadirlos.
+                          <p>No hay planes de acción definidos para este análisis.</p>
+                          <p className="text-xs mt-1">Vaya al Paso 3 para añadirlos.</p>
                       </div>
                     )}
                 </div>
