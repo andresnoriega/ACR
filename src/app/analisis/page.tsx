@@ -736,60 +736,29 @@ function RCAAnalysisPageComponent() {
     }
   };
   
-  const handleSaveWithNewFact = async (
-    factMetadata: Omit<Evidence, 'id' | 'dataUrl'>,
-    file: File | null
-  ) => {
-    setIsSaving(true); 
+  const handleAddPreservedFact = async (newFactWithDataUrl: PreservedFact) => {
     try {
-      if (!file) {
-        throw new Error("No se seleccionó ningún archivo.");
-      }
-
-      // Step 1: Ensure the analysis document exists and we have an ID
       let currentEventId = analysisDocumentId;
       if (!currentEventId) {
         const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
         if (!saveResult.success || !saveResult.newEventId) {
-          throw new Error("No se pudo crear el documento de análisis antes de subir el archivo.");
+          throw new Error("No se pudo crear el documento de análisis antes de añadir el hecho.");
         }
         currentEventId = saveResult.newEventId;
       }
       
-      // Step 2: Convert file to Data URL
-      toast({ title: "Procesando archivo...", description: `Convirtiendo ${file.name} a Data URL.` });
-      const reader = new FileReader();
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = (error) => reject(error);
-          reader.readAsDataURL(file);
-      });
-
-
-      // Step 3: Create the PreservedFact (Evidence) object and update Firestore
-      const newFact: PreservedFact = {
-        ...factMetadata,
-        id: generateClientSideId('fact'),
-        nombre: file.name,
-        tipo: file.type.split('/')[1] || 'other',
-        dataUrl,
-      };
-
       const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
       await updateDoc(rcaDocRef, {
-        preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
+        preservedFacts: arrayUnion(sanitizeForFirestore(newFactWithDataUrl)),
         updatedAt: new Date().toISOString()
       });
 
-      // Step 4: Update local state to reflect the change immediately
-      setPreservedFacts(prev => [...prev, newFact]);
-      toast({ title: "Hecho Preservado Añadido", description: `Se añadió y guardó "${newFact.nombre}".` });
+      setPreservedFacts(prev => [...prev, newFactWithDataUrl]);
+      toast({ title: "Hecho Preservado Añadido", description: `Se añadió "${newFactWithDataUrl.nombre}" a la lista. Se guardará con el próximo avance.` });
 
     } catch (error: any) {
       console.error("Error detallado al preservar hecho:", error);
       toast({ title: "Error al Preservar Hecho", description: `No se pudo guardar el hecho. Error: ${error.message || 'Desconocido'}`, variant: "destructive" });
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -1581,7 +1550,7 @@ function RCAAnalysisPageComponent() {
           onAnalysisDetailsChange={setAnalysisDetails}
           preservedFacts={preservedFacts}
           onRemovePreservedFact={handleRemovePreservedFact}
-          onSaveWithNewFact={handleSaveWithNewFact}
+          onAddPreservedFact={handleAddPreservedFact}
           isSaving={isSaving}
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}

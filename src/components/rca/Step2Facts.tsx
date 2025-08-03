@@ -44,6 +44,12 @@ const factCategories = [
   "Otras."
 ];
 
+let idCounter = Date.now();
+const generateClientSideId = (prefix: string) => {
+    idCounter++;
+    return `${prefix}-${idCounter}`;
+};
+
 
 // ------ COMPONENTE PRINCIPAL ------
 export const Step2Facts: FC<{
@@ -62,7 +68,7 @@ export const Step2Facts: FC<{
   onAnalysisDetailsChange: (value: string) => void;
   preservedFacts: PreservedFact[];
   onRemovePreservedFact: (factId: string) => Promise<void>;
-  onSaveWithNewFact: (factMetadata: Omit<Evidence, 'id' | 'dataUrl'>, file: File | null) => Promise<void>;
+  onAddPreservedFact: (newFact: PreservedFact) => Promise<void>;
   isSaving: boolean;
   onPrevious: () => void;
   onNext: () => void;
@@ -84,7 +90,7 @@ export const Step2Facts: FC<{
   onAnalysisDetailsChange,
   preservedFacts,
   onRemovePreservedFact,
-  onSaveWithNewFact,
+  onAddPreservedFact,
   isSaving,
   onPrevious,
   onNext,
@@ -180,14 +186,24 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     setIsUploading(true);
     
     try {
-      const factMetadata: Omit<Evidence, 'id' | 'dataUrl'> = {
+      toast({ title: "Procesando archivo...", description: `Convirtiendo ${evidenceFile.name} a Data URL.` });
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = (error) => reject(error);
+          reader.readAsDataURL(evidenceFile);
+      });
+
+      const newFact: PreservedFact = {
+        id: generateClientSideId('fact'),
         nombre: evidenceFile.name,
         tipo: evidenceFile.type.split('/')[1] || 'other',
         category: evidenceCategory,
         comment: evidenceComment.trim() || undefined,
+        dataUrl: dataUrl,
       };
       
-      await onSaveWithNewFact(factMetadata, evidenceFile);
+      await onAddPreservedFact(newFact);
       
       // Reset form
       setEvidenceFile(null);
