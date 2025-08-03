@@ -164,7 +164,6 @@ export interface Evidence {
   tipo: 'pdf' | 'jpg' | 'png' | 'jpeg' | 'doc' | 'docx' | 'link' | 'other' | string;
   dataUrl: string;
   comment?: string;
-  userGivenName?: string; 
 }
 
 
@@ -247,7 +246,6 @@ export interface RCAAnalysisDocument {
   ctmData: CTMData;
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
-  evidences: Evidence[];
   validations: Validation[];
   finalComments: string;
   leccionesAprendidas: string;

@@ -17,7 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { paraphrasePhenomenon, type ParaphrasePhenomenonInput } from '@/ai/flows/paraphrase-phenomenon';
 import { InvestigationTeamManager } from './InvestigationTeamManager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { EvidenceManager } from './EvidenceManager';
+import { PreservedFactsManager } from './PreservedFactsManager';
 
 
 let idCounter = Date.now();
@@ -313,18 +313,17 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
             </div>
           </TabsContent>
           <TabsContent value="preservation" className="mt-4">
-             <EvidenceManager
-                title="Preservación de Hechos y Evidencias"
+             <PreservedFactsManager
                 analysisId={analysisId}
-                evidences={preservedFacts}
-                onEvidenceAdded={onEvidenceChange}
+                preservedFacts={preservedFacts}
+                onEvidenceChange={onEvidenceChange}
               />
           </TabsContent>
         </Tabs>
       </CardContent>
       <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 border-t">
         <Button onClick={onPrevious} variant="outline" className="w-full sm:w-auto mb-2 sm:mb-0 transition-transform hover:scale-105" disabled={isSaving}>Anterior</Button>
-        <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto sm:space-x-2">
             <Button onClick={onSaveAnalysis} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Save className="mr-2 h-4 w-4" /> Guardar Avance

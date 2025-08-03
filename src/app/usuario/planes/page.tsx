@@ -472,7 +472,7 @@ export default function UserActionPlansPage() {
         newEvidencePayload = {
           id: generateClientSideId('ev'),
           nombre: fileToUpload.name,
-          tipo: (fileToUpload.type.split('/')[1] as FirestoreEvidence['tipo']) || 'other',
+          tipo: (fileToUpload.type as FirestoreEvidence['tipo']) || 'other',
           comment: evidenceComment.trim() || undefined,
           dataUrl: dataUrl,
         };

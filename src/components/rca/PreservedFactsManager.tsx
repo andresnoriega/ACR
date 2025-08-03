@@ -13,6 +13,8 @@ import { PlusCircle, Trash2, ImageIcon, FileText, Link2, Paperclip, Loader2, Ext
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { sanitizeForFirestore } from '@/lib/utils';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertTriangle } from 'lucide-react';
 
 let idCounter = Date.now();
 const generateClientSideId = (prefix: string) => {
@@ -34,14 +36,13 @@ const getEvidenceIconLocal = (tipo?: string) => {
 };
 
 
-interface EvidenceManagerProps {
-  title: string;
+interface PreservedFactsManagerProps {
   analysisId: string | null;
-  evidences: Evidence[];
-  onEvidenceAdded: () => void; // Callback to notify parent about data change
+  preservedFacts: Evidence[];
+  onEvidenceChange: () => void;
 }
 
-export const EvidenceManager: FC<EvidenceManagerProps> = ({ title, analysisId, evidences, onEvidenceAdded }) => {
+export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({ analysisId, preservedFacts, onEvidenceChange }) => {
   const { toast } = useToast();
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
   const [evidenceComment, setEvidenceComment] = useState('');
@@ -73,7 +74,7 @@ export const EvidenceManager: FC<EvidenceManagerProps> = ({ title, analysisId, e
   
   const handleAddClick = async () => {
     if (!analysisId) {
-      toast({ title: "Error", description: "El análisis debe guardarse al menos una vez antes de añadir evidencias.", variant: "destructive" });
+      toast({ title: "Error", description: "El análisis debe guardarse al menos una vez antes de añadir hechos.", variant: "destructive" });
       return;
     }
     if (!fileToUpload) {
@@ -81,7 +82,7 @@ export const EvidenceManager: FC<EvidenceManagerProps> = ({ title, analysisId, e
       return;
     }
     if (!userGivenName.trim()) {
-      toast({ title: "Nombre requerido", description: "Por favor, asigne un nombre a la evidencia.", variant: "destructive" });
+      toast({ title: "Nombre requerido", description: "Por favor, asigne un nombre al hecho preservado.", variant: "destructive" });
       return;
     }
 
@@ -109,8 +110,8 @@ export const EvidenceManager: FC<EvidenceManagerProps> = ({ title, analysisId, e
           updatedAt: new Date().toISOString()
       });
 
-      toast({ title: "Evidencia Guardada", description: `Se añadió "${newEvidence.nombre}" al análisis.` });
-      onEvidenceAdded(); // Notify parent to refetch/update state
+      toast({ title: "Hecho Guardado", description: `Se añadió "${newEvidence.nombre}" al análisis.` });
+      onEvidenceChange(); // Notify parent to refetch/update state
       
       // Reset form
       setFileToUpload(null);
@@ -121,7 +122,7 @@ export const EvidenceManager: FC<EvidenceManagerProps> = ({ title, analysisId, e
 
     } catch (error: any) {
       console.error("[handleAddClick] Error detallado:", error);
-      toast({ title: "Error al Guardar Evidencia", description: `No se pudo procesar el archivo: ${error.message || 'Error desconocido'}`, variant: "destructive" });
+      toast({ title: "Error al Guardar Hecho", description: `No se pudo procesar el archivo: ${error.message || 'Error desconocido'}`, variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -137,49 +138,60 @@ export const EvidenceManager: FC<EvidenceManagerProps> = ({ title, analysisId, e
         preservedFacts: arrayRemove(sanitizeForFirestore(evidenceToRemove)),
         updatedAt: new Date().toISOString(),
       });
-      toast({ title: "Evidencia Eliminada", variant: 'destructive' });
-      onEvidenceAdded(); // Notify parent to refetch/update state
+      toast({ title: "Hecho Eliminado", variant: 'destructive' });
+      onEvidenceChange(); // Notify parent to refetch/update state
     } catch (error) {
-      console.error("Error removing evidence:", error);
-      toast({ title: "Error", description: `No se pudo eliminar la evidencia: ${(error as Error).message}`, variant: "destructive" });
+      console.error("Error removing preserved fact:", error);
+      toast({ title: "Error", description: `No se pudo eliminar el hecho: ${(error as Error).message}`, variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
   };
+  
+  const isManagerDisabled = !analysisId;
 
   return (
     <Card className="shadow-inner bg-secondary/20">
       <CardHeader>
         <CardTitle className="text-lg font-semibold flex items-center">
           <Paperclip className="mr-2 h-5 w-5 text-primary" />
-          {title}
+          Preservación de Hechos
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-3 p-3 border rounded-md bg-background">
+        {isManagerDisabled && (
+          <Alert variant="default" className="bg-yellow-50 border-yellow-200 text-yellow-800">
+            <AlertTriangle className="h-5 w-5 !text-yellow-600" />
+            <AlertTitle className="font-semibold">Acción Requerida</AlertTitle>
+            <AlertDescription>
+              Debe guardar el avance del análisis al menos una vez para poder adjuntar hechos preservados. Utilice el botón "Guardar Avance" al final de la página.
+            </AlertDescription>
+          </Alert>
+        )}
+        <div className="space-y-3 p-3 border rounded-md bg-background" style={{ opacity: isManagerDisabled ? 0.5 : 1, pointerEvents: isManagerDisabled ? 'none' : 'auto' }}>
           <div>
-            <Label htmlFor="evidence-file-input">Archivo de Evidencia (Máx. 700 KB)</Label>
-            <Input id="evidence-file-input" type="file" onChange={handleFileChange} className="text-xs h-9" disabled={isSaving} />
+            <Label htmlFor="evidence-file-input">Archivo (Máx. 700 KB)</Label>
+            <Input id="evidence-file-input" type="file" onChange={handleFileChange} className="text-xs h-9" disabled={isSaving || isManagerDisabled} />
           </div>
            <div>
-            <Label htmlFor="evidence-user-name">Nombre de la Evidencia</Label>
-            <Input id="evidence-user-name" type="text" placeholder="Ej: Foto del sensor dañado" value={userGivenName} onChange={(e) => setUserGivenName(e.target.value)} disabled={isSaving} />
+            <Label htmlFor="evidence-user-name">Nombre del Hecho Preservado</Label>
+            <Input id="evidence-user-name" type="text" placeholder="Ej: Foto del sensor dañado" value={userGivenName} onChange={(e) => setUserGivenName(e.target.value)} disabled={isSaving || isManagerDisabled} />
           </div>
           <div>
             <Label htmlFor="evidence-comment">Comentario (opcional)</Label>
-            <Textarea id="evidence-comment" placeholder="Breve descripción o contexto de la evidencia..." value={evidenceComment} onChange={(e) => setEvidenceComment(e.target.value)} rows={2} disabled={isSaving}/>
+            <Textarea id="evidence-comment" placeholder="Breve descripción o contexto de la evidencia..." value={evidenceComment} onChange={(e) => setEvidenceComment(e.target.value)} rows={2} disabled={isSaving || isManagerDisabled}/>
           </div>
-          <Button onClick={handleAddClick} size="sm" disabled={isSaving || !fileToUpload}>
+          <Button onClick={handleAddClick} size="sm" disabled={isSaving || !fileToUpload || isManagerDisabled}>
             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} 
             Guardar Hecho
           </Button>
         </div>
 
         <div className="space-y-2 pt-2">
-            <h4 className="font-semibold text-primary mb-1">[Evidencias Adjuntas]</h4>
-            {evidences && evidences.length > 0 ? (
+            <h4 className="font-semibold text-primary mb-1">[Hechos Preservados]</h4>
+            {preservedFacts && preservedFacts.length > 0 ? (
                 <ul className="space-y-1.5">
-                    {evidences.map(ev => (
+                    {preservedFacts.map(ev => (
                         <li key={ev.id} className="flex items-start justify-between text-xs border p-2 rounded-md bg-background">
                             <div className="flex-grow">
                                 <div className="flex items-center">{getEvidenceIconLocal(ev.tipo)}<span className="font-medium">{ev.nombre}</span></div>
@@ -193,7 +205,7 @@ export const EvidenceManager: FC<EvidenceManagerProps> = ({ title, analysisId, e
                     ))}
                 </ul>
             ) : (
-                <p className="text-xs text-muted-foreground italic">No hay evidencias adjuntas para este análisis.</p>
+                <p className="text-xs text-muted-foreground italic">No hay hechos preservados para este análisis.</p>
             )}
         </div>
       </CardContent>
