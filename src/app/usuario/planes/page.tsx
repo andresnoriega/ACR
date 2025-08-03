@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useCallback, ChangeEvent } from 'react';
-import type { FullUserProfile, RCAAnalysisDocument, PlannedAction as FirestorePlannedAction, Evidence as FirestoreEvidence, Validation, Site, ActionPlan, EfficacyVerificationTask } from '@/types/rca';
+import type { FullUserProfile, RCAAnalysisDocument, PlannedAction as FirestorePlannedAction, Evidence as FirestoreEvidence, Validation, Site, ActionPlan, EfficacyVerificationTask, Evidence } from '@/types/rca';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -462,8 +462,8 @@ export default function UserActionPlansPage() {
         }
 
         toast({ title: "Procesando archivo...", description: `Convirtiendo ${fileToUpload.name} a Data URL.` });
-        const reader = new FileReader();
         const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
             reader.onload = () => resolve(reader.result as string);
             reader.onerror = (error) => reject(error);
             reader.readAsDataURL(fileToUpload);
@@ -549,7 +549,7 @@ export default function UserActionPlansPage() {
   };
 
 
-  const getEvidenceIconLocal = (tipo?: FirestoreEvidence['tipo']) => {
+  const getEvidenceIconLocal = (tipo?: Evidence['tipo']) => {
     if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
     switch (tipo) {
       case 'link': return <Link2 className="h-4 w-4 mr-2 flex-shrink-0 text-indigo-600" />;

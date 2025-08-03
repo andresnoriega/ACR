@@ -2,7 +2,7 @@
 
 import type { FC, ChangeEvent } from 'react';
 import { useState } from 'react';
-import type { PreservedFact } from '@/types/rca';
+import type { Evidence } from '@/types/rca';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,8 +28,8 @@ const getEvidenceIconLocal = (tipo?: string) => {
 
 interface EvidenceManagerProps {
   title: string;
-  evidences: PreservedFact[];
-  onAddEvidence: (factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>, file: File) => Promise<void>;
+  evidences: Evidence[];
+  onAddEvidence: (factMetadata: Omit<Evidence, 'id' | 'dataUrl'>, file: File) => Promise<void>;
   onRemoveEvidence: (id: string) => void;
   isSaving: boolean;
 }
@@ -63,16 +63,14 @@ export const EvidenceManager: FC<EvidenceManagerProps> = ({ title, evidences, on
     }
 
     try {
-        const factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'> = {
-          userGivenName: userGivenName.trim(),
-          originalFileName: fileToUpload.name,
-          fileType: fileToUpload.type,
+        const factMetadata: Omit<Evidence, 'id' | 'dataUrl'> = {
+          nombre: userGivenName.trim(),
+          tipo: (fileToUpload.type.split('/')[1] as Evidence['tipo']) || 'other',
           comment: evidenceComment.trim() || undefined,
         };
 
         await onAddEvidence(factMetadata, fileToUpload);
         
-        // Reset form after successful submission
         setFileToUpload(null);
         setEvidenceComment('');
         setUserGivenName('');
@@ -120,18 +118,12 @@ export const EvidenceManager: FC<EvidenceManagerProps> = ({ title, evidences, on
                     {evidences.map(ev => (
                         <li key={ev.id} className="flex items-start justify-between text-xs border p-2 rounded-md bg-background">
                             <div className="flex-grow">
-                                <div className="flex items-center">{getEvidenceIconLocal(ev.fileType)}<span className="font-medium">{ev.userGivenName || ev.originalFileName}</span></div>
+                                <div className="flex items-center">{getEvidenceIconLocal(ev.tipo)}<span className="font-medium">{ev.nombre}</span></div>
                                 {ev.comment && <p className="text-xs text-muted-foreground ml-[calc(1rem+0.5rem)] mt-0.5">Comentario: {ev.comment}</p>}
                             </div>
                             <div className="flex-shrink-0 ml-2">
-                                <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mr-2">
-                                    <a href={ev.downloadURL} target="_blank" rel="noopener noreferrer" download={ev.originalFileName}>
-                                    <ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar
-                                    </a>
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-destructive/10" onClick={() => onRemoveEvidence(ev.id)} disabled={isSaving} aria-label="Eliminar evidencia">
-                                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                                </Button>
+                                <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mr-2"><a href={ev.dataUrl} target="_blank" rel="noopener noreferrer" download={ev.nombre}><ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar</a></Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-destructive/10" onClick={() => onRemoveEvidence(ev.id)} disabled={isSaving} aria-label="Eliminar evidencia"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                             </div>
                         </li>
                     ))}

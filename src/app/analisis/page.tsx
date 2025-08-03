@@ -1,6 +1,6 @@
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef, ChangeEvent } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification, Evidence } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, Evidence, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -10,9 +10,8 @@ import { Step5Results } from '@/components/rca/Step5Results';
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, updateDoc, where, type QueryConstraint, arrayUnion, arrayRemove } from "firebase/firestore";
-import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { Loader2 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { sanitizeForFirestore } from '@/lib/utils';
@@ -166,7 +165,7 @@ function RCAAnalysisPageComponent() {
   const [investigationObjective, setInvestigationObjective] = useState(initialRCAAnalysisState.investigationObjective || '');
   const [investigationSessions, setInvestigationSessions] = useState<InvestigationSession[]>(initialRCAAnalysisState.investigationSessions || []);
   const [analysisDetails, setAnalysisDetails] = useState(initialRCAAnalysisState.analysisDetails);
-  const [preservedFacts, setPreservedFacts] = useState<PreservedFact[]>(initialRCAAnalysisState.preservedFacts);
+  const [preservedFacts, setPreservedFacts] = useState<Evidence[]>(initialRCAAnalysisState.preservedFacts);
   const [evidences, setEvidences] = useState<Evidence[]>(initialRCAAnalysisState.evidences || []);
 
 
@@ -1114,67 +1113,53 @@ function RCAAnalysisPageComponent() {
   };
 
   const handleAddPreservedFact = async (
-    factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>,
+    factMetadata: Omit<Evidence, 'id' | 'dataUrl'>,
     file: File
   ) => {
-    console.log("[handleAddPreservedFact] Iniciando subida de evidencia...");
     setIsSaving(true);
-    let currentEventId = analysisDocumentId;
-  
     try {
+      let currentEventId = analysisDocumentId;
       if (!currentEventId) {
-        console.log("[handleAddPreservedFact] No hay ID de análisis, se creará uno nuevo.");
+        console.log("[handleAddPreservedFact] No hay ID, creando uno nuevo...");
         const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
-        if (saveResult.success && saveResult.newEventId) {
-          currentEventId = saveResult.newEventId;
-          console.log(`[handleAddPreservedFact] Nuevo ID de análisis creado: ${currentEventId}`);
-        } else {
+        if (!saveResult.success || !saveResult.newEventId) {
           throw new Error("No se pudo crear el documento de análisis antes de subir el archivo.");
         }
+        currentEventId = saveResult.newEventId;
+        console.log(`[handleAddPreservedFact] Nuevo ID creado: ${currentEventId}`);
       }
-  
-      toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
-      const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
-      console.log(`[handleAddPreservedFact] Subiendo archivo a Storage en la ruta: ${filePath}`);
-      const fileStorageRef = storageRef(storage, filePath);
-  
-      const uploadResult = await uploadBytes(fileStorageRef, file);
-      console.log("[handleAddPreservedFact] Archivo subido a Storage exitosamente.", uploadResult);
-      const downloadURL = await getDownloadURL(uploadResult.ref);
-      console.log(`[handleAddPreservedFact] URL de descarga obtenida: ${downloadURL}`);
-  
-      const newFact: PreservedFact = {
+
+      toast({ title: "Procesando archivo...", description: `Convirtiendo ${file.name} a Data URL.` });
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = (error) => reject(error);
+        reader.readAsDataURL(file);
+      });
+
+      const newFact: Evidence = {
+        ...factMetadata,
         id: generateClientSideId('pf'),
-        eventId: currentEventId,
-        userGivenName: factMetadata.userGivenName,
-        originalFileName: file.name,
-        fileType: file.type,
-        comment: factMetadata.comment,
-        uploadDate: new Date().toISOString(),
-        downloadURL: downloadURL,
-        storagePath: uploadResult.ref.fullPath,
+        dataUrl,
       };
-  
+
       const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
-      console.log(`[handleAddPreservedFact] Actualizando documento en Firestore: ${rcaDocRef.path}`);
+      console.log(`[handleAddPreservedFact] Actualizando documento Firestore: ${rcaDocRef.path}`);
       await updateDoc(rcaDocRef, {
         preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
         updatedAt: new Date().toISOString()
       });
-      console.log("[handleAddPreservedFact] Documento en Firestore actualizado.");
-  
-      setPreservedFacts(prev => [...prev, newFact]);
-      toast({ title: "Hecho Preservado Añadido", description: `Se añadió y subió "${newFact.userGivenName}".` });
-  
+
+      setPreservedFacts(prev => [...(prev || []), newFact]);
+      toast({ title: "Hecho Preservado Añadido", description: `Se añadió "${newFact.nombre}".` });
+
     } catch (error: any) {
-      console.error("[handleAddPreservedFact] Error detallado al subir hecho preservado:", error);
-      toast({ title: "Error al Procesar Evidencia", description: `No se pudo subir el archivo: ${error.message || 'Error desconocido'}`, variant: "destructive" });
+      console.error("[handleAddPreservedFact] Error detallado:", error);
+      toast({ title: "Error al Procesar Evidencia", description: `No se pudo procesar el archivo: ${error.message || 'Error desconocido'}`, variant: "destructive" });
     } finally {
       setIsSaving(false);
-      console.log("[handleAddPreservedFact] Proceso de subida finalizado.");
     }
   };
-  
   
   const handleRemovePreservedFact = async (id: string) => {
     if (!analysisDocumentId) {
@@ -1185,20 +1170,6 @@ function RCAAnalysisPageComponent() {
     if (!factToRemove) return;
 
     setIsSaving(true);
-    
-    if (factToRemove.storagePath) {
-      try {
-        const fileRef = storageRef(storage, factToRemove.storagePath);
-        await deleteObject(fileRef);
-        toast({ title: "Archivo Eliminado de Storage", variant: "default" });
-      } catch (error: any) {
-        if (error.code !== 'storage/object-not-found') {
-          console.error("Error deleting file from Storage:", error);
-          toast({ title: "Error al Eliminar Archivo", description: "No se pudo eliminar el archivo de Storage, pero se eliminará la referencia.", variant: "destructive" });
-        }
-      }
-    }
-    
     const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
     try {
       await updateDoc(rcaDocRef, {

@@ -158,25 +158,24 @@ export interface IdentifiedRootCause {
   description: string;
 }
 
-export interface PreservedFact {
-  id: string;
-  eventId: string;
-  userGivenName: string; // User-defined name for the evidence
-  originalFileName: string;
-  fileType: string;
-  downloadURL: string;
-  storagePath: string; // Path in Firebase Storage for deletion
-  comment?: string;
-  uploadDate: string; // ISO String
-}
-
+// Unified Evidence type for both preserved facts and action evidences
 export interface Evidence {
   id: string;
-  nombre: string;
+  nombre: string; // User-defined name
   tipo: 'pdf' | 'jpg' | 'png' | 'jpeg' | 'doc' | 'docx' | 'link' | 'other';
-  dataUrl: string;
+  dataUrl: string; // Stores the data URL for embedded files
   comment?: string;
+}
+
+// Kept PreservedFact for compatibility, but it will now be replaced by Evidence
+export interface PreservedFact extends Evidence {
+  eventId: string;
   userGivenName: string;
+  originalFileName: string;
+  fileType: string;
+  downloadURL: string; // This will now be the dataUrl
+  storagePath: string;
+  uploadDate: string; // ISO String
 }
 
 
@@ -249,7 +248,7 @@ export interface RCAAnalysisDocument {
   investigationObjective: string;
   investigationSessions: InvestigationSession[];
   analysisDetails: string;
-  preservedFacts: PreservedFact[];
+  preservedFacts: Evidence[]; // Changed from PreservedFact[] to Evidence[]
   timelineEvents: TimelineEvent[];
   brainstormingIdeas: BrainstormIdea[];
   analysisTechnique: AnalysisTechnique;
@@ -259,7 +258,7 @@ export interface RCAAnalysisDocument {
   ctmData: CTMData;
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
-  evidences: Evidence[];
+  evidences: Evidence[]; // This was an unused field, now unified with preservedFacts
   validations: Validation[];
   finalComments: string;
   leccionesAprendidas: string;

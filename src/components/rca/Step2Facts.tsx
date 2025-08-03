@@ -2,14 +2,14 @@
 
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import type { DetailedFacts, FullUserProfile, Site, InvestigationSession, PreservedFact, ActionPlan, PlannedAction as FirestorePlannedAction, Validation } from '@/types/rca';
+import type { DetailedFacts, FullUserProfile, Site, InvestigationSession, Evidence } from '@/types/rca';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserCircle, Save, Loader2, Target, ClipboardList, Sparkles, FolderKanban, CheckCircle2, MessageSquare, ExternalLink, Link2, Trash2, FileText, ImageIcon, Paperclip, CheckSquare, XCircle, ListTodo } from 'lucide-react';
+import { UserCircle, Save, Loader2, Target, ClipboardList, Sparkles } from 'lucide-react';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
@@ -17,11 +17,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { paraphrasePhenomenon, type ParaphrasePhenomenonInput } from '@/ai/flows/paraphrase-phenomenon';
 import { InvestigationTeamManager } from './InvestigationTeamManager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { cn } from '@/lib/utils';
-import { sanitizeForFirestore } from '@/lib/utils';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { sendEmailAction } from '@/app/actions';
 import { EvidenceManager } from './EvidenceManager';
 
 
@@ -49,8 +44,8 @@ export const Step2Facts: FC<{
   onPrevious: () => void;
   onNext: () => void;
   onSaveAnalysis: () => Promise<void>;
-  preservedFacts: PreservedFact[];
-  onAddPreservedFact: (factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>, file: File) => Promise<void>;
+  preservedFacts: Evidence[];
+  onAddPreservedFact: (factMetadata: Omit<Evidence, 'id' | 'dataUrl'>, file: File) => Promise<void>;
   onRemovePreservedFact: (id: string) => void;
 }> = ({
   detailedFacts,
@@ -335,7 +330,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Save className="mr-2 h-4 w-4" /> Guardar Avance
             </Button>
-            <Button onClick={handleNextWithSave} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
+            <Button onClick={handleNextWithSave} className="w-full sm:w-auto transition-transform hover:scale-105 sm:space-x-2" disabled={isSaving}>
                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Siguiente
             </Button>
