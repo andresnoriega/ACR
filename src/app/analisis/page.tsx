@@ -1,7 +1,6 @@
-
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef, ChangeEvent } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification, Evidence } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -65,7 +64,6 @@ const initialRCAAnalysisState: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedA
   investigationObjective: '', // <-- NUEVO ESTADO INICIAL
   investigationSessions: [],
   analysisDetails: '',
-  preservedFacts: [],
   timelineEvents: [],
   brainstormingIdeas: [],
   analysisTechnique: '',
@@ -167,7 +165,6 @@ function RCAAnalysisPageComponent() {
   const [investigationObjective, setInvestigationObjective] = useState(initialRCAAnalysisState.investigationObjective || '');
   const [investigationSessions, setInvestigationSessions] = useState<InvestigationSession[]>(initialRCAAnalysisState.investigationSessions || []);
   const [analysisDetails, setAnalysisDetails] = useState(initialRCAAnalysisState.analysisDetails);
-  const [preservedFacts, setPreservedFacts] = useState<PreservedFact[]>(initialRCAAnalysisState.preservedFacts);
 
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>(initialRCAAnalysisState.timelineEvents || []);
   const [brainstormingIdeas, setBrainstormingIdeas] = useState<BrainstormIdea[]>(initialRCAAnalysisState.brainstormingIdeas || []);
@@ -263,14 +260,6 @@ function RCAAnalysisPageComponent() {
         setInvestigationObjective(data.investigationObjective || '');
         setInvestigationSessions(data.investigationSessions || []);
         setAnalysisDetails(data.analysisDetails || '');
-        // Always ensure there's at least one empty preserved fact row to start with
-        const loadedPreservedFacts = data.preservedFacts || [];
-        if (loadedPreservedFacts.length === 0) {
-          loadedPreservedFacts.push({
-            id: generateClientSideId('pf'), userGivenName: '', category: '', description: '', fileName: '',
-          });
-        }
-        setPreservedFacts(loadedPreservedFacts);
         setTimelineEvents(data.timelineEvents || []);
         setBrainstormingIdeas(data.brainstormingIdeas || []);
         setAnalysisTechnique(data.analysisTechnique || '');
@@ -333,7 +322,6 @@ function RCAAnalysisPageComponent() {
             setInvestigationObjective(initialRCAAnalysisState.investigationObjective || '');
             setInvestigationSessions(initialRCAAnalysisState.investigationSessions || []);
             setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
-            setPreservedFacts([{ id: generateClientSideId('pf'), userGivenName: '', category: '', description: '', fileName: '' }]);
             setTimelineEvents(initialRCAAnalysisState.timelineEvents || []);
             setBrainstormingIdeas(initialRCAAnalysisState.brainstormingIdeas || []);
             setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
@@ -370,7 +358,6 @@ function RCAAnalysisPageComponent() {
         setInvestigationObjective(initialRCAAnalysisState.investigationObjective || '');
         setInvestigationSessions(initialRCAAnalysisState.investigationSessions || []);
         setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
-        setPreservedFacts([{ id: generateClientSideId('pf'), userGivenName: '', category: '', description: '', fileName: '' }]);
         setTimelineEvents(initialRCAAnalysisState.timelineEvents || []);
         setBrainstormingIdeas(initialRCAAnalysisState.brainstormingIdeas || []);
         setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
@@ -441,7 +428,6 @@ function RCAAnalysisPageComponent() {
             setInvestigationObjective(initialRCAAnalysisState.investigationObjective || '');
             setInvestigationSessions(initialRCAAnalysisState.investigationSessions || []);
             setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
-            setPreservedFacts([{ id: generateClientSideId('pf'), userGivenName: '', category: '', description: '', fileName: '' }]);
             setTimelineEvents(initialRCAAnalysisState.timelineEvents || []);
             setBrainstormingIdeas(initialRCAAnalysisState.brainstormingIdeas || []);
             setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
@@ -545,9 +531,10 @@ function RCAAnalysisPageComponent() {
       plannedActionsOverride?: PlannedAction[];
       suppressNavigation?: boolean; 
       efficacyVerificationOverride?: EfficacyVerification;
+      newEvidence?: { file: File, comment: string };
     }
   ): Promise<{ success: boolean; newEventId?: string; needsNavigationUrl?: string }> => {
-    const { finalizedOverride, statusOverride, rejectionReason: currentRejectionReason, validationsOverride, plannedActionsOverride, suppressNavigation, efficacyVerificationOverride } = options || {};
+    const { finalizedOverride, statusOverride, rejectionReason: currentRejectionReason, validationsOverride, plannedActionsOverride, suppressNavigation, efficacyVerificationOverride, newEvidence } = options || {};
 
     let currentId = analysisDocumentId;
     let isNewEventCreation = false;
@@ -589,16 +576,49 @@ function RCAAnalysisPageComponent() {
     }
     
     const currentEfficacyVerification = efficacyVerificationOverride || efficacyVerification;
+    
+    let currentPlannedActions = (plannedActionsOverride !== undefined) ? plannedActionsOverride : plannedActions;
 
-    // Filter out any empty/placeholder preserved facts before saving
-    const finalPreservedFacts = preservedFacts.filter(fact => fact.userGivenName || fact.category || fact.description || fact.fileName);
+    // Handle new evidence upload
+    if (newEvidence && newEvidence.file) {
+      if (newEvidence.file.size > 700 * 1024) { // 700 KB limit
+        toast({ title: "Archivo Demasiado Grande", description: "El archivo no debe exceder los 700KB.", variant: "destructive" });
+        setIsSaving(false);
+        return { success: false };
+      }
+      toast({ title: "Procesando archivo...", description: `Convirtiendo ${newEvidence.file.name} a Data URL.` });
+      
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = (error) => reject(error);
+          reader.readAsDataURL(newEvidence.file);
+      });
+
+      const newEvidencePayload: Evidence = {
+        id: generateClientSideId('ev'),
+        nombre: newEvidence.file.name,
+        tipo: (newEvidence.file.type.split('/')[1] as Evidence['tipo']) || 'other',
+        comment: newEvidence.comment.trim() || undefined,
+        dataUrl: dataUrl,
+      };
+
+      if (currentPlannedActions.length > 0) {
+        const firstAction = { ...currentPlannedActions[0] };
+        firstAction.evidencias = [...(firstAction.evidencias || []), newEvidencePayload];
+        currentPlannedActions = [firstAction, ...currentPlannedActions.slice(1)];
+        toast({ title: "Evidencia Asociada", description: `La evidencia se ha asociado a la primera acción planificada. Puede cambiar esto en el Paso 3.`, variant: 'default' });
+      } else {
+        toast({ title: "Evidencia No Asociada", description: "No hay acciones planificadas para asociar la evidencia. Por favor, cree una acción en el Paso 3.", variant: "destructive" });
+      }
+    }
 
 
     const rcaDocPayload: Partial<RCAAnalysisDocument> = {
       eventData: consistentEventData, immediateActions, projectLeader, detailedFacts, investigationObjective, investigationSessions, analysisDetails,
-      preservedFacts: finalPreservedFacts, timelineEvents, brainstormingIdeas, analysisTechnique, analysisTechniqueNotes, ishikawaData,
+      timelineEvents, brainstormingIdeas, analysisTechnique, analysisTechniqueNotes, ishikawaData,
       fiveWhysData, ctmData, identifiedRootCauses, 
-      plannedActions: (plannedActionsOverride !== undefined) ? plannedActionsOverride : plannedActions,
+      plannedActions: currentPlannedActions,
       validations: (validationsOverride !== undefined) ? validationsOverride : validations,
       finalComments, isFinalized: currentIsFinalized, efficacyVerification: currentEfficacyVerification,
       leccionesAprendidas,
@@ -639,7 +659,7 @@ function RCAAnalysisPageComponent() {
       if (efficacyVerificationOverride && efficacyVerification !== efficacyVerificationOverride) setEfficacyVerification(efficacyVerificationOverride);
       if (currentRejectionDetailsToSave !== rejectionDetails) setRejectionDetails(currentRejectionDetailsToSave);
       if (validationsOverride !== undefined && validationsOverride !== validations) setValidations(validationsOverride); 
-      if (plannedActionsOverride !== undefined && plannedActionsOverride !== plannedActions) setPlannedActions(plannedActionsOverride);
+      if (currentPlannedActions !== plannedActions) setPlannedActions(currentPlannedActions);
       if (dataToSave.createdBy && createdBy !== dataToSave.createdBy) setCreatedBy(dataToSave.createdBy);
       if(consistentEventData.id !== eventData.id) setEventData(consistentEventData);
 
@@ -743,8 +763,8 @@ function RCAAnalysisPageComponent() {
     }
   };
 
-  const handleSaveFromStep2 = async (showToast: boolean = true) => {
-    const saveResult = await handleSaveAnalysisData(showToast); 
+  const handleSaveFromStep2 = async (showToast: boolean = true, options?: { newEvidence?: { file: File, comment: string } }) => {
+    const saveResult = await handleSaveAnalysisData(showToast, options); 
     if (!saveResult.success) return;
 
     const currentIdToUpdate = saveResult.newEventId || analysisDocumentId; 
@@ -1165,57 +1185,6 @@ function RCAAnalysisPageComponent() {
     setDetailedFacts(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleAddPreservedFact = () => {
-    setPreservedFacts(prev => [...prev, {
-      id: generateClientSideId('pf'),
-      userGivenName: '',
-      category: '',
-      description: '',
-      fileName: '',
-    }]);
-  };
-  
-  const handleUpdatePreservedFact = async (
-    index: number, 
-    field: keyof Omit<PreservedFact, 'id'> | 'file', 
-    value: string | File
-  ) => {
-    if (field === 'file' && value instanceof File) {
-      const file = value;
-      if (file.size > 700 * 1024) { // 700 KB limit
-        toast({ title: "Archivo Demasiado Grande", description: "El archivo no debe exceder los 700KB.", variant: "destructive" });
-        return;
-      }
-      toast({ title: "Procesando archivo...", description: `Convirtiendo ${file.name} a Data URL.` });
-      
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = reader.result as string;
-        setPreservedFacts(prev => prev.map((fact, i) =>
-          i === index
-            ? { ...fact, fileName: file.name, fileType: file.type, dataUrl: dataUrl }
-            : fact
-        ));
-        toast({ title: "Archivo Procesado", description: "El archivo está listo para ser guardado." });
-      };
-      reader.onerror = (error) => {
-        console.error("Error reading file:", error);
-        toast({ title: "Error de Lectura", description: "No se pudo procesar el archivo.", variant: "destructive" });
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setPreservedFacts(prev => prev.map((fact, i) =>
-        i === index
-          ? { ...fact, [field as keyof PreservedFact]: value }
-          : fact
-      ));
-    }
-  };
-  
-  const handleRemovePreservedFact = (idToRemove: string) => {
-      setPreservedFacts(prev => prev.filter(f => f.id !== idToRemove));
-  };
-
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);
     
@@ -1572,10 +1541,6 @@ function RCAAnalysisPageComponent() {
           onSetInvestigationSessions={setInvestigationSessions}
           analysisDetails={analysisDetails}
           onAnalysisDetailsChange={setAnalysisDetails}
-          preservedFacts={preservedFacts}
-          onAddPreservedFact={handleAddPreservedFact}
-          onUpdatePreservedFact={handleUpdatePreservedFact}
-          onRemovePreservedFact={handleRemovePreservedFact}
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
           onSaveAnalysis={handleSaveFromStep2}

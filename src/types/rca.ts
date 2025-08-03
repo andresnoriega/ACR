@@ -166,17 +166,6 @@ export interface Evidence {
   comment?: string;
 }
 
-export interface PreservedFact {
-  id: string;
-  userGivenName: string;
-  category: string;
-  description: string;
-  fileName: string;
-  fileType?: string;
-  dataUrl?: string; 
-}
-
-
 export interface PlannedAction {
   id: string;
   eventId: string;
@@ -246,7 +235,6 @@ export interface RCAAnalysisDocument {
   investigationObjective: string;
   investigationSessions: InvestigationSession[];
   analysisDetails: string;
-  preservedFacts: PreservedFact[];
   timelineEvents: TimelineEvent[];
   brainstormingIdeas: BrainstormIdea[];
   analysisTechnique: AnalysisTechnique;
