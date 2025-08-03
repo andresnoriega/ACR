@@ -158,6 +158,18 @@ export interface IdentifiedRootCause {
   description: string;
 }
 
+export interface PreservedFact {
+  id: string;
+  eventId: string;
+  userGivenName: string; // User-defined name for the evidence
+  originalFileName: string;
+  fileType: string;
+  downloadURL: string;
+  storagePath: string; // Path in Firebase Storage for deletion
+  comment?: string;
+  uploadDate: string; // ISO String
+}
+
 export interface Evidence {
   id: string;
   nombre: string; // Original file name
@@ -236,6 +248,7 @@ export interface RCAAnalysisDocument {
   investigationObjective: string;
   investigationSessions: InvestigationSession[];
   analysisDetails: string;
+  preservedFacts: PreservedFact[];
   timelineEvents: TimelineEvent[];
   brainstormingIdeas: BrainstormIdea[];
   analysisTechnique: AnalysisTechnique;

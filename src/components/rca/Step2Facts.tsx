@@ -2,7 +2,7 @@
 
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import type { DetailedFacts, FullUserProfile, Site, InvestigationSession, Evidence, ActionPlan, PlannedAction as FirestorePlannedAction, Validation } from '@/types/rca';
+import type { DetailedFacts, FullUserProfile, Site, InvestigationSession, PreservedFact, ActionPlan, PlannedAction as FirestorePlannedAction, Validation } from '@/types/rca';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -49,14 +49,9 @@ export const Step2Facts: FC<{
   onPrevious: () => void;
   onNext: () => void;
   onSaveAnalysis: () => Promise<void>;
-  allRcaDocuments: any[];
-  userProfile: FullUserProfile | null;
-  loadingAuth: boolean;
-  plannedActions: FirestorePlannedAction[];
-  validations: Validation[];
-  evidences: Evidence[];
-  onAddEvidence: (factMetadata: Omit<Evidence, 'id' | 'dataUrl'>, file: File) => Promise<void>;
-  onRemoveEvidence: (id: string) => void;
+  preservedFacts: PreservedFact[];
+  onAddPreservedFact: (factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>, file: File) => Promise<void>;
+  onRemovePreservedFact: (id: string) => void;
 }> = ({
   detailedFacts,
   onDetailedFactChange,
@@ -74,18 +69,14 @@ export const Step2Facts: FC<{
   onPrevious,
   onNext,
   onSaveAnalysis,
-  allRcaDocuments,
-  userProfile,
-  loadingAuth,
-  plannedActions,
-  validations,
-  evidences,
-  onAddEvidence,
-  onRemoveEvidence,
+  preservedFacts,
+  onAddPreservedFact,
+  onRemovePreservedFact,
 }) => {
   const { toast } = useToast();
   const [clientSideMaxDateTime, setClientSideMaxDateTime] = useState<string | undefined>(undefined);
   const [isParaphrasing, setIsParaphrasing] = useState(false);
+  const { userProfile } = useAuth();
   
 
   const usersForDropdown = useMemo(() => {
@@ -329,9 +320,9 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
           <TabsContent value="preservation" className="mt-4">
              <EvidenceManager
                 title="Preservación de Hechos y Evidencias"
-                evidences={evidences}
-                onAddEvidence={onAddEvidence}
-                onRemoveEvidence={onRemoveEvidence}
+                evidences={preservedFacts}
+                onAddEvidence={onAddPreservedFact}
+                onRemoveEvidence={onRemovePreservedFact}
                 isSaving={isSaving}
               />
           </TabsContent>
