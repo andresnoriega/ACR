@@ -1,9 +1,8 @@
-
 'use client';
 
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import type { DetailedFacts, FullUserProfile, Site, InvestigationSession, Evidence } from '@/types/rca';
+import type { DetailedFacts, FullUserProfile, Site, InvestigationSession, PreservedFact } from '@/types/rca';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -46,7 +45,7 @@ export const Step2Facts: FC<{
   onNext: () => void;
   onSaveAnalysis: () => Promise<void>;
   analysisId: string | null;
-  preservedFacts: Evidence[];
+  preservedFacts: PreservedFact[];
   onEvidenceChange: () => void;
 }> = ({
   detailedFacts,
@@ -317,7 +316,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
              <PreservedFactsManager
                 analysisId={analysisId}
                 preservedFacts={preservedFacts}
-                onEvidenceChange={onEvidenceChange}
+                onEvidenceAdded={onEvidenceChange}
               />
           </TabsContent>
         </Tabs>

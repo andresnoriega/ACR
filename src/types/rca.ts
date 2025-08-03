@@ -166,6 +166,18 @@ export interface Evidence {
   comment?: string;
 }
 
+export interface PreservedFact {
+  id: string;
+  nombre: string; // User-given name
+  comment?: string;
+  uploadDate?: string; // ISO string
+  // Optional file properties
+  fileName?: string;
+  fileType?: string;
+  dataUrl?: string; // Stored as Data URL
+  storagePath?: string; // Path in Firebase Storage
+}
+
 
 export interface PlannedAction {
   id: string;
@@ -236,7 +248,7 @@ export interface RCAAnalysisDocument {
   investigationObjective: string;
   investigationSessions: InvestigationSession[];
   analysisDetails: string;
-  preservedFacts: Evidence[];
+  preservedFacts: PreservedFact[];
   timelineEvents: TimelineEvent[];
   brainstormingIdeas: BrainstormIdea[];
   analysisTechnique: AnalysisTechnique;
@@ -246,6 +258,7 @@ export interface RCAAnalysisDocument {
   ctmData: CTMData;
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
+  evidences: Evidence[];
   validations: Validation[];
   finalComments: string;
   leccionesAprendidas: string;

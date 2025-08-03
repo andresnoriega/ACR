@@ -2,19 +2,16 @@
 
 import type { FC } from 'react';
 import { useState } from 'react';
-import type { Evidence } from '@/types/rca';
+import type { PreservedFact } from '@/types/rca';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from "@/hooks/use-toast";
-import { PlusCircle, Trash2, ImageIcon, FileText, Link2, Paperclip, Loader2, ExternalLink } from 'lucide-react';
+import { PlusCircle, Trash2, ImageIcon, FileText, Link2, Paperclip, Loader2, ExternalLink, AlertTriangle, UploadCloud } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { sanitizeForFirestore } from '@/lib/utils';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle } from 'lucide-react';
 
 let idCounter = Date.now();
 const generateClientSideId = (prefix: string) => {
@@ -22,9 +19,9 @@ const generateClientSideId = (prefix: string) => {
     return `${prefix}-${idCounter}`;
 };
 
-const getEvidenceIconLocal = (tipo?: string) => {
-  if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
-  const simplifiedType = tipo.split('/')[1] || tipo;
+const getEvidenceIconLocal = (fileType?: string) => {
+  if (!fileType) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
+  const simplifiedType = fileType.split('/')[1] || fileType;
   switch (simplifiedType) {
     case 'pdf': return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
     case 'jpeg': case 'jpg': case 'png': case 'gif': return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
@@ -38,117 +35,120 @@ const getEvidenceIconLocal = (tipo?: string) => {
 
 interface PreservedFactsManagerProps {
   analysisId: string | null;
-  preservedFacts: Evidence[];
-  onEvidenceChange: () => void;
+  preservedFacts: PreservedFact[];
+  onEvidenceAdded: () => void;
 }
 
-export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({ analysisId, preservedFacts, onEvidenceChange }) => {
+export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({ analysisId, preservedFacts, onEvidenceAdded }) => {
   const { toast } = useToast();
-  const [fileToUpload, setFileToUpload] = useState<File | null>(null);
-  const [evidenceComment, setEvidenceComment] = useState('');
-  const [userGivenName, setUserGivenName] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
+  const [newFactName, setNewFactName] = useState('');
+  const [isAddingFact, setIsAddingFact] = useState(false);
+  const [isUploading, setIsUploading] = useState<string | null>(null);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      if (file.size > 700 * 1024) {
-        toast({
-          title: "Archivo Demasiado Grande",
-          description: "El archivo no puede superar los 700 KB para ser guardado directamente.",
-          variant: "destructive",
-          duration: 7000,
-        });
-        setFileToUpload(null);
-        event.target.value = '';
+  const handleAddFact = async () => {
+    if (!analysisId) {
+        toast({ title: "Acción Requerida", description: "Debe guardar el análisis al menos una vez para poder añadir hechos.", variant: "destructive" });
         return;
-      }
-      setFileToUpload(file);
-      if (!userGivenName) {
-        setUserGivenName(file.name);
-      }
-    } else {
-      setFileToUpload(null);
+    }
+    if (!newFactName.trim()) {
+        toast({ title: "Nombre Requerido", description: "El nombre del hecho preservado no puede estar vacío.", variant: "destructive" });
+        return;
+    }
+
+    setIsAddingFact(true);
+    const newFact: PreservedFact = {
+      id: generateClientSideId('pf'),
+      nombre: newFactName.trim(),
+      uploadDate: new Date().toISOString(),
+    };
+
+    try {
+        const rcaDocRef = doc(db, 'rcaAnalyses', analysisId);
+        await updateDoc(rcaDocRef, {
+            preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
+            updatedAt: new Date().toISOString(),
+        });
+        toast({ title: "Hecho Creado", description: "Ahora puede adjuntar un archivo a este hecho." });
+        onEvidenceAdded();
+        setNewFactName('');
+    } catch (error: any) {
+        console.error("Error creating preserved fact:", error);
+        toast({ title: "Error al Crear Hecho", description: `No se pudo guardar el nuevo hecho: ${error.message}`, variant: "destructive" });
+    } finally {
+        setIsAddingFact(false);
     }
   };
   
-  const handleAddClick = async () => {
-    if (!analysisId) {
-      toast({ title: "Error", description: "El análisis debe guardarse al menos una vez antes de añadir hechos.", variant: "destructive" });
-      return;
-    }
-    if (!fileToUpload) {
-      toast({ title: "Archivo requerido", description: "Por favor, seleccione un archivo para adjuntar.", variant: "destructive" });
-      return;
-    }
-    if (!userGivenName.trim()) {
-      toast({ title: "Nombre requerido", description: "Por favor, asigne un nombre al hecho preservado.", variant: "destructive" });
+  const handleFileUpload = async (factId: string, file: File) => {
+    if (!analysisId) return;
+    
+    if (file.size > 700 * 1024) {
+      toast({ title: "Archivo Demasiado Grande", description: "El archivo no puede superar los 700 KB.", variant: "destructive" });
       return;
     }
 
-    setIsSaving(true);
+    setIsUploading(factId);
     try {
-      toast({ title: "Procesando archivo...", description: `Convirtiendo ${fileToUpload.name} a Data URL.` });
       const dataUrl = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => resolve(reader.result as string);
           reader.onerror = (error) => reject(error);
-          reader.readAsDataURL(fileToUpload);
+          reader.readAsDataURL(file);
       });
-  
-      const newEvidence: Evidence = {
-        id: generateClientSideId('ev'),
-        nombre: userGivenName.trim(),
-        tipo: (fileToUpload.type as Evidence['tipo']) || 'other',
-        comment: evidenceComment.trim() || undefined,
-        dataUrl,
-      };
 
       const rcaDocRef = doc(db, 'rcaAnalyses', analysisId);
+      const docSnap = await getDoc(rcaDocRef);
+      if(!docSnap.exists()) throw new Error("Documento de análisis no encontrado.");
+
+      const currentDocData = docSnap.data();
+      const currentFacts = currentDocData.preservedFacts || [];
+      
+      const updatedFacts = currentFacts.map((fact: PreservedFact) => {
+        if (fact.id === factId) {
+          return {
+            ...fact,
+            fileName: file.name,
+            fileType: file.type,
+            dataUrl: dataUrl,
+          };
+        }
+        return fact;
+      });
+
       await updateDoc(rcaDocRef, {
-          preservedFacts: arrayUnion(sanitizeForFirestore(newEvidence)),
+          preservedFacts: sanitizeForFirestore(updatedFacts),
           updatedAt: new Date().toISOString()
       });
 
-      toast({ title: "Hecho Guardado", description: `Se añadió "${newEvidence.nombre}" al análisis.` });
-      onEvidenceChange(); // Notify parent to refetch/update state
-      
-      // Reset form
-      setFileToUpload(null);
-      setEvidenceComment('');
-      setUserGivenName('');
-      const fileInput = document.getElementById('evidence-file-input') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
-
+      toast({ title: "Archivo Adjuntado", description: `Se adjuntó ${file.name} al hecho.` });
+      onEvidenceAdded();
     } catch (error: any) {
-      console.error("[handleAddClick] Error detallado:", error);
-      toast({ title: "Error al Guardar Hecho", description: `No se pudo procesar el archivo: ${error.message || 'Error desconocido'}`, variant: "destructive" });
+        console.error("Error uploading file for fact:", error);
+        toast({ title: "Error al Adjuntar", description: `No se pudo adjuntar el archivo: ${error.message}`, variant: "destructive" });
     } finally {
-      setIsSaving(false);
+        setIsUploading(null);
     }
   };
 
-  const handleRemoveEvidence = async (evidenceToRemove: Evidence) => {
+  const handleRemoveFact = async (factToRemove: PreservedFact) => {
     if (!analysisId) return;
     
-    setIsSaving(true);
+    setIsAddingFact(true); // Reuse isAddingFact state to disable all buttons
     try {
       const rcaDocRef = doc(db, 'rcaAnalyses', analysisId);
       await updateDoc(rcaDocRef, {
-        preservedFacts: arrayRemove(sanitizeForFirestore(evidenceToRemove)),
+        preservedFacts: arrayRemove(sanitizeForFirestore(factToRemove)),
         updatedAt: new Date().toISOString(),
       });
       toast({ title: "Hecho Eliminado", variant: 'destructive' });
-      onEvidenceChange(); // Notify parent to refetch/update state
+      onEvidenceAdded();
     } catch (error) {
       console.error("Error removing preserved fact:", error);
       toast({ title: "Error", description: `No se pudo eliminar el hecho: ${(error as Error).message}`, variant: "destructive" });
     } finally {
-      setIsSaving(false);
+      setIsAddingFact(false);
     }
   };
-  
-  const isManagerDisabled = !analysisId;
 
   return (
     <Card className="shadow-inner bg-secondary/20">
@@ -159,53 +159,76 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({ analysis
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isManagerDisabled && (
-          <Alert variant="default" className="bg-yellow-50 border-yellow-200 text-yellow-800">
-            <AlertTriangle className="h-5 w-5 !text-yellow-600" />
-            <AlertTitle className="font-semibold">Acción Requerida</AlertTitle>
-            <AlertDescription>
-              Debe guardar el avance del análisis al menos una vez para poder adjuntar hechos preservados. Utilice el botón "Guardar Avance" al final de la página.
-            </AlertDescription>
-          </Alert>
+        {!analysisId && (
+          <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4" role="alert">
+            <p className="font-bold">Acción Requerida</p>
+            <p>Debe guardar el avance del análisis al menos una vez para poder añadir hechos preservados. Utilice el botón "Guardar Avance" al final de la página.</p>
+          </div>
         )}
-        <div className="space-y-3 p-3 border rounded-md bg-background" style={{ opacity: isManagerDisabled ? 0.5 : 1, pointerEvents: isManagerDisabled ? 'none' : 'auto' }}>
-          <div>
-            <Label htmlFor="evidence-file-input">Archivo (Máx. 700 KB)</Label>
-            <Input id="evidence-file-input" type="file" onChange={handleFileChange} className="text-xs h-9" disabled={isSaving || isManagerDisabled} />
+        
+        <div className="space-y-3 p-3 border rounded-md bg-background" style={{ opacity: !analysisId ? 0.5 : 1 }}>
+          <div className="flex items-end gap-2">
+            <div className="flex-grow">
+                <Label htmlFor="new-fact-name">Nombre del Nuevo Hecho Preservado</Label>
+                <Input 
+                    id="new-fact-name" 
+                    value={newFactName} 
+                    onChange={(e) => setNewFactName(e.target.value)} 
+                    placeholder="Ej: Foto del sensor dañado, Entrevista a Testigo"
+                    disabled={!analysisId || isAddingFact}
+                />
+            </div>
+            <Button onClick={handleAddFact} size="sm" disabled={!analysisId || isAddingFact || !newFactName.trim()}>
+              {isAddingFact ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} 
+              Añadir Hecho
+            </Button>
           </div>
-           <div>
-            <Label htmlFor="evidence-user-name">Nombre del Hecho Preservado</Label>
-            <Input id="evidence-user-name" type="text" placeholder="Ej: Foto del sensor dañado" value={userGivenName} onChange={(e) => setUserGivenName(e.target.value)} disabled={isSaving || isManagerDisabled} />
-          </div>
-          <div>
-            <Label htmlFor="evidence-comment">Comentario (opcional)</Label>
-            <Textarea id="evidence-comment" placeholder="Breve descripción o contexto de la evidencia..." value={evidenceComment} onChange={(e) => setEvidenceComment(e.target.value)} rows={2} disabled={isSaving || isManagerDisabled}/>
-          </div>
-          <Button onClick={handleAddClick} size="sm" disabled={isSaving || !fileToUpload || isManagerDisabled}>
-            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} 
-            Guardar Hecho
-          </Button>
         </div>
 
         <div className="space-y-2 pt-2">
-            <h4 className="font-semibold text-primary mb-1">[Hechos Preservados]</h4>
+            <h4 className="font-semibold text-primary mb-1">Hechos Creados</h4>
             {preservedFacts && preservedFacts.length > 0 ? (
-                <ul className="space-y-1.5">
-                    {preservedFacts.map(ev => (
-                        <li key={ev.id} className="flex items-start justify-between text-xs border p-2 rounded-md bg-background">
-                            <div className="flex-grow">
-                                <div className="flex items-center">{getEvidenceIconLocal(ev.tipo)}<span className="font-medium">{ev.nombre}</span></div>
-                                {ev.comment && <p className="text-xs text-muted-foreground ml-[calc(1rem+0.5rem)] mt-0.5">Comentario: {ev.comment}</p>}
+                <ul className="space-y-2">
+                    {preservedFacts.map(fact => (
+                        <li key={fact.id} className="flex flex-col gap-2 border p-3 rounded-md bg-background">
+                            <div className="flex items-center justify-between">
+                                <p className="font-medium text-sm">{fact.nombre}</p>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleRemoveFact(fact)} disabled={isAddingFact || !!isUploading}>
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
                             </div>
-                            <div className="flex-shrink-0 ml-2">
-                                <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mr-2"><a href={ev.dataUrl} target="_blank" rel="noopener noreferrer" download={ev.nombre}><ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar</a></Button>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-destructive/10" onClick={() => handleRemoveEvidence(ev)} disabled={isSaving} aria-label="Eliminar evidencia"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
-                            </div>
+                            {fact.dataUrl ? (
+                                <div className="flex items-center justify-between text-xs bg-green-50 p-2 rounded-md">
+                                    <div className="flex items-center">
+                                        {getEvidenceIconLocal(fact.fileType)}
+                                        <span className="font-semibold">{fact.fileName}</span>
+                                    </div>
+                                    <a href={fact.dataUrl} target="_blank" rel="noopener noreferrer" download={fact.fileName} className="text-blue-600 hover:underline flex items-center">
+                                        <ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar
+                                    </a>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2">
+                                    <Label htmlFor={`upload-${fact.id}`} className="sr-only">Adjuntar archivo</Label>
+                                    <Input 
+                                        id={`upload-${fact.id}`}
+                                        type="file" 
+                                        className="text-xs h-8 flex-grow"
+                                        onChange={(e) => {
+                                            if (e.target.files && e.target.files[0]) {
+                                                handleFileUpload(fact.id, e.target.files[0]);
+                                            }
+                                        }}
+                                        disabled={isUploading === fact.id}
+                                    />
+                                    {isUploading === fact.id && <Loader2 className="h-4 w-4 animate-spin" />}
+                                </div>
+                            )}
                         </li>
                     ))}
                 </ul>
             ) : (
-                <p className="text-xs text-muted-foreground italic">No hay hechos preservados para este análisis.</p>
+                <p className="text-xs text-muted-foreground italic text-center py-4">No hay hechos preservados para este análisis.</p>
             )}
         </div>
       </CardContent>
