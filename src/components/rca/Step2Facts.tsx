@@ -325,7 +325,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                 />
               </div>
               {evidenceFile && <p className="text-xs text-muted-foreground mt-1">Archivo seleccionado: {evidenceFile.name}</p>}
-              <p className="text-xs text-muted-foreground pt-1">El hecho se guardará al presionar "Guardar Avance" o "Siguiente". Se asociará al primer plan de acción que se cree en el Paso 3.</p>
           </div>
         </div>
 
