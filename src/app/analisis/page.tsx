@@ -1108,4 +1108,546 @@ function RCAAnalysisPageComponent() {
   };
 
   const onDetailedFactChange = (field: keyof DetailedFacts, value: string) => {
-    setDetailedFact
+    setDetailedFacts(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleAddEvidence = (newEvidence: Evidence) => {
+    setEvidences(prev => [...(prev || []), newEvidence]);
+  };
+
+  const handleRemoveEvidence = (id: string) => {
+    setEvidences(prev => (prev || []).filter(e => e.id !== id));
+    toast({ title: "Evidencia Eliminada Localmente", variant: "destructive" });
+  };
+
+
+  const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
+    setAnalysisTechnique(value);
+    
+    if (value === 'Ishikawa') {
+        const isIshikawaEmpty = !ishikawaData || ishikawaData.every(cat => cat.causes.length === 0);
+        if (isIshikawaEmpty) {
+            setIshikawaData(JSON.parse(JSON.stringify(initialIshikawaData)));
+        }
+    } else if (value === '5 Por qué') {
+        const is5WhysEmpty = !fiveWhysData || fiveWhysData.length === 0;
+        if (is5WhysEmpty) {
+            setFiveWhysData([]);
+        }
+    } else if (value === 'CTM') {
+        const isCtmEmpty = !ctmData || ctmData.length === 0;
+        if (isCtmEmpty) {
+            setCtmData(JSON.parse(JSON.stringify(initialCTMData)));
+        }
+    }
+  };
+
+  const handleAddIdentifiedRootCause = () => {
+    setIdentifiedRootCauses(prev => [...prev, { id: generateClientSideId('rc'), description: '' }]);
+  };
+
+  const handleUpdateIdentifiedRootCause = (id: string, description: string) => {
+    setIdentifiedRootCauses(prev => prev.map(rc => rc.id === id ? { ...rc, description } : rc));
+  };
+
+  const handleRemoveIdentifiedRootCause = (id: string) => {
+    setIdentifiedRootCauses(prev => prev.filter(rc => rc.id !== id));
+  };
+
+  const handleAddPlannedAction = () => {
+    let currentEventId = analysisDocumentId;
+    if (!currentEventId && eventData.id) currentEventId = eventData.id;
+    if (!currentEventId) {
+        currentEventId = ensureEventId();
+        setAnalysisDocumentId(currentEventId); 
+    }
+    if (!currentEventId) {
+      toast({ title: "Error", description: "No se pudo generar/obtener ID de evento para la acción planificada.", variant: "destructive" });
+      return;
+    }
+    const newActionId = `${currentEventId}-PA-${String(plannedActionCounter).padStart(3, '0')}`;
+    const newAction: PlannedAction = {
+      id: newActionId,
+      eventId: currentEventId,
+      description: '',
+      responsible: '',
+      dueDate: '',
+      relatedRootCauseIds: [],
+      evidencias: [],
+      userComments: '',
+      isNotificationSent: false,
+    };
+    setPlannedActions(prev => [...prev, newAction]);
+    setPlannedActionCounter(prev => prev + 1);
+  };
+
+  const handleUpdatePlannedAction = (index: number, field: keyof Omit<PlannedAction, 'eventId' | 'id'>, value: string | string[] | boolean) => {
+    setPlannedActions(prev => prev.map((act, i) => i === index ? { ...act, [field]: value } : act));
+  };
+
+  const handleRemovePlannedAction = (index: number) => {
+    setPlannedActions(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddBrainstormIdea = () => {
+    setBrainstormingIdeas(prev => [...prev, { id: generateClientSideId('bi'), type: '', description: '' }]);
+  };
+
+  const handleUpdateBrainstormIdea = (id: string, field: 'type' | 'description', value: string) => {
+    setBrainstormingIdeas(prev => prev.map(idea => idea.id === id ? { ...idea, [field]: value } : idea));
+  };
+
+  const handleRemoveBrainstormIdea = (id: string) => {
+    setBrainstormingIdeas(prev => prev.filter(idea => idea.id !== id));
+  };
+
+
+  useEffect(() => {
+    setValidations(prevValidations => {
+      const newValidations = plannedActions.map(pa => {
+        const existingValidation = prevValidations.find(v => v.actionId === pa.id);
+        return existingValidation || { actionId: pa.id, eventId: pa.eventId, status: 'pending' };
+      });
+      return newValidations.filter(v => plannedActions.some(pa => pa.id === v.actionId));
+    });
+  }, [plannedActions]);
+
+  const handleToggleValidation = useCallback(async (actionId: string, newStatus: Validation['status'], rejectionReasonInput?: string) => {
+    const newValidationsArray = validations.map(v => {
+      if (v.actionId === actionId) {
+        const nowISO = new Date().toISOString();
+        let updatedValidation: Validation = { ...v, status: newStatus };
+
+        if (newStatus === 'validated') {
+          updatedValidation.validatedAt = nowISO;
+          updatedValidation.rejectedAt = undefined;
+          updatedValidation.rejectionReason = undefined;
+        } else if (newStatus === 'rejected') {
+          updatedValidation.validatedAt = undefined;
+          updatedValidation.rejectedAt = nowISO;
+          updatedValidation.rejectionReason = rejectionReasonInput || "Motivo no especificado";
+        } else { 
+          updatedValidation.validatedAt = undefined;
+          updatedValidation.rejectedAt = undefined;
+          updatedValidation.rejectionReason = undefined;
+        }
+        return updatedValidation;
+      }
+      return v;
+    });
+    
+    let finalPlannedActions = plannedActions;
+    if (newStatus === 'rejected') {
+      finalPlannedActions = plannedActions.map(action => {
+        if (action.id === actionId) {
+          return { ...action, markedAsReadyAt: undefined };
+        }
+        return action;
+      });
+    }
+
+    setValidations(newValidationsArray);
+    if (newStatus === 'rejected') {
+      setPlannedActions(finalPlannedActions);
+    }
+    
+    const saveResult = await handleSaveAnalysisData(
+      false, 
+      { 
+        validationsOverride: newValidationsArray,
+        plannedActionsOverride: finalPlannedActions
+      }
+    );
+    
+    if (saveResult.success && newStatus === 'rejected') {
+      const rejectedAction = finalPlannedActions.find(pa => pa.id === actionId);
+      if (rejectedAction && rejectedAction.responsible) {
+        const responsibleUser = availableUsersFromDB.find(u => u.name === rejectedAction.responsible);
+        if (responsibleUser && responsibleUser.email && (responsibleUser.emailNotifications === undefined || responsibleUser.emailNotifications)) {
+          toast({ title: "Acción Rechazada", description: `Enviando notificación a ${responsibleUser.name}...`, variant: "destructive" });
+          const emailSubject = `Acción RCA Rechazada: ${rejectedAction.description.substring(0, 30)}...`;
+          const validationLink = `${window.location.origin}/usuario/planes`;
+          const emailBody = `Estimado/a ${responsibleUser.name},\n\nLa siguiente acción planificada del evento "${eventData.focusEventDescription}" ha sido RECHAZADA:\n\nAcción: ${rejectedAction.description}\n\nMotivo del Rechazo:\n${rejectionReasonInput}\n\nPor favor, revise la tarea en el sistema para tomar las medidas necesarias. Puede ver sus tareas en el siguiente enlace:\n${validationLink}\n\nSaludos,\nSistema Asistente ACR`;
+
+          const emailResult = await sendEmailAction({
+            to: responsibleUser.email,
+            subject: emailSubject,
+            body: emailBody
+          });
+
+          if (emailResult.success) {
+            toast({ title: "Notificación Enviada", description: `Se ha notificado a ${responsibleUser.name} sobre el rechazo.` });
+          } else {
+            toast({ title: "Error de Notificación", description: `No se pudo enviar el correo: ${emailResult.message}`, variant: "destructive" });
+          }
+
+        } else {
+          toast({ title: "Notificación no enviada", description: "No se pudo encontrar el responsable, su correo, o tiene las notificaciones desactivadas.", variant: "destructive" });
+        }
+      }
+    } else if (!saveResult.success && newStatus === 'rejected') {
+      toast({ title: "Error al Guardar", description: "No se pudo guardar el estado de rechazo. Revirtiendo cambio.", variant: "destructive"});
+      setValidations(validations);
+      setPlannedActions(plannedActions);
+    }
+  }, [validations, plannedActions, handleSaveAnalysisData, toast, availableUsersFromDB, eventData.focusEventDescription]);
+
+
+  const handlePrintReport = () => {
+    const nonPrintableElements = document.querySelectorAll('.no-print');
+    nonPrintableElements.forEach(el => el.classList.add('hidden'));
+    window.print();
+    nonPrintableElements.forEach(el => el.classList.remove('hidden'));
+  };
+
+  const handleMarkAsFinalized = async () => {
+    let currentId = analysisDocumentId;
+    if (!currentId && eventData.id) currentId = eventData.id;
+    if (!currentId) {
+      currentId = ensureEventId();
+      setAnalysisDocumentId(currentId); 
+    }
+
+    if (!currentId) {
+        toast({ title: "Error", description: "No se pudo obtener el ID del análisis para finalizar.", variant: "destructive" });
+        setIsSaving(false);
+        return;
+    }
+
+    setIsSaving(true);
+    setIsFinalized(true); 
+
+    const saveResult = await handleSaveAnalysisData(false, { finalizedOverride: true, statusOverride: "Finalizado" });
+    const finalEventId = saveResult.newEventId || currentId;
+    if(saveResult.newEventId && analysisDocumentId !== finalEventId) setAnalysisDocumentId(finalEventId);
+
+    if (saveResult.success) {
+      toast({ title: "Proceso Finalizado", description: `Análisis ${finalEventId} marcado como finalizado y evento reportado actualizado.`, className: "bg-primary text-primary-foreground"});
+    } else {
+      setIsFinalized(false);
+      toast({ title: "Error al Finalizar", description: "No se pudo guardar el estado finalizado del análisis. Intente de nuevo.", variant: "destructive" });
+    }
+    setIsSaving(false);
+  };
+  
+  const handleVerifyEfficacy = async (comments: string) => {
+    const verificationData: EfficacyVerification = {
+      ...efficacyVerification,
+      status: 'verified',
+      comments,
+      verifiedAt: new Date().toISOString(),
+      verifiedBy: userProfile!.name,
+    };
+    const saveResult = await handleSaveAnalysisData(false, {
+      efficacyVerificationOverride: verificationData,
+      statusOverride: 'Verificado',
+    });
+    if(saveResult.success){
+        toast({ title: "Eficacia Verificada", description: "El análisis ha sido verificado con éxito." });
+    } else {
+        toast({ title: "Error", description: "No se pudo guardar la verificación de eficacia.", variant: "destructive" });
+    }
+  };
+
+  const handlePlanEfficacyVerification = async (responsible: string, verificationDate: string) => {
+    const verificationData: EfficacyVerification = {
+      ...efficacyVerification,
+      verifiedBy: responsible,
+      verificationDate: verificationDate,
+    };
+    const saveResult = await handleSaveAnalysisData(false, {
+      efficacyVerificationOverride: verificationData,
+    });
+    if(saveResult.success){
+        toast({ title: "Planificación Guardada", description: "Se ha guardado la planificación de la verificación." });
+    } else {
+        toast({ title: "Error", description: "No se pudo guardar la planificación.", variant: "destructive" });
+    }
+  };
+
+
+  useEffect(() => {
+    if (step > maxCompletedStep) {
+      setMaxCompletedStep(step -1);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const currentRcaDocument: RCAAnalysisDocument | null = analysisDocumentId ? {
+      eventData,
+      immediateActions,
+      projectLeader,
+      detailedFacts,
+      investigationObjective,
+      investigationSessions,
+      analysisDetails,
+      timelineEvents,
+      brainstormingIdeas,
+      analysisTechnique,
+      analysisTechniqueNotes,
+      ishikawaData,
+      fiveWhysData,
+      ctmData,
+      identifiedRootCauses,
+      plannedActions,
+      evidences,
+      validations,
+      finalComments,
+      leccionesAprendidas,
+      isFinalized,
+      rejectionDetails,
+      efficacyVerification,
+      createdAt: '', 
+      updatedAt: '', 
+  } : null;
+
+
+  if (isLoadingPage || loadingAuth) {
+    return (
+      <div className="flex flex-col justify-center items-center min-h-[calc(100vh-10rem)] text-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-lg text-muted-foreground">Cargando datos de análisis y configuración...</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <header className="text-center mb-8 no-print">
+        <h1 className="text-3xl sm:text-4xl font-bold font-headline text-primary">Analizador ACR Avanzado</h1>
+        <p className="text-muted-foreground mt-1">
+          Herramienta de Análisis de Causa Raíz con gráficos. ID Análisis: <span className="font-semibold text-primary">{analysisDocumentId || eventData.id || "Nuevo Análisis"}</span>
+          {analysisDocumentId && currentEventStatus && (
+            <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                currentEventStatus === 'Rechazado' ? 'bg-destructive text-destructive-foreground' :
+                currentEventStatus === 'Finalizado' ? 'bg-green-500 text-green-50' :
+                'bg-secondary text-secondary-foreground'}`}>
+                Estado: {currentEventStatus}
+            </span>
+          )}
+        </p>
+      </header>
+
+      <div className="no-print">
+        <StepNavigation
+         currentStep={step}
+         onNavigate={handleGoToStep}
+         maxCompletedStep={maxCompletedStep}
+         isStep4Valid={isStep4ValidForNavigation}
+        />
+        <Separator className="my-6" />
+      </div>
+
+      <div className={step === 1 ? "" : "print:hidden"}>
+        {step === 1 && (
+          <Step1Initiation
+            eventData={eventData}
+            onEventDataChange={handleEventDataChange}
+            immediateActions={immediateActions}
+            onAddImmediateAction={handleAddImmediateAction}
+            onUpdateImmediateAction={handleUpdateImmediateAction}
+            onRemoveImmediateAction={handleRemoveImmediateAction}
+            availableSites={availableSitesFromDB}
+            availableUsers={availableUsersFromDB}
+            onContinue={handleNextStep}
+            onForceEnsureEventId={ensureEventId}
+            onSaveAnalysis={handleSaveAnalysisData}
+            isSaving={isSaving}
+            onApproveEvent={handleApproveEvent}
+            onRejectEvent={() => {
+              setRejectionReason(''); 
+              setIsRejectConfirmOpen(true);
+            }}
+            isEventFinalized={isFinalized}
+            currentEventStatus={currentEventStatus}
+            validateStep1PreRequisites={validateStep1PreRequisites} 
+          />
+        )}
+      </div>
+      <div className={step === 2 ? "" : "print:hidden"}>
+      {step === 2 && (
+        <Step2Facts
+          projectLeader={projectLeader}
+          onProjectLeaderChange={handleProjectLeaderChange}
+          availableUsers={availableUsersFromDB}
+          detailedFacts={detailedFacts}
+          onDetailedFactChange={onDetailedFactChange}
+          investigationObjective={investigationObjective}
+          onInvestigationObjectiveChange={setInvestigationObjective}
+          investigationSessions={investigationSessions}
+          onSetInvestigationSessions={setInvestigationSessions}
+          analysisDetails={analysisDetails}
+          onAnalysisDetailsChange={setAnalysisDetails}
+          evidences={evidences}
+          onAddEvidence={handleAddEvidence}
+          onRemoveEvidence={handleRemoveEvidence}
+          onPrevious={handlePreviousStep}
+          onNext={handleNextStep}
+          onSaveAnalysis={handleSaveFromStep2}
+          isSaving={isSaving}
+        />
+      )}
+      </div>
+      <div className={step === 3 ? "" : "print:hidden"}>
+       {step === 3 && currentRcaDocument && (
+          <Step2Point5Tasks
+            allRcaDocuments={[currentRcaDocument]}
+            availableUsers={availableUsersFromDB}
+            userProfile={userProfile}
+            loadingAuth={loadingAuth}
+            isSaving={isSaving}
+            onPrevious={handlePreviousStep}
+            onNext={() => handleGoToStep(4)}
+            onSaveAnalysis={handleSaveAnalysisData}
+          />
+       )}
+      </div>
+      <div className={step === 4 ? "" : "print:hidden"}>
+      {step === 4 && (
+        <Step3Analysis
+          eventData={eventData}
+          availableSites={availableSitesFromDB}
+          timelineEvents={timelineEvents}
+          onSetTimelineEvents={setTimelineEvents}
+          brainstormingIdeas={brainstormingIdeas}
+          onAddBrainstormIdea={handleAddBrainstormIdea}
+          onUpdateBrainstormIdea={handleUpdateBrainstormIdea}
+          onRemoveBrainstormIdea={handleRemoveBrainstormIdea}
+          analysisTechnique={analysisTechnique}
+          onAnalysisTechniqueChange={handleAnalysisTechniqueChange}
+          analysisTechniqueNotes={analysisTechniqueNotes}
+          onAnalysisTechniqueNotesChange={setAnalysisTechniqueNotes}
+          ishikawaData={ishikawaData}
+          onSetIshikawaData={setIshikawaData}
+          fiveWhysData={fiveWhysData}
+          onSetFiveWhysData={setFiveWhysData}
+          ctmData={ctmData}
+          onSetCtmData={setCtmData}
+          identifiedRootCauses={identifiedRootCauses}
+          onAddIdentifiedRootCause={handleAddIdentifiedRootCause}
+          onUpdateIdentifiedRootCause={handleUpdateIdentifiedRootCause}
+          onRemoveIdentifiedRootCause={handleRemoveIdentifiedRootCause}
+          plannedActions={plannedActions}
+          onAddPlannedAction={handleAddPlannedAction}
+          onUpdatePlannedAction={handleUpdatePlannedAction}
+          onRemovePlannedAction={handleRemovePlannedAction}
+          availableUsers={availableUsersFromDB}
+          onPrevious={handlePreviousStep}
+          onNext={handleNextStep}
+          onSaveAnalysis={handleSaveAnalysisData}
+          isSaving={isSaving}
+        />
+      )}
+      </div>
+      <div className={step === 5 ? "" : "print:hidden"}>
+      {step === 5 && (
+        <Step4Validation
+          plannedActions={plannedActions}
+          validations={validations}
+          onToggleValidation={handleToggleValidation}
+          projectLeader={projectLeader}
+          availableUserProfiles={availableUsersFromDB}
+          onPrevious={handlePreviousStep}
+          onNext={handleNextStep}
+          onSaveAnalysis={handleSaveAnalysisData}
+          isSaving={isSaving}
+        />
+      )}
+      </div>
+      {step === 6 && (
+        <Step5Results
+          eventId={analysisDocumentId || eventData.id}
+          eventData={eventData}
+          availableSites={availableSitesFromDB}
+          projectLeader={projectLeader}
+          investigationSessions={investigationSessions}
+          detailedFacts={detailedFacts}
+          analysisDetails={analysisDetails}
+          analysisTechnique={analysisTechnique}
+          analysisTechniqueNotes={analysisTechniqueNotes}
+          ishikawaData={ishikawaData}
+          fiveWhysData={fiveWhysData}
+          ctmData={ctmData}
+          timelineEvents={timelineEvents}
+          brainstormingIdeas={brainstormingIdeas}
+          identifiedRootCauses={identifiedRootCauses}
+          plannedActions={plannedActions}
+          evidences={evidences}
+          finalComments={finalComments}
+          onFinalCommentsChange={setFinalComments}
+          leccionesAprendidas={leccionesAprendidas}
+          onLeccionesAprendidasChange={setLeccionesAprendidas}
+          onPrintReport={handlePrintReport}
+          availableUsers={availableUsersFromDB}
+          isFinalized={isFinalized}
+          onMarkAsFinalized={handleMarkAsFinalized}
+          onSaveAnalysis={handleSaveAnalysisData}
+          isSaving={isSaving}
+          investigationObjective={investigationObjective}
+          efficacyVerification={efficacyVerification}
+          onVerifyEfficacy={handleVerifyEfficacy}
+          onPlanEfficacyVerification={handlePlanEfficacyVerification}
+        />
+      )}
+      <AlertDialog open={isRejectConfirmOpen} onOpenChange={(open) => {
+        if(!isSaving) {
+          setIsRejectConfirmOpen(open);
+          if (!open) setRejectionReason('');
+        }
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Rechazo de Evento</AlertDialogTitle>
+            <AlertDialogDescription>
+              ID Evento: {analysisDocumentId || eventData.id || 'N/A'}. Esta acción marcará el evento como rechazado y finalizado. No podrá ser modificado posteriormente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2 my-4">
+            <Label htmlFor="rejectionReasonDialog">Motivo del Rechazo <span className="text-destructive">*</span></Label>
+            <Textarea
+              id="rejectionReasonDialog"
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder="Explique por qué se rechaza este evento..."
+              rows={3}
+              disabled={isSaving}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                if (!isSaving) {
+                  setRejectionReason('');
+                  setIsRejectConfirmOpen(false); 
+                }
+              }}
+              disabled={isSaving}
+            >
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRejectEvent}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              disabled={isSaving || !rejectionReason.trim()}
+            >
+              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sí, Rechazar Evento"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
+export default function RCAAnalysisPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col justify-center items-center min-h-[calc(100vh-10rem)] text-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-lg text-muted-foreground">Cargando analizador...</p>
+      </div>
+    }>
+      <RCAAnalysisPageComponent />
+    </Suspense>
+  );
+}
