@@ -1,3 +1,4 @@
+
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef, ChangeEvent } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification, Evidence } from '@/types/rca';
@@ -740,7 +741,7 @@ function RCAAnalysisPageComponent() {
     factMetadata: Omit<Evidence, 'id' | 'dataUrl'>,
     file: File | null
   ) => {
-    setIsSaving(true); // This should be handled by the child component state, but we set it here for safety.
+    setIsSaving(true); 
     try {
       if (!file) {
         throw new Error("No se seleccionó ningún archivo.");
