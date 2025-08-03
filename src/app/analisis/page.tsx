@@ -1108,13 +1108,83 @@ function RCAAnalysisPageComponent() {
     setDetailedFacts(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleAddEvidence = (newEvidence: Evidence) => {
-    setEvidences(prev => [...(prev || []), newEvidence]);
-  };
+  const handleAddPreservedFact = async (
+    factMetadata: Omit<Evidence, 'id' | 'dataUrl'>,
+    file: File
+  ) => {
+    setIsSaving(true);
+    try {
+      let currentEventId = analysisDocumentId;
+      if (!currentEventId) {
+        const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
+        if (!saveResult.success || !saveResult.newEventId) {
+          throw new Error("No se pudo crear el documento de análisis antes de subir el archivo.");
+        }
+        currentEventId = saveResult.newEventId;
+      }
 
-  const handleRemoveEvidence = (id: string) => {
-    setEvidences(prev => (prev || []).filter(e => e.id !== id));
-    toast({ title: "Evidencia Eliminada Localmente", variant: "destructive" });
+      toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
+      
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = (error) => {
+            console.error("FileReader error:", error);
+            reject(new Error("Error al leer el archivo."));
+          };
+      });
+
+      const newEvidence: Evidence = {
+        id: generateClientSideId('ev'),
+        nombre: file.name,
+        tipo: file.type.split('/')[1] as Evidence['tipo'] || 'other',
+        comment: factMetadata.comment,
+        userGivenName: factMetadata.userGivenName,
+        dataUrl: dataUrl,
+      };
+
+      const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
+      await updateDoc(rcaDocRef, {
+        evidences: arrayUnion(sanitizeForFirestore(newEvidence)),
+        updatedAt: new Date().toISOString()
+      });
+
+      setEvidences(prev => [...(prev || []), newEvidence]);
+      toast({ title: "Hecho Preservado Añadido", description: `Se añadió "${newEvidence.userGivenName || newEvidence.nombre}".` });
+
+    } catch (error: any) {
+      console.error("Error detallado al subir hecho preservado:", error);
+      toast({ title: "Error al Subir", description: `No se pudo subir el archivo: ${error.message || 'Error desconocido'}`, variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  const handleRemoveEvidence = async (id: string) => {
+    if (!analysisDocumentId) {
+      toast({ title: "Error", description: "ID del análisis no encontrado.", variant: "destructive" });
+      return;
+    }
+    const evidenceToRemove = evidences.find(fact => fact.id === id);
+    if (!evidenceToRemove) return;
+
+    setIsSaving(true);
+    
+    // Remove from Firestore using arrayRemove and update local state
+    const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
+    try {
+      await updateDoc(rcaDocRef, {
+          evidences: arrayRemove(sanitizeForFirestore(evidenceToRemove)),
+          updatedAt: new Date().toISOString()
+      });
+      setEvidences(prev => prev.filter(fact => fact.id !== id));
+      toast({ title: "Evidencia Eliminada", description: "La referencia se eliminó exitosamente.", variant: 'destructive' });
+    } catch (error: any) {
+      console.error("Error al actualizar Firestore después de eliminar hecho:", error);
+      toast({ title: "Error de Sincronización", description: `No se pudo confirmar la eliminación en la base de datos: ${error.message}. Recargue la página.`, variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
 
@@ -1458,7 +1528,7 @@ function RCAAnalysisPageComponent() {
           plannedActions={plannedActions}
           validations={validations}
           evidences={evidences}
-          onAddEvidence={handleAddEvidence}
+          onAddEvidence={handleAddPreservedFact}
           onRemoveEvidence={handleRemoveEvidence}
         />
       )}

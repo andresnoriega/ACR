@@ -55,7 +55,7 @@ export const Step2Facts: FC<{
   plannedActions: FirestorePlannedAction[];
   validations: Validation[];
   evidences: Evidence[];
-  onAddEvidence: (newEvidence: Evidence) => void;
+  onAddEvidence: (factMetadata: Omit<Evidence, 'id' | 'dataUrl'>, file: File) => Promise<void>;
   onRemoveEvidence: (id: string) => void;
 }> = ({
   detailedFacts,

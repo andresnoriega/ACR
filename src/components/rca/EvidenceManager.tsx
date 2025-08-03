@@ -27,7 +27,7 @@ const getEvidenceIconLocal = (tipo?: Evidence['tipo']) => {
 interface EvidenceManagerProps {
   title: string;
   evidences: Evidence[];
-  onAddEvidence: (newEvidence: Evidence) => void;
+  onAddEvidence: (factMetadata: Omit<Evidence, 'id' | 'dataUrl'>, file: File) => Promise<void>;
   onRemoveEvidence: (id: string) => void;
   isSaving: boolean;
 }
@@ -61,37 +61,16 @@ export const EvidenceManager: FC<EvidenceManagerProps> = ({ title, evidences, on
     }
 
     try {
-        if (fileToUpload.size > 700 * 1024) {
-            throw new Error("El archivo no puede superar los 700 KB.");
-        }
-
-        const reader = new FileReader();
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = (error) => reject(error);
-        });
-
-        // Client-side ID generation, only happens on user interaction (in the browser)
-        const generateClientSideId = (prefix: string) => {
-            const randomPart = Math.random().toString(36).substring(2, 9);
-            const timePart = Date.now().toString(36);
-            return `${prefix}-${timePart}-${randomPart}`;
-        };
-
-        const newEvidence: Evidence = {
-          id: generateClientSideId('ev'),
+        const factMetadata: Omit<Evidence, 'id' | 'dataUrl'> = {
           nombre: fileToUpload.name,
           tipo: fileToUpload.type.split('/')[1] || 'other',
           comment: evidenceComment.trim() || undefined,
           userGivenName: userGivenName.trim(),
-          dataUrl: dataUrl,
         };
 
-        onAddEvidence(newEvidence);
+        await onAddEvidence(factMetadata, fileToUpload);
         
-        toast({ title: "Hecho Añadido Localmente", description: "La evidencia se ha añadido. Recuerde guardar el avance para persistir los cambios." });
-        
-        // Reset form
+        // Reset form after successful submission
         setFileToUpload(null);
         setEvidenceComment('');
         setUserGivenName('');
