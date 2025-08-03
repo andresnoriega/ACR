@@ -162,12 +162,8 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     }
     return true;
   };
-
-  const handleSaveProgressLocal = async () => {
-    await onSaveAnalysis(true);
-  };
   
-  const handleSaveNewFact = async () => {
+  const handleSaveWithNewFact = async () => {
     if (!evidenceFile) {
         toast({ title: "Archivo Requerido", description: "Por favor, seleccione un archivo para guardar el hecho preservado.", variant: "destructive" });
         return;
@@ -356,49 +352,49 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
         </div>
         
         <div className="space-y-4 pt-4 border-t">
-            <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold font-headline flex items-center">
-                    <FileArchive className="mr-2 h-5 w-5 text-primary" />
-                    Preservación de Hechos
-                </h3>
-                <Button variant="outline" size="sm" onClick={() => setShowNewFactForm(prev => !prev)} disabled={isSaving || isUploading}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Nuevo Hecho
-                </Button>
-            </div>
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold font-headline flex items-center">
+              <FileArchive className="mr-2 h-5 w-5 text-primary" />
+              Preservación de Hechos
+            </h3>
+            <Button variant="outline" size="sm" onClick={() => setShowNewFactForm(prev => !prev)} disabled={isSaving || isUploading}>
+              <PlusCircle className="mr-2 h-4 w-4" /> Nuevo Hecho
+            </Button>
+          </div>
 
-            {showNewFactForm && (
-                <Card className="p-4 bg-secondary/30 space-y-3 shadow-inner">
-                    <div className="space-y-2">
-                        <Label htmlFor="step2-evidence-file-input">Hecho Preservado <span className="text-destructive">*</span></Label>
-                        <Input 
-                        id="step2-evidence-file-input" 
-                        type="file" 
-                        onChange={(e) => setEvidenceFile(e.target.files ? e.target.files[0] : null)} 
-                        className="text-xs h-9" 
-                        disabled={isSaving || isUploading}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="step2-evidence-comment">Comentario (opcional)</Label>
-                        <Input 
-                        id="step2-evidence-comment" 
-                        type="text" 
-                        placeholder="Ej: Foto de la reparación, documento de capacitación..." 
-                        value={evidenceComment} 
-                        onChange={(e) => setEvidenceComment(e.target.value)} 
-                        className="text-xs h-9" 
-                        disabled={isSaving || isUploading}
-                        />
-                    </div>
-                    <div className="flex gap-2">
-                        <Button size="sm" onClick={handleSaveNewFact} disabled={isSaving || isUploading || !evidenceFile}>
-                            {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                            Guardar
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => setShowNewFactForm(false)} disabled={isSaving || isUploading}>Cancelar</Button>
-                    </div>
-                </Card>
-            )}
+          {showNewFactForm && (
+            <Card className="p-4 bg-secondary/30 space-y-3 shadow-inner">
+              <div className="space-y-2">
+                <Label htmlFor="step2-evidence-file-input">Hecho Preservado <span className="text-destructive">*</span></Label>
+                <Input
+                  id="step2-evidence-file-input"
+                  type="file"
+                  onChange={(e) => setEvidenceFile(e.target.files ? e.target.files[0] : null)}
+                  className="text-xs h-9"
+                  disabled={isSaving || isUploading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="step2-evidence-comment">Comentario (opcional)</Label>
+                <Input
+                  id="step2-evidence-comment"
+                  type="text"
+                  placeholder="Ej: Foto de la reparación, documento de capacitación..."
+                  value={evidenceComment}
+                  onChange={(e) => setEvidenceComment(e.target.value)}
+                  className="text-xs h-9"
+                  disabled={isSaving || isUploading}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleSaveWithNewFact} disabled={isSaving || isUploading || !evidenceFile}>
+                  {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  Guardar
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setShowNewFactForm(false)} disabled={isSaving || isUploading}>Cancelar</Button>
+              </div>
+            </Card>
+          )}
 
           {preservedFacts && preservedFacts.length > 0 && (
             <div className="space-y-2 mt-4">
@@ -434,7 +430,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
       <CardFooter className="flex flex-col sm:flex-row justify-between gap-2 pt-4 border-t">
         <Button onClick={onPrevious} variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>Anterior</Button>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Button onClick={handleSaveProgressLocal} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
+            <Button onClick={() => onSaveAnalysis(true)} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Save className="mr-2 h-4 w-4" /> Guardar Avance
             </Button>
