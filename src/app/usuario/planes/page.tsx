@@ -846,10 +846,17 @@ export default function UserActionPlansPage() {
             <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-2.5 mt-0.5 flex-shrink-0" />
             <div>
               <h3 className="text-sm font-semibold text-blue-700 dark:text-blue-300 mb-0.5">Nota sobre la funcionalidad</h3>
-              <p className="text-xs text-blue-600 dark:text-blue-400/90">
-                Desde "Mis Tareas Asignadas", al marcar "listo para validación", se guardarán las evidencias, comentarios y se enviará un correo al validador (Líder de Proyecto del ACR) con un enlace al Paso 4 del análisis.
-                Desde "Tareas por Validar", el botón "Ir a Validar" le llevará directamente al Paso 4 del análisis correspondiente para que pueda realizar la validación.
-              </p>
+              <ul className="list-disc pl-4 text-xs text-blue-600 dark:text-blue-400/90 space-y-1">
+                <li>
+                  <strong>Mis Tareas Asignadas:</strong> Aquí puede adjuntar evidencias, añadir comentarios y, cuando esté listo, marcar la tarea para su validación por parte del Líder del Proyecto.
+                </li>
+                <li>
+                  <strong>Tareas por Validar:</strong> Si es Líder de Proyecto o Admin, aquí verá las tareas que otros han completado y que requieren su aprobación o rechazo. El botón "Ir a Validar" le llevará al análisis correspondiente.
+                </li>
+                <li>
+                  <strong>Eficacia por Verificar:</strong> Muestra los análisis ya finalizados que le fueron asignados para verificar si las soluciones implementadas fueron efectivas a largo plazo. El botón "Ir a Verificar" le llevará al informe final para completar el proceso.
+                </li>
+              </ul>
             </div>
           </div>
         </CardContent>
