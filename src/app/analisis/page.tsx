@@ -357,9 +357,9 @@ function RCAAnalysisPageComponent() {
             setRejectionDetails(initialRCAAnalysisState.rejectionDetails);
             setCreatedBy(initialRCAAnalysisState.createdBy);
             setCurrentEventStatus('Pendiente');
-            setAnalysisDocumentId(null);
-            setMaxCompletedStep(0);
-            lastLoadedAnalysisIdRef.current = null;
+            setAnalysisDocumentId(null); 
+            setMaxCompletedStep(0); 
+            lastLoadedAnalysisIdRef.current = null; 
             router.replace('/analisis', { scroll: false });
         }
         return false;
@@ -1117,15 +1117,17 @@ function RCAAnalysisPageComponent() {
     factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>,
     file: File
   ) => {
+    console.log("[handleAddPreservedFact] Iniciando subida de evidencia...");
     setIsSaving(true);
     let currentEventId = analysisDocumentId;
   
     try {
       if (!currentEventId) {
-        // Must have an ID to associate the file. Let's create the doc first.
+        console.log("[handleAddPreservedFact] No hay ID de análisis, se creará uno nuevo.");
         const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
         if (saveResult.success && saveResult.newEventId) {
           currentEventId = saveResult.newEventId;
+          console.log(`[handleAddPreservedFact] Nuevo ID de análisis creado: ${currentEventId}`);
         } else {
           throw new Error("No se pudo crear el documento de análisis antes de subir el archivo.");
         }
@@ -1133,11 +1135,13 @@ function RCAAnalysisPageComponent() {
   
       toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
       const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
+      console.log(`[handleAddPreservedFact] Subiendo archivo a Storage en la ruta: ${filePath}`);
       const fileStorageRef = storageRef(storage, filePath);
   
-      // Directly upload the file blob. This is the correct approach.
       const uploadResult = await uploadBytes(fileStorageRef, file);
+      console.log("[handleAddPreservedFact] Archivo subido a Storage exitosamente.", uploadResult);
       const downloadURL = await getDownloadURL(uploadResult.ref);
+      console.log(`[handleAddPreservedFact] URL de descarga obtenida: ${downloadURL}`);
   
       const newFact: PreservedFact = {
         id: generateClientSideId('pf'),
@@ -1152,19 +1156,22 @@ function RCAAnalysisPageComponent() {
       };
   
       const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
+      console.log(`[handleAddPreservedFact] Actualizando documento en Firestore: ${rcaDocRef.path}`);
       await updateDoc(rcaDocRef, {
         preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
         updatedAt: new Date().toISOString()
       });
+      console.log("[handleAddPreservedFact] Documento en Firestore actualizado.");
   
       setPreservedFacts(prev => [...prev, newFact]);
       toast({ title: "Hecho Preservado Añadido", description: `Se añadió y subió "${newFact.userGivenName}".` });
   
     } catch (error: any) {
-      console.error("Error detallado al subir hecho preservado:", error);
+      console.error("[handleAddPreservedFact] Error detallado al subir hecho preservado:", error);
       toast({ title: "Error al Procesar Evidencia", description: `No se pudo subir el archivo: ${error.message || 'Error desconocido'}`, variant: "destructive" });
     } finally {
       setIsSaving(false);
+      console.log("[handleAddPreservedFact] Proceso de subida finalizado.");
     }
   };
   
