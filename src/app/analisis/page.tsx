@@ -1,3 +1,4 @@
+
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef, ChangeEvent } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification, Evidence } from '@/types/rca';
@@ -1009,6 +1010,28 @@ function RCAAnalysisPageComponent() {
       }
     }
     return { isValid: true };
+  };
+
+  const validateFieldsForNext = (): boolean => {
+    const missingFields = [];
+    if (!projectLeader) missingFields.push("Líder del Proyecto");
+    if (!detailedFacts.como.trim()) missingFields.push("Hechos Detallados: CÓMO");
+    if (!detailedFacts.que.trim()) missingFields.push("Hechos Detallados: QUÉ");
+    if (!detailedFacts.donde.trim()) missingFields.push("Hechos Detallados: DÓNDE");
+    if (!detailedFacts.cuando.trim()) missingFields.push("Hechos Detallados: CUÁNDO");
+    if (!detailedFacts.cualCuanto.trim()) missingFields.push("Hechos Detallados: CUÁL/CUÁNTO");
+    if (!detailedFacts.quien.trim()) missingFields.push("Hechos Detallados: QUIÉN");
+    
+    if (missingFields.length > 0) {
+      toast({
+        title: "Campos Obligatorios Faltantes",
+        description: `Por favor, complete los siguientes campos del Paso 2: ${missingFields.join(', ')}.`,
+        variant: "destructive",
+        duration: 7000,
+      });
+      return false;
+    }
+    return true;
   };
 
 
