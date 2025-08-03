@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { FC, ChangeEvent } from 'react';
@@ -63,10 +62,12 @@ export const Step2Facts: FC<{
   onAnalysisDetailsChange: (value: string) => void;
   preservedFacts: PreservedFact[];
   onRemovePreservedFact: (factId: string) => Promise<void>;
-  onSaveWithNewFact: (factMetadata: Omit<Evidence, 'id' | 'dataUrl'>, file: File) => Promise<void>;
+  onSaveWithNewFact: (factMetadata: Omit<Evidence, 'id' | 'dataUrl'>, file: File | null) => Promise<void>;
   isSaving: boolean;
   onPrevious: () => void;
   onNext: () => void;
+  onSaveAnalysis: () => Promise<void>;
+  validateFieldsForNext: () => boolean;
 }> = ({
   eventData,
   availableSites,
@@ -87,6 +88,8 @@ export const Step2Facts: FC<{
   isSaving,
   onPrevious,
   onNext,
+  onSaveAnalysis,
+  validateFieldsForNext,
 }) => {
   const { toast } = useToast();
   const [clientSideMaxDateTime, setClientSideMaxDateTime] = useState<string | undefined>(undefined);
@@ -155,27 +158,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [constructedPhenomenonDescription]);
 
-
-  const validateFieldsForNext = (): boolean => {
-    const missingFields = [];
-    if (!projectLeader) missingFields.push("Líder del Proyecto");
-    if (!detailedFacts.como.trim()) missingFields.push("CÓMO (ocurrió la desviación)");
-    if (!detailedFacts.que.trim()) missingFields.push("QUÉ (ocurrió)");
-    if (!detailedFacts.donde.trim()) missingFields.push("DÓNDE (ocurrió)");
-    if (!detailedFacts.cuando.trim()) missingFields.push("CUÁNDO (Fecha y Hora)");
-    if (!detailedFacts.cualCuanto.trim()) missingFields.push("CUÁL/CUÁNTO (tendencia e impacto)");
-    if (!detailedFacts.quien.trim()) missingFields.push("QUIÉN");
-
-    if (missingFields.length > 0) {
-      toast({
-        title: "Campos Obligatorios Faltantes",
-        description: `Por favor, complete los siguientes campos antes de continuar: ${missingFields.join(', ')}.`,
-        variant: "destructive",
-      });
-      return false;
-    }
-    return true;
-  };
   
   const handleSaveWithNewFactClick = async () => {
     if (!evidenceFile) {
@@ -463,7 +445,11 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
       <CardFooter className="flex flex-col sm:flex-row justify-between gap-2 pt-4 border-t">
         <Button onClick={onPrevious} variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>Anterior</Button>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <Button onClick={() => onNext()} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
+            <Button onClick={onSaveAnalysis} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Save className="mr-2 h-4 w-4" /> Guardar Avance
+            </Button>
+            <Button onClick={handleNextWithSave} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Siguiente
             </Button>

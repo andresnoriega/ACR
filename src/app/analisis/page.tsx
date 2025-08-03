@@ -1,4 +1,3 @@
-
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef, ChangeEvent } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification, Evidence } from '@/types/rca';
@@ -1076,9 +1075,6 @@ function RCAAnalysisPageComponent() {
   };
 
   const handleNextStep = async () => {
-    // First, save any pending changes from the current step's main form.
-    await handleSaveAnalysisData(false, { suppressNavigation: true });
-
     if (step === 1) {
       const step1Validation = validateStep1PreRequisites();
       if (!step1Validation.isValid) {
@@ -1089,40 +1085,43 @@ function RCAAnalysisPageComponent() {
         });
         return;
       }
-    } else if (step === 2) {
-      const step2Validation = validateFieldsForNext(); // Assuming this function exists in Step2Facts
-      if (!step2Validation) {
-        // Toast is handled inside validateFieldsForNext
-        return;
-      }
+    }
+    
+    // Save current step data before moving to the next one
+    if (step === 2) {
+      const isValid = validateFieldsForNext();
+      if (!isValid) return;
     } else if (step === 3) {
-       if (!isStep3ValidForNavigation) {
-         toast({
-            title: "Revisión Necesaria en Paso 3",
-            description: "Verifique que todas las causas raíz descritas estén abordadas por un plan de acción completo.",
-            variant: "destructive",
-            duration: 7000
-          });
+      if (!isStep3ValidForNavigation) {
+        toast({
+          title: "Revisión Necesaria en Paso 3",
+          description: "Verifique que todas las causas raíz descritas estén abordadas por un plan de acción completo.",
+          variant: "destructive",
+          duration: 7000,
+        });
         return;
       }
     } else if (step === 4) {
-        if (plannedActions.length > 0) {
-            const allActionsDecided = plannedActions.every(pa => {
-                if (!pa || !pa.id) return true; 
-                const validationEntry = validations.find(v => v && v.actionId === pa.id);
-                return validationEntry && (validationEntry.status === 'validated' || validationEntry.status === 'rejected');
-            });
+      if (plannedActions.length > 0) {
+        const allActionsDecided = plannedActions.every(pa => {
+          if (!pa || !pa.id) return true; 
+          const validationEntry = validations.find(v => v && v.actionId === pa.id);
+          return validationEntry && (validationEntry.status === 'validated' || validationEntry.status === 'rejected');
+        });
 
-            if (!allActionsDecided) {
-                toast({
-                    title: "Acciones Pendientes de Decisión",
-                    description: "Todas las acciones planificadas deben estar validadas o rechazadas para continuar al Paso 5.",
-                    variant: "destructive",
-                });
-                return;
-            }
+        if (!allActionsDecided) {
+          toast({
+            title: "Acciones Pendientes de Decisión",
+            description: "Todas las acciones planificadas deben estar validadas o rechazadas para continuar al Paso 5.",
+            variant: "destructive",
+          });
+          return;
         }
+      }
     }
+    
+    // Always save before moving, but without showing toast unless it's a specific save action
+    await handleSaveAnalysisData(false);
 
     const newStep = Math.min(step + 1, 5);
     setStep(newStep);
@@ -1566,6 +1565,8 @@ function RCAAnalysisPageComponent() {
           isSaving={isSaving}
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
+          onSaveAnalysis={handleSaveFromStep2}
+          validateFieldsForNext={validateFieldsForNext}
         />
       )}
       </div>
@@ -1585,7 +1586,7 @@ function RCAAnalysisPageComponent() {
           analysisTechniqueNotes={analysisTechniqueNotes}
           onAnalysisTechniqueNotesChange={setAnalysisTechniqueNotes}
           ishikawaData={ishikawaData}
-          onSetIshikawaData={setIshikawaData}
+          onSetIshikawaData={onSetIshikawaData}
           fiveWhysData={fiveWhysData}
           onSetFiveWhysData={setFiveWhysData}
           ctmData={ctmData}
