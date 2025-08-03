@@ -1123,21 +1123,22 @@ function RCAAnalysisPageComponent() {
         currentEventId = saveResult.newEventId;
       }
 
-      toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
+      toast({ title: "Subiendo archivo...", description: `Procesando ${file.name}, por favor espere.` });
       
       const reader = new FileReader();
       const dataUrl = await new Promise<string>((resolve, reject) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = (error) => {
-            console.error("FileReader error:", error);
-            reject(new Error("Error al leer el archivo."));
-          };
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = (error) => {
+          console.error("FileReader error:", error);
+          reject(new Error("Error al leer el archivo."));
+        };
+        reader.readAsDataURL(file);
       });
 
       const newEvidence: Evidence = {
         id: generateClientSideId('ev'),
         nombre: file.name,
-        tipo: file.type.split('/')[1] as Evidence['tipo'] || 'other',
+        tipo: file.type,
         comment: factMetadata.comment,
         userGivenName: factMetadata.userGivenName,
         dataUrl: dataUrl,
@@ -1170,7 +1171,6 @@ function RCAAnalysisPageComponent() {
 
     setIsSaving(true);
     
-    // Remove from Firestore using arrayRemove and update local state
     const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
     try {
       await updateDoc(rcaDocRef, {

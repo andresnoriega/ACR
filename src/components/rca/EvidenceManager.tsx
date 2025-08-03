@@ -12,13 +12,15 @@ import { useToast } from "@/hooks/use-toast";
 import { PlusCircle, Trash2, ImageIcon, FileText, Link2, Paperclip, Loader2, ExternalLink } from 'lucide-react';
 
 
-const getEvidenceIconLocal = (tipo?: Evidence['tipo']) => {
+const getEvidenceIconLocal = (tipo?: string) => {
   if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
-  switch (tipo) {
-    case 'link': return <Link2 className="h-4 w-4 mr-2 flex-shrink-0 text-indigo-600" />;
+  const simplifiedType = tipo.split('/')[1] || tipo; // Get 'pdf' from 'application/pdf'
+  switch (simplifiedType) {
     case 'pdf': return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
-    case 'jpg': case 'jpeg': case 'png': return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
-    case 'doc': case 'docx': return <Paperclip className="h-4 w-4 mr-2 flex-shrink-0 text-sky-700" />;
+    case 'jpeg': case 'jpg': case 'png': case 'gif': return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
+    case 'msword':
+    case 'vnd.openxmlformats-officedocument.wordprocessingml.document':
+      return <Paperclip className="h-4 w-4 mr-2 flex-shrink-0 text-sky-700" />;
     default: return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
   }
 };
@@ -63,7 +65,7 @@ export const EvidenceManager: FC<EvidenceManagerProps> = ({ title, evidences, on
     try {
         const factMetadata: Omit<Evidence, 'id' | 'dataUrl'> = {
           nombre: fileToUpload.name,
-          tipo: fileToUpload.type.split('/')[1] || 'other',
+          tipo: fileToUpload.type, // Store the full MIME type
           comment: evidenceComment.trim() || undefined,
           userGivenName: userGivenName.trim(),
         };

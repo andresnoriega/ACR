@@ -1,4 +1,3 @@
-
 'use client';
 // --- Common Enums and Types ---
 export type EventType = 'Incidente' | 'Falla de Equipo' | 'Accidente' | 'No Conformidad' | 'Evento Operacional' | '';
@@ -161,12 +160,11 @@ export interface IdentifiedRootCause {
 
 export interface Evidence {
   id: string;
-  nombre: string;
-  tipo: 'link' | 'pdf' | 'jpg' | 'png' | 'doc' | 'other' | string; // Allow string for flexibility with MIME types
-  dataUrl: string; // The content as a Data URL
+  nombre: string; // Original file name
+  tipo: string; // File extension or simplified type like 'pdf', 'image', etc.
+  dataUrl: string; // The base64 Data URL for embedding or downloading
   comment?: string;
-  userGivenName?: string;
-  category?: string;
+  userGivenName: string; // User-defined name for the evidence
 }
 
 export interface PlannedAction {
@@ -247,7 +245,7 @@ export interface RCAAnalysisDocument {
   ctmData: CTMData;
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
-  evidences?: Evidence[];
+  evidences: Evidence[];
   validations: Validation[];
   finalComments: string;
   leccionesAprendidas: string;
