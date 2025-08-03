@@ -71,7 +71,6 @@ export const Step2Facts: FC<{
   onPrevious: () => void;
   onNext: () => void;
   onSaveAnalysis: () => Promise<void>;
-  validateFieldsForNext: () => boolean;
 }> = ({
   projectLeader,
   onProjectLeaderChange,
@@ -91,7 +90,6 @@ export const Step2Facts: FC<{
   onPrevious,
   onNext,
   onSaveAnalysis,
-  validateFieldsForNext,
 }) => {
   const { toast } = useToast();
   const [clientSideMaxDateTime, setClientSideMaxDateTime] = useState<string | undefined>(undefined);
@@ -101,6 +99,7 @@ export const Step2Facts: FC<{
 
   // State for the new evidence upload section
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
+  const [evidenceUserGivenName, setEvidenceUserGivenName] = useState('');
   const [evidenceComment, setEvidenceComment] = useState('');
   const [evidenceCategory, setEvidenceCategory] = useState('');
   const [showNewFactForm, setShowNewFactForm] = useState(false);
@@ -188,7 +187,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
 
       const newFact: PreservedFact = {
         id: generateClientSideId('fact'),
-        nombre: evidenceFile.name,
+        userGivenName: evidenceUserGivenName.trim() || evidenceFile.name,
         tipo: evidenceFile.type.split('/')[1] || 'other',
         category: evidenceCategory,
         comment: evidenceComment.trim() || undefined,
@@ -199,6 +198,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
       
       // Reset form
       setEvidenceFile(null);
+      setEvidenceUserGivenName('');
       setEvidenceComment('');
       setEvidenceCategory('');
       setShowNewFactForm(false);
@@ -214,9 +214,8 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
   };
 
   const handleNextWithSave = async () => {
-    if (!validateFieldsForNext()) {
-      return;
-    }
+    // This function will now be simpler as the save is consolidated in the parent.
+    // The validation logic will be handled by the parent's `handleNextStep`.
     onNext();
   };
 
@@ -373,11 +372,29 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                     <Input
                     id="step2-evidence-file-input"
                     type="file"
-                    onChange={(e) => setEvidenceFile(e.target.files ? e.target.files[0] : null)}
+                    onChange={(e) => {
+                        const file = e.target.files ? e.target.files[0] : null;
+                        setEvidenceFile(file);
+                        if (file) {
+                            setEvidenceUserGivenName(file.name);
+                        }
+                    }}
                     className="text-xs h-9"
                     disabled={isSaving || isUploading}
                     />
                  </div>
+              </div>
+               <div className="space-y-2">
+                <Label htmlFor="evidence-user-given-name">Nombre del Hecho (opcional)</Label>
+                <Input
+                  id="evidence-user-given-name"
+                  type="text"
+                  placeholder="Nombre descriptivo del archivo"
+                  value={evidenceUserGivenName}
+                  onChange={(e) => setEvidenceUserGivenName(e.target.value)}
+                  className="text-xs h-9"
+                  disabled={isSaving || isUploading}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="step2-evidence-comment">Comentario (opcional)</Label>
@@ -394,7 +411,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
               <div className="flex gap-2">
                 <Button size="sm" onClick={handleSaveWithNewFactClick} disabled={isSaving || isUploading || !evidenceFile}>
                   {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                  Guardar
+                  Guardar Hecho
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setShowNewFactForm(false)} disabled={isSaving || isUploading}>Cancelar</Button>
               </div>
@@ -409,16 +426,16 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                   {preservedFacts.map((fact) => (
                     <li key={fact.id} className="flex items-start justify-between text-sm border p-2 rounded-md bg-background">
                       <div className="flex items-start">
-                        {getEvidenceIconLocal(fact.nombre)}
+                        {getEvidenceIconLocal(fact.userGivenName)}
                         <div className="flex flex-col">
                           <span className="font-semibold text-primary">{fact.category || 'Sin categoría'}</span>
-                          <span className="font-medium">{fact.nombre}</span>
+                          <span className="font-medium">{fact.userGivenName}</span>
                           {fact.comment && <span className="text-xs italic text-muted-foreground">"{fact.comment}"</span>}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                         <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
-                          <a href={fact.dataUrl} target="_blank" rel="noopener noreferrer" download={fact.nombre}>
+                          <a href={fact.dataUrl} target="_blank" rel="noopener noreferrer" download={fact.userGivenName}>
                             <ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar
                           </a>
                         </Button>

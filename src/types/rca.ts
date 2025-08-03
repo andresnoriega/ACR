@@ -167,7 +167,13 @@ export interface Evidence {
   category?: string;
 }
 
-export type PreservedFact = Evidence;
+export interface PreservedFact extends Omit<Evidence, 'nombre'> {
+  userGivenName: string; // The original name from the user's file system or as given by user
+  storagePath?: string; // Path in Firebase Storage (optional, for future use or migration)
+  downloadURL?: string; // Public URL from Firebase Storage
+  eventId?: string; // Link back to the event
+  uploadDate?: string; // ISO string
+}
 
 
 export interface PlannedAction {

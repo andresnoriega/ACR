@@ -736,11 +736,9 @@ function RCAAnalysisPageComponent() {
     }
   };
   
-  const handleAddPreservedFact = (newFactWithDataUrl: PreservedFact) => {
-    // This function now only updates the local state.
-    // The actual save will happen with the next `handleSaveAnalysisData` call.
-    setPreservedFacts(prev => [...prev, newFactWithDataUrl]);
-    toast({ title: "Hecho Preservado Añadido", description: `Se añadió "${newFactWithDataUrl.nombre}" a la lista. Se guardará con el próximo avance.` });
+  const handleAddPreservedFact = (newFact: PreservedFact) => {
+    setPreservedFacts(prev => [...prev, newFact]);
+    toast({ title: "Hecho Preservado Añadido", description: `Se añadió "${newFact.userGivenName}" a la lista. Se guardará con el próximo avance.` });
   };
 
 
@@ -1538,7 +1536,6 @@ function RCAAnalysisPageComponent() {
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
           onSaveAnalysis={handleSaveFromStep2}
-          validateFieldsForNext={validateFieldsForNext}
         />
       )}
       </div>
