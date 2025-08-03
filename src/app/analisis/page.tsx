@@ -1,5 +1,5 @@
 'use client';
-import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Suspense, useState, useEffect, useCallback, useMemo, useRef, ChangeEvent } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
@@ -887,7 +887,7 @@ function RCAAnalysisPageComponent() {
         const emailSubject = `Evento ACR Rechazado: ${eventData.focusEventDescription.substring(0, 40)}... (ID: ${finalEventId})`;
         const rejectedByName = userProfile?.name || "Sistema";
         const formattedRejectionDate = new Date().toLocaleDateString('es-CL', { year: 'numeric', month: 'long', day: 'numeric' });
-        const emailBody = `Estimado/a ${rcaDocCreatorName},\n\nEl evento "${eventData.focusEventDescription}" (ID: ${finalEventId}) que usted creó/reportó ha sido rechazado.\n\nMotivo del Rechazo:\n${rejectionReason}\nRechazado por: ${rejectedByName}\nFecha de Rechazo: ${formattedRejectionDate}\n\nPor favor, revise los detalles en el sistema si es necesario.\n\nSaludos,\nSistema Asistente ACR`;
+        const emailBody = `Estimado/a ${rcaDocCreatorName},\n\nEl evento "${eventData.focusEventDescription}" (ID: ${finalEventId}) que usted creó/reportó ha sido rechazado.\n\nMotivo del Rechazo: ${rejectionReason}\nRechazado por: ${rejectedByName}\nFecha de Rechazo: ${formattedRejectionDate}\n\nPor favor, revise los detalles en el sistema si es necesario.\n\nSaludos,\nSistema Asistente ACR`;
         const emailResult = await sendEmailAction({ to: rcaDocCreatorEmail, subject: emailSubject, body: emailBody });
         if (emailResult.success) {
           emailNotificationStatus += `Notificación de rechazo enviada al creador del evento: ${rcaDocCreatorName}.`;
@@ -1154,61 +1154,55 @@ function RCAAnalysisPageComponent() {
   };
 
   const handleAddPreservedFact = () => {
-    setPreservedFacts(prev => [
-      ...prev,
-      {
-        id: generateClientSideId('pf'),
-        userGivenName: '',
-        category: '',
-        description: '',
-      }
-    ]);
+    setPreservedFacts(prev => [...prev, {
+      id: generateClientSideId('pf'),
+      userGivenName: '',
+      category: '',
+      description: '',
+      fileName: '',
+    }]);
   };
   
   const handleUpdatePreservedFact = async (
-    index: number,
-    field: keyof Omit<PreservedFact, 'id'>,
+    index: number, 
+    field: keyof Omit<PreservedFact, 'id'> | 'file', 
     value: string | File
   ) => {
-    const updatedFacts = [...preservedFacts];
-    const factToUpdate = { ...updatedFacts[index] };
-  
     if (field === 'file' && value instanceof File) {
       const file = value;
-      if (file.size > 700 * 1024) {
-        toast({
-          title: "Archivo Demasiado Grande",
-          description: "El archivo no debe exceder los 700KB.",
-          variant: "destructive",
-        });
+      if (file.size > 700 * 1024) { // 700 KB limit
+        toast({ title: "Archivo Demasiado Grande", description: "El archivo no debe exceder los 700KB.", variant: "destructive" });
         return;
       }
-      try {
-        const reader = new FileReader();
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-        factToUpdate.dataUrl = dataUrl;
-        factToUpdate.fileName = file.name;
-        toast({ title: "Archivo Procesado", description: `${file.name} listo para guardar.` });
-      } catch (error) {
+      toast({ title: "Procesando archivo...", description: `Convirtiendo ${file.name} a Data URL.` });
+      
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        setPreservedFacts(prev => prev.map((fact, i) =>
+          i === index
+            ? { ...fact, fileName: file.name, fileType: file.type, dataUrl: dataUrl }
+            : fact
+        ));
+        toast({ title: "Archivo Procesado", description: "El archivo está listo para ser guardado." });
+      };
+      reader.onerror = (error) => {
+        console.error("Error reading file:", error);
         toast({ title: "Error de Lectura", description: "No se pudo procesar el archivo.", variant: "destructive" });
-        return;
-      }
-    } else if (typeof value === 'string') {
-      (factToUpdate as any)[field] = value;
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setPreservedFacts(prev => prev.map((fact, i) =>
+        i === index
+          ? { ...fact, [field as keyof PreservedFact]: value }
+          : fact
+      ));
     }
-  
-    updatedFacts[index] = factToUpdate;
-    setPreservedFacts(updatedFacts);
   };
   
   const handleRemovePreservedFact = (idToRemove: string) => {
-    setPreservedFacts(prev => prev.filter(fact => fact.id !== idToRemove));
+      setPreservedFacts(prev => prev.filter(f => f.id !== idToRemove));
   };
-
 
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);

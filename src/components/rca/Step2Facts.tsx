@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserCircle, Save, Loader2, Target, ClipboardList, Sparkles, FilePlus, Trash2, FileArchive, PlusCircle } from 'lucide-react';
+import { UserCircle, Save, Loader2, Target, ClipboardList, Sparkles, FilePlus, Trash2, FileArchive, PlusCircle, ExternalLink, FileIcon } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
@@ -31,7 +31,6 @@ const PRESERVED_FACT_CATEGORIES = [
   "Otro"
 ];
 
-
 // ------ COMPONENTE PRINCIPAL ------
 export const Step2Facts: FC<{
   eventData: RCAEventData;
@@ -49,7 +48,7 @@ export const Step2Facts: FC<{
   onAnalysisDetailsChange: (value: string) => void;
   preservedFacts: PreservedFact[];
   onAddPreservedFact: () => void;
-  onUpdatePreservedFact: (index: number, field: keyof Omit<PreservedFact, 'id'>, value: string | File) => Promise<void>;
+  onUpdatePreservedFact: (index: number, field: keyof Omit<PreservedFact, 'id'> | 'file', value: string | File) => void;
   onRemovePreservedFact: (id: string) => void;
   onPrevious: () => void;
   onNext: () => void;
@@ -203,6 +202,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
 
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle className="font-headline">Paso 2: Hechos y Análisis Preliminar</CardTitle>
@@ -296,6 +296,90 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
           </CardContent>
         </Card>
 
+         <div className="space-y-2 pt-4 border-t">
+            <h3 className="text-lg font-semibold font-headline flex items-center">
+                <FileArchive className="mr-2 h-5 w-5 text-primary" />
+                Preservación de Hechos
+            </h3>
+            <div className="overflow-x-auto">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead className="w-[20%]">Nombre</TableHead>
+                            <TableHead className="w-[20%]">Categoría</TableHead>
+                            <TableHead className="w-[30%]">Descripción</TableHead>
+                            <TableHead className="w-[25%]">Archivo</TableHead>
+                            <TableHead className="w-[5%] text-right">Acción</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {preservedFacts.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
+                                    No se han añadido hechos preservados.
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            preservedFacts.map((fact, index) => (
+                                <TableRow key={fact.id}>
+                                    <TableCell>
+                                        <Input
+                                            value={fact.userGivenName}
+                                            onChange={(e) => onUpdatePreservedFact(index, 'userGivenName', e.target.value)}
+                                            placeholder="Nombre del hecho"
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Select
+                                            value={fact.category}
+                                            onValueChange={(value) => onUpdatePreservedFact(index, 'category', value)}
+                                        >
+                                            <SelectTrigger><SelectValue placeholder="Categoría" /></SelectTrigger>
+                                            <SelectContent>
+                                                {PRESERVED_FACT_CATEGORIES.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Input
+                                            value={fact.description}
+                                            onChange={(e) => onUpdatePreservedFact(index, 'description', e.target.value)}
+                                            placeholder="Breve descripción"
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                        {fact.dataUrl ? (
+                                             <a href={fact.dataUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline text-xs flex items-center gap-1">
+                                                <ExternalLink className="h-3 w-3" /> {fact.fileName}
+                                            </a>
+                                        ) : (
+                                            <Input
+                                                type="file"
+                                                className="text-xs h-9"
+                                                onChange={(e) => {
+                                                    if (e.target.files && e.target.files[0]) {
+                                                        onUpdatePreservedFact(index, 'file', e.target.files[0]);
+                                                    }
+                                                }}
+                                            />
+                                        )}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <Button variant="ghost" size="icon" onClick={() => onRemovePreservedFact(fact.id)}>
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
+            <Button onClick={onAddPreservedFact} variant="outline" size="sm">
+              <PlusCircle className="mr-2 h-4 w-4" /> Añadir Hecho Preservado
+            </Button>
+        </div>
+
 
         <div className="space-y-4 pt-4 border-t">
             <div className="space-y-2">
@@ -313,93 +397,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
             </div>
         </div>
 
-        <div className="space-y-4 pt-4 border-t">
-            <h3 className="text-lg font-semibold font-headline flex items-center">
-              <FileArchive className="mr-2 h-5 w-5 text-primary" />
-              Preservación de Hechos
-            </h3>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[20%]">Nombre</TableHead>
-                    <TableHead className="w-[25%]">Categoría</TableHead>
-                    <TableHead className="w-[35%]">Descripción</TableHead>
-                    <TableHead className="w-[15%]">Archivo</TableHead>
-                    <TableHead className="w-[5%] text-right">Acción</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {preservedFacts.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
-                        No se han añadido hechos preservados.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    preservedFacts.map((fact, index) => (
-                      <TableRow key={fact.id}>
-                        <TableCell>
-                          <Input
-                            value={fact.userGivenName}
-                            onChange={(e) => onUpdatePreservedFact(index, 'userGivenName', e.target.value)}
-                            placeholder="Nombre del hecho"
-                            className="h-8"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={fact.category}
-                            onValueChange={(value) => onUpdatePreservedFact(index, 'category', value)}
-                          >
-                            <SelectTrigger className="h-8">
-                              <SelectValue placeholder="-- Seleccione --" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {PRESERVED_FACT_CATEGORIES.map(cat => (
-                                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={fact.description}
-                            onChange={(e) => onUpdatePreservedFact(index, 'description', e.target.value)}
-                            placeholder="Descripción breve"
-                            className="h-8"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {fact.dataUrl ? (
-                            <a href={fact.dataUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline truncate">
-                              {fact.fileName || 'Ver archivo'}
-                            </a>
-                          ) : (
-                            <Input
-                              type="file"
-                              onChange={(e) => e.target.files && onUpdatePreservedFact(index, 'file', e.target.files[0])}
-                              className="h-8 text-xs"
-                            />
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onRemovePreservedFact(fact.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-            <Button onClick={onAddPreservedFact} variant="outline" size="sm">
-              <PlusCircle className="mr-2 h-4 w-4" /> Añadir Hecho Preservado
-            </Button>
-        </div>
-
-
       </CardContent>
       <CardFooter className="flex flex-col sm:flex-row justify-between gap-2 pt-4 border-t">
         <Button onClick={onPrevious} variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>Anterior</Button>
@@ -415,5 +412,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
         </div>
       </CardFooter>
     </Card>
+    </>
   );
 };

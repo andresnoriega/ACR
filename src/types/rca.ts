@@ -171,8 +171,9 @@ export interface PreservedFact {
   userGivenName: string;
   category: string;
   description: string;
-  fileName?: string;
-  dataUrl?: string;
+  fileName: string;
+  fileType?: string;
+  dataUrl?: string; 
 }
 
 
