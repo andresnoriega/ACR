@@ -168,6 +168,8 @@ export interface Evidence {
   category?: string;
 }
 
+export type PreservedFact = Evidence;
+
 
 export interface PlannedAction {
   id: string;
@@ -238,6 +240,7 @@ export interface RCAAnalysisDocument {
   investigationObjective: string;
   investigationSessions: InvestigationSession[];
   analysisDetails: string;
+  preservedFacts: PreservedFact[];
   timelineEvents: TimelineEvent[];
   brainstormingIdeas: BrainstormIdea[];
   analysisTechnique: AnalysisTechnique;
