@@ -26,11 +26,10 @@ import { es } from 'date-fns/locale';
 
 export const dynamic = 'force-dynamic';
 
+let idCounter = Date.now();
 const generateClientSideId = (prefix: string) => {
-    // This is a safer way to generate client-side IDs to prevent hydration mismatch.
-    const randomPart = Math.random().toString(36).substring(2, 9);
-    const timePart = Date.now().toString(36);
-    return `${prefix}-${timePart}-${randomPart}`;
+    idCounter++;
+    return `${prefix}-${idCounter}`;
 };
 
 
@@ -1114,29 +1113,25 @@ function RCAAnalysisPageComponent() {
   ) => {
     setIsSaving(true);
     let currentEventId = analysisDocumentId;
-  
+    
     try {
-      // Step 1: Ensure analysis document exists and get its ID
       if (!currentEventId) {
-        const generatedId = ensureEventId();
-        await handleSaveAnalysisData(false, { suppressNavigation: true });
-        currentEventId = generatedId;
-        if (!currentEventId) {
+        const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
+        if (saveResult.success && saveResult.newEventId) {
+          currentEventId = saveResult.newEventId;
+        } else {
           throw new Error("No se pudo crear el documento de análisis antes de subir el archivo.");
         }
       }
-  
-      // Step 2: Convert file to Data URL
-      toast({ title: "Procesando archivo...", description: `Convirtiendo ${file.name}, por favor espere.` });
+      
       const reader = new FileReader();
       const dataUrlPromise = new Promise<string>((resolve, reject) => {
         reader.onload = () => resolve(reader.result as string);
-        reader.onerror = (error) => reject(new Error("Error al leer el archivo."));
+        reader.onerror = () => reject(new Error("Error al leer el archivo."));
       });
       reader.readAsDataURL(file);
       const dataUrl = await dataUrlPromise;
-  
-      // Step 3: Create the new evidence object
+
       const newEvidence: Evidence = {
         id: generateClientSideId('ev'),
         nombre: file.name,
@@ -1146,14 +1141,12 @@ function RCAAnalysisPageComponent() {
         dataUrl: dataUrl,
       };
   
-      // Step 4: Update Firestore atomically
       const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
       await updateDoc(rcaDocRef, {
         evidences: arrayUnion(sanitizeForFirestore(newEvidence)),
         updatedAt: new Date().toISOString()
       });
   
-      // Step 5: Update local state to reflect the change immediately
       setEvidences(prev => [...(prev || []), newEvidence]);
       toast({ title: "Hecho Preservado Añadido", description: `Se añadió "${newEvidence.userGivenName || newEvidence.nombre}".` });
   
@@ -1526,11 +1519,6 @@ function RCAAnalysisPageComponent() {
           onNext={handleNextStep}
           onSaveAnalysis={handleSaveFromStep2}
           isSaving={isSaving}
-          allRcaDocuments={analysisDocumentId ? [{...initialRCAAnalysisState, eventData, projectLeader, plannedActions, validations}] : []}
-          userProfile={userProfile}
-          loadingAuth={loadingAuth}
-          plannedActions={plannedActions}
-          validations={validations}
           evidences={evidences}
           onAddEvidence={handleAddPreservedFact}
           onRemoveEvidence={handleRemoveEvidence}
