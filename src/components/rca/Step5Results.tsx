@@ -70,11 +70,13 @@ const SectionContent: FC<{ children: React.ReactNode; className?: string }> = ({
 
 const getEvidenceIconLocal = (tipo?: Evidence['tipo']) => {
   if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
-  switch (tipo) {
-    case 'link': return <Link2 className="h-4 w-4 mr-2 flex-shrink-0 text-indigo-600" />;
+  const simplifiedType = tipo.split('/')[1] || tipo;
+  switch (simplifiedType) {
     case 'pdf': return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
-    case 'jpg': case 'jpeg': case 'png': return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
-    case 'doc': case 'docx': return <Paperclip className="h-4 w-4 mr-2 flex-shrink-0 text-sky-700" />;
+    case 'jpeg': case 'jpg': case 'png': case 'gif': return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
+    case 'msword':
+    case 'vnd.openxmlformats-officedocument.wordprocessingml.document':
+      return <Paperclip className="h-4 w-4 mr-2 flex-shrink-0 text-sky-700" />;
     default: return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
   }
 };
@@ -535,85 +537,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           </section>
           <Separator className="my-4" />
           
-          <section>
-            <SectionTitle title="Anexos" icon={FileArchive}/>
-            <div className="space-y-4">
-                 {(timelineEvents ?? []).length > 0 && (
-                  <div>
-                    <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><CalendarClock className="mr-2 h-4 w-4" />Línea de Tiempo</h4>
-                    <ul className="list-disc pl-5 space-y-1 text-xs border rounded-md p-3 bg-secondary/20">
-                      {timelineEvents.map(event => (
-                        <li key={event.id}>
-                          <strong>{format(parseISO(event.datetime), 'dd/MM/yyyy HH:mm', { locale: es })}:</strong> {event.description}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {(brainstormingIdeas ?? []).length > 0 && (
-                  <div>
-                    <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><Lightbulb className="mr-2 h-4 w-4" />Lluvia de Ideas</h4>
-                    <ul className="list-disc pl-5 space-y-1 text-xs border rounded-md p-3 bg-secondary/20">
-                      {brainstormingIdeas.map(idea => (
-                        <li key={idea.id}>
-                          <strong>[{idea.type || 'Sin tipo'}]:</strong> {idea.description}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {(investigationSessions ?? []).length > 0 && (
-                  <div>
-                    <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><Users className="mr-2 h-4 w-4" />Equipo de Investigación</h4>
-                    <div className="pl-2 space-y-2 text-xs">
-                      {investigationSessions.map((session, index) => (
-                        <div key={session.id} className="border rounded-md p-2 bg-secondary/30">
-                          <p className="font-semibold text-primary">Sesión #{index + 1} - Fecha: {format(parseISO(session.sessionDate), 'dd/MM/yyyy', { locale: es })}</p>
-                          <ul className="list-disc pl-5 mt-1">
-                            {session.members.map(member => (
-                              <li key={member.id}>
-                                {member.name} ({member.position}, {member.site}) - Rol: {member.role}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {evidences && evidences.length > 0 && (
-                     <div>
-                        <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><Paperclip className="mr-2 h-4 w-4" />Hechos Preservados</h4>
-                        <ul className="list-none pl-0 space-y-1 text-xs">
-                        {evidences.map(ev => (
-                            <li key={ev.id} className="flex items-center justify-between bg-muted/30 p-1.5 rounded-sm">
-                                <div className="flex items-center">
-                                {getEvidenceIconLocal(ev.tipo)}
-                                <div className="flex flex-col">
-                                    <span className="text-xs font-semibold">{ev.userGivenName || ev.nombre}</span>
-                                    {ev.comment && <span className="text-xs italic text-muted-foreground">"{ev.comment}"</span>}
-                                </div>
-                                </div>
-                                <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
-                                <a href={ev.dataUrl} target="_blank" rel="noopener noreferrer" download={ev.nombre}>
-                                    <ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar
-                                </a>
-                                </Button>
-                            </li>
-                        ))}
-                        </ul>
-                    </div>
-                )}
-                 
-                 {(!timelineEvents || timelineEvents.length === 0) &&
-                  (!brainstormingIdeas || brainstormingIdeas.length === 0) &&
-                  (!investigationSessions || investigationSessions.length === 0) && 
-                  (!evidences || evidences.length === 0) && (
-                    <p className="text-sm text-muted-foreground">No hay anexos para mostrar.</p>
-                 )}
-            </div>
-          </section>
-
           <section>
             <SectionTitle title="Verificación de la Eficacia del Análisis" icon={ShieldCheck} />
             <Card className="bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700">

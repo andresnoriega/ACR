@@ -161,21 +161,12 @@ export interface IdentifiedRootCause {
 export interface Evidence {
   id: string;
   nombre: string;
-  tipo: 'pdf' | 'jpg' | 'png' | 'jpeg' | 'doc' | 'docx' | 'link' | 'other' | string;
-  dataUrl: string;
+  tipo?: 'pdf' | 'jpg' | 'png' | 'jpeg' | 'doc' | 'docx' | 'link' | 'other' | string;
+  dataUrl?: string; // Optional because a fact can be created before a file is attached
   comment?: string;
-}
-
-export interface PreservedFact {
-  id: string;
-  nombre: string; // User-given name
-  comment?: string;
-  uploadDate?: string; // ISO string
-  // Optional file properties
-  fileName?: string;
-  fileType?: string;
-  dataUrl?: string; // Stored as Data URL
-  storagePath?: string; // Path in Firebase Storage
+  uploadDate: string; // ISO string
+  userGivenName?: string; // Name given by user in the input
+  storagePath?: string; // Optional: To track file in Firebase Storage if used
 }
 
 
@@ -248,7 +239,6 @@ export interface RCAAnalysisDocument {
   investigationObjective: string;
   investigationSessions: InvestigationSession[];
   analysisDetails: string;
-  preservedFacts: PreservedFact[];
   timelineEvents: TimelineEvent[];
   brainstormingIdeas: BrainstormIdea[];
   analysisTechnique: AnalysisTechnique;
