@@ -950,91 +950,6 @@ function RCAAnalysisPageComponent() {
     return { isValid: true };
   };
 
-  const validateFieldsForNext = (): boolean => {
-    const missingFields = [];
-    if (!projectLeader) missingFields.push("Líder del Proyecto");
-    if (!detailedFacts.como.trim()) missingFields.push("Hechos Detallados: CÓMO");
-    if (!detailedFacts.que.trim()) missingFields.push("Hechos Detallados: QUÉ");
-    if (!detailedFacts.donde.trim()) missingFields.push("Hechos Detallados: DÓNDE");
-    if (!detailedFacts.cuando.trim()) missingFields.push("Hechos Detallados: CUÁNDO");
-    if (!detailedFacts.cualCuanto.trim()) missingFields.push("Hechos Detallados: CUÁL/CUÁNTO");
-    if (!detailedFacts.quien.trim()) missingFields.push("Hechos Detallados: QUIÉN");
-    
-    if (missingFields.length > 0) {
-      toast({
-        title: "Campos Obligatorios Faltantes",
-        description: `Por favor, complete los siguientes campos del Paso 2: ${missingFields.join(', ')}.`,
-        variant: "destructive",
-        duration: 7000,
-      });
-      return false;
-    }
-    return true;
-  };
-
-
-  const handleGoToStep = async (targetStep: number) => {
-    // If trying to go to step 4 or beyond, check if step 3 is valid first.
-    if (targetStep >= 4 && !isStep3ValidForNavigation) {
-       toast({
-        title: "Validación Requerida en Paso 3",
-        description: "Asegúrese de que todas las causas raíz descritas estén abordadas por un plan de acción antes de continuar.",
-        variant: "destructive",
-        duration: 7000
-      });
-      return;
-    }
-
-    if (targetStep > step && targetStep > maxCompletedStep + 1 && targetStep !== 1) {
-      return;
-    }
-
-    if (step === 1 && targetStep > 1) {
-      const step1Validation = validateStep1PreRequisites();
-      if (!step1Validation.isValid) {
-        toast({
-          title: "Acción Requerida en Paso 1",
-          description: step1Validation.message,
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-    
-    let currentIdToNavigate = analysisDocumentId;
-    let isNewEventForNav = false;
-    if (!currentIdToNavigate && targetStep > 1) { 
-        const newId = ensureEventId();
-        currentIdToNavigate = newId;
-        setAnalysisDocumentId(newId); 
-        isNewEventForNav = true;
-    }
-
-    if (isNewEventForNav && currentIdToNavigate) {
-       const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: false }); 
-       if (!saveResult.success) {
-         if (analysisDocumentId === currentIdToNavigate) setAnalysisDocumentId(null);
-         return; 
-       }
-    }
-
-
-    if (!isNewEventForNav || (isNewEventForNav && !currentIdToNavigate)) {
-      const navId = analysisDocumentId || eventData.id; 
-      if (navId) {
-         router.replace(`/analisis?id=${navId}&step=${targetStep}`, { scroll: false });
-      } else {
-         router.replace(`/analisis?step=${targetStep}`, { scroll: false }); 
-      }
-    }
-
-
-    setStep(targetStep);
-    if (targetStep > maxCompletedStep && targetStep > step ) { 
-        setMaxCompletedStep(targetStep -1);
-    }
-  };
-
   const handleNextStep = async () => {
     if (step === 1) {
       const step1Validation = validateStep1PreRequisites();
@@ -1050,8 +965,7 @@ function RCAAnalysisPageComponent() {
     
     // Save current step data before moving to the next one
     if (step === 2) {
-      const isValid = validateFieldsForNext();
-      if (!isValid) return;
+        // Validation for step 2 will be handled inside its own next button logic if needed
     } else if (step === 3) {
       if (!isStep3ValidForNavigation) {
         toast({
@@ -1135,7 +1049,7 @@ function RCAAnalysisPageComponent() {
   const onDetailedFactChange = (field: keyof DetailedFacts, value: string) => {
     setDetailedFacts(prev => ({ ...prev, [field]: value }));
   };
-
+  
   const handleAddPreservedFact = (newFact: PreservedFact) => {
     setPreservedFacts(prev => [...prev, newFact]);
   };
@@ -1143,6 +1057,7 @@ function RCAAnalysisPageComponent() {
   const handleRemovePreservedFact = (id: string) => {
     setPreservedFacts(prev => prev.filter(fact => fact.id !== id));
   };
+
 
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);
