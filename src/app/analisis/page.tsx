@@ -1,4 +1,3 @@
-
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
@@ -1154,69 +1153,60 @@ function RCAAnalysisPageComponent() {
     setDetailedFacts(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleAddPreservedFact = async (
-    factData: Omit<PreservedFact, 'id' | 'eventId'>
-  ) => {
-    setIsSaving(true);
-    try {
-      let currentEventId = analysisDocumentId;
-      if (!currentEventId) {
-        const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
-        if (!saveResult.success || !saveResult.newEventId) {
-          throw new Error("No se pudo crear el documento de análisis antes de subir el archivo.");
-        }
-        currentEventId = saveResult.newEventId;
-      }
-  
-      const newFact: PreservedFact = {
-        ...factData,
+  const handleAddPreservedFact = () => {
+    setPreservedFacts(prev => [
+      ...prev,
+      {
         id: generateClientSideId('pf'),
-        eventId: currentEventId,
-      };
-  
-      const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
-      await updateDoc(rcaDocRef, {
-        preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
-        updatedAt: new Date().toISOString()
-      });
-  
-      setPreservedFacts(prev => [...prev, newFact]);
-      toast({ title: "Hecho Preservado Añadido", description: `Se añadió "${newFact.userGivenName}".` });
-  
-    } catch (error: any) {
-      console.error("Error detallado al guardar hecho preservado:", error);
-      toast({ title: "Error al Guardar", description: `No se pudo guardar el hecho. ${error.message}`, variant: "destructive" });
-    } finally {
-      setIsSaving(false);
-    }
+        userGivenName: '',
+        category: '',
+        description: '',
+      }
+    ]);
   };
   
-  const handleRemovePreservedFact = async (id: string) => {
-    if (!analysisDocumentId) {
-      toast({ title: "Error", description: "ID del análisis no encontrado.", variant: "destructive" });
-      return;
+  const handleUpdatePreservedFact = async (
+    index: number,
+    field: keyof Omit<PreservedFact, 'id'>,
+    value: string | File
+  ) => {
+    const updatedFacts = [...preservedFacts];
+    const factToUpdate = { ...updatedFacts[index] };
+  
+    if (field === 'file' && value instanceof File) {
+      const file = value;
+      if (file.size > 700 * 1024) {
+        toast({
+          title: "Archivo Demasiado Grande",
+          description: "El archivo no debe exceder los 700KB.",
+          variant: "destructive",
+        });
+        return;
+      }
+      try {
+        const reader = new FileReader();
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        factToUpdate.dataUrl = dataUrl;
+        factToUpdate.fileName = file.name;
+        toast({ title: "Archivo Procesado", description: `${file.name} listo para guardar.` });
+      } catch (error) {
+        toast({ title: "Error de Lectura", description: "No se pudo procesar el archivo.", variant: "destructive" });
+        return;
+      }
+    } else if (typeof value === 'string') {
+      (factToUpdate as any)[field] = value;
     }
-    const factToRemove = preservedFacts.find(fact => fact.id === id);
-    if (!factToRemove) return;
-
-    setIsSaving(true);
-    
-    // No need to delete from storage with Data URL approach
-    
-    const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
-    try {
-      await updateDoc(rcaDocRef, {
-          preservedFacts: arrayRemove(sanitizeForFirestore(factToRemove)),
-          updatedAt: new Date().toISOString()
-      });
-      setPreservedFacts(prev => prev.filter(fact => fact.id !== id));
-      toast({ title: "Hecho Preservado Eliminado", description: "La referencia se eliminó exitosamente.", variant: 'destructive' });
-    } catch (error: any) {
-      console.error("Error al actualizar Firestore después de eliminar hecho:", error);
-      toast({ title: "Error de Sincronización", description: `No se pudo confirmar la eliminación en la base de datos: ${error.message}. Recargue la página.`, variant: 'destructive' });
-    } finally {
-      setIsSaving(false);
-    }
+  
+    updatedFacts[index] = factToUpdate;
+    setPreservedFacts(updatedFacts);
+  };
+  
+  const handleRemovePreservedFact = (idToRemove: string) => {
+    setPreservedFacts(prev => prev.filter(fact => fact.id !== idToRemove));
   };
 
 
@@ -1578,6 +1568,7 @@ function RCAAnalysisPageComponent() {
           onAnalysisDetailsChange={setAnalysisDetails}
           preservedFacts={preservedFacts}
           onAddPreservedFact={handleAddPreservedFact}
+          onUpdatePreservedFact={handleUpdatePreservedFact}
           onRemovePreservedFact={handleRemovePreservedFact}
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
@@ -1656,7 +1647,6 @@ function RCAAnalysisPageComponent() {
           brainstormingIdeas={brainstormingIdeas}
           identifiedRootCauses={identifiedRootCauses}
           plannedActions={plannedActions}
-          preservedFacts={preservedFacts}
           finalComments={finalComments}
           onFinalCommentsChange={setFinalComments}
           leccionesAprendidas={leccionesAprendidas}
