@@ -1113,28 +1113,30 @@ function RCAAnalysisPageComponent() {
     file: File
   ) => {
     setIsSaving(true);
+    let currentEventId = analysisDocumentId;
+  
     try {
-      let currentEventId = analysisDocumentId;
+      // Step 1: Ensure analysis document exists and get its ID
       if (!currentEventId) {
-        const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
-        if (!saveResult.success || !saveResult.newEventId) {
+        const generatedId = ensureEventId();
+        await handleSaveAnalysisData(false, { suppressNavigation: true });
+        currentEventId = generatedId;
+        if (!currentEventId) {
           throw new Error("No se pudo crear el documento de análisis antes de subir el archivo.");
         }
-        currentEventId = saveResult.newEventId;
       }
-
-      toast({ title: "Subiendo archivo...", description: `Procesando ${file.name}, por favor espere.` });
-      
+  
+      // Step 2: Convert file to Data URL
+      toast({ title: "Procesando archivo...", description: `Convirtiendo ${file.name}, por favor espere.` });
       const reader = new FileReader();
-      const dataUrl = await new Promise<string>((resolve, reject) => {
+      const dataUrlPromise = new Promise<string>((resolve, reject) => {
         reader.onload = () => resolve(reader.result as string);
-        reader.onerror = (error) => {
-          console.error("FileReader error:", error);
-          reject(new Error("Error al leer el archivo."));
-        };
-        reader.readAsDataURL(file);
+        reader.onerror = (error) => reject(new Error("Error al leer el archivo."));
       });
-
+      reader.readAsDataURL(file);
+      const dataUrl = await dataUrlPromise;
+  
+      // Step 3: Create the new evidence object
       const newEvidence: Evidence = {
         id: generateClientSideId('ev'),
         nombre: file.name,
@@ -1143,16 +1145,18 @@ function RCAAnalysisPageComponent() {
         userGivenName: factMetadata.userGivenName,
         dataUrl: dataUrl,
       };
-
+  
+      // Step 4: Update Firestore atomically
       const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
       await updateDoc(rcaDocRef, {
         evidences: arrayUnion(sanitizeForFirestore(newEvidence)),
         updatedAt: new Date().toISOString()
       });
-
+  
+      // Step 5: Update local state to reflect the change immediately
       setEvidences(prev => [...(prev || []), newEvidence]);
       toast({ title: "Hecho Preservado Añadido", description: `Se añadió "${newEvidence.userGivenName || newEvidence.nombre}".` });
-
+  
     } catch (error: any) {
       console.error("Error detallado al subir hecho preservado:", error);
       toast({ title: "Error al Subir", description: `No se pudo subir el archivo: ${error.message || 'Error desconocido'}`, variant: "destructive" });
