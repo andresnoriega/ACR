@@ -1468,6 +1468,8 @@ function RCAAnalysisPageComponent() {
         <Step2Facts
           detailedFacts={detailedFacts}
           onDetailedFactChange={onDetailedFactChange}
+          projectLeader={projectLeader}
+          onProjectLeaderChange={handleProjectLeaderChange}
           investigationObjective={investigationObjective}
           onInvestigationObjectiveChange={setInvestigationObjective}
           analysisDetails={analysisDetails}
@@ -1475,6 +1477,10 @@ function RCAAnalysisPageComponent() {
           evidences={evidences}
           onAddEvidence={handleAddEvidence}
           onRemoveEvidence={handleRemoveEvidence}
+          availableUsers={availableUsersFromDB}
+          availableSites={availableSitesFromDB}
+          investigationSessions={investigationSessions}
+          onSetInvestigationSessions={setInvestigationSessions}
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
           onSaveAnalysis={handleSaveFromStep2}
@@ -1493,10 +1499,6 @@ function RCAAnalysisPageComponent() {
             onPrevious={handlePreviousStep}
             onNext={() => handleGoToStep(4)}
             onSaveAnalysis={handleSaveAnalysisData}
-            projectLeader={projectLeader}
-            onProjectLeaderChange={handleProjectLeaderChange}
-            investigationSessions={investigationSessions}
-            onSetInvestigationSessions={setInvestigationSessions}
             availableSites={availableSitesFromDB}
           />
        )}

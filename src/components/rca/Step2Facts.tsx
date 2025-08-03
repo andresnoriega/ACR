@@ -17,19 +17,26 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
 import { paraphrasePhenomenon, type ParaphrasePhenomenonInput } from '@/ai/flows/paraphrase-phenomenon';
 import { EvidenceManager } from './EvidenceManager';
+import { InvestigationTeamManager } from './InvestigationTeamManager';
 
 
 // ------ COMPONENTE PRINCIPAL ------
 export const Step2Facts: FC<{
   detailedFacts: DetailedFacts;
   onDetailedFactChange: (field: keyof DetailedFacts, value: string) => void;
+  projectLeader: string;
+  onProjectLeaderChange: (value: string) => void;
   investigationObjective: string;
   onInvestigationObjectiveChange: (value: string) => void;
+  investigationSessions: InvestigationSession[];
+  onSetInvestigationSessions: (sessions: InvestigationSession[]) => void;
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
   evidences?: Evidence[];
   onAddEvidence: (newEvidence: Evidence) => void;
   onRemoveEvidence: (id: string) => void;
+  availableUsers: FullUserProfile[];
+  availableSites: Site[];
   isSaving: boolean;
   onPrevious: () => void;
   onNext: () => void;
@@ -37,13 +44,19 @@ export const Step2Facts: FC<{
 }> = ({
   detailedFacts,
   onDetailedFactChange,
+  projectLeader,
+  onProjectLeaderChange,
   investigationObjective,
   onInvestigationObjectiveChange,
+  investigationSessions,
+  onSetInvestigationSessions,
   analysisDetails,
   onAnalysisDetailsChange,
   evidences,
   onAddEvidence,
   onRemoveEvidence,
+  availableUsers,
+  availableSites,
   isSaving,
   onPrevious,
   onNext,
@@ -53,6 +66,13 @@ export const Step2Facts: FC<{
   const [clientSideMaxDateTime, setClientSideMaxDateTime] = useState<string | undefined>(undefined);
   const { userProfile } = useAuth();
   const [isParaphrasing, setIsParaphrasing] = useState(false);
+
+  const usersForDropdown = useMemo(() => {
+    if (userProfile?.role === 'Super User') {
+      return availableUsers;
+    }
+    return availableUsers;
+  }, [availableUsers, userProfile]);
 
   useEffect(() => {
     const now = new Date();
@@ -223,6 +243,27 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
 
         <div className="space-y-4 pt-4 border-t">
           <div className="space-y-2">
+            <Label htmlFor="projectLeader" className="flex items-center">
+              <UserCircle className="mr-2 h-4 w-4 text-primary" />
+              Líder del Proyecto
+            </Label>
+            <Select value={projectLeader} onValueChange={onProjectLeaderChange}>
+              <SelectTrigger id="projectLeader">
+                <SelectValue placeholder="-- Seleccione un líder --" />
+              </SelectTrigger>
+              <SelectContent>
+                {usersForDropdown.length > 0 ? (
+                  usersForDropdown.map(user => (
+                    <SelectItem key={user.id} value={user.name}>{user.name} ({user.role})</SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="" disabled>No hay líderes disponibles para esta empresa</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="investigationObjective" className="flex items-center">
               <Target className="mr-2 h-4 w-4 text-primary" />
               Objetivo de la Investigación
@@ -236,6 +277,14 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
             />
           </div>
         </div>
+
+        <InvestigationTeamManager
+            sessions={investigationSessions}
+            onSetSessions={onSetInvestigationSessions}
+            availableUsers={availableUsers}
+            availableSites={availableSites}
+            isSaving={isSaving}
+        />
 
         <EvidenceManager
             title="Preservación de Hechos y Evidencias"

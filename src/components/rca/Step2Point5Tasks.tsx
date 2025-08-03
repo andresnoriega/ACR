@@ -17,8 +17,6 @@ import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { sanitizeForFirestore } from '@/lib/utils';
 import { sendEmailAction } from '@/app/actions';
-import { InvestigationTeamManager } from './InvestigationTeamManager';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 let idCounter = Date.now();
 const generateClientSideId = (prefix: string) => {
@@ -179,10 +177,6 @@ interface Step2Point5TasksProps {
   onPrevious: () => void;
   onNext: () => void;
   onSaveAnalysis: (showToast?: boolean) => Promise<{ success: boolean; newEventId?: string; needsNavigationUrl?: string } | void>;
-  projectLeader: string;
-  onProjectLeaderChange: (value: string) => void;
-  investigationSessions: InvestigationSession[];
-  onSetInvestigationSessions: (sessions: InvestigationSession[]) => void;
   availableSites: Site[];
 }
 
@@ -195,10 +189,6 @@ export const Step2Point5Tasks: FC<Step2Point5TasksProps> = ({
   onPrevious,
   onNext,
   onSaveAnalysis,
-  projectLeader,
-  onProjectLeaderChange,
-  investigationSessions,
-  onSetInvestigationSessions,
   availableSites,
 }) => {
   const { toast } = useToast();
@@ -208,13 +198,6 @@ export const Step2Point5Tasks: FC<Step2Point5TasksProps> = ({
     setInternalDocs(allRcaDocuments);
   }, [allRcaDocuments]);
   
-  const usersForDropdown = useMemo(() => {
-    if (userProfile?.role === 'Super User') {
-      return availableUsers;
-    }
-    return availableUsers;
-  }, [availableUsers, userProfile]);
-
 
   const assignedActionPlans = useMemo(() => {
     if (loadingAuth || !userProfile || !userProfile.name || internalDocs.length === 0) {
@@ -345,38 +328,12 @@ export const Step2Point5Tasks: FC<Step2Point5TasksProps> = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-headline">Paso 2.5: Equipo y Tareas</CardTitle>
+        <CardTitle className="font-headline">Paso 2.5: Tareas y Evidencias</CardTitle>
         <CardDescription>
-            Defina el líder y el equipo de investigación, y gestione las tareas del plan de acción para este análisis.
+            Gestione las tareas del plan de acción para este análisis. Seleccione una tarea para ver sus detalles.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="projectLeader" className="flex items-center">
-                <UserCircle className="mr-2 h-4 w-4 text-primary" />
-                Líder del Proyecto <span className="text-destructive">*</span>
-              </Label>
-              <Select value={projectLeader} onValueChange={onProjectLeaderChange}>
-                <SelectTrigger id="projectLeader">
-                  <SelectValue placeholder="-- Seleccione un líder --" />
-                </SelectTrigger>
-                <SelectContent>
-                  {usersForDropdown.length > 0 ? usersForDropdown.map(user => (
-                    <SelectItem key={user.id} value={user.name}>{user.name} ({user.role})</SelectItem>
-                  )) : <SelectItem value="" disabled>No hay líderes disponibles para esta empresa</SelectItem>}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <InvestigationTeamManager
-              sessions={investigationSessions}
-              onSetSessions={onSetInvestigationSessions}
-              availableUsers={availableUsers}
-              availableSites={availableSites}
-              isSaving={isSaving}
-            />
-        </div>
         <div className="mt-6 pt-6 border-t">
             {assignedActionPlans.length > 0 ? (
             <div className="space-y-4">
