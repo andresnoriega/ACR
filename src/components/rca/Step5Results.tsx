@@ -38,6 +38,7 @@ interface Step5ResultsProps {
   brainstormingIdeas: BrainstormIdea[];
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
+  evidences: Evidence[];
   finalComments: string;
   onFinalCommentsChange: (value: string) => void;
   leccionesAprendidas: string;
@@ -67,6 +68,17 @@ const SectionContent: FC<{ children: React.ReactNode; className?: string }> = ({
   </div>
 );
 
+const getEvidenceIconLocal = (tipo?: Evidence['tipo']) => {
+  if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
+  switch (tipo) {
+    case 'link': return <Link2 className="h-4 w-4 mr-2 flex-shrink-0 text-indigo-600" />;
+    case 'pdf': return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
+    case 'jpg': case 'jpeg': case 'png': return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
+    case 'doc': case 'docx': return <Paperclip className="h-4 w-4 mr-2 flex-shrink-0 text-sky-700" />;
+    default: return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
+  }
+};
+
 
 export const Step5Results: FC<Step5ResultsProps> = ({
   eventId,
@@ -85,6 +97,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   brainstormingIdeas,
   identifiedRootCauses,
   plannedActions,
+  evidences,
   finalComments,
   onFinalCommentsChange,
   leccionesAprendidas,
@@ -568,10 +581,34 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                     </div>
                   </div>
                 )}
+                {evidences && evidences.length > 0 && (
+                     <div>
+                        <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><Paperclip className="mr-2 h-4 w-4" />Hechos Preservados</h4>
+                        <ul className="list-none pl-0 space-y-1 text-xs">
+                        {evidences.map(ev => (
+                            <li key={ev.id} className="flex items-center justify-between bg-muted/30 p-1.5 rounded-sm">
+                                <div className="flex items-center">
+                                {getEvidenceIconLocal(ev.tipo)}
+                                <div className="flex flex-col">
+                                    <span className="text-xs font-semibold">{ev.userGivenName || ev.nombre}</span>
+                                    {ev.comment && <span className="text-xs italic text-muted-foreground">"{ev.comment}"</span>}
+                                </div>
+                                </div>
+                                <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
+                                <a href={ev.dataUrl} target="_blank" rel="noopener noreferrer" download={ev.nombre}>
+                                    <ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar
+                                </a>
+                                </Button>
+                            </li>
+                        ))}
+                        </ul>
+                    </div>
+                )}
                  
                  {(!timelineEvents || timelineEvents.length === 0) &&
                   (!brainstormingIdeas || brainstormingIdeas.length === 0) &&
-                  (!investigationSessions || investigationSessions.length === 0) && (
+                  (!investigationSessions || investigationSessions.length === 0) && 
+                  (!evidences || evidences.length === 0) && (
                     <p className="text-sm text-muted-foreground">No hay anexos para mostrar.</p>
                  )}
             </div>

@@ -2,7 +2,7 @@
 
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import type { DetailedFacts, FullUserProfile, Site, InvestigationSession } from '@/types/rca'; 
+import type { DetailedFacts, FullUserProfile, Site, InvestigationSession, Evidence } from '@/types/rca'; 
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
 import { InvestigationTeamManager } from './InvestigationTeamManager';
 import { paraphrasePhenomenon, type ParaphrasePhenomenonInput } from '@/ai/flows/paraphrase-phenomenon';
+import { EvidenceManager } from './EvidenceManager';
+
 
 let idCounter = Date.now();
 const generateClientSideId = (prefix: string) => {
@@ -36,6 +38,9 @@ export const Step2Facts: FC<{
   onSetInvestigationSessions: (sessions: InvestigationSession[]) => void;
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
+  evidences: Evidence[];
+  onAddEvidence: (fact: Omit<Evidence, 'id' | 'dataUrl'>, file: File | null) => Promise<void>;
+  onRemoveEvidence: (id: string) => void;
   isSaving: boolean;
   onPrevious: () => void;
   onNext: () => void;
@@ -52,6 +57,9 @@ export const Step2Facts: FC<{
   onSetInvestigationSessions,
   analysisDetails,
   onAnalysisDetailsChange,
+  evidences,
+  onAddEvidence,
+  onRemoveEvidence,
   isSaving,
   onPrevious,
   onNext,
@@ -276,6 +284,14 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
             />
           </div>
         </div>
+
+        <EvidenceManager
+            title="Preservación de Hechos y Evidencias"
+            evidences={evidences}
+            onAddEvidence={onAddEvidence}
+            onRemoveEvidence={onRemoveEvidence}
+            isSaving={isSaving}
+        />
 
       </CardContent>
       <CardFooter className="flex flex-col sm:flex-row justify-between gap-2 pt-4 border-t">
