@@ -304,9 +304,8 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
             Preservación de Hechos
           </h3>
           <div className="p-4 border rounded-md bg-secondary/30 space-y-3">
-             <h4 className="font-semibold text-primary mb-1">[Adjuntar nueva evidencia]</h4>
               <div className="space-y-2">
-                <Label htmlFor="step2-evidence-file-input">Archivo de Evidencia</Label>
+                <Label htmlFor="step2-evidence-file-input">Hecho Preservado</Label>
                 <Input 
                   id="step2-evidence-file-input" 
                   type="file" 
@@ -314,7 +313,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                   className="text-xs h-9" 
                   disabled={isSaving} 
                 />
-                <Label htmlFor="step2-evidence-comment">Comentario para esta evidencia (opcional)</Label>
+                <Label htmlFor="step2-evidence-comment">Comentario para este hecho (opcional)</Label>
                 <Input 
                   id="step2-evidence-comment" 
                   type="text" 
@@ -326,7 +325,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                 />
               </div>
               {evidenceFile && <p className="text-xs text-muted-foreground mt-1">Archivo seleccionado: {evidenceFile.name}</p>}
-              <p className="text-xs text-muted-foreground pt-1">La evidencia se guardará al presionar "Guardar Avance" o "Siguiente". Se asociará al primer plan de acción que se cree en el Paso 3.</p>
+              <p className="text-xs text-muted-foreground pt-1">El hecho se guardará al presionar "Guardar Avance" o "Siguiente". Se asociará al primer plan de acción que se cree en el Paso 3.</p>
           </div>
         </div>
 
