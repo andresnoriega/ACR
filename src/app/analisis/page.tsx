@@ -1,6 +1,7 @@
+
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef, ChangeEvent } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification, Evidence } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -73,6 +74,7 @@ const initialRCAAnalysisState: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedA
   ctmData: JSON.parse(JSON.stringify(initialCTMData)),
   identifiedRootCauses: [],
   plannedActions: [],
+  evidences: [],
   validations: [],
   finalComments: '',
   leccionesAprendidas: '',
@@ -165,6 +167,8 @@ function RCAAnalysisPageComponent() {
   const [investigationObjective, setInvestigationObjective] = useState(initialRCAAnalysisState.investigationObjective || '');
   const [investigationSessions, setInvestigationSessions] = useState<InvestigationSession[]>(initialRCAAnalysisState.investigationSessions || []);
   const [analysisDetails, setAnalysisDetails] = useState(initialRCAAnalysisState.analysisDetails);
+  const [evidences, setEvidences] = useState<Evidence[]>(initialRCAAnalysisState.evidences || []);
+
 
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>(initialRCAAnalysisState.timelineEvents || []);
   const [brainstormingIdeas, setBrainstormingIdeas] = useState<BrainstormIdea[]>(initialRCAAnalysisState.brainstormingIdeas || []);
@@ -260,6 +264,7 @@ function RCAAnalysisPageComponent() {
         setInvestigationObjective(data.investigationObjective || '');
         setInvestigationSessions(data.investigationSessions || []);
         setAnalysisDetails(data.analysisDetails || '');
+        setEvidences(data.evidences || []);
         setTimelineEvents(data.timelineEvents || []);
         setBrainstormingIdeas(data.brainstormingIdeas || []);
         setAnalysisTechnique(data.analysisTechnique || '');
@@ -322,6 +327,7 @@ function RCAAnalysisPageComponent() {
             setInvestigationObjective(initialRCAAnalysisState.investigationObjective || '');
             setInvestigationSessions(initialRCAAnalysisState.investigationSessions || []);
             setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
+            setEvidences(initialRCAAnalysisState.evidences || []);
             setTimelineEvents(initialRCAAnalysisState.timelineEvents || []);
             setBrainstormingIdeas(initialRCAAnalysisState.brainstormingIdeas || []);
             setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
@@ -358,6 +364,7 @@ function RCAAnalysisPageComponent() {
         setInvestigationObjective(initialRCAAnalysisState.investigationObjective || '');
         setInvestigationSessions(initialRCAAnalysisState.investigationSessions || []);
         setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
+        setEvidences(initialRCAAnalysisState.evidences || []);
         setTimelineEvents(initialRCAAnalysisState.timelineEvents || []);
         setBrainstormingIdeas(initialRCAAnalysisState.brainstormingIdeas || []);
         setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
@@ -428,6 +435,7 @@ function RCAAnalysisPageComponent() {
             setInvestigationObjective(initialRCAAnalysisState.investigationObjective || '');
             setInvestigationSessions(initialRCAAnalysisState.investigationSessions || []);
             setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
+            setEvidences(initialRCAAnalysisState.evidences || []);
             setTimelineEvents(initialRCAAnalysisState.timelineEvents || []);
             setBrainstormingIdeas(initialRCAAnalysisState.brainstormingIdeas || []);
             setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
@@ -580,7 +588,7 @@ function RCAAnalysisPageComponent() {
 
     const rcaDocPayload: Partial<RCAAnalysisDocument> = {
       eventData: consistentEventData, immediateActions, projectLeader, detailedFacts, investigationObjective, investigationSessions, analysisDetails,
-      timelineEvents, brainstormingIdeas, analysisTechnique, analysisTechniqueNotes, ishikawaData,
+      timelineEvents, brainstormingIdeas, analysisTechnique, analysisTechniqueNotes, ishikawaData, evidences,
       fiveWhysData, ctmData, identifiedRootCauses, 
       plannedActions: currentPlannedActions,
       validations: (validationsOverride !== undefined) ? validationsOverride : validations,
@@ -1103,6 +1111,50 @@ function RCAAnalysisPageComponent() {
     setDetailedFacts(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleAddEvidence = async (
+    factMetadata: Omit<Evidence, 'id' | 'dataUrl'>,
+    file: File | null
+  ) => {
+    if (!file) {
+      toast({ title: "Archivo no encontrado", description: "El archivo para la evidencia no se proporcionó.", variant: "destructive" });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      if (file.size > 700 * 1024) {
+        throw new Error("El archivo no puede superar los 700 KB.");
+      }
+      
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const newEvidence: Evidence = {
+        ...factMetadata,
+        id: generateClientSideId('ev'),
+        dataUrl,
+      };
+
+      setEvidences(prev => [...(prev || []), newEvidence]);
+      toast({ title: "Hecho Añadido Localmente", description: "La evidencia se ha añadido. Recuerde guardar el avance para persistir los cambios." });
+
+    } catch (error: any) {
+      toast({ title: "Error al Procesar Evidencia", description: error.message, variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRemoveEvidence = (id: string) => {
+    setEvidences(prev => (prev || []).filter(e => e.id !== id));
+    toast({ title: "Evidencia Eliminada Localmente", variant: "destructive" });
+  };
+
+
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);
     
@@ -1457,10 +1509,13 @@ function RCAAnalysisPageComponent() {
           onSetInvestigationSessions={setInvestigationSessions}
           analysisDetails={analysisDetails}
           onAnalysisDetailsChange={setAnalysisDetails}
+          evidences={evidences}
+          onAddEvidence={handleAddEvidence}
+          onRemoveEvidence={handleRemoveEvidence}
           isSaving={isSaving}
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
-          onSaveAnalysis={handleSaveFromStep2}
+          onSaveAnalysis={handleSaveAnalysisData}
         />
       )}
       </div>
@@ -1534,6 +1589,7 @@ function RCAAnalysisPageComponent() {
           brainstormingIdeas={brainstormingIdeas}
           identifiedRootCauses={identifiedRootCauses}
           plannedActions={plannedActions}
+          evidences={evidences}
           finalComments={finalComments}
           onFinalCommentsChange={setFinalComments}
           leccionesAprendidas={leccionesAprendidas}
