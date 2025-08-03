@@ -262,7 +262,14 @@ function RCAAnalysisPageComponent() {
         setInvestigationObjective(data.investigationObjective || '');
         setInvestigationSessions(data.investigationSessions || []);
         setAnalysisDetails(data.analysisDetails || '');
-        setPreservedFacts(data.preservedFacts || []);
+        // Always ensure there's at least one empty preserved fact row to start with
+        const loadedPreservedFacts = data.preservedFacts || [];
+        if (loadedPreservedFacts.length === 0) {
+          loadedPreservedFacts.push({
+            id: generateClientSideId('pf'), userGivenName: '', category: '', description: '', fileName: '',
+          });
+        }
+        setPreservedFacts(loadedPreservedFacts);
         setTimelineEvents(data.timelineEvents || []);
         setBrainstormingIdeas(data.brainstormingIdeas || []);
         setAnalysisTechnique(data.analysisTechnique || '');
@@ -325,7 +332,7 @@ function RCAAnalysisPageComponent() {
             setInvestigationObjective(initialRCAAnalysisState.investigationObjective || '');
             setInvestigationSessions(initialRCAAnalysisState.investigationSessions || []);
             setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
-            setPreservedFacts(initialRCAAnalysisState.preservedFacts);
+            setPreservedFacts([{ id: generateClientSideId('pf'), userGivenName: '', category: '', description: '', fileName: '' }]);
             setTimelineEvents(initialRCAAnalysisState.timelineEvents || []);
             setBrainstormingIdeas(initialRCAAnalysisState.brainstormingIdeas || []);
             setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
@@ -362,7 +369,7 @@ function RCAAnalysisPageComponent() {
         setInvestigationObjective(initialRCAAnalysisState.investigationObjective || '');
         setInvestigationSessions(initialRCAAnalysisState.investigationSessions || []);
         setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
-        setPreservedFacts(initialRCAAnalysisState.preservedFacts);
+        setPreservedFacts([{ id: generateClientSideId('pf'), userGivenName: '', category: '', description: '', fileName: '' }]);
         setTimelineEvents(initialRCAAnalysisState.timelineEvents || []);
         setBrainstormingIdeas(initialRCAAnalysisState.brainstormingIdeas || []);
         setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
@@ -433,7 +440,7 @@ function RCAAnalysisPageComponent() {
             setInvestigationObjective(initialRCAAnalysisState.investigationObjective || '');
             setInvestigationSessions(initialRCAAnalysisState.investigationSessions || []);
             setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
-            setPreservedFacts(initialRCAAnalysisState.preservedFacts);
+            setPreservedFacts([{ id: generateClientSideId('pf'), userGivenName: '', category: '', description: '', fileName: '' }]);
             setTimelineEvents(initialRCAAnalysisState.timelineEvents || []);
             setBrainstormingIdeas(initialRCAAnalysisState.brainstormingIdeas || []);
             setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
@@ -582,9 +589,13 @@ function RCAAnalysisPageComponent() {
     
     const currentEfficacyVerification = efficacyVerificationOverride || efficacyVerification;
 
+    // Filter out any empty/placeholder preserved facts before saving
+    const finalPreservedFacts = preservedFacts.filter(fact => fact.userGivenName || fact.category || fact.description || fact.fileName);
+
+
     const rcaDocPayload: Partial<RCAAnalysisDocument> = {
       eventData: consistentEventData, immediateActions, projectLeader, detailedFacts, investigationObjective, investigationSessions, analysisDetails,
-      preservedFacts, timelineEvents, brainstormingIdeas, analysisTechnique, analysisTechniqueNotes, ishikawaData,
+      preservedFacts: finalPreservedFacts, timelineEvents, brainstormingIdeas, analysisTechnique, analysisTechniqueNotes, ishikawaData,
       fiveWhysData, ctmData, identifiedRootCauses, 
       plannedActions: (plannedActionsOverride !== undefined) ? plannedActionsOverride : plannedActions,
       validations: (validationsOverride !== undefined) ? validationsOverride : validations,
