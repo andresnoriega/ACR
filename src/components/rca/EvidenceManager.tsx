@@ -68,8 +68,7 @@ export const EvidenceManager: FC<EvidenceManagerProps> = ({ title, evidences, on
         const reader = new FileReader();
         const dataUrl = await new Promise<string>((resolve, reject) => {
             reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(fileToUpload);
+            reader.onerror = (error) => reject(error);
         });
 
         // Client-side ID generation, only happens on user interaction (in the browser)
