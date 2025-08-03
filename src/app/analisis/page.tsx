@@ -1444,9 +1444,6 @@ function RCAAnalysisPageComponent() {
           onInvestigationObjectiveChange={setInvestigationObjective}
           analysisDetails={analysisDetails}
           onAnalysisDetailsChange={setAnalysisDetails}
-          evidences={evidences}
-          onAddEvidence={handleAddEvidence}
-          onRemoveEvidence={handleRemoveEvidence}
           availableUsers={availableUsersFromDB}
           availableSites={availableSitesFromDB}
           investigationSessions={investigationSessions}

@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { FC, ChangeEvent } from 'react';
@@ -16,7 +15,6 @@ import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
 import { paraphrasePhenomenon, type ParaphrasePhenomenonInput } from '@/ai/flows/paraphrase-phenomenon';
-import { EvidenceManager } from './EvidenceManager';
 import { InvestigationTeamManager } from './InvestigationTeamManager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
@@ -169,9 +167,6 @@ export const Step2Facts: FC<{
   onSetInvestigationSessions: (sessions: InvestigationSession[]) => void;
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
-  evidences: Evidence[];
-  onAddEvidence: (newEvidence: Evidence) => void;
-  onRemoveEvidence: (id: string) => void;
   availableUsers: FullUserProfile[];
   availableSites: Site[];
   isSaving: boolean;
@@ -194,9 +189,6 @@ export const Step2Facts: FC<{
   onSetInvestigationSessions,
   analysisDetails,
   onAnalysisDetailsChange,
-  evidences,
-  onAddEvidence,
-  onRemoveEvidence,
   availableUsers,
   availableSites,
   isSaving,
@@ -506,17 +498,10 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
               <CardHeader>
                 <CardTitle className="text-lg font-semibold flex items-center">
                   <FolderKanban className="mr-2 h-5 w-5 text-primary" />
-                  Preservación de Hechos y Gestión de Tareas
+                  Gestión de Tareas
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                 <EvidenceManager
-                    title="Preservación de Hechos y Evidencias"
-                    evidences={evidences}
-                    onAddEvidence={onAddEvidence}
-                    onRemoveEvidence={onRemoveEvidence}
-                    isSaving={isSaving}
-                />
                  <div className="mt-6 pt-6 border-t">
                     <h3 className="text-lg font-semibold text-primary flex items-center mb-2">
                         <ListTodo className="mr-2 h-5 w-5" /> Tareas del Plan de Acción
