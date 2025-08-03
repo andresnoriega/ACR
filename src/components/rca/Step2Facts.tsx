@@ -2,179 +2,20 @@
 
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect, useMemo } from 'react';
-import type { DetailedFacts, FullUserProfile, RCAEventData, Site, InvestigationSession, TimelineEvent, PreservedFact, Evidence } from '@/types/rca'; 
+import type { DetailedFacts, FullUserProfile, RCAEventData, Site, InvestigationSession, TimelineEvent } from '@/types/rca'; 
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserCircle, Save, Loader2, Target, ClipboardList, Sparkles, FileText, Link2, ImageIcon, Paperclip, Trash2, ExternalLink } from 'lucide-react';
+import { UserCircle, Save, Loader2, Target, ClipboardList, Sparkles } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
 import { InvestigationTeamManager } from './InvestigationTeamManager';
 import { paraphrasePhenomenon, type ParaphrasePhenomenonInput } from '@/ai/flows/paraphrase-phenomenon';
-
-
-const generateClientSideId = (prefix: string): string => {
-    return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-};
-
-const getEvidenceIconLocal = (tipo?: Evidence['tipo']) => {
-    if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
-    const safeTipo = tipo?.toLowerCase() || 'other';
-    switch (safeTipo) {
-      case 'link': return <Link2 className="h-4 w-4 mr-2 flex-shrink-0 text-indigo-600" />;
-      case 'pdf': return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
-      case 'jpg': case 'jpeg': case 'png': case 'gif': return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
-      case 'doc': case 'docx': return <Paperclip className="h-4 w-4 mr-2 flex-shrink-0 text-sky-700" />;
-      default: return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
-    }
-};
-
-const PreservedFactsSection: FC<{
-  facts: PreservedFact[];
-  onAddFact: (fact: PreservedFact) => void;
-  onRemoveFact: (id: string) => void;
-  isSaving: boolean;
-}> = ({ facts, onAddFact, onRemoveFact, isSaving }) => {
-    const { toast } = useToast();
-    const [fileToUpload, setFileToUpload] = useState<File | null>(null);
-    const [comment, setComment] = useState('');
-    const [userGivenName, setUserGivenName] = useState('');
-    const [isUploading, setIsUploading] = useState(false);
-
-    const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-        if (event.target.files && event.target.files[0]) {
-            const file = event.target.files[0];
-            if (file.size > 700 * 1024) { // 700 KB limit
-                toast({
-                  title: "Archivo Demasiado Grande",
-                  description: "El archivo no puede superar los 700 KB.",
-                  variant: "destructive",
-                });
-                setFileToUpload(null);
-                event.target.value = ''; // Clear file input
-                return;
-            }
-            setFileToUpload(file);
-            if (!userGivenName) {
-                setUserGivenName(file.name);
-            }
-        } else {
-            setFileToUpload(null);
-        }
-    };
-    
-    const handleSaveClick = async () => {
-        if (!fileToUpload) {
-            toast({ title: "Sin Archivo", description: "Por favor, seleccione un archivo para adjuntar.", variant: "destructive" });
-            return;
-        }
-        if (!userGivenName.trim()) {
-            toast({ title: "Nombre Requerido", description: "Por favor, asigne un nombre al hecho preservado.", variant: "destructive" });
-            return;
-        }
-
-        setIsUploading(true);
-
-        try {
-            const reader = new FileReader();
-            const dataUrl = await new Promise<string>((resolve, reject) => {
-                reader.onload = () => resolve(reader.result as string);
-                reader.onerror = (error) => reject(error);
-                reader.readAsDataURL(fileToUpload);
-            });
-
-            const newFact: PreservedFact = {
-                id: generateClientSideId('pf'),
-                nombre: fileToUpload.name,
-                userGivenName: userGivenName.trim(),
-                tipo: fileToUpload.type.split('/')[1] || 'other',
-                dataUrl: dataUrl,
-                comment: comment.trim() || undefined,
-            };
-
-            onAddFact(newFact);
-
-            // Reset form
-            setFileToUpload(null);
-            setComment('');
-            setUserGivenName('');
-            const fileInput = document.getElementById('preserved-fact-file-input') as HTMLInputElement;
-            if (fileInput) fileInput.value = '';
-
-            toast({ title: "Hecho Añadido", description: "El hecho se ha añadido localmente. Se guardará con el próximo avance." });
-        } catch (error) {
-            console.error("Error processing file:", error);
-            toast({ title: "Error al Procesar Archivo", description: "No se pudo convertir el archivo.", variant: "destructive" });
-        } finally {
-            setIsUploading(false);
-        }
-    };
-
-
-    return (
-        <div className="space-y-4 pt-4 border-t">
-          <h3 className="text-lg font-semibold font-headline flex items-center">
-            <ClipboardList className="mr-2 h-5 w-5 text-primary" />
-            Preservación de Hechos
-          </h3>
-          
-          <div className="space-y-2">
-            <h4 className="font-semibold text-primary mb-1">[Hechos Adjuntos]</h4>
-            {facts.length > 0 ? (
-              <ul className="space-y-1.5">
-                {facts.map(fact => (
-                  <li key={fact.id} className="flex items-start justify-between text-xs border p-2 rounded-md bg-background">
-                    <div className="flex-grow">
-                      <div className="flex items-center">
-                        {getEvidenceIconLocal(fact.tipo)}
-                        <span className="font-medium">{fact.userGivenName || fact.nombre}</span>
-                      </div>
-                      {fact.comment && <p className="text-xs text-muted-foreground ml-[calc(1rem+0.5rem)] mt-0.5">Comentario: {fact.comment}</p>}
-                    </div>
-                    <div className="flex-shrink-0 ml-2">
-                      <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mr-2">
-                        <a href={fact.dataUrl} target="_blank" rel="noopener noreferrer" download={fact.nombre}>
-                          <ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar
-                        </a>
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-destructive/10" onClick={() => onRemoveFact(fact.id)} disabled={isSaving || isUploading} aria-label="Eliminar hecho">
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-xs text-muted-foreground">No hay hechos preservados adjuntos.</p>
-            )}
-          </div>
-
-          <div className="space-y-2 pt-2">
-            <h4 className="font-semibold text-primary mb-1">[Adjuntar nuevo hecho preservado]</h4>
-            <div className="space-y-2">
-                <Label htmlFor="preserved-fact-name">Nombre o Descripción del Hecho <span className="text-destructive">*</span></Label>
-                <Input id="preserved-fact-name" type="text" placeholder="Ej: Foto del sensor dañado" value={userGivenName} onChange={(e) => setUserGivenName(e.target.value)} disabled={isUploading || isSaving} />
-                
-                <Label htmlFor="preserved-fact-file-input">Archivo de Evidencia</Label>
-                <Input id="preserved-fact-file-input" type="file" onChange={handleFileChange} className="text-xs h-9" disabled={isUploading || isSaving} />
-
-                <Label htmlFor="preserved-fact-comment">Comentario para esta evidencia (opcional)</Label>
-                <Input id="preserved-fact-comment" type="text" placeholder="Ej: Evidencia encontrada en el sitio..." value={comment} onChange={(e) => setComment(e.target.value)} className="text-xs h-9" disabled={isUploading || isSaving} />
-            </div>
-             <Button size="sm" variant="secondary" onClick={handleSaveClick} disabled={isUploading || isSaving}>
-                {isUploading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
-                {isUploading ? 'Procesando...' : 'Guardar Hecho'}
-            </Button>
-          </div>
-        </div>
-    );
-};
-
 
 // ------ COMPONENTE PRINCIPAL ------
 export const Step2Facts: FC<{
@@ -189,9 +30,6 @@ export const Step2Facts: FC<{
   onSetInvestigationSessions: (sessions: InvestigationSession[]) => void;
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
-  preservedFacts: PreservedFact[];
-  onAddPreservedFact: (fact: PreservedFact) => void;
-  onRemovePreservedFact: (id: string) => void;
   isSaving: boolean;
   onPrevious: () => void;
   onNext: () => void;
@@ -208,9 +46,6 @@ export const Step2Facts: FC<{
   onSetInvestigationSessions,
   analysisDetails,
   onAnalysisDetailsChange,
-  preservedFacts,
-  onAddPreservedFact,
-  onRemovePreservedFact,
   isSaving,
   onPrevious,
   onNext,
@@ -328,7 +163,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
 
         <InvestigationTeamManager
           sessions={investigationSessions}
-          onSetSessions={onSetInvestigationSessions}
+          onSetInvestigationSessions={onSetInvestigationSessions}
           availableUsers={availableUsers}
           availableSites={[]}
           isSaving={isSaving}
@@ -411,13 +246,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
             />
           </div>
         </div>
-
-        <PreservedFactsSection
-          facts={preservedFacts}
-          onAddFact={onAddPreservedFact}
-          onRemoveFact={onRemovePreservedFact}
-          isSaving={isSaving}
-        />
 
       </CardContent>
       <CardFooter className="flex flex-col sm:flex-row justify-between gap-2 pt-4 border-t">

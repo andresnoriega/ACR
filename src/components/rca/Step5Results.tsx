@@ -1,7 +1,7 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useEffect } from 'react';
-import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile, Site, InvestigationSession, EfficacyVerification, FiveWhysData, BrainstormIdea, TimelineEvent, Evidence, PreservedFact } from '@/types/rca';
+import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile, Site, InvestigationSession, EfficacyVerification, FiveWhysData, BrainstormIdea, TimelineEvent, Evidence } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -38,7 +38,6 @@ interface Step5ResultsProps {
   brainstormingIdeas: BrainstormIdea[];
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
-  preservedFacts: PreservedFact[];
   finalComments: string;
   onFinalCommentsChange: (value: string) => void;
   leccionesAprendidas: string;
@@ -98,7 +97,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   brainstormingIdeas,
   identifiedRootCauses,
   plannedActions,
-  preservedFacts,
   finalComments,
   onFinalCommentsChange,
   leccionesAprendidas,
@@ -678,32 +676,10 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                     </div>
                   </div>
                 )}
-                {preservedFacts && preservedFacts.length > 0 && (
-                   <div>
-                    <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><Paperclip className="mr-2 h-4 w-4" />Hechos Preservados</h4>
-                     <ul className="space-y-1.5 text-xs">
-                      {preservedFacts.map(fact => (
-                        <li key={fact.id} className="flex items-start justify-between border p-2 rounded-md bg-secondary/30">
-                          <div className="flex-grow">
-                            <div className="flex items-center">
-                              {getEvidenceIconLocal(fact.tipo)}
-                              <span className="font-medium">{fact.userGivenName || fact.nombre}</span>
-                            </div>
-                            {fact.comment && <p className="text-xs text-muted-foreground ml-[calc(1rem+0.5rem)] mt-0.5">Comentario: {fact.comment}</p>}
-                          </div>
-                          <div className="flex-shrink-0 ml-2">
-                             <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mr-2"><a href={fact.dataUrl} target="_blank" rel="noopener noreferrer" download={fact.nombre}><ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar</a></Button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
                  
                  {(!timelineEvents || timelineEvents.length === 0) &&
                   (!brainstormingIdeas || brainstormingIdeas.length === 0) &&
-                  (!investigationSessions || investigationSessions.length === 0) &&
-                  (!preservedFacts || preservedFacts.length === 0) && (
+                  (!investigationSessions || investigationSessions.length === 0) && (
                     <p className="text-sm text-muted-foreground">No hay anexos para mostrar.</p>
                  )}
             </div>
