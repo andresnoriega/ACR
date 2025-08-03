@@ -36,10 +36,10 @@ const getEvidenceIconLocal = (fileType?: string) => {
 interface PreservedFactsManagerProps {
   analysisId: string | null;
   preservedFacts: PreservedFact[];
-  onEvidenceAdded: () => void;
+  onEvidenceChange: () => void;
 }
 
-export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({ analysisId, preservedFacts, onEvidenceAdded }) => {
+export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({ analysisId, preservedFacts, onEvidenceChange }) => {
   const { toast } = useToast();
   const [newFactName, setNewFactName] = useState('');
   const [isAddingFact, setIsAddingFact] = useState(false);
@@ -69,7 +69,7 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({ analysis
             updatedAt: new Date().toISOString(),
         });
         toast({ title: "Hecho Creado", description: "Ahora puede adjuntar un archivo a este hecho." });
-        onEvidenceAdded();
+        onEvidenceChange();
         setNewFactName('');
     } catch (error: any) {
         console.error("Error creating preserved fact:", error);
@@ -121,7 +121,7 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({ analysis
       });
 
       toast({ title: "Archivo Adjuntado", description: `Se adjuntó ${file.name} al hecho.` });
-      onEvidenceAdded();
+      onEvidenceChange();
     } catch (error: any) {
         console.error("Error uploading file for fact:", error);
         toast({ title: "Error al Adjuntar", description: `No se pudo adjuntar el archivo: ${error.message}`, variant: "destructive" });
@@ -133,7 +133,7 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({ analysis
   const handleRemoveFact = async (factToRemove: PreservedFact) => {
     if (!analysisId) return;
     
-    setIsAddingFact(true); // Reuse isAddingFact state to disable all buttons
+    setIsAddingFact(true); 
     try {
       const rcaDocRef = doc(db, 'rcaAnalyses', analysisId);
       await updateDoc(rcaDocRef, {
@@ -141,7 +141,7 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({ analysis
         updatedAt: new Date().toISOString(),
       });
       toast({ title: "Hecho Eliminado", variant: 'destructive' });
-      onEvidenceAdded();
+      onEvidenceChange();
     } catch (error: any) {
       console.error("Error removing preserved fact:", error);
       toast({ title: "Error", description: `No se pudo eliminar el hecho: ${error.message}`, variant: "destructive" });
