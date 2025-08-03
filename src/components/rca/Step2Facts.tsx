@@ -328,9 +328,9 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
           </TabsContent>
         </Tabs>
       </CardContent>
-      <CardFooter className="flex flex-col sm:flex-row justify-between gap-2 pt-4 border-t">
-        <Button onClick={onPrevious} variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>Anterior</Button>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+      <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 border-t">
+        <Button onClick={onPrevious} variant="outline" className="w-full sm:w-auto mb-2 sm:mb-0 transition-transform hover:scale-105" disabled={isSaving}>Anterior</Button>
+        <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
             <Button onClick={onSaveAnalysis} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Save className="mr-2 h-4 w-4" /> Guardar Avance
