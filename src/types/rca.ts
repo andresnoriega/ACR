@@ -164,8 +164,11 @@ export interface Evidence {
   tipo: 'link' | 'pdf' | 'jpg' | 'png' | 'doc' | 'other' | string; // Allow string for flexibility with MIME types
   dataUrl: string; // The content as a Data URL
   comment?: string;
+  userGivenName?: string;
   category?: string;
 }
+export type PreservedFact = Evidence;
+
 
 export interface PlannedAction {
   id: string;
@@ -236,6 +239,7 @@ export interface RCAAnalysisDocument {
   investigationObjective: string;
   investigationSessions: InvestigationSession[];
   analysisDetails: string;
+  preservedFacts: PreservedFact[];
   timelineEvents: TimelineEvent[];
   brainstormingIdeas: BrainstormIdea[];
   analysisTechnique: AnalysisTechnique;
