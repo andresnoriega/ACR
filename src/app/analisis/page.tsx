@@ -1,3 +1,4 @@
+
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef, ChangeEvent } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, Evidence, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
@@ -750,7 +751,12 @@ function RCAAnalysisPageComponent() {
   };
   
   const handleSaveFromStep2 = async () => {
-    await handleSaveAnalysisData(true);
+    const saveResult = await handleSaveAnalysisData(true);
+    if (saveResult.success && saveResult.newEventId) {
+        // Since a new event was created, we need to ensure the parent state is updated
+        // so it can be passed down to Step2Facts.
+        setAnalysisDocumentId(saveResult.newEventId);
+    }
   };
 
   const handleApproveEvent = async () => {
