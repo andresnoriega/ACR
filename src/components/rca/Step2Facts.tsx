@@ -200,7 +200,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
 
         <InvestigationTeamManager
           sessions={investigationSessions}
-          onSetInvestigationSessions={onSetInvestigationSessions}
+          onSetSessions={onSetInvestigationSessions}
           availableUsers={availableUsers}
           availableSites={[]}
           isSaving={isSaving}
