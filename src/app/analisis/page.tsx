@@ -1,4 +1,3 @@
-
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef, ChangeEvent } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification, Evidence } from '@/types/rca';
