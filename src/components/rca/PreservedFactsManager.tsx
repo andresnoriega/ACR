@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from "@/hooks/use-toast";
 import { PlusCircle, Trash2, ImageIcon, FileText, Link2, Paperclip, Loader2, ExternalLink, AlertTriangle, UploadCloud } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove, getDoc } from "firebase/firestore";
 import { sanitizeForFirestore } from '@/lib/utils';
 
 let idCounter = Date.now();
@@ -142,9 +142,9 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({ analysis
       });
       toast({ title: "Hecho Eliminado", variant: 'destructive' });
       onEvidenceAdded();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error removing preserved fact:", error);
-      toast({ title: "Error", description: `No se pudo eliminar el hecho: ${(error as Error).message}`, variant: "destructive" });
+      toast({ title: "Error", description: `No se pudo eliminar el hecho: ${error.message}`, variant: "destructive" });
     } finally {
       setIsAddingFact(false);
     }
