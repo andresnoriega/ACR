@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserCircle, Save, Loader2, Target, ClipboardList, Sparkles, FilePlus, Trash2, FileArchive } from 'lucide-react';
+import { UserCircle, Save, Loader2, Target, ClipboardList, Sparkles, FilePlus, Trash2, FileArchive, PlusCircle } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
@@ -49,7 +49,7 @@ export const Step2Facts: FC<{
   onAnalysisDetailsChange: (value: string) => void;
   preservedFacts: PreservedFact[];
   onAddPreservedFact: () => void;
-  onUpdatePreservedFact: (index: number, field: keyof Omit<PreservedFact, 'id'>, value: string | File) => void;
+  onUpdatePreservedFact: (index: number, field: keyof Omit<PreservedFact, 'id'>, value: string | File) => Promise<void>;
   onRemovePreservedFact: (id: string) => void;
   onPrevious: () => void;
   onNext: () => void;
