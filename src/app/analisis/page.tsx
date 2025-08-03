@@ -1112,23 +1112,18 @@ function RCAAnalysisPageComponent() {
     setDetailedFacts(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleAddPreservedFact = async (
-    factMetadata: Omit<Evidence, 'id' | 'dataUrl'>,
-    file: File
-  ) => {
+  const handleAddPreservedFact = async (factMetadata: Omit<Evidence, 'id' | 'dataUrl'>, file: File) => {
     setIsSaving(true);
     try {
       let currentEventId = analysisDocumentId;
       if (!currentEventId) {
-        console.log("[handleAddPreservedFact] No hay ID, creando uno nuevo...");
         const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
         if (!saveResult.success || !saveResult.newEventId) {
           throw new Error("No se pudo crear el documento de análisis antes de subir el archivo.");
         }
         currentEventId = saveResult.newEventId;
-        console.log(`[handleAddPreservedFact] Nuevo ID creado: ${currentEventId}`);
       }
-
+  
       toast({ title: "Procesando archivo...", description: `Convirtiendo ${file.name} a Data URL.` });
       const dataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -1136,23 +1131,22 @@ function RCAAnalysisPageComponent() {
         reader.onerror = (error) => reject(error);
         reader.readAsDataURL(file);
       });
-
+  
       const newFact: Evidence = {
         ...factMetadata,
         id: generateClientSideId('pf'),
         dataUrl,
       };
-
+  
       const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
-      console.log(`[handleAddPreservedFact] Actualizando documento Firestore: ${rcaDocRef.path}`);
       await updateDoc(rcaDocRef, {
         preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
         updatedAt: new Date().toISOString()
       });
-
+  
       setPreservedFacts(prev => [...(prev || []), newFact]);
       toast({ title: "Hecho Preservado Añadido", description: `Se añadió "${newFact.nombre}".` });
-
+  
     } catch (error: any) {
       console.error("[handleAddPreservedFact] Error detallado:", error);
       toast({ title: "Error al Procesar Evidencia", description: `No se pudo procesar el archivo: ${error.message || 'Error desconocido'}`, variant: "destructive" });

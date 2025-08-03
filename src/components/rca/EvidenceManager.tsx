@@ -43,6 +43,17 @@ export const EvidenceManager: FC<EvidenceManagerProps> = ({ title, evidences, on
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      if (file.size > 700 * 1024) { // 700 KB limit for Data URL stability
+        toast({
+          title: "Archivo Demasiado Grande",
+          description: "El archivo no puede superar los 700 KB para ser guardado directamente.",
+          variant: "destructive",
+          duration: 7000,
+        });
+        setFileToUpload(null);
+        event.target.value = ''; // Reset file input
+        return;
+      }
       setFileToUpload(file);
       if (!userGivenName) {
         setUserGivenName(file.name);
@@ -62,24 +73,21 @@ export const EvidenceManager: FC<EvidenceManagerProps> = ({ title, evidences, on
       return;
     }
 
-    try {
-        const factMetadata: Omit<Evidence, 'id' | 'dataUrl'> = {
-          nombre: userGivenName.trim(),
-          tipo: (fileToUpload.type.split('/')[1] as Evidence['tipo']) || 'other',
-          comment: evidenceComment.trim() || undefined,
-        };
+    const factMetadata: Omit<Evidence, 'id' | 'dataUrl'> = {
+      nombre: userGivenName.trim(),
+      tipo: (fileToUpload.type as Evidence['tipo']) || 'other',
+      comment: evidenceComment.trim() || undefined,
+    };
 
-        await onAddEvidence(factMetadata, fileToUpload);
-        
-        setFileToUpload(null);
-        setEvidenceComment('');
-        setUserGivenName('');
-        const fileInput = document.getElementById('evidence-file-input') as HTMLInputElement;
-        if (fileInput) fileInput.value = '';
-
-    } catch(error: any) {
-        toast({ title: "Error al Procesar Evidencia", description: error.message, variant: "destructive" });
-    }
+    // The parent component will handle the async logic
+    await onAddEvidence(factMetadata, fileToUpload);
+    
+    // Reset form on success (the parent tells us via isSaving prop change)
+    setFileToUpload(null);
+    setEvidenceComment('');
+    setUserGivenName('');
+    const fileInput = document.getElementById('evidence-file-input') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
   };
 
 
@@ -94,7 +102,7 @@ export const EvidenceManager: FC<EvidenceManagerProps> = ({ title, evidences, on
       <CardContent className="space-y-4">
         <div className="space-y-3 p-3 border rounded-md bg-background">
           <div>
-            <Label htmlFor="evidence-file-input">Archivo de Evidencia</Label>
+            <Label htmlFor="evidence-file-input">Archivo de Evidencia (Máx. 700 KB)</Label>
             <Input id="evidence-file-input" type="file" onChange={handleFileChange} className="text-xs h-9" disabled={isSaving} />
           </div>
            <div>
