@@ -53,8 +53,6 @@ const generateClientSideId = (prefix: string) => {
 
 // ------ COMPONENTE PRINCIPAL ------
 export const Step2Facts: FC<{
-  eventData: RCAEventData;
-  availableSites: Site[];
   projectLeader: string;
   onProjectLeaderChange: (value: string) => void;
   availableUsers: FullUserProfile[];
@@ -67,16 +65,14 @@ export const Step2Facts: FC<{
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
   preservedFacts: PreservedFact[];
-  onRemovePreservedFact: (factId: string) => Promise<void>;
-  onAddPreservedFact: (newFact: PreservedFact) => Promise<void>;
+  onRemovePreservedFact: (factId: string) => void;
+  onAddPreservedFact: (newFact: PreservedFact) => void;
   isSaving: boolean;
   onPrevious: () => void;
   onNext: () => void;
   onSaveAnalysis: () => Promise<void>;
   validateFieldsForNext: () => boolean;
 }> = ({
-  eventData,
-  availableSites,
   projectLeader,
   onProjectLeaderChange,
   availableUsers,
@@ -114,14 +110,10 @@ export const Step2Facts: FC<{
     if (userProfile?.role === 'Super User') {
       return availableUsers;
     }
-    const siteDetails = availableSites.find(s => s.name === eventData.place);
-    const siteCompany = siteDetails?.empresa;
-
-    if (!siteCompany) {
-      return availableUsers.filter(u => !u.empresa);
-    }
-    return availableUsers.filter(u => u.empresa === siteCompany);
-  }, [availableUsers, availableSites, eventData.place, userProfile]);
+    // This logic might need adjustment if sites are not available yet.
+    // However, it's safer to depend on availableUsers which is fetched based on user role.
+    return availableUsers;
+  }, [availableUsers, userProfile]);
 
   useEffect(() => {
     const now = new Date();
@@ -203,7 +195,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
         dataUrl: dataUrl,
       };
       
-      await onAddPreservedFact(newFact);
+      onAddPreservedFact(newFact);
       
       // Reset form
       setEvidenceFile(null);
@@ -215,6 +207,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
 
     } catch(error) {
        console.error("Error during fact preservation:", error);
+       toast({ title: "Error al Procesar Archivo", description: `No se pudo leer el archivo: ${(error as Error).message}`, variant: "destructive" });
     } finally {
        setIsUploading(false);
     }
@@ -284,7 +277,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
           sessions={investigationSessions}
           onSetSessions={onSetInvestigationSessions}
           availableUsers={availableUsers}
-          availableSites={availableSites}
+          availableSites={[]}
           isSaving={isSaving}
         />
         

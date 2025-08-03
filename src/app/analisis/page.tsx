@@ -736,30 +736,11 @@ function RCAAnalysisPageComponent() {
     }
   };
   
-  const handleAddPreservedFact = async (newFactWithDataUrl: PreservedFact) => {
-    try {
-      let currentEventId = analysisDocumentId;
-      if (!currentEventId) {
-        const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
-        if (!saveResult.success || !saveResult.newEventId) {
-          throw new Error("No se pudo crear el documento de análisis antes de añadir el hecho.");
-        }
-        currentEventId = saveResult.newEventId;
-      }
-      
-      const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
-      await updateDoc(rcaDocRef, {
-        preservedFacts: arrayUnion(sanitizeForFirestore(newFactWithDataUrl)),
-        updatedAt: new Date().toISOString()
-      });
-
-      setPreservedFacts(prev => [...prev, newFactWithDataUrl]);
-      toast({ title: "Hecho Preservado Añadido", description: `Se añadió "${newFactWithDataUrl.nombre}" a la lista. Se guardará con el próximo avance.` });
-
-    } catch (error: any) {
-      console.error("Error detallado al preservar hecho:", error);
-      toast({ title: "Error al Preservar Hecho", description: `No se pudo guardar el hecho. Error: ${error.message || 'Desconocido'}`, variant: "destructive" });
-    }
+  const handleAddPreservedFact = (newFactWithDataUrl: PreservedFact) => {
+    // This function now only updates the local state.
+    // The actual save will happen with the next `handleSaveAnalysisData` call.
+    setPreservedFacts(prev => [...prev, newFactWithDataUrl]);
+    toast({ title: "Hecho Preservado Añadido", description: `Se añadió "${newFactWithDataUrl.nombre}" a la lista. Se guardará con el próximo avance.` });
   };
 
 
@@ -1166,15 +1147,19 @@ function RCAAnalysisPageComponent() {
   
   const handleRemovePreservedFact = async (id: string) => {
     if (!analysisDocumentId) {
-      toast({ title: "Error", description: "ID del análisis no encontrado.", variant: "destructive" });
+      // If no document ID, just remove from local state
+      setPreservedFacts(prev => prev.filter(fact => fact.id !== id));
+      toast({ title: "Hecho Eliminado (Localmente)", description: "El hecho se eliminó de la lista. Se guardará el cambio al avanzar.", variant: 'destructive' });
       return;
     }
-    const factToRemove = preservedFacts.find(fact => fact.id === id);
-    if (!factToRemove) return;
-
     setIsSaving(true);
+    const factToRemove = preservedFacts.find(fact => fact.id === id);
+    if (!factToRemove) {
+      setIsSaving(false);
+      return;
+    }
     
-    // Then, remove from Firestore using arrayRemove and update local state
+    // If there is a document ID, remove from Firestore
     const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
     try {
       await updateDoc(rcaDocRef, {
@@ -1182,7 +1167,7 @@ function RCAAnalysisPageComponent() {
           updatedAt: new Date().toISOString()
       });
       setPreservedFacts(prev => prev.filter(fact => fact.id !== id));
-      toast({ title: "Hecho Preservado Eliminado", description: "La referencia se eliminó exitosamente.", variant: 'destructive' });
+      toast({ title: "Hecho Preservado Eliminado", description: "La referencia se eliminó de la base de datos.", variant: 'destructive' });
     } catch (error: any) {
       console.error("Error al actualizar Firestore después de eliminar hecho:", error);
       toast({ title: "Error de Sincronización", description: `No se pudo confirmar la eliminación en la base de datos: ${error.message}. Recargue la página.`, variant: 'destructive' });
@@ -1535,8 +1520,6 @@ function RCAAnalysisPageComponent() {
       <div className={step === 2 ? "" : "print:hidden"}>
       {step === 2 && (
         <Step2Facts
-          eventData={eventData}
-          availableSites={availableSitesFromDB}
           projectLeader={projectLeader}
           onProjectLeaderChange={handleProjectLeaderChange}
           availableUsers={availableUsersFromDB}
@@ -1575,7 +1558,7 @@ function RCAAnalysisPageComponent() {
           analysisTechniqueNotes={analysisTechniqueNotes}
           onAnalysisTechniqueNotesChange={setAnalysisTechniqueNotes}
           ishikawaData={ishikawaData}
-          onSetIshikawaData={onSetIshikawaData}
+          onSetIshikawaData={setIshikawaData}
           fiveWhysData={fiveWhysData}
           onSetFiveWhysData={setFiveWhysData}
           ctmData={ctmData}
