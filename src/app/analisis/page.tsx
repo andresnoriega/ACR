@@ -744,7 +744,7 @@ function RCAAnalysisPageComponent() {
     try {
       if (!file) throw new Error("No se seleccionó ningún archivo.");
 
-      // Ensure the analysis document exists and we have an ID
+      // Step 1: Ensure the analysis document exists and we have an ID
       let currentEventId = analysisDocumentId;
       if (!currentEventId) {
         const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
@@ -754,6 +754,7 @@ function RCAAnalysisPageComponent() {
         currentEventId = saveResult.newEventId;
       }
 
+      // Step 2: Upload the file to Storage
       toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
       const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
       const fileStorageRef = storageRef(storage, filePath);
@@ -761,6 +762,7 @@ function RCAAnalysisPageComponent() {
       const uploadResult = await uploadBytes(fileStorageRef, file);
       const downloadURL = await getDownloadURL(uploadResult.ref);
 
+      // Step 3: Create the PreservedFact object and update Firestore
       const newFact: PreservedFact = {
         ...factMetadata,
         id: generateClientSideId('pf'),
@@ -776,6 +778,7 @@ function RCAAnalysisPageComponent() {
         updatedAt: new Date().toISOString()
       });
 
+      // Step 4: Update local state to reflect the change immediately
       setPreservedFacts(prev => [...prev, newFact]);
       toast({ title: "Hecho Preservado Añadido", description: `Se añadió y subió "${newFact.userGivenName}".` });
 
@@ -783,7 +786,7 @@ function RCAAnalysisPageComponent() {
       console.error("Error detallado al subir hecho preservado:", error);
       toast({ title: "Error al Subir", description: `No se pudo subir el archivo. Verifique la consola. Error: ${error.message || 'Desconocido'}`, variant: "destructive" });
     } finally {
-      setIsSaving(false);
+      setIsSaving(false); // Ensure this always runs
     }
   };
 

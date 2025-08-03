@@ -196,22 +196,29 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     
     setIsUploading(true);
     
-    const factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'> = {
-      userGivenName: evidenceFile.name,
-      category: evidenceCategory,
-      comment: evidenceComment.trim() || undefined,
-    };
-    
-    await onSaveWithNewFact(factMetadata, evidenceFile);
-    
-    // Reset form
-    setEvidenceFile(null);
-    setEvidenceComment('');
-    setEvidenceCategory('');
-    setShowNewFactForm(false);
-    const fileInput = document.getElementById('step2-evidence-file-input') as HTMLInputElement;
-    if (fileInput) fileInput.value = '';
-    setIsUploading(false);
+    try {
+      const factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'> = {
+        userGivenName: evidenceFile.name,
+        category: evidenceCategory,
+        comment: evidenceComment.trim() || undefined,
+      };
+      
+      await onSaveWithNewFact(factMetadata, evidenceFile);
+      
+      // Reset form
+      setEvidenceFile(null);
+      setEvidenceComment('');
+      setEvidenceCategory('');
+      setShowNewFactForm(false);
+      const fileInput = document.getElementById('step2-evidence-file-input') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+
+    } catch(error) {
+       console.error("Error during fact preservation:", error);
+       // The parent page (analisis) will show the toast for specific errors.
+    } finally {
+       setIsUploading(false);
+    }
   };
 
   const handleNextWithSave = async () => {
@@ -440,7 +447,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                             <ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar
                           </a>
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemovePreservedFact(fact.id)} disabled={isSaving}>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemovePreservedFact(fact.id)} disabled={isSaving || isUploading}>
                           <Trash2 className="h-3.5 w-3.5 text-destructive" />
                         </Button>
                       </div>
