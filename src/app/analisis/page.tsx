@@ -950,6 +950,58 @@ function RCAAnalysisPageComponent() {
     return { isValid: true };
   };
 
+  const validateFieldsForNext = (): { isValid: boolean, message?: string } => {
+    const missingFields = [];
+    if (!projectLeader) missingFields.push("Líder del Proyecto");
+    if (!detailedFacts.como.trim()) missingFields.push("Hechos Detallados: CÓMO");
+    if (!detailedFacts.que.trim()) missingFields.push("Hechos Detallados: QUÉ");
+    if (!detailedFacts.donde.trim()) missingFields.push("Hechos Detallados: DÓNDE");
+    if (!detailedFacts.cuando.trim()) missingFields.push("Hechos Detallados: CUÁNDO");
+    if (!detailedFacts.cualCuanto.trim()) missingFields.push("Hechos Detallados: CUÁL/CUÁNTO");
+    if (!detailedFacts.quien.trim()) missingFields.push("Hechos Detallados: QUIÉN");
+    
+    if (missingFields.length > 0) {
+      return {
+        isValid: false,
+        message: `Por favor, complete los siguientes campos del Paso 2: ${missingFields.join(', ')}.`,
+      };
+    }
+    return { isValid: true };
+  };
+
+  const handleGoToStep = async (targetStep: number) => {
+    if (targetStep >= 4 && !isStep3ValidForNavigation) {
+      toast({
+        title: "Validación Requerida en Paso 3",
+        description: "Asegúrese de que todas las causas raíz descritas estén abordadas por un plan de acción antes de continuar.",
+        variant: "destructive",
+        duration: 7000
+      });
+      return;
+    }
+
+    if (targetStep > maxCompletedStep + 1 && targetStep !== 1) {
+      return;
+    }
+
+    if (step === 1 && targetStep > 1) {
+      const step1Validation = validateStep1PreRequisites();
+      if (!step1Validation.isValid) {
+        toast({
+          title: "Acción Requerida en Paso 1",
+          description: step1Validation.message,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
+    setStep(targetStep);
+    if (analysisDocumentId) {
+      router.replace(`/analisis?id=${analysisDocumentId}&step=${targetStep}`, { scroll: false });
+    }
+  };
+
   const handleNextStep = async () => {
     if (step === 1) {
       const step1Validation = validateStep1PreRequisites();
@@ -963,9 +1015,17 @@ function RCAAnalysisPageComponent() {
       }
     }
     
-    // Save current step data before moving to the next one
     if (step === 2) {
-        // Validation for step 2 will be handled inside its own next button logic if needed
+        const step2Validation = validateFieldsForNext();
+        if(!step2Validation.isValid && step2Validation.message){
+          toast({
+            title: "Campos Obligatorios Faltantes",
+            description: step2Validation.message,
+            variant: "destructive",
+            duration: 7000,
+          });
+          return;
+        }
     } else if (step === 3) {
       if (!isStep3ValidForNavigation) {
         toast({
@@ -995,7 +1055,6 @@ function RCAAnalysisPageComponent() {
       }
     }
     
-    // Always save before moving, but without showing toast unless it's a specific save action
     await handleSaveAnalysisData(false);
 
     const newStep = Math.min(step + 1, 5);
