@@ -132,4 +132,10 @@ export const Step2Point5Tasks: FC<Step2Point5TasksProps> = ({
       <CardFooter className="flex justify-between">
         <Button onClick={onPrevious} variant="outline" disabled={isSaving}>Anterior</Button>
         <Button onClick={onNext} disabled={isSaving}>
-          {isSaving && <Loader2 className="mr-2 h-4 w
+          {isSaving && <Loader2 className="mr-2 h-4 w-4" />}
+          Siguiente
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+};
