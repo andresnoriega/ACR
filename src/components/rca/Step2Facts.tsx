@@ -47,8 +47,8 @@ export const Step2Facts: FC<{
   preservedFacts: Evidence[];
   onSetPreservedFacts: (facts: Evidence[]) => void;
   onRemovePreservedFact: (factId: string) => Promise<void>;
-  onSaveAnalysis: (showToast?: boolean) => Promise<void>;
-  onSaveWithNewFact: (showToast: boolean, newFact: Evidence) => Promise<void>;
+  onSaveAnalysis: (showToast?: boolean) => Promise<{ success: boolean; newEventId?: string; needsNavigationUrl?: string }>;
+  onSaveWithNewFact: (newFact: Evidence) => Promise<void>;
   isSaving: boolean;
   onPrevious: () => void;
   onNext: () => void;
@@ -197,7 +197,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
         dataUrl: dataUrl,
     };
     
-    await onSaveWithNewFact(true, newFact);
+    await onSaveWithNewFact(newFact);
     
     // Reset form
     setEvidenceFile(null);

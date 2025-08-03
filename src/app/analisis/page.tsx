@@ -537,10 +537,9 @@ function RCAAnalysisPageComponent() {
       plannedActionsOverride?: PlannedAction[];
       suppressNavigation?: boolean; 
       efficacyVerificationOverride?: EfficacyVerification;
-      newPreservedFact?: Evidence; // <-- This is what we will use now
     }
   ): Promise<{ success: boolean; newEventId?: string; needsNavigationUrl?: string }> => {
-    const { finalizedOverride, statusOverride, rejectionReason: currentRejectionReason, validationsOverride, plannedActionsOverride, suppressNavigation, efficacyVerificationOverride, newPreservedFact } = options || {};
+    const { finalizedOverride, statusOverride, rejectionReason: currentRejectionReason, validationsOverride, plannedActionsOverride, suppressNavigation, efficacyVerificationOverride } = options || {};
 
     let currentId = analysisDocumentId;
     let isNewEventCreation = false;
@@ -584,14 +583,10 @@ function RCAAnalysisPageComponent() {
     const currentEfficacyVerification = efficacyVerificationOverride || efficacyVerification;
     
     let currentPlannedActions = (plannedActionsOverride !== undefined) ? plannedActionsOverride : plannedActions;
-    
-    // Logic for newPreservedFact
-    const currentPreservedFacts = newPreservedFact 
-      ? arrayUnion(sanitizeForFirestore(newPreservedFact))
-      : preservedFacts;
 
     const rcaDocPayload: Partial<RCAAnalysisDocument> = {
       eventData: consistentEventData, immediateActions, projectLeader, detailedFacts, investigationObjective, investigationSessions, analysisDetails,
+      preservedFacts,
       timelineEvents, brainstormingIdeas, analysisTechnique, analysisTechniqueNotes, ishikawaData,
       fiveWhysData, ctmData, identifiedRootCauses, 
       plannedActions: currentPlannedActions,
@@ -602,61 +597,42 @@ function RCAAnalysisPageComponent() {
       createdBy: currentCreatedByState,
       empresa: siteEmpresa,
     };
-    
-    // If it's an update with a new fact, we must use `updateDoc` not `setDoc` with merge
-    if (newPreservedFact) {
-        rcaDocPayload.preservedFacts = currentPreservedFacts as any; // Firestore SDK handles arrayUnion
-        rcaDocPayload.updatedAt = new Date().toISOString();
-    }
-
 
     try {
       const rcaDocRef = doc(db, "rcaAnalyses", currentId);
       const rcaDocSnap = await getDoc(rcaDocRef);
 
-      if (newPreservedFact) {
-        if (!rcaDocSnap.exists()) {
-           await setDoc(rcaDocRef, { ...rcaDocPayload, createdAt: new Date().toISOString() });
-        } else {
-           await updateDoc(rcaDocRef, rcaDocPayload);
-        }
-        // Update local state after successful save
-        setPreservedFacts(prev => [...prev, newPreservedFact]);
-
-      } else { // Standard save logic without a new fact
-          let finalCommentsToSave = finalComments;
-          if (statusOverride === "Rechazado" && currentRejectionReason) {
-              const rejecterName = userProfile?.name || "Sistema";
-              let baseRejectMsg = `Evento Rechazado por ${rejecterName} el ${new Date().toLocaleDateString('es-CL')}.`;
-              if (currentRejectionReason) {
-                baseRejectMsg += `\nMotivo: ${currentRejectionReason}`;
-              }
-              finalCommentsToSave = `${baseRejectMsg}${finalComments && !finalComments.startsWith('Evento Rechazado') ? `\n\nComentarios Adicionales Previos:\n${finalComments}` : ''}`;
-          } else if ( (statusOverride === "En análisis" || statusOverride === "Pendiente" || statusOverride === "Finalizado" || statusOverride === "Verificado") && finalComments.startsWith("Evento Rechazado")) {
-               finalCommentsToSave = finalComments.split("\n\nComentarios Adicionales Previos:\n")[1] || "";
+      let finalCommentsToSave = finalComments;
+      if (statusOverride === "Rechazado" && currentRejectionReason) {
+          const rejecterName = userProfile?.name || "Sistema";
+          let baseRejectMsg = `Evento Rechazado por ${rejecterName} el ${new Date().toLocaleDateString('es-CL')}.`;
+          if (currentRejectionReason) {
+            baseRejectMsg += `\nMotivo: ${currentRejectionReason}`;
           }
-
-          const dataToSave: RCAAnalysisDocument = {
-            ...(rcaDocPayload as Omit<RCAAnalysisDocument, 'createdAt' | 'updatedAt' | 'preservedFacts'>),
-            preservedFacts: preservedFacts, // Use the state value here
-            finalComments: finalCommentsToSave,
-            updatedAt: new Date().toISOString(),
-            createdAt: rcaDocSnap.exists() && rcaDocSnap.data().createdAt ? rcaDocSnap.data().createdAt : new Date().toISOString(),
-            createdBy: (rcaDocSnap.exists() && rcaDocSnap.data().createdBy) ? rcaDocSnap.data().createdBy : currentCreatedByState,
-          };
-
-          const sanitizedDataToSave = sanitizeForFirestore(dataToSave);
-          await setDoc(rcaDocRef, sanitizedDataToSave, { merge: true });
-
-          if (finalCommentsToSave !== finalComments) setFinalComments(finalCommentsToSave);
-          if (finalizedOverride !== undefined && isFinalized !== finalizedOverride) setIsFinalized(finalizedOverride);
-          if (efficacyVerificationOverride && efficacyVerification !== efficacyVerificationOverride) setEfficacyVerification(efficacyVerificationOverride);
-          if (currentRejectionDetailsToSave !== rejectionDetails) setRejectionDetails(currentRejectionDetailsToSave);
-          if (validationsOverride !== undefined && validationsOverride !== validations) setValidations(validationsOverride); 
-          if (currentPlannedActions !== plannedActions) setPlannedActions(currentPlannedActions);
-          if (dataToSave.createdBy && createdBy !== dataToSave.createdBy) setCreatedBy(dataToSave.createdBy);
-          if(consistentEventData.id !== eventData.id) setEventData(consistentEventData);
+          finalCommentsToSave = `${baseRejectMsg}${finalComments && !finalComments.startsWith('Evento Rechazado') ? `\n\nComentarios Adicionales Previos:\n${finalComments}` : ''}`;
+      } else if ( (statusOverride === "En análisis" || statusOverride === "Pendiente" || statusOverride === "Finalizado" || statusOverride === "Verificado") && finalComments.startsWith("Evento Rechazado")) {
+            finalCommentsToSave = finalComments.split("\n\nComentarios Adicionales Previos:\n")[1] || "";
       }
+
+      const dataToSave: RCAAnalysisDocument = {
+        ...(rcaDocPayload as Omit<RCAAnalysisDocument, 'createdAt' | 'updatedAt'>),
+        finalComments: finalCommentsToSave,
+        updatedAt: new Date().toISOString(),
+        createdAt: rcaDocSnap.exists() && rcaDocSnap.data().createdAt ? rcaDocSnap.data().createdAt : new Date().toISOString(),
+        createdBy: (rcaDocSnap.exists() && rcaDocSnap.data().createdBy) ? rcaDocSnap.data().createdBy : currentCreatedByState,
+      };
+
+      const sanitizedDataToSave = sanitizeForFirestore(dataToSave);
+      await setDoc(rcaDocRef, sanitizedDataToSave, { merge: true });
+
+      if (finalCommentsToSave !== finalComments) setFinalComments(finalCommentsToSave);
+      if (finalizedOverride !== undefined && isFinalized !== finalizedOverride) setIsFinalized(finalizedOverride);
+      if (efficacyVerificationOverride && efficacyVerification !== efficacyVerificationOverride) setEfficacyVerification(efficacyVerificationOverride);
+      if (currentRejectionDetailsToSave !== rejectionDetails) setRejectionDetails(currentRejectionDetailsToSave);
+      if (validationsOverride !== undefined && validationsOverride !== validations) setValidations(validationsOverride); 
+      if (currentPlannedActions !== plannedActions) setPlannedActions(currentPlannedActions);
+      if (dataToSave.createdBy && createdBy !== dataToSave.createdBy) setCreatedBy(dataToSave.createdBy);
+      if(consistentEventData.id !== eventData.id) setEventData(consistentEventData);
 
 
       const reportedEventRef = doc(db, "reportedEvents", currentId);
@@ -742,10 +718,7 @@ function RCAAnalysisPageComponent() {
 
 
       if (showToast) {
-        const toastDescription = newPreservedFact 
-            ? `Se añadió el hecho "${newPreservedFact.nombre}" y se guardó el progreso.`
-            : `Análisis ${currentId} guardado. Evento reportado actualizado a estado: ${statusForReportedEvent}.`;
-        toast({ title: "Progreso Guardado", description: toastDescription });
+        toast({ title: "Progreso Guardado", description: `Análisis ${currentId} guardado. Evento reportado actualizado a estado: ${statusForReportedEvent}.` });
       }
       return { success: true, newEventId: isNewEventCreation ? currentId : undefined, needsNavigationUrl: navigationUrl };
     } catch (error) {
@@ -762,10 +735,37 @@ function RCAAnalysisPageComponent() {
       setIsSaving(false);
     }
   };
+  
+  const handleSaveNewFact = async (newFact: Evidence) => {
+    let currentId = analysisDocumentId;
+    if (!currentId) {
+      const saveResult = await handleSaveAnalysisData(false);
+      if (!saveResult.success || !saveResult.newEventId) {
+        toast({ title: "Error", description: "No se pudo crear el documento de análisis antes de añadir el hecho.", variant: "destructive" });
+        return;
+      }
+      currentId = saveResult.newEventId;
+    }
+    
+    setIsSaving(true);
+    try {
+      const rcaDocRef = doc(db, "rcaAnalyses", currentId);
+      await updateDoc(rcaDocRef, {
+        preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
+        updatedAt: new Date().toISOString(),
+      });
+      setPreservedFacts(prev => [...prev, newFact]);
+      toast({ title: "Hecho Preservado Añadido", description: `Se añadió y guardó "${newFact.nombre}".` });
+    } catch (error) {
+      console.error("Error adding new preserved fact:", error);
+      toast({ title: "Error al Guardar Hecho", description: `No se pudo guardar el nuevo hecho: ${(error as Error).message}`, variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
 
   const handleSaveFromStep2 = async (showToast: boolean = true) => {
-    // This function will now only save the state, not handle file uploads.
-    // File uploads are handled within Step2Facts component.
     const saveResult = await handleSaveAnalysisData(showToast); 
     if (!saveResult.success) return;
 
@@ -1574,7 +1574,7 @@ function RCAAnalysisPageComponent() {
           onSetPreservedFacts={setPreservedFacts}
           onRemovePreservedFact={handleRemovePreservedFact}
           onSaveAnalysis={handleSaveAnalysisData}
-          onSaveWithNewFact={handleSaveAnalysisData}
+          onSaveWithNewFact={handleSaveNewFact}
           isSaving={isSaving}
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
