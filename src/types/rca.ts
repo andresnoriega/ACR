@@ -1,4 +1,3 @@
-
 'use client';
 // --- Common Enums and Types ---
 export type EventType = 'Incidente' | 'Falla de Equipo' | 'Accidente' | 'No Conformidad' | 'Evento Operacional' | '';
@@ -169,15 +168,6 @@ export interface Evidence {
   category?: string;
 }
 
-export interface PreservedFact {
-  id: string;
-  nombre: string;
-  tipo: 'link' | 'pdf' | 'jpg' | 'png' | 'doc' | 'other' | string;
-  dataUrl: string;
-  comment?: string;
-}
-
-
 export interface PlannedAction {
   id: string;
   eventId: string;
@@ -247,7 +237,6 @@ export interface RCAAnalysisDocument {
   investigationObjective: string;
   investigationSessions: InvestigationSession[];
   analysisDetails: string;
-  preservedFacts: PreservedFact[];
   timelineEvents: TimelineEvent[];
   brainstormingIdeas: BrainstormIdea[];
   analysisTechnique: AnalysisTechnique;
@@ -294,5 +283,3 @@ export interface EfficacyVerificationTask {
 }
 
 export type ReportedEventType = 'Incidente' | 'Falla de Equipo' | 'Accidente' | 'No Conformidad' | 'Evento Operacional' | '';
-
-    

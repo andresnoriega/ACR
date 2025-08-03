@@ -1,8 +1,7 @@
-
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useEffect } from 'react';
-import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile, Site, InvestigationSession, EfficacyVerification, FiveWhysData, BrainstormIdea, TimelineEvent, Evidence, PreservedFact } from '@/types/rca';
+import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile, Site, InvestigationSession, EfficacyVerification, FiveWhysData, BrainstormIdea, TimelineEvent, Evidence } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -39,7 +38,6 @@ interface Step5ResultsProps {
   brainstormingIdeas: BrainstormIdea[];
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
-  preservedFacts: PreservedFact[];
   finalComments: string;
   onFinalCommentsChange: (value: string) => void;
   leccionesAprendidas: string;
@@ -69,18 +67,6 @@ const SectionContent: FC<{ children: React.ReactNode; className?: string }> = ({
   </div>
 );
 
-const getEvidenceIconLocal = (tipo?: PreservedFact['tipo']) => {
-  if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
-  const safeTipo = tipo?.toLowerCase() || 'other';
-  switch (safeTipo) {
-    case 'link': return <Link2 className="h-4 w-4 mr-2 flex-shrink-0 text-indigo-600" />;
-    case 'pdf': return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
-    case 'jpg': case 'jpeg': case 'png': case 'gif': return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
-    case 'doc': case 'docx': return <Paperclip className="h-4 w-4 mr-2 flex-shrink-0 text-sky-700" />;
-    default: return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
-  }
-};
-
 
 export const Step5Results: FC<Step5ResultsProps> = ({
   eventId,
@@ -99,7 +85,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   brainstormingIdeas,
   identifiedRootCauses,
   plannedActions,
-  preservedFacts,
   finalComments,
   onFinalCommentsChange,
   leccionesAprendidas,
@@ -540,25 +525,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           <section>
             <SectionTitle title="Anexos" icon={FileArchive}/>
             <div className="space-y-4">
-                 {(preservedFacts ?? []).length > 0 && (
-                  <div>
-                    <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><FileText className="mr-2 h-4 w-4" />Hechos Preservados</h4>
-                     <ul className="space-y-1.5">
-                      {(preservedFacts ?? []).map(fact => (
-                        <li key={fact.id} className="flex items-start justify-between text-xs border p-2 rounded-md bg-muted/30">
-                          <div className="flex-grow">
-                            <div className="flex items-center">{getEvidenceIconLocal(fact.tipo)}<span className="font-medium">{fact.nombre}</span></div>
-                            {fact.comment && <p className="text-xs text-muted-foreground ml-[calc(1rem+0.5rem)] mt-0.5">Comentario: {fact.comment}</p>}
-                          </div>
-                          <div className="flex-shrink-0 ml-2">
-                            <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mr-2"><a href={fact.dataUrl} target="_blank" rel="noopener noreferrer" download={fact.nombre}><ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar</a></Button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                 )}
-                 {timelineEvents && timelineEvents.length > 0 && (
+                 {(timelineEvents ?? []).length > 0 && (
                   <div>
                     <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><CalendarClock className="mr-2 h-4 w-4" />Línea de Tiempo</h4>
                     <ul className="list-disc pl-5 space-y-1 text-xs border rounded-md p-3 bg-secondary/20">
@@ -570,7 +537,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                     </ul>
                   </div>
                 )}
-                {brainstormingIdeas && brainstormingIdeas.length > 0 && (
+                {(brainstormingIdeas ?? []).length > 0 && (
                   <div>
                     <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><Lightbulb className="mr-2 h-4 w-4" />Lluvia de Ideas</h4>
                     <ul className="list-disc pl-5 space-y-1 text-xs border rounded-md p-3 bg-secondary/20">
@@ -602,8 +569,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                   </div>
                 )}
                  
-                 {(!preservedFacts || preservedFacts.length === 0) &&
-                  (!timelineEvents || timelineEvents.length === 0) &&
+                 {(!timelineEvents || timelineEvents.length === 0) &&
                   (!brainstormingIdeas || brainstormingIdeas.length === 0) &&
                   (!investigationSessions || investigationSessions.length === 0) && (
                     <p className="text-sm text-muted-foreground">No hay anexos para mostrar.</p>

@@ -2,7 +2,7 @@
 
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import type { DetailedFacts, FullUserProfile, Site, InvestigationSession, PreservedFact } from '@/types/rca'; 
+import type { DetailedFacts, FullUserProfile, Site, InvestigationSession } from '@/types/rca'; 
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
 import { InvestigationTeamManager } from './InvestigationTeamManager';
 import { paraphrasePhenomenon, type ParaphrasePhenomenonInput } from '@/ai/flows/paraphrase-phenomenon';
-import { PreservedFactsSection } from './PreservedFactsSection';
 
 let idCounter = Date.now();
 const generateClientSideId = (prefix: string) => {
@@ -37,9 +36,6 @@ export const Step2Facts: FC<{
   onSetInvestigationSessions: (sessions: InvestigationSession[]) => void;
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
-  preservedFacts: PreservedFact[];
-  onAddPreservedFact: (fact: PreservedFact) => void;
-  onRemovePreservedFact: (factId: string) => void;
   isSaving: boolean;
   onPrevious: () => void;
   onNext: () => void;
@@ -56,9 +52,6 @@ export const Step2Facts: FC<{
   onSetInvestigationSessions,
   analysisDetails,
   onAnalysisDetailsChange,
-  preservedFacts,
-  onAddPreservedFact,
-  onRemovePreservedFact,
   isSaving,
   onPrevious,
   onNext,
@@ -283,13 +276,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
             />
           </div>
         </div>
-
-        <PreservedFactsSection
-          facts={preservedFacts}
-          onAddFact={onAddPreservedFact}
-          onRemoveFact={onRemovePreservedFact}
-          isSaving={isSaving}
-        />
 
       </CardContent>
       <CardFooter className="flex flex-col sm:flex-row justify-between gap-2 pt-4 border-t">

@@ -1,6 +1,6 @@
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef, ChangeEvent } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification, PreservedFact } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -64,7 +64,6 @@ const initialRCAAnalysisState: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedA
   investigationObjective: '', // <-- NUEVO ESTADO INICIAL
   investigationSessions: [],
   analysisDetails: '',
-  preservedFacts: [],
   timelineEvents: [],
   brainstormingIdeas: [],
   analysisTechnique: '',
@@ -166,7 +165,6 @@ function RCAAnalysisPageComponent() {
   const [investigationObjective, setInvestigationObjective] = useState(initialRCAAnalysisState.investigationObjective || '');
   const [investigationSessions, setInvestigationSessions] = useState<InvestigationSession[]>(initialRCAAnalysisState.investigationSessions || []);
   const [analysisDetails, setAnalysisDetails] = useState(initialRCAAnalysisState.analysisDetails);
-  const [preservedFacts, setPreservedFacts] = useState<PreservedFact[]>(initialRCAAnalysisState.preservedFacts);
 
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>(initialRCAAnalysisState.timelineEvents || []);
   const [brainstormingIdeas, setBrainstormingIdeas] = useState<BrainstormIdea[]>(initialRCAAnalysisState.brainstormingIdeas || []);
@@ -262,7 +260,6 @@ function RCAAnalysisPageComponent() {
         setInvestigationObjective(data.investigationObjective || '');
         setInvestigationSessions(data.investigationSessions || []);
         setAnalysisDetails(data.analysisDetails || '');
-        setPreservedFacts(data.preservedFacts || []);
         setTimelineEvents(data.timelineEvents || []);
         setBrainstormingIdeas(data.brainstormingIdeas || []);
         setAnalysisTechnique(data.analysisTechnique || '');
@@ -325,7 +322,6 @@ function RCAAnalysisPageComponent() {
             setInvestigationObjective(initialRCAAnalysisState.investigationObjective || '');
             setInvestigationSessions(initialRCAAnalysisState.investigationSessions || []);
             setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
-            setPreservedFacts(initialRCAAnalysisState.preservedFacts);
             setTimelineEvents(initialRCAAnalysisState.timelineEvents || []);
             setBrainstormingIdeas(initialRCAAnalysisState.brainstormingIdeas || []);
             setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
@@ -362,7 +358,6 @@ function RCAAnalysisPageComponent() {
         setInvestigationObjective(initialRCAAnalysisState.investigationObjective || '');
         setInvestigationSessions(initialRCAAnalysisState.investigationSessions || []);
         setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
-        setPreservedFacts(initialRCAAnalysisState.preservedFacts);
         setTimelineEvents(initialRCAAnalysisState.timelineEvents || []);
         setBrainstormingIdeas(initialRCAAnalysisState.brainstormingIdeas || []);
         setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
@@ -433,7 +428,6 @@ function RCAAnalysisPageComponent() {
             setInvestigationObjective(initialRCAAnalysisState.investigationObjective || '');
             setInvestigationSessions(initialRCAAnalysisState.investigationSessions || []);
             setAnalysisDetails(initialRCAAnalysisState.analysisDetails);
-            setPreservedFacts(initialRCAAnalysisState.preservedFacts);
             setTimelineEvents(initialRCAAnalysisState.timelineEvents || []);
             setBrainstormingIdeas(initialRCAAnalysisState.brainstormingIdeas || []);
             setAnalysisTechnique(initialRCAAnalysisState.analysisTechnique);
@@ -586,7 +580,7 @@ function RCAAnalysisPageComponent() {
 
     const rcaDocPayload: Partial<RCAAnalysisDocument> = {
       eventData: consistentEventData, immediateActions, projectLeader, detailedFacts, investigationObjective, investigationSessions, analysisDetails,
-      preservedFacts, timelineEvents, brainstormingIdeas, analysisTechnique, analysisTechniqueNotes, ishikawaData,
+      timelineEvents, brainstormingIdeas, analysisTechnique, analysisTechniqueNotes, ishikawaData,
       fiveWhysData, ctmData, identifiedRootCauses, 
       plannedActions: currentPlannedActions,
       validations: (validationsOverride !== undefined) ? validationsOverride : validations,
@@ -1108,15 +1102,6 @@ function RCAAnalysisPageComponent() {
   const onDetailedFactChange = (field: keyof DetailedFacts, value: string) => {
     setDetailedFacts(prev => ({ ...prev, [field]: value }));
   };
-  
-  const handleAddPreservedFact = (newFact: PreservedFact) => {
-    setPreservedFacts(prev => [...prev, newFact]);
-  };
-  
-  const handleRemovePreservedFact = (id: string) => {
-    setPreservedFacts(prev => prev.filter(fact => fact.id !== id));
-  };
-
 
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);
@@ -1472,9 +1457,6 @@ function RCAAnalysisPageComponent() {
           onSetInvestigationSessions={setInvestigationSessions}
           analysisDetails={analysisDetails}
           onAnalysisDetailsChange={setAnalysisDetails}
-          preservedFacts={preservedFacts}
-          onAddPreservedFact={handleAddPreservedFact}
-          onRemovePreservedFact={handleRemovePreservedFact}
           isSaving={isSaving}
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
@@ -1552,7 +1534,6 @@ function RCAAnalysisPageComponent() {
           brainstormingIdeas={brainstormingIdeas}
           identifiedRootCauses={identifiedRootCauses}
           plannedActions={plannedActions}
-          preservedFacts={preservedFacts}
           finalComments={finalComments}
           onFinalCommentsChange={setFinalComments}
           leccionesAprendidas={leccionesAprendidas}
@@ -1631,5 +1612,3 @@ export default function RCAAnalysisPage() {
     </Suspense>
   );
 }
-
-    
