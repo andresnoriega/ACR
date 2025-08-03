@@ -468,7 +468,36 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4 pt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="projectLeader" className="flex items-center">
+                        <UserCircle className="mr-2 h-4 w-4 text-primary" />
+                        Líder del Proyecto
+                      </Label>
+                      <Select value={projectLeader} onValueChange={onProjectLeaderChange}>
+                        <SelectTrigger id="projectLeader">
+                          <SelectValue placeholder="-- Seleccione un líder --" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {usersForDropdown.length > 0 ? (
+                            usersForDropdown.map(user => (
+                              <SelectItem key={user.id} value={user.name}>{user.name} ({user.role})</SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="" disabled>No hay líderes disponibles para esta empresa</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                     <InvestigationTeamManager
+                        sessions={investigationSessions}
+                        onSetSessions={onSetInvestigationSessions}
+                        availableUsers={availableUsers}
+                        availableSites={availableSites}
+                        isSaving={isSaving}
+                    />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t mt-4">
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="como">CÓMO (ocurrió la desviación) <span className="text-destructive">*</span></Label>
                     <Input id="como" value={detailedFacts.como} onChange={(e) => handleInputChange(e, 'como')} placeholder="Ej: Durante operación normal" />
@@ -521,27 +550,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                 </div>
                  <div className="space-y-4 pt-4 border-t">
                   <div className="space-y-2">
-                    <Label htmlFor="projectLeader" className="flex items-center">
-                      <UserCircle className="mr-2 h-4 w-4 text-primary" />
-                      Líder del Proyecto
-                    </Label>
-                    <Select value={projectLeader} onValueChange={onProjectLeaderChange}>
-                      <SelectTrigger id="projectLeader">
-                        <SelectValue placeholder="-- Seleccione un líder --" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {usersForDropdown.length > 0 ? (
-                          usersForDropdown.map(user => (
-                            <SelectItem key={user.id} value={user.name}>{user.name} ({user.role})</SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="" disabled>No hay líderes disponibles para esta empresa</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
                     <Label htmlFor="investigationObjective" className="flex items-center">
                       <Target className="mr-2 h-4 w-4 text-primary" />
                       Objetivo de la Investigación
@@ -555,13 +563,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                     />
                   </div>
                 </div>
-                <InvestigationTeamManager
-                    sessions={investigationSessions}
-                    onSetSessions={onSetInvestigationSessions}
-                    availableUsers={availableUsers}
-                    availableSites={availableSites}
-                    isSaving={isSaving}
-                />
               </CardContent>
             </Card>
           </TabsContent>
