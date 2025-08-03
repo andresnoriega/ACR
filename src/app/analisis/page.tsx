@@ -1,6 +1,6 @@
 'use client';
-import { Suspense, useState, useEffect, useCallback, useMemo, useRef, ChangeEvent } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
+import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -143,6 +143,7 @@ function RCAAnalysisPageComponent() {
   const { userProfile, loadingAuth } = useAuth(); 
 
   const [step, setStep] = useState(1);
+  const [factsTab, setFactsTab] = useState('facts');
   const [maxCompletedStep, setMaxCompletedStep] = useState(0);
   const [isLoadingPage, setIsLoadingPage] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -746,8 +747,6 @@ function RCAAnalysisPageComponent() {
   const handleSaveFromStep2 = async () => {
     const saveResult = await handleSaveAnalysisData(true);
     if (saveResult.success && saveResult.newEventId) {
-        // Since a new event was created, we need to ensure the parent state is updated
-        // so it can be passed down to Step2Facts.
         setAnalysisDocumentId(saveResult.newEventId);
     }
   };
@@ -1163,7 +1162,7 @@ function RCAAnalysisPageComponent() {
       responsible: '',
       dueDate: '',
       relatedRootCauseIds: [],
-      evidencias: [],
+      evidences: [],
       userComments: '',
       isNotificationSent: false,
     };
@@ -1446,6 +1445,8 @@ function RCAAnalysisPageComponent() {
           onSaveAnalysis={handleSaveFromStep2}
           isSaving={isSaving}
           analysisId={analysisDocumentId}
+          activeTab={factsTab}
+          onTabChange={setFactsTab}
         />
       )}
       </div>
@@ -1531,6 +1532,7 @@ function RCAAnalysisPageComponent() {
           onSaveAnalysis={handleSaveAnalysisData}
           isSaving={isSaving}
           investigationObjective={investigationObjective}
+          onInvestigationObjectiveChange={setInvestigationObjective}
           efficacyVerification={efficacyVerification}
           onVerifyEfficacy={handleVerifyEfficacy}
           onPlanEfficacyVerification={handlePlanEfficacyVerification}

@@ -50,6 +50,7 @@ interface Step5ResultsProps {
   onSaveAnalysis: (showToast?: boolean) => Promise<void>;
   isSaving: boolean;
   investigationObjective: string;
+  onInvestigationObjectiveChange: (value: string) => void;
   efficacyVerification: EfficacyVerification;
   onVerifyEfficacy: (comments: string) => Promise<void>;
   onPlanEfficacyVerification: (responsible: string, verificationDate: string) => Promise<void>;
@@ -111,6 +112,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   onSaveAnalysis,
   isSaving,
   investigationObjective,
+  onInvestigationObjectiveChange,
   efficacyVerification,
   onVerifyEfficacy,
   onPlanEfficacyVerification,
@@ -395,7 +397,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
               placeholder="Escriba aquí la introducción, resumen ejecutivo o comentarios finales del análisis..."
               rows={8}
               className="text-sm"
-              disabled={isFinalized && !isEditing || isBusy}
+              disabled={(isFinalized && !isEditing) || isBusy}
             />
           </section>
           <Separator className="my-4" />
@@ -542,8 +544,18 @@ export const Step5Results: FC<Step5ResultsProps> = ({
             <Card className="bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700">
               <CardContent className="pt-4 space-y-3">
                  <div>
-                  <h4 className="font-semibold text-primary flex items-center mb-1"><Target className="mr-2 h-4 w-4" />Objetivo de la Investigación a Verificar</h4>
-                  <p className="text-sm p-2 bg-background rounded-md whitespace-pre-wrap">{investigationObjective || "No se definió un objetivo explícito para la investigación."}</p>
+                    <h4 className="font-semibold text-primary flex items-center mb-1">
+                        <Target className="mr-2 h-4 w-4" />Objetivo de la Investigación a Verificar
+                    </h4>
+                    <Textarea
+                        id="investigation-objective-final"
+                        value={investigationObjective}
+                        onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onInvestigationObjectiveChange(e.target.value)}
+                        placeholder="Defina el alcance y el objetivo principal de este análisis..."
+                        rows={3}
+                        className="bg-background"
+                        disabled={isBusy}
+                    />
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
