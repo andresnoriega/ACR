@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserCircle, Save, Loader2, Target, ClipboardList, Sparkles, FileArchive, Trash2, FileText, ImageIcon, Paperclip, Link2, ExternalLink } from 'lucide-react';
+import { UserCircle, Save, Loader2, Target, ClipboardList, Sparkles, FileArchive, Trash2, FileText, ImageIcon, Paperclip, Link2, ExternalLink, PlusCircle } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
@@ -45,8 +45,10 @@ export const Step2Facts: FC<{
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
   preservedFacts: Evidence[];
+  onSetPreservedFacts: (facts: Evidence[]) => void;
   onRemovePreservedFact: (factId: string) => Promise<void>;
-  onSaveAnalysis: (showToast?: boolean, newPreservedFact?: Evidence) => Promise<void>;
+  onSaveAnalysis: (showToast?: boolean) => Promise<void>;
+  onSaveWithNewFact: (showToast: boolean, newFact: Evidence) => Promise<void>;
   isSaving: boolean;
   onPrevious: () => void;
   onNext: () => void;
@@ -65,8 +67,10 @@ export const Step2Facts: FC<{
   analysisDetails,
   onAnalysisDetailsChange,
   preservedFacts,
+  onSetPreservedFacts,
   onRemovePreservedFact,
   onSaveAnalysis,
+  onSaveWithNewFact,
   isSaving,
   onPrevious,
   onNext,
@@ -75,10 +79,13 @@ export const Step2Facts: FC<{
   const [clientSideMaxDateTime, setClientSideMaxDateTime] = useState<string | undefined>(undefined);
   const { userProfile } = useAuth();
   const [isParaphrasing, setIsParaphrasing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   // State for the new evidence upload section
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [evidenceComment, setEvidenceComment] = useState('');
+  const [showNewFactForm, setShowNewFactForm] = useState(false);
+
 
   const usersForDropdown = useMemo(() => {
     if (userProfile?.role === 'Super User') {
@@ -157,68 +164,55 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
   };
 
   const handleSaveProgressLocal = async () => {
-    if (evidenceFile) {
-        if (evidenceFile.size > 700 * 1024) { // 700 KB limit
-            toast({
-              title: "Archivo Demasiado Grande",
-              description: "El archivo de evidencia no puede superar los 700 KB.",
-              variant: "destructive",
-            });
-            return;
-        }
-        const reader = new FileReader();
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = (error) => reject(error);
-            reader.readAsDataURL(evidenceFile);
-        });
-        const newFact: Evidence = {
-            id: `preserved-${Date.now()}`,
-            nombre: evidenceFile.name,
-            tipo: evidenceFile.type.split('/')[1] as Evidence['tipo'] || 'other',
-            comment: evidenceComment.trim() || undefined,
-            dataUrl: dataUrl,
-        };
-        await onSaveAnalysis(true, newFact);
-        setEvidenceFile(null);
-        setEvidenceComment('');
-        const fileInput = document.getElementById('step2-evidence-file-input') as HTMLInputElement;
-        if (fileInput) fileInput.value = '';
-    } else {
-        await onSaveAnalysis(true);
-    }
+    await onSaveAnalysis(true);
   };
   
+  const handleSaveNewFact = async () => {
+    if (!evidenceFile) {
+        toast({ title: "Archivo Requerido", description: "Por favor, seleccione un archivo para guardar el hecho preservado.", variant: "destructive" });
+        return;
+    }
+    if (evidenceFile.size > 700 * 1024) { // 700 KB limit
+        toast({
+          title: "Archivo Demasiado Grande",
+          description: "El archivo de evidencia no puede superar los 700 KB.",
+          variant: "destructive",
+        });
+        return;
+    }
+    
+    setIsUploading(true);
+    const reader = new FileReader();
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = (error) => reject(error);
+        reader.readAsDataURL(evidenceFile);
+    });
+    
+    const newFact: Evidence = {
+        id: `preserved-${Date.now()}`,
+        nombre: evidenceFile.name,
+        tipo: evidenceFile.type.split('/')[1] as Evidence['tipo'] || 'other',
+        comment: evidenceComment.trim() || undefined,
+        dataUrl: dataUrl,
+    };
+    
+    await onSaveWithNewFact(true, newFact);
+    
+    // Reset form
+    setEvidenceFile(null);
+    setEvidenceComment('');
+    setShowNewFactForm(false);
+    const fileInput = document.getElementById('step2-evidence-file-input') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
+    setIsUploading(false);
+  };
+
   const handleNextWithSave = async () => {
     if (!validateFieldsForNext()) {
       return;
     }
-    if (evidenceFile) {
-        if (evidenceFile.size > 700 * 1024) { // 700 KB limit
-            toast({
-              title: "Archivo Demasiado Grande",
-              description: "El archivo de evidencia no puede superar los 700 KB.",
-              variant: "destructive",
-            });
-            return;
-        }
-        const reader = new FileReader();
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = (error) => reject(error);
-            reader.readAsDataURL(evidenceFile);
-        });
-        const newFact: Evidence = {
-            id: `preserved-${Date.now()}`,
-            nombre: evidenceFile.name,
-            tipo: evidenceFile.type.split('/')[1] as Evidence['tipo'] || 'other',
-            comment: evidenceComment.trim() || undefined,
-            dataUrl: dataUrl,
-        };
-        await onSaveAnalysis(false, newFact);
-    } else {
-      await onSaveAnalysis(false);
-    }
+    await onSaveAnalysis(false);
     onNext();
   };
 
@@ -362,32 +356,50 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
         </div>
         
         <div className="space-y-4 pt-4 border-t">
-          <h3 className="text-lg font-semibold font-headline flex items-center">
-            <FileArchive className="mr-2 h-5 w-5 text-primary" />
-            Preservación de Hechos
-          </h3>
-          <div className="p-4 border rounded-md bg-secondary/30 space-y-3">
-              <div className="space-y-2">
-                <Label htmlFor="step2-evidence-file-input">Hecho Preservado</Label>
-                <Input 
-                  id="step2-evidence-file-input" 
-                  type="file" 
-                  onChange={(e) => setEvidenceFile(e.target.files ? e.target.files[0] : null)} 
-                  className="text-xs h-9" 
-                  disabled={isSaving} 
-                />
-                <Label htmlFor="step2-evidence-comment">Comentario para este hecho (opcional)</Label>
-                <Input 
-                  id="step2-evidence-comment" 
-                  type="text" 
-                  placeholder="Ej: Foto de la reparación, documento de capacitación..." 
-                  value={evidenceComment} 
-                  onChange={(e) => setEvidenceComment(e.target.value)} 
-                  className="text-xs h-9" 
-                  disabled={isSaving} 
-                />
-              </div>
-          </div>
+            <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold font-headline flex items-center">
+                    <FileArchive className="mr-2 h-5 w-5 text-primary" />
+                    Preservación de Hechos
+                </h3>
+                <Button variant="outline" size="sm" onClick={() => setShowNewFactForm(prev => !prev)} disabled={isSaving || isUploading}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> Nuevo Hecho
+                </Button>
+            </div>
+
+            {showNewFactForm && (
+                <Card className="p-4 bg-secondary/30 space-y-3 shadow-inner">
+                    <div className="space-y-2">
+                        <Label htmlFor="step2-evidence-file-input">Hecho Preservado <span className="text-destructive">*</span></Label>
+                        <Input 
+                        id="step2-evidence-file-input" 
+                        type="file" 
+                        onChange={(e) => setEvidenceFile(e.target.files ? e.target.files[0] : null)} 
+                        className="text-xs h-9" 
+                        disabled={isSaving || isUploading}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="step2-evidence-comment">Comentario (opcional)</Label>
+                        <Input 
+                        id="step2-evidence-comment" 
+                        type="text" 
+                        placeholder="Ej: Foto de la reparación, documento de capacitación..." 
+                        value={evidenceComment} 
+                        onChange={(e) => setEvidenceComment(e.target.value)} 
+                        className="text-xs h-9" 
+                        disabled={isSaving || isUploading}
+                        />
+                    </div>
+                    <div className="flex gap-2">
+                        <Button size="sm" onClick={handleSaveNewFact} disabled={isSaving || isUploading || !evidenceFile}>
+                            {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                            Guardar
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setShowNewFactForm(false)} disabled={isSaving || isUploading}>Cancelar</Button>
+                    </div>
+                </Card>
+            )}
+
           {preservedFacts && preservedFacts.length > 0 && (
             <div className="space-y-2 mt-4">
               <h4 className="font-medium text-sm">Hechos Preservados Adjuntos:</h4>
