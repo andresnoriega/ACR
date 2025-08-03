@@ -18,7 +18,10 @@ import { InvestigationTeamManager } from './InvestigationTeamManager';
 import { paraphrasePhenomenon, type ParaphrasePhenomenonInput } from '@/ai/flows/paraphrase-phenomenon';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-const getEvidenceIconLocal = (fileName: string) => {
+const getEvidenceIconLocal = (fileName: string | undefined) => {
+    if (!fileName) {
+        return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
+    }
     const extension = fileName.split('.').pop()?.toLowerCase();
     switch (extension) {
       case 'pdf': return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
