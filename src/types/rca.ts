@@ -235,6 +235,7 @@ export interface RCAAnalysisDocument {
   investigationObjective: string;
   investigationSessions: InvestigationSession[];
   analysisDetails: string;
+  preservedFacts: Evidence[]; // Changed this from PreservedFact[]
   timelineEvents: TimelineEvent[];
   brainstormingIdeas: BrainstormIdea[];
   analysisTechnique: AnalysisTechnique;

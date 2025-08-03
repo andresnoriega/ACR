@@ -9,13 +9,25 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserCircle, Save, Loader2, Target, ClipboardList, Sparkles, FileArchive } from 'lucide-react';
+import { UserCircle, Save, Loader2, Target, ClipboardList, Sparkles, FileArchive, Trash2, FileText, ImageIcon, Paperclip, Link2, ExternalLink } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
 import { InvestigationTeamManager } from './InvestigationTeamManager';
 import { paraphrasePhenomenon, type ParaphrasePhenomenonInput } from '@/ai/flows/paraphrase-phenomenon';
+
+const getEvidenceIconLocal = (tipo?: Evidence['tipo']) => {
+  if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
+  const safeTipo = tipo?.toLowerCase() || 'other';
+  switch (safeTipo) {
+    case 'link': return <Link2 className="h-4 w-4 mr-2 flex-shrink-0 text-indigo-600" />;
+    case 'pdf': return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
+    case 'jpg': case 'jpeg': case 'png': case 'gif': return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
+    case 'doc': case 'docx': return <Paperclip className="h-4 w-4 mr-2 flex-shrink-0 text-sky-700" />;
+    default: return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
+  }
+};
 
 // ------ COMPONENTE PRINCIPAL ------
 export const Step2Facts: FC<{
@@ -32,9 +44,11 @@ export const Step2Facts: FC<{
   onSetInvestigationSessions: (sessions: InvestigationSession[]) => void;
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
+  preservedFacts: Evidence[];
+  onRemovePreservedFact: (factId: string) => Promise<void>;
   onPrevious: () => void;
   onNext: () => void;
-  onSaveAnalysis: (showToast?: boolean, options?: { newEvidence?: { file: File, comment: string } }) => Promise<void>;
+  onSaveAnalysis: (showToast?: boolean, newPreservedFact?: Evidence) => Promise<void>;
   isSaving: boolean;
 }> = ({
   eventData,
@@ -50,6 +64,8 @@ export const Step2Facts: FC<{
   onSetInvestigationSessions,
   analysisDetails,
   onAnalysisDetailsChange,
+  preservedFacts,
+  onRemovePreservedFact,
   onPrevious,
   onNext,
   onSaveAnalysis,
@@ -141,8 +157,27 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
   };
 
   const handleSaveProgressLocal = async () => {
-    const options = evidenceFile ? { newEvidence: { file: evidenceFile, comment: evidenceComment } } : undefined;
-    await onSaveAnalysis(true, options);
+    const options = evidenceFile ? { file: evidenceFile, comment: evidenceComment } : undefined;
+    if (options && options.file) {
+      // Logic from handleNextWithSave
+      if (!options.file) return;
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = (error) => reject(error);
+          reader.readAsDataURL(options.file!);
+      });
+      const newFact: Evidence = {
+          id: `preserved-${Date.now()}`,
+          nombre: options.file.name,
+          tipo: options.file.type.split('/')[1] as Evidence['tipo'] || 'other',
+          comment: options.comment.trim() || undefined,
+          dataUrl: dataUrl,
+      };
+      await onSaveAnalysis(true, newFact);
+    } else {
+        await onSaveAnalysis(true);
+    }
     // Clear the form after saving
     setEvidenceFile(null);
     setEvidenceComment('');
@@ -154,8 +189,24 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     if (!validateFieldsForNext()) {
       return;
     }
-    const options = evidenceFile ? { newEvidence: { file: evidenceFile, comment: evidenceComment } } : undefined;
-    await onSaveAnalysis(false, options);
+    if (evidenceFile) {
+      const reader = new FileReader();
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = (error) => reject(error);
+          reader.readAsDataURL(evidenceFile);
+      });
+      const newFact: Evidence = {
+          id: `preserved-${Date.now()}`,
+          nombre: evidenceFile.name,
+          tipo: evidenceFile.type.split('/')[1] as Evidence['tipo'] || 'other',
+          comment: evidenceComment.trim() || undefined,
+          dataUrl: dataUrl,
+      };
+      await onSaveAnalysis(false, newFact);
+    } else {
+      await onSaveAnalysis(false);
+    }
     onNext();
   };
 
@@ -324,8 +375,35 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                   disabled={isSaving} 
                 />
               </div>
-              {evidenceFile && <p className="text-xs text-muted-foreground mt-1">Archivo seleccionado: {evidenceFile.name}</p>}
           </div>
+          {preservedFacts.length > 0 && (
+            <div className="space-y-2 mt-4">
+              <h4 className="font-medium text-sm">Hechos Preservados Adjuntos:</h4>
+              <ul className="space-y-2">
+                {preservedFacts.map((fact) => (
+                  <li key={fact.id} className="flex items-center justify-between text-sm border p-2 rounded-md bg-background">
+                    <div className="flex items-center">
+                      {getEvidenceIconLocal(fact.tipo)}
+                      <div className="flex flex-col">
+                        <span className="font-medium">{fact.nombre}</span>
+                        {fact.comment && <span className="text-xs italic text-muted-foreground">"{fact.comment}"</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
+                        <a href={fact.dataUrl} target="_blank" rel="noopener noreferrer" download={fact.nombre}>
+                          <ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar
+                        </a>
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemovePreservedFact(fact.id)} disabled={isSaving}>
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
       </CardContent>
