@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { FC, ChangeEvent } from 'react';
@@ -200,17 +201,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     }
   };
 
-  const handleInputAndAddRowIfNeeded = (index: number, field: keyof Omit<PreservedFact, 'id'>, value: string) => {
-    onUpdatePreservedFact(index, field, value);
-    const isLastRow = index === preservedFacts.length - 1;
-    const currentFact = preservedFacts[index];
-    const isRowFilled = currentFact.userGivenName || currentFact.category || currentFact.description || currentFact.fileName;
-
-    if (isLastRow && isRowFilled) {
-      onAddPreservedFact();
-    }
-  };
-
 
   return (
     <>
@@ -308,10 +298,16 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
         </Card>
 
         <div className="space-y-4 pt-4 border-t">
-          <h3 className="text-lg font-semibold font-headline flex items-center">
-            <FileArchive className="mr-2 h-5 w-5 text-primary" />
-            Preservación de Hechos
-          </h3>
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold font-headline flex items-center">
+              <FileArchive className="mr-2 h-5 w-5 text-primary" />
+              Preservación de Hechos
+            </h3>
+            <Button onClick={onAddPreservedFact} variant="outline" size="sm">
+              <PlusCircle className="mr-2 h-4 w-4" /> Nuevo
+            </Button>
+          </div>
+
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -329,14 +325,14 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                       <TableCell>
                         <Input
                           value={fact.userGivenName}
-                          onChange={(e) => handleInputAndAddRowIfNeeded(index, 'userGivenName', e.target.value)}
+                          onChange={(e) => onUpdatePreservedFact(index, 'userGivenName', e.target.value)}
                           placeholder="Nombre del hecho"
                         />
                       </TableCell>
                       <TableCell>
                         <Select
                           value={fact.category}
-                          onValueChange={(value) => handleInputAndAddRowIfNeeded(index, 'category', value)}
+                          onValueChange={(value) => onUpdatePreservedFact(index, 'category', value)}
                         >
                           <SelectTrigger><SelectValue placeholder="Categoría" /></SelectTrigger>
                           <SelectContent>
@@ -347,7 +343,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                       <TableCell>
                         <Input
                           value={fact.description}
-                          onChange={(e) => handleInputAndAddRowIfNeeded(index, 'description', e.target.value)}
+                          onChange={(e) => onUpdatePreservedFact(index, 'description', e.target.value)}
                           placeholder="Breve descripción"
                         />
                       </TableCell>
@@ -363,16 +359,13 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                             onChange={(e) => {
                               if (e.target.files && e.target.files[0]) {
                                 onUpdatePreservedFact(index, 'file', e.target.files[0]);
-                                if (index === preservedFacts.length - 1) {
-                                    onAddPreservedFact();
-                                }
                               }
                             }}
                           />
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" onClick={() => onRemovePreservedFact(fact.id)} disabled={preservedFacts.length === 1 && !fact.userGivenName && !fact.description && !fact.fileName}>
+                        <Button variant="ghost" size="icon" onClick={() => onRemovePreservedFact(fact.id)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </TableCell>
