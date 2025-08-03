@@ -82,7 +82,7 @@ export const Step2Point5Tasks: FC<Step2Point5TasksProps> = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-headline">Paso 3: Tareas y Evidencias</CardTitle>
+        <CardTitle className="font-headline">Paso 2.5: Tareas y Evidencias</CardTitle>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="assigned" className="w-full">
@@ -132,10 +132,4 @@ export const Step2Point5Tasks: FC<Step2Point5TasksProps> = ({
       <CardFooter className="flex justify-between">
         <Button onClick={onPrevious} variant="outline" disabled={isSaving}>Anterior</Button>
         <Button onClick={onNext} disabled={isSaving}>
-          {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Siguiente
-        </Button>
-      </CardFooter>
-    </Card>
-  );
-}
+          {isSaving && <Loader2 className="mr-2 h-4 w

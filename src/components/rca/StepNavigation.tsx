@@ -24,7 +24,7 @@ export const StepNavigation: FC<StepNavigationProps> = ({ currentStep, onNavigat
   const isStepButtonDisabled = (stepNumber: number): boolean => {
     let disabled = stepNumber > maxCompletedStep + 1 && stepNumber !== 1;
 
-    if (stepNumber === 5 && currentStep === 4 && isStep4Valid !== undefined && !isStep4Valid) {
+    if (stepNumber >= 5 && currentStep === 4 && isStep4Valid !== undefined && !isStep4Valid) {
       disabled = true;
     }
     return disabled;
@@ -41,9 +41,4 @@ export const StepNavigation: FC<StepNavigationProps> = ({ currentStep, onNavigat
           className="flex items-center gap-2 transition-all duration-300 ease-in-out transform hover:scale-105 focus:scale-105 mb-2 sm:mb-0"
         >
           <stepInfo.icon className="h-5 w-5" />
-          <span className="hidden sm:inline">Paso {stepInfo.number}:</span> {stepInfo.label}
-        </Button>
-      ))}
-    </nav>
-  );
-};
+          <span className="hidden sm:inline">Paso {stepInfo.number}:</span> {stepInfo.label
