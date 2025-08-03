@@ -11,12 +11,6 @@
 import {ai} from '@/ai/genkit';
 import { z } from 'zod'; 
 
-const PreservedFactInfoSchema = z.object({
-  name: z.string().describe('The user-given name or file name of the preserved fact/document.'),
-  category: z.string().describe('The category of the preserved fact.'),
-  description: z.string().describe('The user-provided description of the preserved fact.'),
-});
-
 const GenerateRcaInsightsInputSchema = z.object({
   focusEventDescription: z.string().describe('The main description of the event being analyzed.'),
   equipo: z.string().optional().describe('El equipo principal involucrado en el evento.'), // Nuevo campo
@@ -25,7 +19,6 @@ const GenerateRcaInsightsInputSchema = z.object({
   analysisTechniqueNotes: z.string().optional().describe('Specific notes or findings from the chosen analysis technique.'),
   identifiedRootCauses: z.array(z.string()).describe('A list of the identified root causes.'),
   plannedActionsSummary: z.array(z.string()).describe('A list of summaries for the planned corrective actions.'),
-  preservedFactsInfo: z.array(PreservedFactInfoSchema).optional().describe('Information about preserved facts or attached documents, including their names, categories, and descriptions. The AI should consider these as part of the available context but will not have access to their internal content.'),
 });
 export type GenerateRcaInsightsInput = z.infer<typeof GenerateRcaInsightsInputSchema>;
 
@@ -52,11 +45,10 @@ const prompt = ai.definePrompt({
     3.  La(s) causa(s) raíz más crítica(s) identificada(s).
     4.  La(s) acción(es) correctiva(s) clave propuesta(s) para abordar estas causas raíz.
     5.  Cualquier aprendizaje significativo o implicación más amplia si se desprende de los datos.
-    6.  Mencione cualquier documentación adjunta relevante si parece pertinente para el resumen.
-    7.  Mantenga un tono profesional y objetivo.
+    6.  Mantenga un tono profesional y objetivo.
 
     NO invente información. Cíñase a los datos proporcionados.
-    Si falta una pieza de información (como notas de la técnica de análisis o hechos preservados) o no se proporciona, reconozca su ausencia implícitamente al no referirse a ella.
+    Si falta una pieza de información (como notas de la técnica de análisis), reconozca su ausencia implícitamente al no referirse a ella.
 
     Datos del ACR:
     - Evento Foco: {{{focusEventDescription}}}
@@ -64,14 +56,6 @@ const prompt = ai.definePrompt({
     - Resumen de Hechos: {{{detailedFactsSummary}}}
     {{#if analysisTechnique}}- Técnica de Análisis Utilizada: {{{analysisTechnique}}}{{/if}}
     {{#if analysisTechniqueNotes}}- Notas de la Técnica de Análisis: {{{analysisTechniqueNotes}}}{{/if}}
-    {{#if preservedFactsInfo}}
-    - Hechos Preservados / Documentos Adjuntos (Nota: Usted tiene metadatos, no el contenido completo):
-      {{#each preservedFactsInfo}}
-      - Nombre del Documento: {{{this.name}}}, Categoría: {{{this.category}}}, Descripción del Usuario: {{{this.description}}}
-      {{else}}
-      - No se detallaron documentos específicos.
-      {{/each}}
-    {{/if}}
     - Causas Raíz Identificadas:
       {{#each identifiedRootCauses}}
       - {{{this}}}

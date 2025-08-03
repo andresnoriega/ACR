@@ -2,154 +2,22 @@
 
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect, useMemo } from 'react';
-import type { DetailedFacts, PreservedFact, PreservedFactCategory, FullUserProfile, RCAEventData, Site, InvestigationSession } from '@/types/rca'; 
-import { PRESERVED_FACT_CATEGORIES } from '@/types/rca';
+import type { DetailedFacts, FullUserProfile, RCAEventData, Site, InvestigationSession } from '@/types/rca'; 
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { PlusCircle, Trash2, FileText, Paperclip, UserCircle, Save, Loader2, ExternalLink, Target, ClipboardList, Sparkles } from 'lucide-react';
+import { UserCircle, Save, Loader2, Target, ClipboardList, Sparkles } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
 import { InvestigationTeamManager } from './InvestigationTeamManager';
 import { paraphrasePhenomenon, type ParaphrasePhenomenonInput } from '@/ai/flows/paraphrase-phenomenon';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
-// --- DIALOGO IGUAL A LOGICA FUNCIONANDO ---
-const PreservedFactDialog: FC<{
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSave: (factData: Omit<PreservedFact, 'id' | 'eventId'>) => void;
-}> = ({ open, onOpenChange, onSave }) => {
-  const [userGivenName, setUserGivenName] = useState('');
-  const [category, setCategory] = useState<PreservedFactCategory | ''>('');
-  const [description, setDescription] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const { toast } = useToast();
-  const [isSubmittingFact, setIsSubmittingFact] = useState(false);
-
-  // IDÉNTICO AL QUE FUNCIONA
-  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      setSelectedFile(event.target.files[0]);
-    } else {
-      setSelectedFile(null);
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!userGivenName.trim()) {
-      toast({ title: "Error", description: "El nombre del documento es obligatorio.", variant: "destructive" });
-      return;
-    }
-    if (!category) {
-      toast({ title: "Error", description: "La categoría es obligatoria.", variant: "destructive" });
-      return;
-    }
-    if (!selectedFile) {
-      toast({ title: "Error", description: "Debe seleccionar un archivo para adjuntar.", variant: "destructive" });
-      return;
-    }
-    if (selectedFile.size > 700 * 1024) {
-      toast({ title: "Archivo Demasiado Grande", description: "El archivo no puede superar los 700 KB.", variant: "destructive" });
-      return;
-    }
-    setIsSubmittingFact(true);
-
-    try {
-      const reader = new FileReader();
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = (error) => reject(error);
-        reader.readAsDataURL(selectedFile);
-      });
-
-      await onSave({
-        userGivenName,
-        category,
-        description,
-        fileName: selectedFile.name,
-        fileType: selectedFile.type,
-        fileSize: selectedFile.size,
-        uploadDate: new Date().toISOString(),
-        dataUrl,
-      });
-
-      // Limpiar solo después de guardar exitosamente
-      setUserGivenName('');
-      setCategory('');
-      setDescription('');
-      setSelectedFile(null);
-      const fileInput = document.getElementById('pf-file') as HTMLInputElement | null;
-      if (fileInput) fileInput.value = '';
-      onOpenChange(false);
-    } catch (error) {
-      toast({ title: "Error detallado al subir hecho preservado", description: `Error: ${(error as Error).message}`, variant: "destructive" });
-    } finally {
-      setIsSubmittingFact(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={isOpen => { if (!isSubmittingFact) onOpenChange(isOpen); }}>
-      <DialogContent className="sm:max-w-[525px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center"><Paperclip className="mr-2 h-5 w-5" />Añadir Hecho Preservado</DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="pf-name">Nombre <span className="text-destructive">*</span></Label>
-            <Input id="pf-name" value={userGivenName} onChange={(e) => setUserGivenName(e.target.value)} placeholder="Ej: Informe Técnico Bomba X" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="pf-category">Categoría <span className="text-destructive">*</span></Label>
-            <Select value={category} onValueChange={value => setCategory(value as PreservedFactCategory)}>
-              <SelectTrigger>
-                <SelectValue placeholder="-- Seleccione una categoría --" />
-              </SelectTrigger>
-              <SelectContent>
-                <ScrollArea className="h-[200px]">
-                  {PRESERVED_FACT_CATEGORIES.map(cat => (
-                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                  ))}
-                </ScrollArea>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="pf-file">Archivo <span className="text-destructive">*</span></Label>
-            <Input id="pf-file" type="file" onChange={handleFileChange} />
-          </div>
-          {selectedFile && (
-            <div className="col-span-4 text-xs text-muted-foreground">
-              <p>Archivo: {selectedFile.name} ({selectedFile.type}, {(selectedFile.size / 1024).toFixed(2)} KB)</p>
-            </div>
-          )}
-          <div className="space-y-2">
-            <Label htmlFor="pf-description">Descripción</Label>
-            <Textarea id="pf-description" value={description} onChange={e => setDescription(e.target.value)} placeholder="Detalles adicionales sobre el hecho o documento..." />
-          </div>
-        </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="outline" disabled={isSubmittingFact}>Cancelar</Button>
-          </DialogClose>
-          <Button type="button" onClick={handleSubmit} disabled={isSubmittingFact || !selectedFile}>
-            {isSubmittingFact && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Guardar Hecho
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-// ------ COMPONENTE PRINCIPAL, IGUAL AL RESTO DE TU LÓGICA ------
+// ------ COMPONENTE PRINCIPAL ------
 export const Step2Facts: FC<{
   eventData: RCAEventData;
   availableSites: Site[];
@@ -164,9 +32,6 @@ export const Step2Facts: FC<{
   onSetInvestigationSessions: (sessions: InvestigationSession[]) => void;
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
-  preservedFacts: PreservedFact[];
-  onAddPreservedFact: (factData: Omit<PreservedFact, 'id' | 'eventId'>) => void;
-  onRemovePreservedFact: (id: string) => void;
   onPrevious: () => void;
   onNext: () => void;
   onSaveAnalysis: (showToast?: boolean) => Promise<void>;
@@ -185,15 +50,11 @@ export const Step2Facts: FC<{
   onSetInvestigationSessions,
   analysisDetails,
   onAnalysisDetailsChange,
-  preservedFacts,
-  onAddPreservedFact,
-  onRemovePreservedFact,
   onPrevious,
   onNext,
   onSaveAnalysis,
   isSaving,
 }) => {
-  const [isAddFactDialogOpen, setIsAddFactDialogOpen] = useState(false);
   const { toast } = useToast();
   const [clientSideMaxDateTime, setClientSideMaxDateTime] = useState<string | undefined>(undefined);
   const { userProfile } = useAuth();
@@ -426,44 +287,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                 placeholder="Defina el alcance y el objetivo principal de este análisis de causa raíz..."
                 rows={3}
               />
-            </div>
-
-            <div className="pt-4">
-              <h3 className="text-lg font-semibold font-headline flex items-center mb-3"><FileText className="mr-2 h-5 w-5 text-primary" />Preservación de los Hechos</h3>
-              <Button onClick={() => setIsAddFactDialogOpen(true)} variant="outline">
-                  <PlusCircle className="mr-2 h-4 w-4" /> Añadir Hecho Preservado
-              </Button>
-            </div>
-            <PreservedFactDialog 
-                open={isAddFactDialogOpen} 
-                onOpenChange={setIsAddFactDialogOpen} 
-                onSave={onAddPreservedFact}
-            />
-            {preservedFacts.length === 0 && (
-                <p className="text-sm text-muted-foreground">No se han añadido hechos preservados aún.</p>
-            )}
-            <div className="space-y-3">
-                {preservedFacts.map(fact => (
-                    <Card key={fact.id} className="p-4 bg-secondary/30">
-                        <div className="flex justify-between items-start">
-                            <div className="flex-grow">
-                                <p className="font-semibold text-primary">{fact.userGivenName}</p>
-                                <p className="text-xs text-muted-foreground">Categoría: {fact.category}</p>
-                                {fact.fileName && <p className="text-xs text-muted-foreground">Archivo: {fact.fileName} ({fact.fileType}, {fact.fileSize ? (fact.fileSize / 1024).toFixed(2) : 0} KB)</p>}
-                                {fact.description && <p className="text-sm mt-1">{fact.description}</p>}
-                                <p className="text-xs text-muted-foreground mt-1">Cargado: {format(parseISO(fact.uploadDate), "dd/MM/yyyy HH:mm", { locale: es })}</p>
-                                {fact.dataUrl && (
-                                    <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mt-1">
-                                        <a href={fact.dataUrl} target="_blank" rel="noopener noreferrer" download={fact.fileName}><ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar</a>
-                                    </Button>
-                                )}
-                            </div>
-                            <Button variant="ghost" size="icon" onClick={() => onRemovePreservedFact(fact.id)} aria-label="Eliminar hecho preservado">
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                        </div>
-                    </Card>
-                ))}
             </div>
         </div>
 

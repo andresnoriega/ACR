@@ -1,8 +1,7 @@
-
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useEffect } from 'react';
-import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile, PreservedFact, Site, InvestigationSession, EfficacyVerification, FiveWhysData, BrainstormIdea, TimelineEvent } from '@/types/rca';
+import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile, Site, InvestigationSession, EfficacyVerification, FiveWhysData, BrainstormIdea, TimelineEvent } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -11,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Sparkles, HardHat, ShieldCheck, CheckSquare, CalendarClock, CalendarCheck, Lightbulb, Fish, HelpCircle as HelpIcon5Whys, Share2 as CtmIcon, Network, Wrench, Box, Ruler, Leaf, Edit, Paperclip } from 'lucide-react';
+import { Printer, Send, CheckCircle, FileText, BarChart3, Search, Settings, Zap, Target, Users, Mail, Link2, Loader2, Save, Sparkles, HardHat, ShieldCheck, CheckSquare, CalendarClock, CalendarCheck, Lightbulb, Fish, HelpCircle as HelpIcon5Whys, Share2 as CtmIcon, Network, Wrench, Box, Ruler, Leaf, Edit, Paperclip, XCircle } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from "@/lib/utils";
@@ -39,7 +38,6 @@ interface Step5ResultsProps {
   brainstormingIdeas: BrainstormIdea[];
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
-  preservedFacts: PreservedFact[];
   finalComments: string;
   onFinalCommentsChange: (value: string) => void;
   leccionesAprendidas: string;
@@ -87,7 +85,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   brainstormingIdeas,
   identifiedRootCauses,
   plannedActions,
-  preservedFacts,
   finalComments,
   onFinalCommentsChange,
   leccionesAprendidas,
@@ -166,12 +163,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   const handleGenerateInsights = async () => {
     setIsGeneratingInsights(true);
     try {
-      const preservedFactsInput = preservedFacts.map(fact => ({
-        name: fact.userGivenName || fact.fileName || "Documento sin nombre",
-        category: fact.category || "Sin categoría",
-        description: fact.description || "Sin descripción adicional",
-      }));
-
       const input: GenerateRcaInsightsInput = {
         focusEventDescription: eventData.focusEventDescription || "No especificado",
         equipo: eventData.equipo || undefined,
@@ -180,7 +171,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
         analysisTechniqueNotes: analysisTechniqueNotes || undefined,
         identifiedRootCauses: identifiedRootCauses.map(rc => rc.description).filter(d => d && d.trim() !== '') || [],
         plannedActionsSummary: uniquePlannedActions.map(pa => pa.description).filter(d => d && d.trim() !== '') || [],
-        preservedFactsInfo: preservedFactsInput.length > 0 ? preservedFactsInput : undefined,
       };
 
       const result = await generateRcaInsights(input);
@@ -630,7 +620,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
 
           <section>
             <SectionTitle title="Anexos" icon={FileText}/>
-            {(timelineEvents?.length > 0) || (brainstormingIdeas?.length > 0) || (preservedFacts?.length > 0) || (investigationSessions?.length > 0)? (
+            {(timelineEvents?.length > 0) || (brainstormingIdeas?.length > 0) || (investigationSessions?.length > 0)? (
               <div className="space-y-4">
                 {timelineEvents && timelineEvents.length > 0 && (
                   <div>
@@ -656,21 +646,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                     </ul>
                   </div>
                 )}
-                
-                {preservedFacts && preservedFacts.length > 0 && (
-                  <div>
-                    <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><Paperclip className="mr-2 h-4 w-4" />Hechos Preservados / Documentación Adjunta:</h4>
-                    <ul className="list-disc pl-6 space-y-1 text-xs">
-                      {preservedFacts.map(fact => (
-                        <li key={fact.id}>
-                          <strong>{fact.userGivenName || fact.fileName || 'Documento sin nombre especificado'}</strong> (Categoría: {fact.category || 'N/A'})
-                          {fact.description && <p className="pl-2 text-muted-foreground italic">"{fact.description}"</p>}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
                 {(investigationSessions ?? []).length > 0 && (
                   <div>
                     <h4 className="font-semibold text-primary flex items-center mb-2 text-base"><Users className="mr-2 h-4 w-4" />Equipo de Investigación</h4>
@@ -690,7 +665,6 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                     </div>
                   </div>
                 )}
-
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">No hay anexos para mostrar.</p>

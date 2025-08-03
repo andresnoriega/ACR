@@ -66,36 +66,6 @@ export interface DetailedFacts {
   como: string;
 }
 
-export const PRESERVED_FACT_CATEGORIES = [
-  'Partes',
-  'Posición',
-  'Personas',
-  'Papel',
-  'Paradigmas',
-  'Fotografías o videos del Evento',
-  'Datos operacionales (Sensores, Vibraciones, etc.)',
-  'Registro mantenimientos y pruebas realizadas',
-  'Procedimientos',
-  'Entrevistas',
-  'PT, AST, OT',
-  'Charlas',
-  'Manuales, planos, P&ID, catálogos, Normativa asociada, entre otras',
-] as const;
-export type PreservedFactCategory = typeof PRESERVED_FACT_CATEGORIES[number];
-
-export interface PreservedFact {
-  id: string;
-  eventId: string;
-  userGivenName: string;
-  category: PreservedFactCategory;
-  description: string;
-  fileName: string;
-  fileType: string;
-  fileSize: number;
-  uploadDate: string; // ISO string
-  dataUrl: string;
-}
-
 export interface InvestigationTeamMember {
   id: string;
   name: string;
@@ -265,7 +235,6 @@ export interface RCAAnalysisDocument {
   investigationObjective: string;
   investigationSessions: InvestigationSession[];
   analysisDetails: string;
-  preservedFacts: PreservedFact[];
   timelineEvents: TimelineEvent[];
   brainstormingIdeas: BrainstormIdea[];
   analysisTechnique: AnalysisTechnique;
