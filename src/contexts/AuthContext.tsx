@@ -1,3 +1,4 @@
+
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
@@ -142,6 +143,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const registerWithEmail = async (email: string, pass: string, name: string) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     await updateProfile(userCredential.user, { displayName: name });
+    // Force a reload of the user object to ensure the displayName is available for the onAuthStateChanged listener.
+    // This helps prevent a race condition where the Firestore profile is created before the displayName is set.
+    await userCredential.user.reload();
     return userCredential;
   };
 
