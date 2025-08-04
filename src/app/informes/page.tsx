@@ -320,30 +320,42 @@ export default function DashboardRCAPage() {
 
 
   useEffect(() => {
-    const fetchSitesData = async (profile: FullUserProfile) => {
+    const fetchSitesAndUsers = async (profile: FullUserProfile) => {
       setIsLoadingSites(true);
       try {
         const sitesCollectionRef = collection(db, "sites");
-        const queryConstraints: QueryConstraint[] = [];
+        const usersCollectionRef = collection(db, "users");
+        
+        const sitesQueryConstraints: QueryConstraint[] = [];
+        const usersQueryConstraints: QueryConstraint[] = [];
+        
         if (profile.role !== 'Super User' && profile.empresa) {
-          queryConstraints.push(where("empresa", "==", profile.empresa));
+          sitesQueryConstraints.push(where("empresa", "==", profile.empresa));
+          usersQueryConstraints.push(where("empresa", "==", profile.empresa));
         }
-        const q = query(sitesCollectionRef, ...queryConstraints);
-        const querySnapshot = await getDocs(q);
-        const sitesData = querySnapshot.docs
+
+        const qSites = query(sitesCollectionRef, ...sitesQueryConstraints);
+        const sitesSnapshot = await getDocs(qSites);
+        const sitesData = sitesSnapshot.docs
             .map(doc => ({ id: doc.id, ...doc.data() } as Site))
             .sort((a,b) => a.name.localeCompare(b.name));
         setAvailableSites(sitesData);
+        
+        const qUsers = query(usersCollectionRef, ...usersQueryConstraints);
+        const usersSnapshot = await getDocs(qUsers);
+        const usersData = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FullUserProfile));
+        setAvailableUsers(usersData);
+
       } catch (error) {
-        console.error("Error fetching sites: ", error);
-        toast({ title: "Error al Cargar Sitios", description: "No se pudieron cargar los sitios para el filtro.", variant: "destructive" });
+        console.error("Error fetching sites or users: ", error);
+        toast({ title: "Error al Cargar Configuración", description: "No se pudieron cargar los datos de sitios o usuarios.", variant: "destructive" });
       } finally {
         setIsLoadingSites(false);
       }
     };
 
     if (userProfile) {
-        fetchSitesData(userProfile);
+        fetchSitesAndUsers(userProfile);
     }
   }, [toast, userProfile]);
 
