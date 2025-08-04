@@ -83,15 +83,13 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
     
     try {
         await onAddFact(newFactPayload, selectedFile);
-        // Reset form only on successful upload
         setUserGivenName('');
         setComment('');
         setSelectedFile(null);
         const fileInput = document.getElementById('preserved-fact-file') as HTMLInputElement;
         if (fileInput) fileInput.value = '';
     } catch (error) {
-      // Error is already toasted in the parent component's onAddFact function.
-      // We don't need to toast again here.
+      // Error is already handled and toasted by the calling function in the page.
     } finally {
         setIsProcessing(false);
     }
@@ -171,7 +169,7 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
                   size="icon"
                   className="h-8 w-8 hover:bg-destructive/10"
                   onClick={() => onRemoveFact(fact.id)}
-                  disabled={isFormDisabled}
+                  disabled={isSaving || isProcessing}
                   aria-label="Eliminar hecho preservado"
                 >
                   <Trash2 className="h-4 w-4 text-destructive" />

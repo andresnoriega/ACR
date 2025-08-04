@@ -1117,71 +1117,54 @@ function RCAAnalysisPageComponent() {
   const handleAddPreservedFact = async (
     factMetadata: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath'>,
     file: File
-  ) => {
-    let currentEventId = analysisDocumentId;
-    
-    // Ensure we have an analysis ID before proceeding.
-    if (!currentEventId) {
-      toast({ title: "Guardando Análisis", description: "Es necesario guardar el análisis antes de adjuntar un archivo." });
-      const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
-      if (!saveResult.success || !saveResult.newEventId) {
-        toast({ title: "Error al Guardar", description: "No se pudo guardar el análisis para poder adjuntar el archivo.", variant: "destructive" });
-        throw new Error("Failed to save analysis before file upload.");
-      }
-      currentEventId = saveResult.newEventId;
-    }
-  
-    toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
-    
+  ): Promise<void> => {
+    setIsSaving(true);
     try {
-      const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
-      const fileStorageRef = storageRef(storage, filePath);
-    
-      // Step 1: Upload the file
-      await uploadBytes(fileStorageRef, file);
-      
-      // Step 2: Get the download URL
-      const downloadURL = await getDownloadURL(fileStorageRef);
-      
-      // Step 3: Create the fact object to be stored in Firestore
-      const newFact: PreservedFact = {
-          ...factMetadata,
-          id: generateClientSideId('pf'),
-          uploadDate: new Date().toISOString(),
-          eventId: currentEventId,
-          downloadURL: downloadURL,
-          storagePath: fileStorageRef.fullPath,
-      };
-
-      // Step 4: Update the document in Firestore
-      const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
-      await updateDoc(rcaDocRef, {
-          preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
-          updatedAt: new Date().toISOString()
-      });
-  
-      // Step 5: Update local state to reflect the change immediately
-      setPreservedFacts(prev => [...prev, newFact]);
-      toast({ title: "Subida Exitosa", description: `"${newFact.userGivenName}" fue añadido correctamente.` });
-
-    } catch (error) {
-        console.error("Error al subir archivo a Storage:", error);
-        let description = "Ocurrió un error desconocido. Revise la consola para más detalles.";
-        if (error instanceof Error && 'code' in error) {
-            switch ((error as any).code) {
-                case 'storage/unauthorized':
-                    description = "Permiso denegado. Revise las reglas de seguridad de Firebase Storage.";
-                    break;
-                case 'storage/canceled':
-                    description = "La subida fue cancelada.";
-                    break;
-                case 'storage/object-not-found':
-                    description = "El objeto no fue encontrado en Storage. Contacte al administrador.";
-                    break;
+        let currentEventId = analysisDocumentId;
+        if (!currentEventId) {
+            const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
+            if (!saveResult.success || !saveResult.newEventId) {
+                throw new Error("No se pudo guardar el análisis para poder adjuntar el archivo.");
             }
+            currentEventId = saveResult.newEventId;
         }
-        toast({ title: "Error de Subida", description, variant: "destructive" });
-        throw error; // Re-throw to be caught by the calling component if needed
+
+        toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
+        
+        const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
+        const fileStorageRef = storageRef(storage, filePath);
+    
+        await uploadBytes(fileStorageRef, file);
+        const downloadURL = await getDownloadURL(fileStorageRef);
+      
+        const newFact: PreservedFact = {
+            ...factMetadata,
+            id: generateClientSideId('pf'),
+            uploadDate: new Date().toISOString(),
+            eventId: currentEventId,
+            downloadURL: downloadURL,
+            storagePath: fileStorageRef.fullPath,
+        };
+
+        const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
+        await updateDoc(rcaDocRef, {
+            preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
+            updatedAt: new Date().toISOString()
+        });
+  
+        setPreservedFacts(prev => [...prev, newFact]);
+        toast({ title: "Subida Exitosa", description: `"${newFact.userGivenName}" fue añadido correctamente.` });
+
+    } catch (error: any) {
+        console.error("Error al subir archivo:", error);
+        toast({
+            title: "Error de Subida",
+            description: `Ocurrió un error: ${error.message || 'Desconocido'}. Revise la consola para más detalles.`,
+            variant: "destructive"
+        });
+        throw error;
+    } finally {
+        setIsSaving(false);
     }
   };
   
@@ -1560,7 +1543,7 @@ function RCAAnalysisPageComponent() {
           onRemovePreservedFact={handleRemovePreservedFact}
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
-          onSaveAnalysis={handleSaveFromStep2}
+          onSaveAnalysis={handleSaveAnalysisData}
           isSaving={isSaving}
           analysisId={analysisDocumentId}
           activeTab={factsTab}
@@ -1584,9 +1567,9 @@ function RCAAnalysisPageComponent() {
           analysisTechniqueNotes={analysisTechniqueNotes}
           onAnalysisTechniqueNotesChange={setAnalysisTechniqueNotes}
           ishikawaData={ishikawaData}
-          onSetIshikawaData={setIshikawaData}
+          onSetIshikawaData={onSetIshikawaData}
           fiveWhysData={fiveWhysData}
-          onSetFiveWhysData={setFiveWhysData}
+          onSetFiveWhysData={onSetFiveWhysData}
           ctmData={ctmData}
           onSetCtmData={setCtmData}
           identifiedRootCauses={identifiedRootCauses}
