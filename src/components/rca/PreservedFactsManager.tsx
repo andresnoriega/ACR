@@ -2,7 +2,7 @@
 
 import { useState, type FC, type ChangeEvent, useRef } from 'react';
 import type { PreservedFact } from '@/types/rca';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,18 +11,18 @@ import { useToast } from "@/hooks/use-toast";
 import { PlusCircle, Trash2, Loader2, FileArchive, FileText, ImageIcon, Paperclip, ExternalLink, Link2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { storage } from '@/lib/firebase';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { sanitizeForFirestore } from '@/lib/utils';
+import { Progress } from '@/components/ui/progress';
 
 const MAX_FILE_SIZE_KB = 2048; // 2MB limit
 
 interface PreservedFactsManagerProps {
   analysisId: string | null;
   preservedFacts: PreservedFact[];
-  onAddFact: (newFact: PreservedFact) => void;
+  onAddFact: (newFact: PreservedFact) => Promise<void>;
   onRemoveFact: (factId: string) => Promise<void>;
-  isSaving: boolean;
-  onAnalysisSaveRequired: () => Promise<string | null>; // Returns the analysis ID
+  onAnalysisSaveRequired: () => Promise<string | null>;
 }
 
 const getEvidenceIcon = (tipo?: PreservedFact['tipo']) => {
@@ -34,21 +34,35 @@ const getEvidenceIcon = (tipo?: PreservedFact['tipo']) => {
     return <FileArchive className="h-4 w-4 mr-2 flex-shrink-0 text-gray-600" />;
 };
 
-
 export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
   analysisId,
   preservedFacts,
   onAddFact,
   onRemoveFact,
-  isSaving,
   onAnalysisSaveRequired,
 }) => {
   const { toast } = useToast();
   const [userGivenName, setUserGivenName] = useState('');
   const [comment, setComment] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  
   const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [statusText, setStatusText] = useState("Seleccione un archivo para añadir.");
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const resetForm = () => {
+      setUserGivenName('');
+      setComment('');
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      setIsProcessing(false);
+      setUploadProgress(0);
+      setStatusText("Seleccione un archivo para añadir.");
+  };
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -64,19 +78,12 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
         return;
       }
       setSelectedFile(file);
+      setStatusText(`Archivo seleccionado: ${file.name}`);
     } else {
       setSelectedFile(null);
+      setStatusText("Seleccione un archivo para añadir.");
     }
   };
-  
-  const resetForm = () => {
-      setUserGivenName('');
-      setComment('');
-      setSelectedFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-  }
 
   const handleAddClick = async () => {
     if (!userGivenName.trim() || !selectedFile) {
@@ -85,6 +92,8 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
     }
 
     setIsProcessing(true);
+    setUploadProgress(0);
+    setStatusText("Preparando subida...");
     
     try {
       const currentAnalysisId = await onAnalysisSaveRequired();
@@ -92,39 +101,64 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
         throw new Error("No se pudo obtener un ID de análisis válido para subir el archivo.");
       }
 
-      toast({ title: "Subiendo archivo...", description: `Subiendo ${selectedFile.name}, por favor espere.` });
-      
       const filePath = `preserved_facts/${currentAnalysisId}/${Date.now()}-${selectedFile.name}`;
       const fileStorageRef = storageRef(storage, filePath);
+      const uploadTask = uploadBytesResumable(fileStorageRef, selectedFile);
       
-      const uploadResult = await uploadBytes(fileStorageRef, selectedFile);
-      const downloadURL = await getDownloadURL(uploadResult.ref);
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setUploadProgress(progress);
+          setStatusText(`Subiendo... ${Math.round(progress)}%`);
+        },
+        (error) => {
+          console.error("Upload failed:", error);
+          const bucket = storage.app.options.storageBucket || 'N/A';
+          let description = `No se pudo subir al bucket '${bucket}'. Por favor, revise la red y la configuración de Firebase.`;
 
-      const newFact: PreservedFact = {
-          id: `pf-${Date.now()}`,
-          userGivenName: userGivenName.trim(),
-          nombre: selectedFile.name,
-          tipo: selectedFile.type,
-          comment: comment.trim() || undefined,
-          uploadDate: new Date().toISOString(),
-          eventId: currentAnalysisId,
-          downloadURL: downloadURL,
-          storagePath: uploadResult.ref.fullPath,
-      };
-      
-      onAddFact(newFact);
-      toast({ title: "Hecho Preservado Añadido", description: `Se añadió y subió "${newFact.userGivenName}".` });
-      resetForm();
+          switch(error.code) {
+              case 'storage/bucket-not-found': description = `Bucket '${bucket}' no encontrado. Asegúrese de que Storage esté habilitado.`; break;
+              case 'storage/project-not-found': description = "Proyecto de Firebase no encontrado. Revise su configuración."; break;
+              case 'storage/unauthorized': description = `Permiso denegado para el bucket '${bucket}'. Revise las reglas de seguridad de Storage.`; break;
+              case 'storage/unknown': description = `Error desconocido. Esto podría ser un problema de CORS. Revise la consola.`; break;
+          }
+          toast({ variant: "destructive", title: "Fallo en la Subida", description });
+          resetForm();
+        },
+        async () => {
+          try {
+            setStatusText("Finalizando...");
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
 
+            const newFact: PreservedFact = {
+                id: `pf-${Date.now()}`,
+                userGivenName: userGivenName.trim(),
+                nombre: selectedFile.name,
+                tipo: selectedFile.type,
+                comment: comment.trim() || undefined,
+                uploadDate: new Date().toISOString(),
+                eventId: currentAnalysisId,
+                downloadURL: downloadURL,
+                storagePath: uploadTask.snapshot.ref.fullPath,
+            };
+            
+            await onAddFact(newFact);
+            setStatusText("✅ ¡Subida Completa!");
+            setTimeout(resetForm, 2000);
+
+          } catch(finalizationError) {
+             console.error("Error finalizing upload:", finalizationError);
+             toast({ title: "Error Post-Subida", description: "El archivo se subió pero no se pudo guardar la referencia.", variant: "destructive"});
+             resetForm();
+          }
+        }
+      );
     } catch (error: any) {
-      console.error("Error detallado al subir hecho preservado:", error);
-      toast({ title: "Error al Subir", description: `No se pudo subir el archivo: ${error.message}. Verifique la consola.`, variant: "destructive" });
-    } finally {
-      setIsProcessing(false);
+      console.error("Error preparing upload:", error);
+      toast({ title: "Error de Preparación", description: `No se pudo iniciar la subida: ${error.message}.`, variant: "destructive" });
+      resetForm();
     }
   };
-
-  const isFormDisabled = isSaving || isProcessing;
 
   return (
     <div className="space-y-4 pt-4 border-t">
@@ -142,7 +176,7 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
                     value={userGivenName}
                     onChange={(e) => setUserGivenName(e.target.value)}
                     placeholder="Ej: Foto de la Falla, Bitácora del día, etc."
-                    disabled={isFormDisabled}
+                    disabled={isProcessing}
                 />
              </div>
              <div className="space-y-2">
@@ -152,7 +186,7 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
                     ref={fileInputRef}
                     type="file"
                     onChange={handleFileChange}
-                    disabled={isFormDisabled}
+                    disabled={isProcessing}
                 />
              </div>
              <div className="space-y-2 md:col-span-2">
@@ -163,14 +197,20 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
                     onChange={(e) => setComment(e.target.value)}
                     placeholder="Añada una breve descripción o contexto para este archivo."
                     rows={2}
-                    disabled={isFormDisabled}
+                    disabled={isProcessing}
                 />
              </div>
          </div>
-         <Button onClick={handleAddClick} disabled={isFormDisabled || !selectedFile || !userGivenName.trim()} className="mt-4">
+         <Button onClick={handleAddClick} disabled={isProcessing || !selectedFile || !userGivenName.trim()} className="mt-4">
              {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
              Añadir Hecho Preservado
          </Button>
+         {isProcessing && (
+           <div className="mt-2 space-y-1">
+             <Progress value={uploadProgress} className="w-full h-2" />
+             <p className="text-xs text-muted-foreground text-center">{statusText}</p>
+           </div>
+         )}
       </Card>
 
       <div className="space-y-2 pt-4">
@@ -199,7 +239,7 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
                   size="icon"
                   className="h-8 w-8 hover:bg-destructive/10"
                   onClick={() => onRemoveFact(fact.id)}
-                  disabled={isSaving || isProcessing}
+                  disabled={isProcessing}
                   aria-label="Eliminar hecho preservado"
                 >
                   <Trash2 className="h-4 w-4 text-destructive" />

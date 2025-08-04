@@ -1105,7 +1105,10 @@ function RCAAnalysisPageComponent() {
   };
 
   const handleAddPreservedFact = async (newFact: PreservedFact) => {
-    if (!analysisDocumentId) return;
+    if (!analysisDocumentId) {
+      toast({ title: "Error", description: "Se requiere un ID de análisis para guardar el hecho. Guarde el análisis primero.", variant: "destructive"});
+      return;
+    }
     try {
       const rcaDocRef = doc(db, 'rcaAnalyses', analysisDocumentId);
       await updateDoc(rcaDocRef, {
@@ -1113,10 +1116,11 @@ function RCAAnalysisPageComponent() {
         updatedAt: new Date().toISOString()
       });
       setPreservedFacts(prev => [...prev, newFact]);
+      toast({ title: "Hecho Preservado Añadido", description: `Se guardó la referencia para "${newFact.userGivenName}".` });
     } catch (error) {
-       console.error("Error adding preserved fact to Firestore:", error);
+       console.error("Error adding preserved fact reference to Firestore:", error);
        toast({
-         title: "Error al Guardar Anexo",
+         title: "Error al Guardar Referencia",
          description: "No se pudo guardar la referencia del archivo en la base de datos.",
          variant: "destructive",
        });

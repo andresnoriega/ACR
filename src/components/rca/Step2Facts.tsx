@@ -32,7 +32,7 @@ export const Step2Facts: FC<{
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
   preservedFacts: PreservedFact[];
-  onAddPreservedFact: (newFact: PreservedFact) => void;
+  onAddPreservedFact: (newFact: PreservedFact) => Promise<void>;
   onRemovePreservedFact: (factId: string) => Promise<void>;
   availableUsers: FullUserProfile[];
   availableSites: Site[];
@@ -325,7 +325,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                     preservedFacts={preservedFacts}
                     onAddFact={onAddPreservedFact}
                     onRemoveFact={onRemovePreservedFact}
-                    isSaving={isSaving}
                     onAnalysisSaveRequired={handleAnalysisSaveAndGetId}
                  />
             </TabsContent>
