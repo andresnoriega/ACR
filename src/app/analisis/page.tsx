@@ -1105,17 +1105,10 @@ function RCAAnalysisPageComponent() {
   };
 
   const handleAddPreservedFact = async (
-    factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>,
-    file: File | null
+    newFact: PreservedFact
   ): Promise<boolean> => {
-    
-    setIsSaving(true);
-    let currentAnalysisId = analysisDocumentId;
-
     try {
-      if (!file) throw new Error("No se seleccionó ningún archivo.");
-      
-      // Ensure the analysis document exists before uploading
+      let currentAnalysisId = analysisDocumentId;
       if (!currentAnalysisId) {
         const saveResult = await handleSaveAnalysisData(false);
         if (!saveResult.success || !saveResult.newEventId) {
@@ -1124,56 +1117,22 @@ function RCAAnalysisPageComponent() {
         currentAnalysisId = saveResult.newEventId;
       }
 
-      const filePath = `preserved_facts/${currentAnalysisId}/${Date.now()}-${file.name}`;
-      const fileStorageRef = storageRef(storage, filePath);
-      
-      // Upload using resumable for progress tracking
-      return new Promise<boolean>((resolve, reject) => {
-        const uploadTask = uploadBytesResumable(fileStorageRef, file);
-        uploadTask.on('state_changed',
-          (snapshot) => {
-            // Progress can be handled here if needed
-          },
-          (error) => {
-            console.error("Upload failed:", error);
-            reject(error);
-          },
-          async () => {
-            try {
-              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-              const newFact: PreservedFact = {
-                  ...factMetadata,
-                  id: `pf-${Date.now()}`,
-                  uploadDate: new Date().toISOString(),
-                  eventId: currentAnalysisId!,
-                  downloadURL: downloadURL,
-                  storagePath: uploadTask.snapshot.ref.fullPath,
-              };
-
-              const rcaDocRef = doc(db, 'rcaAnalyses', currentAnalysisId!);
-              await updateDoc(rcaDocRef, {
-                preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
-                updatedAt: new Date().toISOString()
-              });
-              
-              setPreservedFacts(prev => [...prev, newFact]);
-              resolve(true);
-            } catch (finalizationError) {
-              reject(finalizationError);
-            }
-          }
-        );
+      const rcaDocRef = doc(db, 'rcaAnalyses', currentAnalysisId!);
+      await updateDoc(rcaDocRef, {
+        preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
+        updatedAt: new Date().toISOString()
       });
+      
+      setPreservedFacts(prev => [...prev, newFact]);
+      return true;
     } catch (error) {
       console.error("Error in handleAddPreservedFact:", error);
       toast({
-        title: "Error al Subir Hecho",
-        description: `No se pudo subir el archivo. ${(error as Error).message}`,
+        title: "Error al Añadir Hecho",
+        description: `No se pudo guardar el hecho preservado. ${(error as Error).message}`,
         variant: "destructive"
       });
       return false;
-    } finally {
-      setIsSaving(false);
     }
   };
   

@@ -32,8 +32,9 @@ export const Step2Facts: FC<{
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
   preservedFacts: PreservedFact[];
-  onAddPreservedFact: (factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>, file: File) => Promise<boolean>;
+  onAddPreservedFact: (fact: PreservedFact) => Promise<boolean>;
   onRemovePreservedFact: (factId: string) => Promise<void>;
+  onAnalysisSaveRequired: () => Promise<string | null>; // Callback to save parent state
   availableUsers: FullUserProfile[];
   availableSites: Site[];
   isSaving: boolean;
@@ -56,6 +57,7 @@ export const Step2Facts: FC<{
   preservedFacts,
   onAddPreservedFact,
   onRemovePreservedFact,
+  onAnalysisSaveRequired,
   availableUsers,
   availableSites,
   isSaving,
@@ -310,6 +312,8 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
             <TabsContent value="preservation" className="mt-4">
                  <PreservedFactsManager
                     preservedFacts={preservedFacts}
+                    analysisId={analysisId}
+                    onAnalysisSaveRequired={onAnalysisSaveRequired}
                     onAddFact={onAddPreservedFact}
                     onRemoveFact={onRemovePreservedFact}
                  />
