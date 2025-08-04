@@ -12,7 +12,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 
 const mainMenuItemsBase = [
-  { href: '/inicio', label: 'Inicio', icon: Home, section: 'inicio', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User', 'Usuario Pendiente'] },
+  { href: '/', label: 'Inicio', icon: Home, section: 'inicio', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User', 'Usuario Pendiente'] },
   { href: '/eventos', label: 'Eventos', icon: ListOrdered, section: 'eventos', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] },
   { href: '/analisis', label: 'Análisis', icon: BarChart3, section: 'analisis', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Super User'] },
   { href: '/informes', label: 'Informes', icon: FileText, section: 'informes', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] },
@@ -78,9 +78,8 @@ export function TopNavigation() {
                   let isActive = false;
                   if (item.href === '/') { 
                       isActive = pathname === '/';
-                      if (item.section === 'inicio') isActive = isActive || pathname === '/inicio';
                   } else if (item.section === 'inicio') {
-                    isActive = pathname === '/inicio' || pathname === '/';
+                    isActive = pathname === '/' || pathname === '/inicio';
                   } else if (item.href === '/analisis') {
                     isActive = pathname.startsWith('/analisis'); 
                   } else if (item.href === '/config') {

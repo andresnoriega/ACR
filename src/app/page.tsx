@@ -1,287 +1,312 @@
 
-"use client";
-import { useState, useEffect, useMemo } from 'react';
-import { storage } from '@/lib/firebase';
-import { ref, listAll, getMetadata, getDownloadURL, deleteObject } from 'firebase/storage';
-import FileUploader, { type UploadedFile } from '@/components/file-uploader';
-import FileList from '@/components/file-list';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import Logo from '@/components/logo';
-import { ExternalLink, Search, X as ClearIcon } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+'use client';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarIcon } from "lucide-react"
-import { Calendar } from "@/components/ui/calendar"
-import { format } from 'date-fns';
-import type { DateRange } from "react-day-picker";
-import { cn } from '@/lib/utils';
+import Link from 'next/link';
+import { Home, BarChart3, FileText, SettingsIcon, Zap, UserCheck, ListOrdered, Loader2, AlertTriangle, UserCircle, LifeBuoy } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
+import { sendEmailAction } from '@/app/actions';
 
-export type SortKey = 'name' | 'size' | 'type' | 'uploadedAt';
-export type SortDirection = 'asc' | 'desc';
 
-export default function Home() {
-  const [files, setFiles] = useState<UploadedFile[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+// --- SupportDialog Component ---
+const SupportDialog = () => {
+  const { userProfile } = useAuth();
   const { toast } = useToast();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortKey, setSortKey] = useState<SortKey>('uploadedAt');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  const [filterType, setFilterType] = useState<string>('all');
-  const [filterDate, setFilterDate] = useState<DateRange | undefined>(undefined);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [problem, setProblem] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    const fetchFiles = async () => {
-      setIsLoading(true);
-      try {
-        const listRef = ref(storage, 'uploads/');
-        const res = await listAll(listRef);
-        
-        const filesPromises = res.items.map(async (itemRef) => {
-          const [metadata, url] = await Promise.all([
-            getMetadata(itemRef),
-            getDownloadURL(itemRef)
-          ]);
-          
-          const tags = metadata.customMetadata?.tags ? JSON.parse(metadata.customMetadata.tags) : [];
-          
-          return {
-            name: metadata.name,
-            size: metadata.size,
-            type: metadata.contentType || 'application/octet-stream',
-            url: url,
-            tags: tags,
-            fullPath: itemRef.fullPath,
-            uploadedAt: metadata.timeCreated,
-          };
-        });
-        
-        const fetchedFiles = await Promise.all(filesPromises);
-        setFiles(fetchedFiles);
-      } catch (error) {
-        console.error("Error fetching files:", error);
-        toast({ variant: "destructive", title: "Error", description: "Could not fetch files from storage." });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchFiles();
-  }, [toast]);
-
-  const handleUploadSuccess = (newFile: UploadedFile) => {
-    setFiles(prevFiles => {
-      const existingFileIndex = prevFiles.findIndex(f => f.name === newFile.name);
-      if (existingFileIndex !== -1) {
-        const updatedFiles = [...prevFiles];
-        updatedFiles[existingFileIndex] = newFile;
-        return updatedFiles;
-      } else {
-        return [newFile, ...prevFiles];
-      }
-    });
-  };
-
-  const handleFileDelete = async (fullPath: string) => {
-    const fileRef = ref(storage, fullPath);
-    try {
-      await deleteObject(fileRef);
-      setFiles(prevFiles => prevFiles.filter(file => file.fullPath !== fullPath));
-      toast({ title: "✅ Success", description: `File was deleted from storage.` });
-    } catch (error) {
-      console.error("Error deleting file:", error);
-      toast({ variant: "destructive", title: "Deletion Failed", description: "Could not delete the file from storage." });
+    if (userProfile) {
+      setName(userProfile.name || '');
+      setEmail(userProfile.email || '');
     }
-  };
+  }, [userProfile]);
 
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !email.trim() || !problem.trim()) {
+      toast({ title: "Campos incompletos", description: "Por favor, rellene todos los campos.", variant: "destructive" });
+      return;
+    }
+    setIsSending(true);
+
+    const emailSubject = `Solicitud de Soporte Técnico - ${name}`;
+    const emailBody = `Se ha recibido una nueva solicitud de soporte técnico:\n\nNombre: ${name}\nCorreo de Contacto: ${email}\n\nProblema Reportado:\n${problem}`;
+
+    const result = await sendEmailAction({
+      to: 'contacto@damc.cl',
+      subject: emailSubject,
+      body: emailBody
+    });
+
+    if (result.success) {
+      toast({ title: "Solicitud Enviada", description: "Nuestro equipo de soporte se pondrá en contacto con usted a la brevedad." });
+      setProblem('');
+      setIsOpen(false);
     } else {
-      setSortKey(key);
-      setSortDirection(key === 'uploadedAt' ? 'desc' : 'asc');
+      toast({ title: "Error al Enviar", description: result.message, variant: "destructive" });
     }
+    setIsSending(false);
   };
-
-  const fileTypes = useMemo(() => {
-    const types = new Set(files.map(file => file.type));
-    return ['all', ...Array.from(types)];
-  }, [files]);
-
-  const clearFilters = () => {
-    setSearchTerm('');
-    setFilterType('all');
-    setFilterDate(undefined);
-  };
-
-  const sortedAndFilteredFiles = useMemo(() => {
-    let result = [...files];
-
-    // Filtering
-    if (searchTerm) {
-      result = result.filter(file =>
-        file.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (filterType !== 'all') {
-      result = result.filter(file => file.type === filterType);
-    }
-    
-    if (filterDate?.from) {
-      result = result.filter(file => {
-        const uploadedDate = new Date(file.uploadedAt);
-        const fromDate = new Date(filterDate.from!);
-        fromDate.setHours(0, 0, 0, 0); // Start of the day
-        
-        if (!filterDate.to) {
-          const fromDateEnd = new Date(fromDate);
-          fromDateEnd.setHours(23, 59, 59, 999);
-          return uploadedDate >= fromDate && uploadedDate <= fromDateEnd;
-        }
-
-        const toDate = new Date(filterDate.to);
-        toDate.setHours(23, 59, 59, 999); // End of the day
-
-        return uploadedDate >= fromDate && uploadedDate <= toDate;
-      });
-    }
-
-    // Sorting
-    result.sort((a, b) => {
-      const valA = a[sortKey];
-      const valB = b[sortKey];
-
-      let comparison = 0;
-      if (valA > valB) {
-        comparison = 1;
-      } else if (valA < valB) {
-        comparison = -1;
-      }
-      return sortDirection === 'asc' ? comparison : -comparison;
-    });
-
-    return result;
-  }, [files, searchTerm, sortKey, sortDirection, filterType, filterDate]);
 
   return (
-    <main className="flex min-h-screen w-full flex-col items-center bg-background p-4 sm:p-8">
-      <div className="w-full max-w-5xl">
-        <header className="mb-8 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Logo />
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-headline">Cloud File Saver</h1>
-              <p className="text-muted-foreground">Store, tag, and manage your files with ease.</p>
-            </div>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button className="w-full" size="lg">
+          Solicitar Soporte
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Solicitud de Soporte Técnico</DialogTitle>
+          <DialogDescription>
+            Describa su problema y nuestro equipo se pondrá en contacto con usted.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="support-name">Su Nombre</Label>
+            <Input id="support-name" value={name} onChange={e => setName(e.target.value)} required disabled={isSending} />
           </div>
-          <a
-            href="https://console.cloud.google.com/storage/browser/almacenador-cloud.appspot.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex shrink-0 items-center gap-2 text-sm font-medium text-primary hover:underline"
-          >
-            <ExternalLink className="h-4 w-4" />
-            <span className="hidden sm:inline">View Bucket</span>
-          </a>
+          <div className="space-y-2">
+            <Label htmlFor="support-email">Su Correo de Contacto</Label>
+            <Input id="support-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required disabled={isSending} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="support-problem">Problema a Reportar</Label>
+            <Textarea id="support-problem" value={problem} onChange={e => setProblem(e.target.value)} placeholder="Por favor, sea lo más detallado posible..." required disabled={isSending} />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" disabled={isSending}>Cancelar</Button>
+            </DialogClose>
+            <Button type="submit" disabled={isSending}>
+              {isSending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Enviar Solicitud
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+
+export default function InicioPage() {
+  const router = useRouter();
+  const { currentUser, loadingAuth, userProfile, logoutUser } = useAuth();
+
+  useEffect(() => {
+    if (!loadingAuth && !currentUser) {
+      router.replace('/login');
+    }
+  }, [currentUser, loadingAuth, router]);
+
+  const handleLogoutAndRedirect = async () => {
+    await logoutUser();
+    router.push('/login');
+  };
+
+
+  if (loadingAuth) {
+    return (
+      <div className="flex flex-col justify-center items-center min-h-[calc(100vh-10rem)] text-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-lg text-muted-foreground">Cargando datos de usuario...</p>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    // This case should be handled by the useEffect redirect, but as a fallback:
+    return (
+      <div className="flex flex-col justify-center items-center min-h-[calc(100vh-10rem)] text-center">
+        <p className="text-lg text-muted-foreground mb-4">Debe iniciar sesión para ver esta página.</p>
+        <Button asChild><Link href="/login">Ir a Login</Link></Button>
+      </div>
+    );
+  }
+
+  if (userProfile?.role === 'Usuario Pendiente') {
+    return (
+      <div className="space-y-8 py-8 text-center">
+         <header className="space-y-2">
+          <div className="inline-flex items-center justify-center bg-yellow-500/10 text-yellow-600 p-3 rounded-full mb-4">
+            <AlertTriangle className="h-10 w-10" />
+          </div>
+          <h1 className="text-3xl font-bold font-headline text-yellow-700">
+            Cuenta Pendiente de Aprobación
+          </h1>
+          <p className="text-md text-muted-foreground max-w-lg mx-auto">
+            Bienvenido/a {userProfile?.name || currentUser.email}. Su cuenta ha sido registrada exitosamente pero está pendiente de activación por un Super Usuario.
+          </p>
+          <p className="text-sm text-muted-foreground max-w-lg mx-auto">
+            Una vez aprobada, tendrá acceso a todas las funcionalidades asignadas a su rol. Por favor, contacte al administrador del sistema si tiene alguna pregunta o refresque su sesión si su rol ya fue actualizado.
+          </p>
         </header>
-        <Card className="mb-8 shadow-md">
+        <Card className="max-w-md mx-auto shadow-md">
+            <CardContent className="pt-6">
+                <Button onClick={handleLogoutAndRedirect} variant="outline" className="w-full">
+                    Volver a Inicio de Sesión
+                </Button>
+            </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+
+  return (
+    <div className="space-y-8 py-8">
+      <header className="text-center space-y-2">
+        <div className="inline-flex items-center justify-center bg-primary/10 text-primary p-3 rounded-full mb-4">
+          <Zap className="h-10 w-10" />
+        </div>
+        <h1 className="text-4xl font-bold font-headline text-primary">
+          Bienvenido a Asistente ACR, {userProfile?.name || currentUser.email}!
+        </h1>
+        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          Su herramienta intuitiva y eficiente para realizar Análisis de Causa Raíz (ACR) y mejorar continuamente sus procesos.
+        </p>
+      </header>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
           <CardHeader>
-            <CardTitle>Upload Your Files</CardTitle>
-            <CardDescription>Drag and drop files here or click to browse. AI will automatically generate tags.</CardDescription>
+            <div className="flex items-center gap-3 mb-2">
+              <BarChart3 className="h-7 w-7 text-primary" />
+              <CardTitle className="text-2xl">Reporta y Analiza</CardTitle>
+            </div>
+            <CardDescription>Inicie un nuevo análisis o continúe uno existente, siguiendo un proceso guiado paso a paso.</CardDescription>
           </CardHeader>
           <CardContent>
-            <FileUploader onUploadSuccess={handleUploadSuccess} />
+            <Link href="/analisis" passHref>
+              <Button className="w-full" size="lg">
+                Ir a Análisis
+              </Button>
+            </Link>
           </CardContent>
         </Card>
-        
-        <div className="mt-8">
-            <h2 className="text-xl font-semibold mb-4">My Files</h2>
-            <Card className="mb-4 p-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {/* Search by name */}
-                  <div className="relative lg:col-span-2">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                          type="search"
-                          placeholder="Filter by file name..."
-                          className="w-full pl-10"
-                          value={searchTerm}
-                          onChange={(e) => setSearchTerm(e.target.value)}
-                      />
-                  </div>
-                  {/* Filter by type */}
-                  <Select value={filterType} onValueChange={setFilterType}>
-                      <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Filter by type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                          {fileTypes.map(type => (
-                              <SelectItem key={type} value={type}>
-                                  {type === 'all' ? 'All Types' : type}
-                              </SelectItem>
-                          ))}
-                      </SelectContent>
-                  </Select>
-                  {/* Filter by date */}
-                   <Popover>
-                        <PopoverTrigger asChild>
-                        <Button
-                            id="date"
-                            variant={"outline"}
-                            className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !filterDate && "text-muted-foreground"
-                            )}
-                        >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {filterDate?.from ? (
-                            filterDate.to ? (
-                                <>
-                                {format(filterDate.from, "LLL dd, y")} -{" "}
-                                {format(filterDate.to, "LLL dd, y")}
-                                </>
-                            ) : (
-                                format(filterDate.from, "LLL dd, y")
-                            )
-                            ) : (
-                            <span>Filter by upload date</span>
-                            )}
-                        </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                            initialFocus
-                            mode="range"
-                            defaultMonth={filterDate?.from}
-                            selected={filterDate}
-                            onSelect={setFilterDate}
-                            numberOfMonths={2}
-                        />
-                        </PopoverContent>
-                    </Popover>
-              </div>
-              {(searchTerm || filterType !== 'all' || filterDate) && (
-                  <Button variant="ghost" onClick={clearFilters} className="mt-4 text-sm text-muted-foreground">
-                      <ClearIcon className="mr-2 h-4 w-4" />
-                      Clear Filters
-                  </Button>
-              )}
-            </Card>
 
-            <FileList 
-                files={sortedAndFilteredFiles} 
-                onFileDelete={handleFileDelete} 
-                isLoading={isLoading}
-                sortKey={sortKey}
-                sortDirection={sortDirection}
-                onSort={handleSort}
-            />
-        </div>
+        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <CardHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <ListOrdered className="h-7 w-7 text-primary" />
+              <CardTitle className="text-2xl">Eventos Reportados</CardTitle>
+            </div>
+            <CardDescription>Visualice y gestione todos los eventos reportados y pendientes de análisis.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/eventos" passHref>
+              <Button className="w-full" size="lg">
+                Ver Eventos
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
 
+        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <CardHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <FileText className="h-7 w-7 text-primary" />
+              <CardTitle className="text-2xl">Informes</CardTitle>
+            </div>
+            <CardDescription>Visualice y gestione los informes de sus análisis completados.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/informes" passHref>
+              <Button className="w-full" size="lg">
+                Ver Informes
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <CardHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <UserCheck className="h-7 w-7 text-primary" />
+              <CardTitle className="text-2xl">Mis Tareas</CardTitle>
+            </div>
+            <CardDescription>Gestione sus planes de acción y tareas asignadas.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/usuario/planes" passHref>
+              <Button className="w-full" size="lg">
+                Ir a Mis Tareas
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <CardHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <UserCircle className="h-7 w-7 text-primary" />
+              <CardTitle className="text-2xl">Mi Perfil</CardTitle>
+            </div>
+            <CardDescription>Gestiona tu información personal y de seguridad.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/usuario/perfil" passHref>
+              <Button className="w-full" size="lg">
+                Ir a Mi Perfil
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+          <CardHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <SettingsIcon className="h-7 w-7 text-primary" />
+              <CardTitle className="text-2xl">Configuración</CardTitle>
+            </div>
+            <CardDescription>Ajuste las preferencias y configuraciones de la aplicación.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/config" passHref>
+              <Button className="w-full" size="lg">
+                Ir a Configuración
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
       </div>
-    </main>
+
+      <Card className="mt-8 bg-secondary/30">
+        <CardHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <LifeBuoy className="h-7 w-7 text-primary" />
+              <CardTitle className="text-2xl">Soporte Técnico</CardTitle>
+            </div>
+            <CardDescription>¿Necesita ayuda? Nuestro equipo está listo para asistirlo.</CardDescription>
+          </CardHeader>
+        <CardContent>
+          <SupportDialog />
+        </CardContent>
+      </Card>
+      
+      <Card className="mt-8 bg-secondary/30">
+        <CardContent className="pt-6">
+          <h3 className="text-lg font-semibold text-primary mb-2">¿Qué es un Análisis de Causa Raíz?</h3>
+          <p className="text-sm text-foreground">
+            El Análisis de Causa Raíz (ACR) es un método sistemático para identificar las causas subyacentes de un problema o incidente. 
+            En lugar de simplemente tratar los síntomas, el ACR busca encontrar el origen fundamental para implementar soluciones efectivas 
+            y prevenir la recurrencia del problema. Esta herramienta le guiará a través de este proceso.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
