@@ -1126,7 +1126,9 @@ function RCAAnalysisPageComponent() {
           throw new Error("No se pudo guardar el análisis para poder adjuntar el archivo.");
         }
         currentEventId = saveResult.newEventId;
-        setAnalysisDocumentId(currentEventId);
+        if(currentEventId) setAnalysisDocumentId(currentEventId);
+        // Ensure router reflects the new ID if we are creating one.
+        router.replace(`/analisis?id=${currentEventId}&step=${step}`, { scroll: false });
       }
 
       toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
