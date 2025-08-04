@@ -1,28 +1,27 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth, type User as FirebaseUser } from "firebase/auth";
+import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import type { User as FirebaseUser } from 'firebase/auth';
 
-// Configuration directly from Firebase Console
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSyA3a8UytRbwFKWT9ISF1OlYaizC37b3rZQ",
-  authDomain: "rca-assistant-jk3ja.firebaseapp.com",
-  projectId: "rca-assistant-jk3ja",
-  storageBucket: "rca-assistant-jk3ja.appspot.com",
-  messagingSenderId: "1044963774198",
-  appId: "1:1044963774198:web:4ae00d1ee674f1864ea6d7"
+  apiKey: "AIzaSyBpRAXR8mTcBTXwuXV5VaXdqCP6yx85MUE",
+  authDomain: "almacenador-cloud.firebaseapp.com",
+  projectId: "almacenador-cloud",
+  storageBucket: "almacenador-cloud.appspot.com",
+  messagingSenderId: "790911154631",
+  appId: "1:790911154631:web:91e2d71d8ccfbf058301e2",
+  measurementId: "G-R2NQTYM2GX"
 };
 
 // Initialize Firebase
-// This pattern prevents re-initializing the app on every hot-reload.
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-
 const auth = getAuth(app);
 const db = getFirestore(app);
-
-// Explicitly connect to the storage bucket using the gs:// URL.
-// This can resolve connectivity issues or configuration ambiguities that cause timeouts.
-const storage = getStorage(app, "gs://rca-assistant-jk3ja.appspot.com");
+const storage = getStorage(app, firebaseConfig.storageBucket); // Explicitly pass bucket
 
 export { app, auth, db, storage, type FirebaseUser };
