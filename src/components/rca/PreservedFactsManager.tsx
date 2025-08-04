@@ -81,16 +81,20 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
         comment: comment.trim() || undefined,
     };
     
-    await onAddFact(newFactPayload, selectedFile);
-
-    // Reset form
-    setUserGivenName('');
-    setComment('');
-    setSelectedFile(null);
-    const fileInput = document.getElementById('preserved-fact-file') as HTMLInputElement;
-    if (fileInput) fileInput.value = '';
-    
-    setIsProcessing(false);
+    try {
+        await onAddFact(newFactPayload, selectedFile);
+        // Reset form only on successful upload
+        setUserGivenName('');
+        setComment('');
+        setSelectedFile(null);
+        const fileInput = document.getElementById('preserved-fact-file') as HTMLInputElement;
+        if (fileInput) fileInput.value = '';
+    } catch (error) {
+      // Error is already toasted in the parent component's onAddFact function.
+      // We don't need to toast again here.
+    } finally {
+        setIsProcessing(false);
+    }
   };
 
   const isFormDisabled = isSaving || isProcessing;

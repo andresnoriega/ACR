@@ -1119,24 +1119,31 @@ function RCAAnalysisPageComponent() {
     file: File
   ) => {
     let currentEventId = analysisDocumentId;
-  
-    try {
-      if (!currentEventId) {
-        const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
-        if (!saveResult.success || !saveResult.newEventId) {
-          throw new Error("No se pudo guardar el análisis antes de subir el archivo.");
-        }
-        currentEventId = saveResult.newEventId;
-        if(!analysisDocumentId) setAnalysisDocumentId(currentEventId);
-      }
     
+    // Ensure we have an analysis ID before proceeding.
+    if (!currentEventId) {
+      toast({ title: "Guardando Análisis", description: "Es necesario guardar el análisis antes de adjuntar un archivo." });
+      const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
+      if (!saveResult.success || !saveResult.newEventId) {
+        toast({ title: "Error al Guardar", description: "No se pudo guardar el análisis para poder adjuntar el archivo.", variant: "destructive" });
+        throw new Error("Failed to save analysis before file upload.");
+      }
+      currentEventId = saveResult.newEventId;
+    }
+  
+    toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
+    
+    try {
       const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
       const fileStorageRef = storageRef(storage, filePath);
     
-      toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
+      // Step 1: Upload the file
       await uploadBytes(fileStorageRef, file);
       
+      // Step 2: Get the download URL
       const downloadURL = await getDownloadURL(fileStorageRef);
+      
+      // Step 3: Create the fact object to be stored in Firestore
       const newFact: PreservedFact = {
           ...factMetadata,
           id: generateClientSideId('pf'),
@@ -1146,12 +1153,14 @@ function RCAAnalysisPageComponent() {
           storagePath: fileStorageRef.fullPath,
       };
 
+      // Step 4: Update the document in Firestore
       const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
       await updateDoc(rcaDocRef, {
           preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
           updatedAt: new Date().toISOString()
       });
   
+      // Step 5: Update local state to reflect the change immediately
       setPreservedFacts(prev => [...prev, newFact]);
       toast({ title: "Subida Exitosa", description: `"${newFact.userGivenName}" fue añadido correctamente.` });
 
@@ -1172,6 +1181,7 @@ function RCAAnalysisPageComponent() {
             }
         }
         toast({ title: "Error de Subida", description, variant: "destructive" });
+        throw error; // Re-throw to be caught by the calling component if needed
     }
   };
   
