@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -30,18 +30,16 @@ export default function ConfiguracionPermisosPage() {
   const [editRole, setEditRole] = useState<FullUserProfile['role']>('');
   const [editPermissionLevel, setEditPermissionLevel] = useState<FullUserProfile['permissionLevel']>('');
   
-  const { userProfile: loggedInUserProfile } = useAuth();
+  const { userProfile: loggedInUserProfile, loadingAuth } = useAuth();
 
-  useEffect(() => {
-    const fetchUserProfiles = async () => {
-      if (!loggedInUserProfile) return;
+  const fetchUserProfiles = useCallback(async (profile: FullUserProfile) => {
       setIsLoading(true);
       try {
         const usersCollectionRef = collection(db, "users");
         const queryConstraints: QueryConstraint[] = [];
         
-        if (loggedInUserProfile.role === 'Admin' && loggedInUserProfile.empresa) {
-          queryConstraints.push(where("empresa", "==", loggedInUserProfile.empresa));
+        if (profile.role === 'Admin' && profile.empresa) {
+          queryConstraints.push(where("empresa", "==", profile.empresa));
         }
         
         const q = query(usersCollectionRef, ...queryConstraints);
@@ -58,9 +56,15 @@ export default function ConfiguracionPermisosPage() {
       } finally {
         setIsLoading(false);
       }
-    };
-    fetchUserProfiles();
-  }, [toast, loggedInUserProfile]);
+  }, [toast]);
+  
+  useEffect(() => {
+    if (!loadingAuth && loggedInUserProfile) {
+        fetchUserProfiles(loggedInUserProfile);
+    } else if (!loadingAuth) {
+        setIsLoading(false);
+    }
+  }, [loadingAuth, loggedInUserProfile, fetchUserProfiles]);
   
   const availableRolesForDropdown = useMemo(() => {
     if (loggedInUserProfile?.role === 'Super User') {
@@ -160,7 +164,7 @@ export default function ConfiguracionPermisosPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {isLoading ? (
+          {loadingAuth || isLoading ? (
             <div className="flex justify-center items-center h-24">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <p className="ml-2 text-muted-foreground">Cargando perfiles de usuario...</p>

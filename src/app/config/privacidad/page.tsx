@@ -25,6 +25,8 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { useRouter } from 'next/navigation';
 import { sendEmailAction } from '@/app/actions';
+import { useAuth } from '@/contexts/AuthContext';
+
 
 async function deleteAllDocsInCollection(collectionName: string): Promise<{ success: boolean, docsDeleted: number, error?: any }> {
   try {
@@ -91,6 +93,7 @@ interface SortConfigReportedEvent {
 export default function ConfiguracionPrivacidadPage() {
   const { toast } = useToast();
   const router = useRouter();
+  const { userProfile, loadingAuth } = useAuth();
   const [isResetting, setIsResetting] = useState(false);
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
@@ -101,7 +104,6 @@ export default function ConfiguracionPrivacidadPage() {
   const [availableSites, setAvailableSites] = useState<Site[]>([]);
   
   const [isLoadingData, setIsLoadingData] = useState(true);
-  const [isLoadingSites, setIsLoadingSites] = useState(true);
   
   const [filters, setFilters] = useState<Filters>({
     site: '',
@@ -146,9 +148,8 @@ export default function ConfiguracionPrivacidadPage() {
     }
   }, [toast]);
 
-  useEffect(() => {
-    const fetchSitesData = async () => {
-      setIsLoadingSites(true);
+  const fetchSitesData = useCallback(async () => {
+      setIsLoadingData(true);
       try {
         const sitesCollectionRef = collection(db, "sites");
         const q = query(sitesCollectionRef, firestoreOrderBy("name", "asc"));
@@ -160,13 +161,18 @@ export default function ConfiguracionPrivacidadPage() {
         toast({ title: "Error al Cargar Sitios", description: "No se pudieron cargar los sitios para el filtro.", variant: "destructive" });
         setAvailableSites([]);
       } finally {
-        setIsLoadingSites(false);
+        setIsLoadingData(false);
       }
-    };
+    }, [toast]);
 
-    fetchAllEventData();
-    fetchSitesData();
-  }, [fetchAllEventData, toast]);
+  useEffect(() => {
+    if (!loadingAuth && userProfile) {
+      fetchAllEventData();
+      fetchSitesData();
+    } else if (!loadingAuth) {
+      setIsLoadingData(false);
+    }
+  }, [loadingAuth, userProfile, fetchAllEventData, fetchSitesData]);
 
   const handleFilterChange = (field: keyof Filters, value: any) => {
     setFilters(prev => ({ ...prev, [field]: value === ALL_FILTER_VALUE ? '' : value }));
@@ -462,7 +468,7 @@ export default function ConfiguracionPrivacidadPage() {
             <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
               <div>
                 <Label htmlFor="filter-site-priv" className="flex items-center mb-1"><Globe className="mr-1.5 h-4 w-4 text-muted-foreground"/>Sitio/Planta</Label>
-                <Select value={filters.site || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('site', val)} disabled={isLoadingSites || isDeletingEvent}>
+                <Select value={filters.site || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('site', val)} disabled={isLoadingData || isDeletingEvent}>
                   <SelectTrigger id="filter-site-priv"><SelectValue placeholder="Todos los sitios" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value={ALL_FILTER_VALUE}>Todos los sitios</SelectItem>

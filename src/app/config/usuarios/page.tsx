@@ -176,11 +176,11 @@ export default function ConfiguracionUsuariosPage() {
 
 
   const availableRolesForDropdown = useMemo(() => {
-    // Now, any authenticated user can see the Super User role to assign it.
-    // This is a temporary measure to unblock the initial setup.
-    // In a production environment, you'd want more robust role management.
-    return ALL_USER_ROLES;
-  }, []);
+    if (loggedInUserProfile?.role === 'Super User') {
+      return ALL_USER_ROLES;
+    }
+    return ALL_USER_ROLES.filter(role => role !== 'Super User');
+  }, [loggedInUserProfile]);
 
   const resetUserForm = () => {
     setUserName('');
@@ -484,17 +484,17 @@ export default function ConfiguracionUsuariosPage() {
               <CardTitle className="text-2xl">Listado de Perfiles de Usuario</CardTitle>
             </div>
             <div className="flex gap-2 flex-wrap">
-              <Button variant="outline" onClick={handleTriggerFileInput} disabled={isImporting || isLoading}>
+              <Button variant="outline" onClick={handleTriggerFileInput} disabled={isImporting || isLoading || loadingAuth}>
                 {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
                 Importar Excel
               </Button>
-              <Button variant="outline" onClick={handleUserExcelExport} disabled={isLoading || sortedFilteredUsers.length === 0}>
+              <Button variant="outline" onClick={handleUserExcelExport} disabled={isLoading || loadingAuth || sortedFilteredUsers.length === 0}>
                 <FileDown className="mr-2 h-4 w-4" />
                 Exportar Excel
               </Button>
               <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="default" onClick={openAddUserDialog} disabled={isLoading}>
+                  <Button variant="default" onClick={openAddUserDialog} disabled={isLoading || loadingAuth}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Añadir Perfil
                   </Button>
@@ -522,7 +522,7 @@ export default function ConfiguracionUsuariosPage() {
                               <SelectValue placeholder="-- Seleccione un rol --" />
                               </SelectTrigger>
                               <SelectContent>
-                              {availableRolesForDropdown.filter(r => r !== '').map(role => (
+                              {ALL_USER_ROLES.filter(r => r !== '').map(role => (
                                   <SelectItem key={role} value={role}>{role}</SelectItem>
                               ))}
                               </SelectContent>
@@ -616,7 +616,7 @@ export default function ConfiguracionUsuariosPage() {
               <Button variant="outline" onClick={clearFilters}><RefreshCcw className="mr-2 h-4 w-4"/>Limpiar</Button>
             </div>
           </div>
-          {isLoading ? (
+          {loadingAuth || isLoading ? (
             <div className="flex justify-center items-center h-24">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <p className="ml-2 text-muted-foreground">Cargando perfiles de usuario...</p>

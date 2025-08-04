@@ -587,17 +587,17 @@ export default function ConfiguracionSitiosPage() {
               <CardTitle className="text-2xl">Listado de Sitios</CardTitle>
             </div>
             <div className="flex gap-2 flex-wrap">
-                <Button variant="outline" onClick={handleTriggerSiteFileInput} disabled={isImporting || isLoading}>
+                <Button variant="outline" onClick={handleTriggerSiteFileInput} disabled={isImporting || isLoading || loadingAuth}>
                     {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
                     Importar Excel
                 </Button>
-                <Button variant="outline" onClick={handleSiteExcelExport} disabled={isLoading || sites.length === 0}>
+                <Button variant="outline" onClick={handleSiteExcelExport} disabled={isLoading || loadingAuth || sites.length === 0}>
                     <FileDown className="mr-2 h-4 w-4" />
                     Exportar Excel
                 </Button>
                 <Dialog open={isAddSiteDialogOpen} onOpenChange={setIsAddSiteDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button variant="default" onClick={openAddSiteDialog} disabled={isLoading}>
+                    <Button variant="default" onClick={openAddSiteDialog} disabled={isLoading || loadingAuth}>
                       <PlusCircle className="mr-2 h-4 w-4" />
                       Añadir Nuevo Sitio
                     </Button>
@@ -677,7 +677,7 @@ export default function ConfiguracionSitiosPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {loadingAuth || isLoading ? (
             <div className="flex justify-center items-center h-24">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <p className="ml-2 text-muted-foreground">Cargando sitios...</p>

@@ -50,6 +50,10 @@ export default function ConfiguracionEmpresasPage() {
   }, [userProfile, loadingAuth, router, toast]);
 
   const fetchCompanies = useCallback(async () => {
+    if (userProfile?.role !== 'Super User') {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
       const companiesCollectionRef = collection(db, "companies");
@@ -63,17 +67,13 @@ export default function ConfiguracionEmpresasPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, userProfile]);
 
   useEffect(() => {
-    if (userProfile?.role === 'Super User') {
+    if (!loadingAuth && userProfile) {
       fetchCompanies();
-    } else if (userProfile) {
-      // For non-Super Users, the redirect useEffect will handle them.
-      // We just need to make sure we stop the loading indicator.
-      setIsLoading(false);
     }
-  }, [userProfile, fetchCompanies]);
+  }, [userProfile, loadingAuth, fetchCompanies]);
 
 
   const resetAddForm = () => {
@@ -193,11 +193,11 @@ export default function ConfiguracionEmpresasPage() {
     setIsDeleteDialogOpen(false);
   };
 
-  if (loadingAuth || isLoading) {
+  if (loadingAuth) {
     return (
       <div className="flex flex-col justify-center items-center min-h-screen">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">Verificando permisos y cargando datos...</p>
+        <p className="mt-4 text-muted-foreground">Cargando...</p>
       </div>
     );
   }
@@ -278,47 +278,53 @@ export default function ConfiguracionEmpresasPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[25%]">Nombre Empresa</TableHead>
-                  <TableHead className="w-[15%]">RUT</TableHead>
-                  <TableHead className="w-[25%]">Administrador</TableHead>
-                  <TableHead className="w-[25%]">Correo Administrador</TableHead>
-                  <TableHead className="w-[10%] text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {companies.length > 0 ? (
-                  companies.map((company) => (
-                    <TableRow key={company.id}>
-                      <TableCell className="font-medium">{company.name}</TableCell>
-                      <TableCell>{company.rut}</TableCell>
-                      <TableCell>{company.adminName}</TableCell>
-                      <TableCell>{company.adminEmail}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-primary" onClick={() => openEditDialog(company)} disabled={isSubmitting}>
-                            <Edit2 className="h-4 w-4" /><span className="sr-only">Editar</span>
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => openDeleteDialog(company)} disabled={isSubmitting}>
-                            <Trash2 className="h-4 w-4" /><span className="sr-only">Eliminar</span>
-                          </Button>
-                        </div>
+          {isLoading ? (
+             <div className="flex justify-center items-center h-24">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+             </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[25%]">Nombre Empresa</TableHead>
+                    <TableHead className="w-[15%]">RUT</TableHead>
+                    <TableHead className="w-[25%]">Administrador</TableHead>
+                    <TableHead className="w-[25%]">Correo Administrador</TableHead>
+                    <TableHead className="w-[10%] text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {companies.length > 0 ? (
+                    companies.map((company) => (
+                      <TableRow key={company.id}>
+                        <TableCell className="font-medium">{company.name}</TableCell>
+                        <TableCell>{company.rut}</TableCell>
+                        <TableCell>{company.adminName}</TableCell>
+                        <TableCell>{company.adminEmail}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end items-center gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-primary" onClick={() => openEditDialog(company)} disabled={isSubmitting}>
+                              <Edit2 className="h-4 w-4" /><span className="sr-only">Editar</span>
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => openDeleteDialog(company)} disabled={isSubmitting}>
+                              <Trash2 className="h-4 w-4" /><span className="sr-only">Eliminar</span>
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
+                        No hay empresas registradas. Puede añadir una usando el botón de arriba.
                       </TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
-                      No hay empresas registradas. Puede añadir una usando el botón de arriba.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
         {companies.length > 0 && (
           <CardFooter>
