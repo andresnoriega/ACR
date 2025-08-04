@@ -551,7 +551,7 @@ function RCAAnalysisPageComponent() {
       suppressNavigation?: boolean; 
       efficacyVerificationOverride?: EfficacyVerification;
     }
-  ): Promise<{ success: boolean; newEventId?: string; needsNavigationUrl?: string }> => {
+  ): Promise<{ success: boolean; newEventId?: string }> => {
     const { finalizedOverride, statusOverride, rejectionReason: currentRejectionReason, validationsOverride, plannedActionsOverride, suppressNavigation, efficacyVerificationOverride } = options || {};
 
     let currentId = analysisDocumentId;
@@ -571,7 +571,6 @@ function RCAAnalysisPageComponent() {
     setIsSaving(true);
     const currentIsFinalized = finalizedOverride !== undefined ? finalizedOverride : isFinalized;
     
-    // Get company from selected site to denormalize data
     const siteInfo = availableSitesFromDB.find(s => s.name === eventData.place);
     const siteEmpresa = siteInfo?.empresa;
     const consistentEventData = { ...eventData, id: currentId, empresa: siteEmpresa };
@@ -594,7 +593,6 @@ function RCAAnalysisPageComponent() {
     }
     
     const currentEfficacyVerification = efficacyVerificationOverride || efficacyVerification;
-    
     let currentPlannedActions = (plannedActionsOverride !== undefined) ? plannedActionsOverride : plannedActions;
 
     const rcaDocPayload: Partial<RCAAnalysisDocument> = {
@@ -716,23 +714,18 @@ function RCAAnalysisPageComponent() {
         await updateDoc(reportedEventRef, sanitizeForFirestore(updatePayload));
       }
 
-      let navigationUrl: string | undefined = undefined;
-      if (isNewEventCreation) {
+      if (isNewEventCreation && !suppressNavigation) {
         const currentStep = step; 
         const targetUrl = `/analisis?id=${currentId}&step=${currentStep}`;
         lastLoadedAnalysisIdRef.current = currentId; 
-        if (!suppressNavigation) {
-          router.replace(targetUrl, { scroll: false });
-        } else {
-          navigationUrl = targetUrl;
-        }
+        router.replace(targetUrl, { scroll: false });
       }
 
 
       if (showToast) {
         toast({ title: "Progreso Guardado", description: `Análisis ${currentId} guardado. Evento reportado actualizado a estado: ${statusForReportedEvent}.` });
       }
-      return { success: true, newEventId: isNewEventCreation ? currentId : undefined, needsNavigationUrl: navigationUrl };
+      return { success: true, newEventId: isNewEventCreation ? currentId : undefined };
     } catch (error) {
       console.error("Error saving data to Firestore: ", error);
       if (isNewEventCreation) { 
@@ -749,10 +742,7 @@ function RCAAnalysisPageComponent() {
   };
   
   const handleSaveFromStep2 = async () => {
-    const saveResult = await handleSaveAnalysisData(true);
-    if (saveResult.success && saveResult.newEventId) {
-        setAnalysisDocumentId(saveResult.newEventId);
-    }
+    await handleSaveAnalysisData(true);
   };
 
   const handleApproveEvent = async () => {
@@ -1114,49 +1104,23 @@ function RCAAnalysisPageComponent() {
     setDetailedFacts(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleAddPreservedFact = async (
-    factMetadata: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath'>,
-    file: File
-  ) => {
-    let currentEventId = analysisDocumentId;
-    if (!currentEventId) {
-      // Ensure the analysis document is created first to get an ID.
-      const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
-      if (!saveResult.success || !saveResult.newEventId) {
-        toast({ title: "Error", description: "No se pudo guardar el análisis para poder adjuntar el archivo.", variant: "destructive" });
-        // Re-throw to be caught by the calling component's finally block to stop its processing indicator.
-        throw new Error("Failed to save analysis before file upload.");
-      }
-      currentEventId = saveResult.newEventId;
-      setAnalysisDocumentId(currentEventId); // Update state
-       // Ensure router reflects the new ID if we are creating one.
-       router.replace(`/analisis?id=${currentEventId}&step=${step}`, { scroll: false });
+  const handleAddPreservedFact = async (newFact: PreservedFact) => {
+    if (!analysisDocumentId) return;
+    try {
+      const rcaDocRef = doc(db, 'rcaAnalyses', analysisDocumentId);
+      await updateDoc(rcaDocRef, {
+        preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
+        updatedAt: new Date().toISOString()
+      });
+      setPreservedFacts(prev => [...prev, newFact]);
+    } catch (error) {
+       console.error("Error adding preserved fact to Firestore:", error);
+       toast({
+         title: "Error al Guardar Anexo",
+         description: "No se pudo guardar la referencia del archivo en la base de datos.",
+         variant: "destructive",
+       });
     }
-
-    toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
-    const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
-    const fileStorageRef = storageRef(storage, filePath);
-
-    await uploadBytes(fileStorageRef, file);
-    const downloadURL = await getDownloadURL(fileStorageRef);
-  
-    const newFact: PreservedFact = {
-      ...factMetadata,
-      id: generateClientSideId('pf'),
-      uploadDate: new Date().toISOString(),
-      eventId: currentEventId,
-      downloadURL: downloadURL,
-      storagePath: fileStorageRef.fullPath,
-    };
-
-    const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
-    await updateDoc(rcaDocRef, {
-      preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
-      updatedAt: new Date().toISOString()
-    });
-
-    setPreservedFacts(prev => [...prev, newFact]);
-    toast({ title: "Subida Exitosa", description: `"${newFact.userGivenName}" fue añadido correctamente.` });
   };
   
   const handleRemovePreservedFact = async (id: string) => {
@@ -1167,7 +1131,6 @@ function RCAAnalysisPageComponent() {
     const factToRemove = preservedFacts.find(fact => fact.id === id);
     if (!factToRemove) return;
     
-    // Set a general saving state for the page while this operation is in progress.
     setIsSaving(true);
     
     try {

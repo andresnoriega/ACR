@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FC, type ChangeEvent } from 'react';
+import { useState, type FC, type ChangeEvent, useRef } from 'react';
 import type { PreservedFact } from '@/types/rca';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,15 +10,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from "@/hooks/use-toast";
 import { PlusCircle, Trash2, Loader2, FileArchive, FileText, ImageIcon, Paperclip, ExternalLink, Link2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { storage } from '@/lib/firebase';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { sanitizeForFirestore } from '@/lib/utils';
 
 const MAX_FILE_SIZE_KB = 2048; // 2MB limit
 
 interface PreservedFactsManagerProps {
   analysisId: string | null;
   preservedFacts: PreservedFact[];
-  onAddFact: (factMetadata: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath'>, file: File) => Promise<void>;
+  onAddFact: (newFact: PreservedFact) => void;
   onRemoveFact: (factId: string) => Promise<void>;
   isSaving: boolean;
+  onAnalysisSaveRequired: () => Promise<string | null>; // Returns the analysis ID
 }
 
 const getEvidenceIcon = (tipo?: PreservedFact['tipo']) => {
@@ -37,12 +41,14 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
   onAddFact,
   onRemoveFact,
   isSaving,
+  onAnalysisSaveRequired,
 }) => {
   const { toast } = useToast();
   const [userGivenName, setUserGivenName] = useState('');
   const [comment, setComment] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -54,7 +60,7 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
           variant: "destructive",
         });
         setSelectedFile(null);
-        event.target.value = '';
+        if (event.target) event.target.value = '';
         return;
       }
       setSelectedFile(file);
@@ -62,38 +68,57 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
       setSelectedFile(null);
     }
   };
-
-  const handleAddClick = async () => {
-    if (!userGivenName.trim()) {
-      toast({ title: "Nombre Requerido", description: "Por favor, asigne un nombre al hecho preservado.", variant: "destructive" });
-      return;
-    }
-    if (!selectedFile) {
-        toast({ title: "Archivo Requerido", description: "Por favor, seleccione un archivo para adjuntar.", variant: "destructive" });
-        return;
-    }
-
-    setIsProcessing(true);
-    try {
-      const newFactPayload: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath'> = {
-          userGivenName,
-          nombre: selectedFile.name,
-          tipo: selectedFile.type,
-          comment: comment.trim() || undefined,
-      };
-      // onAddFact is now robust and will handle the entire upload flow.
-      await onAddFact(newFactPayload, selectedFile);
-      
-      // Clear form on success
+  
+  const resetForm = () => {
       setUserGivenName('');
       setComment('');
       setSelectedFile(null);
-      const fileInput = document.getElementById('preserved-fact-file') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
-    } catch (error) {
-      // The parent function (onAddFact) will show its own toast.
-      // We just need to ensure the processing state is reset.
-      console.error("Error caught in PreservedFactsManager:", error);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+  }
+
+  const handleAddClick = async () => {
+    if (!userGivenName.trim() || !selectedFile) {
+      toast({ title: "Campos Requeridos", description: "El nombre del hecho y el archivo son obligatorios.", variant: "destructive" });
+      return;
+    }
+
+    setIsProcessing(true);
+    
+    try {
+      const currentAnalysisId = await onAnalysisSaveRequired();
+      if (!currentAnalysisId) {
+        throw new Error("No se pudo obtener un ID de análisis válido para subir el archivo.");
+      }
+
+      toast({ title: "Subiendo archivo...", description: `Subiendo ${selectedFile.name}, por favor espere.` });
+      
+      const filePath = `preserved_facts/${currentAnalysisId}/${Date.now()}-${selectedFile.name}`;
+      const fileStorageRef = storageRef(storage, filePath);
+      
+      const uploadResult = await uploadBytes(fileStorageRef, selectedFile);
+      const downloadURL = await getDownloadURL(uploadResult.ref);
+
+      const newFact: PreservedFact = {
+          id: `pf-${Date.now()}`,
+          userGivenName: userGivenName.trim(),
+          nombre: selectedFile.name,
+          tipo: selectedFile.type,
+          comment: comment.trim() || undefined,
+          uploadDate: new Date().toISOString(),
+          eventId: currentAnalysisId,
+          downloadURL: downloadURL,
+          storagePath: uploadResult.ref.fullPath,
+      };
+      
+      onAddFact(newFact);
+      toast({ title: "Hecho Preservado Añadido", description: `Se añadió y subió "${newFact.userGivenName}".` });
+      resetForm();
+
+    } catch (error: any) {
+      console.error("Error detallado al subir hecho preservado:", error);
+      toast({ title: "Error al Subir", description: `No se pudo subir el archivo: ${error.message}. Verifique la consola.`, variant: "destructive" });
     } finally {
       setIsProcessing(false);
     }
@@ -124,6 +149,7 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
                 <Label htmlFor="preserved-fact-file">Archivo (Máx 2MB) <span className="text-destructive">*</span></Label>
                  <Input
                     id="preserved-fact-file"
+                    ref={fileInputRef}
                     type="file"
                     onChange={handleFileChange}
                     disabled={isFormDisabled}

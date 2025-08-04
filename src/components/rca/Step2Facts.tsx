@@ -32,14 +32,14 @@ export const Step2Facts: FC<{
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
   preservedFacts: PreservedFact[];
-  onAddPreservedFact: (factMetadata: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath'>, file: File) => Promise<void>;
+  onAddPreservedFact: (newFact: PreservedFact) => void;
   onRemovePreservedFact: (factId: string) => Promise<void>;
   availableUsers: FullUserProfile[];
   availableSites: Site[];
   isSaving: boolean;
   onPrevious: () => void;
   onNext: () => void;
-  onSaveAnalysis: () => Promise<void>;
+  onSaveAnalysis: (showToast?: boolean) => Promise<{success: boolean, newEventId?: string}>;
   analysisId: string | null;
   activeTab: string;
   onTabChange: (value: string) => void;
@@ -173,6 +173,16 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     } finally {
       setIsParaphrasing(false);
     }
+  };
+  
+  const handleAnalysisSaveAndGetId = async (): Promise<string | null> => {
+    if (analysisId) return analysisId;
+    
+    const result = await onSaveAnalysis(false);
+    if (result.success && result.newEventId) {
+        return result.newEventId;
+    }
+    return null;
   };
 
   return (
@@ -316,6 +326,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                     onAddFact={onAddPreservedFact}
                     onRemoveFact={onRemovePreservedFact}
                     isSaving={isSaving}
+                    onAnalysisSaveRequired={handleAnalysisSaveAndGetId}
                  />
             </TabsContent>
         </Tabs>
@@ -323,7 +334,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
       <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 border-t">
         <Button onClick={onPrevious} variant="outline" className="w-full sm:w-auto mb-2 sm:mb-0 transition-transform hover:scale-105" disabled={isSaving}>Anterior</Button>
         <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto sm:space-x-2">
-            <Button onClick={onSaveAnalysis} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
+            <Button onClick={() => onSaveAnalysis(true)} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Save className="mr-2 h-4 w-4" /> Guardar Avance
             </Button>
