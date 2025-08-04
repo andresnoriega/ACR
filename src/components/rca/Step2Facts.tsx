@@ -32,14 +32,13 @@ export const Step2Facts: FC<{
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
   preservedFacts: PreservedFact[];
-  onAddPreservedFact: (newFact: PreservedFact) => Promise<void>;
+  onAddPreservedFact: (factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>, file: File) => Promise<boolean>;
   onRemovePreservedFact: (factId: string) => Promise<void>;
   availableUsers: FullUserProfile[];
   availableSites: Site[];
   isSaving: boolean;
   onPrevious: () => void;
   onNext: () => void;
-  onSaveAnalysis: (showToast?: boolean) => Promise<{success: boolean, newEventId?: string}>;
   analysisId: string | null;
   activeTab: string;
   onTabChange: (value: string) => void;
@@ -62,7 +61,6 @@ export const Step2Facts: FC<{
   isSaving,
   onPrevious,
   onNext,
-  onSaveAnalysis,
   analysisId,
   activeTab,
   onTabChange,
@@ -175,16 +173,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     }
   };
   
-  const handleAnalysisSaveAndGetId = async (): Promise<string | null> => {
-    if (analysisId) return analysisId;
-    
-    const result = await onSaveAnalysis(false);
-    if (result.success && result.newEventId) {
-        return result.newEventId;
-    }
-    return null;
-  };
-
   return (
     <Card>
       <CardHeader>
@@ -321,11 +309,9 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
             </TabsContent>
             <TabsContent value="preservation" className="mt-4">
                  <PreservedFactsManager
-                    analysisId={analysisId}
                     preservedFacts={preservedFacts}
                     onAddFact={onAddPreservedFact}
                     onRemoveFact={onRemovePreservedFact}
-                    onAnalysisSaveRequired={handleAnalysisSaveAndGetId}
                  />
             </TabsContent>
         </Tabs>
@@ -333,10 +319,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
       <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 border-t">
         <Button onClick={onPrevious} variant="outline" className="w-full sm:w-auto mb-2 sm:mb-0 transition-transform hover:scale-105" disabled={isSaving}>Anterior</Button>
         <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto sm:space-x-2">
-            <Button onClick={() => onSaveAnalysis(true)} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
-                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                <Save className="mr-2 h-4 w-4" /> Guardar Avance
-            </Button>
             <Button onClick={handleNextWithSave} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
                   {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Siguiente

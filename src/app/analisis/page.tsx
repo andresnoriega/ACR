@@ -12,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { db, storage } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, updateDoc, where, type QueryConstraint, arrayUnion, arrayRemove } from "firebase/firestore";
-import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { Loader2 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { sanitizeForFirestore } from '@/lib/utils';
@@ -1104,26 +1104,76 @@ function RCAAnalysisPageComponent() {
     setDetailedFacts(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleAddPreservedFact = async (newFact: PreservedFact) => {
-    if (!analysisDocumentId) {
-      toast({ title: "Error", description: "Se requiere un ID de análisis para guardar el hecho. Guarde el análisis primero.", variant: "destructive"});
-      return;
-    }
+  const handleAddPreservedFact = async (
+    factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>,
+    file: File | null
+  ): Promise<boolean> => {
+    
+    setIsSaving(true);
+    let currentAnalysisId = analysisDocumentId;
+
     try {
-      const rcaDocRef = doc(db, 'rcaAnalyses', analysisDocumentId);
-      await updateDoc(rcaDocRef, {
-        preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
-        updatedAt: new Date().toISOString()
+      if (!file) throw new Error("No se seleccionó ningún archivo.");
+      
+      // Ensure the analysis document exists before uploading
+      if (!currentAnalysisId) {
+        const saveResult = await handleSaveAnalysisData(false);
+        if (!saveResult.success || !saveResult.newEventId) {
+          throw new Error("No se pudo crear el documento de análisis antes de subir el archivo.");
+        }
+        currentAnalysisId = saveResult.newEventId;
+      }
+
+      const filePath = `preserved_facts/${currentAnalysisId}/${Date.now()}-${file.name}`;
+      const fileStorageRef = storageRef(storage, filePath);
+      
+      // Upload using resumable for progress tracking
+      return new Promise<boolean>((resolve, reject) => {
+        const uploadTask = uploadBytesResumable(fileStorageRef, file);
+        uploadTask.on('state_changed',
+          (snapshot) => {
+            // Progress can be handled here if needed
+          },
+          (error) => {
+            console.error("Upload failed:", error);
+            reject(error);
+          },
+          async () => {
+            try {
+              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              const newFact: PreservedFact = {
+                  ...factMetadata,
+                  id: `pf-${Date.now()}`,
+                  uploadDate: new Date().toISOString(),
+                  eventId: currentAnalysisId!,
+                  downloadURL: downloadURL,
+                  storagePath: uploadTask.snapshot.ref.fullPath,
+              };
+
+              const rcaDocRef = doc(db, 'rcaAnalyses', currentAnalysisId!);
+              await updateDoc(rcaDocRef, {
+                preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
+                updatedAt: new Date().toISOString()
+              });
+              
+              setPreservedFacts(prev => [...prev, newFact]);
+              resolve(true);
+            } catch (finalizationError) {
+              reject(finalizationError);
+            }
+          }
+        );
       });
-      setPreservedFacts(prev => [...prev, newFact]);
-      toast({ title: "Hecho Preservado Añadido", description: `Se guardó la referencia para "${newFact.userGivenName}".` });
     } catch (error) {
-       console.error("Error adding preserved fact reference to Firestore:", error);
-       toast({
-         title: "Error al Guardar Referencia",
-         description: "No se pudo guardar la referencia del archivo en la base de datos.",
-         variant: "destructive",
-       });
+      console.error("Error in handleAddPreservedFact:", error);
+      toast({
+        title: "Error al Subir Hecho",
+        description: `No se pudo subir el archivo. ${(error as Error).message}`,
+        variant: "destructive"
+      });
+      return false;
+    } finally {
+      setIsSaving(false);
     }
   };
   
@@ -1503,7 +1553,6 @@ function RCAAnalysisPageComponent() {
           onRemovePreservedFact={handleRemovePreservedFact}
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
-          onSaveAnalysis={handleSaveAnalysisData}
           isSaving={isSaving}
           analysisId={analysisDocumentId}
           activeTab={factsTab}
