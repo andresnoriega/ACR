@@ -37,14 +37,13 @@ export function TopNavigation() {
     if (!hasMounted || !currentUser || loadingAuth || !userProfile) {
       return [];
     }
-
-    if (userProfile.role === 'Usuario Pendiente') {
-        return mainMenuItemsBase.filter(item => item.allowedRoles.includes('Usuario Pendiente'));
-    }
     
     return mainMenuItemsBase.filter(item => {
-        if (!item.requiresAuth) return true;
+      if (!item.requiresAuth) return true;
+      if (item.allowedRoles && userProfile.role) {
         return item.allowedRoles.includes(userProfile.role);
+      }
+      return false;
     });
 
   }, [hasMounted, currentUser, loadingAuth, userProfile]);
