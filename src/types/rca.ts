@@ -169,6 +169,8 @@ export interface Evidence {
   storagePath?: string; // Optional: To track file in Firebase Storage if used
 }
 
+export interface PreservedFact extends Evidence {}
+
 
 export interface PlannedAction {
   id: string;
