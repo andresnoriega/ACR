@@ -57,41 +57,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setLoadingAuth(true);
       if (user) {
         setCurrentUser(user);
-
         const userDocRef = doc(db, 'users', user.uid);
         try {
-          let docSnap = await getDoc(userDocRef);
-
-          if (!docSnap.exists()) {
-            console.log(`Profile for UID ${user.uid} not found. Attempting to reclaim by email: ${user.email}`);
-            const usersCollectionRef = collection(db, "users");
-            const qByEmail = query(usersCollectionRef, where("email", "==", user.email), limit(1));
-            const existingByEmailSnap = await getDocs(qByEmail);
-
-            if (!existingByEmailSnap.empty) {
-              const preCreatedDoc = existingByEmailSnap.docs[0];
-              const profileData = preCreatedDoc.data() as Omit<FullUserProfile, 'id'>;
-              console.log(`Found pre-created profile ${preCreatedDoc.id}. Migrating to new UID ${user.uid}.`);
-
-              if (!profileData.name) profileData.name = user.displayName || "Usuario";
-              if (!profileData.photoURL) profileData.photoURL = user.photoURL || '';
-              
-              await setDoc(userDocRef, sanitizeForFirestore(profileData));
-              await deleteDoc(preCreatedDoc.ref);
-
-              docSnap = await getDoc(userDocRef);
-            }
-          }
+          const docSnap = await getDoc(userDocRef);
 
           if (docSnap.exists()) {
             setUserProfile({ id: docSnap.id, ...docSnap.data() } as FullUserProfile);
           } else {
-            console.warn(`No profile found for ${user.email}. Creating a new profile.`);
+            console.warn(`No profile found for UID ${user.uid}. Checking if this is the first user.`);
             
+            // Check if the users collection is empty.
             const usersCollectionRef = collection(db, "users");
-            const allUsersQuery = query(usersCollectionRef, limit(2));
-            const anyUserSnap = await getDocs(allUsersQuery);
-            const isFirstEverUser = anyUserSnap.docs.length === 0;
+            const q = query(usersCollectionRef, limit(1));
+            const querySnapshot = await getDocs(q);
+            const isFirstEverUser = querySnapshot.empty;
+
+            console.log(`Is first user? ${isFirstEverUser}`);
 
             const newUserProfileData: Omit<FullUserProfile, 'id'> = {
               name: user.displayName || user.email || "Usuario Nuevo",
@@ -107,6 +88,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             await setDoc(userDocRef, sanitizeForFirestore(newUserProfileData));
             setUserProfile({ id: user.uid, ...newUserProfileData });
 
+            // Notify admins only if it's NOT the first user (i.e., it's a new pending user).
             if (!isFirstEverUser) {
               try {
                   const emailSubject = `Nuevo Usuario Pendiente de Aprobación: ${newUserProfileData.name}`;
@@ -119,7 +101,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                   });
 
               } catch (notifyError) {
-                console.error("[AuthContext] Failed to notify admins about new auto-created pending user:", notifyError);
+                console.error("[AuthContext] Failed to notify admins about new pending user:", notifyError);
               }
             }
           }
