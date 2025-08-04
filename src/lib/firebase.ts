@@ -7,11 +7,11 @@ import { getStorage } from "firebase/storage";
 
 // Your web app's Firebase configuration
 // =================================================================================
-// ATENCIÓN: Por favor, reemplace la línea `apiKey` de abajo con su clave real
-// que obtuvo de la consola de Firebase.
+// La configuración ahora lee la API Key desde el archivo .env para mayor seguridad y facilidad de gestión.
+// Por favor, asegúrese de que la API Key en el archivo .env es correcta.
 // =================================================================================
 const firebaseConfig = {
-  apiKey: "POR_FAVOR_PEGA_AQUI_TU_API_KEY_DE_FIREBASE", // <--- ¡¡¡PEGA TU API KEY REAL AQUÍ!!!
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY, // <--- LEE LA CLAVE DESDE .env
   authDomain: "almacenador-cloud.firebaseapp.com",
   projectId: "almacenador-cloud",
   storageBucket: "almacenador-cloud.appspot.com",
