@@ -105,7 +105,7 @@ export default function InstructivoPage() {
                 <AccordionItem value="step-2">
                     <AccordionTrigger><strong>Paso 2: Hechos</strong> - Recopilación de Datos</AccordionTrigger>
                     <AccordionContent>
-                        Documente los hechos con el formato Quién, Qué, Dónde, Cuándo, Cómo y Cuál/Cuánto. Asigne un Líder de Proyecto.
+                        Documente los hechos con el formato Quién, Qué, Dónde, Cuándo, Cómo y Cuál/Cuánto. Asigne un Líder de Proyecto y Equipo de Investigación.
                     </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="step-3">
