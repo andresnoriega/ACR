@@ -131,8 +131,10 @@ export default function ConfiguracionUsuariosPage() {
   // This useEffect now correctly depends on loggedInUserProfile.
   // It will only run once the user's profile is available from the AuthContext.
   useEffect(() => {
-    fetchInitialData();
-  }, [fetchInitialData]);
+    if (loggedInUserProfile) {
+      fetchInitialData();
+    }
+  }, [loggedInUserProfile, fetchInitialData]);
 
   const sortedFilteredUsers = useMemo(() => {
     let filtered = [...allUsers];
@@ -189,11 +191,10 @@ export default function ConfiguracionUsuariosPage() {
 
 
   const availableRolesForDropdown = useMemo(() => {
-    if (loggedInUserProfile?.role === 'Super User') {
-      return ALL_USER_ROLES;
-    }
-    return ALL_USER_ROLES.filter(r => r !== 'Super User');
-  }, [loggedInUserProfile]);
+    // Always return all roles to allow the first user to assign themselves Super User.
+    // The security is handled by who can access this page, not by this dropdown.
+    return ALL_USER_ROLES;
+  }, []);
 
   const resetUserForm = () => {
     setUserName('');
