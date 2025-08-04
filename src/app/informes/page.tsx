@@ -138,7 +138,7 @@ export default function DashboardRCAPage() {
   const [availableUsers, setAvailableUsers] = useState<FullUserProfile[]>([]);
   const [availableSites, setAvailableSites] = useState<Site[]>([]);
   const [isLoadingSites, setIsLoadingSites] = useState(true);
-  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(false); // Changed initial state
   const [remindingActionId, setRemindingActionId] = useState<string | null>(null);
   
   const [drilldown, setDrilldown] = useState<DrilldownState>({ level: 'site', siteFilter: null });
@@ -359,15 +359,6 @@ export default function DashboardRCAPage() {
     }
   }, [toast, userProfile]);
 
-  useEffect(() => {
-    if (!loadingAuth && !isLoadingSites && userProfile) {
-      fetchAllDashboardData(userProfile, filters);
-    } else if (!loadingAuth && !userProfile) {
-        setIsLoadingData(false);
-    }
-  }, [loadingAuth, isLoadingSites, fetchAllDashboardData, filters, userProfile]);
-
-
   const handleFilterChange = (field: keyof DashboardFilters, value: any) => {
     setFilters(prev => ({ ...prev, [field]: value === ALL_FILTER_VALUE ? '' : value }));
   };
@@ -389,9 +380,9 @@ export default function DashboardRCAPage() {
             dateRange: undefined,
         };
         setFilters(emptyFilters);
-        toast({ title: "Filtros Limpiados", description: "Recargando todos los datos del dashboard." });
-        fetchAllDashboardData(userProfile, emptyFilters);
-        setDrilldown({ level: 'site', siteFilter: null });
+        setAllRcaDocuments([]);
+        setAllReportedEvents([]);
+        toast({ title: "Filtros Limpiados", description: "Los datos se han borrado. Aplique nuevos filtros para cargar." });
     }
   };
 
