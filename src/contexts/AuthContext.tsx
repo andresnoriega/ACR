@@ -91,39 +91,46 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     await updateProfile(userCredential.user, { displayName: name });
   
-    // Create the Firestore document for the new user.
-    // To prevent race conditions or hangs on new projects, we will not check if it's the "first" user here.
-    // The first user will register as pending and must be promoted to Super User manually from the config page.
-    // This is a more robust flow for project initialization.
+    // Check if this is the very first user in the collection.
+    const usersCollectionRef = collection(db, "users");
+    const q = query(usersCollectionRef, limit(1));
+    const snapshot = await getDocs(q);
+    const isFirstUser = snapshot.empty;
   
+    // Determine the role based on whether it's the first user or not.
+    const assignedRole = isFirstUser ? 'Super User' : 'Usuario Pendiente';
+    const assignedPermissionLevel = isFirstUser ? 'Total' : '';
+
     const newUserProfileData: Omit<FullUserProfile, 'id'> = {
       name: name,
       email: email,
-      role: 'Usuario Pendiente', // Always register as pending.
-      permissionLevel: '', // Let the admin decide.
+      role: assignedRole,
+      permissionLevel: assignedPermissionLevel,
       assignedSites: '',
       emailNotifications: true,
-      empresa: '',
+      empresa: '', // Super User can assign themselves a company later.
       photoURL: userCredential.user.photoURL || '',
     };
   
     const userDocRef = doc(db, 'users', userCredential.user.uid);
     await setDoc(userDocRef, sanitizeForFirestore(newUserProfileData));
     
-    // Attempt to notify admins, but don't block the registration process if it fails.
-    try {
-      const emailSubject = `Nuevo Usuario Pendiente de Aprobación: ${newUserProfileData.name}`;
-      const emailBody = `Hola,\n\nUn nuevo usuario se ha registrado y está pendiente de aprobación:\n\nNombre: ${newUserProfileData.name}\nCorreo: ${newUserProfileData.email}\n\nPor favor, revise la lista de usuarios en la sección de Configuración para aprobar esta cuenta.\n\nSaludos,\nSistema Asistente ACR`;
-      
-      // Note: This sends to a hardcoded address. In a real app, this would fetch a list of admins.
-      await sendEmailAction({ 
-        to: 'contacto@damc.cl', 
-        subject: emailSubject, 
-        body: emailBody 
-      });
+    // Only send notification if it's not the first user (Super User).
+    if (!isFirstUser) {
+      try {
+        const emailSubject = `Nuevo Usuario Pendiente de Aprobación: ${newUserProfileData.name}`;
+        const emailBody = `Hola,\n\nUn nuevo usuario se ha registrado y está pendiente de aprobación:\n\nNombre: ${newUserProfileData.name}\nCorreo: ${newUserProfileData.email}\n\nPor favor, revise la lista de usuarios en la sección de Configuración para aprobar esta cuenta.\n\nSaludos,\nSistema Asistente ACR`;
+        
+        // In a real app, this should fetch admins. For now, sends to a fixed address.
+        await sendEmailAction({ 
+          to: 'contacto@damc.cl', 
+          subject: emailSubject, 
+          body: emailBody 
+        });
 
-    } catch (notifyError) {
-      console.error("[AuthContext] Failed to notify admins about new pending user:", notifyError);
+      } catch (notifyError) {
+        console.error("[AuthContext] Failed to notify admins about new pending user:", notifyError);
+      }
     }
 
     return userCredential;
