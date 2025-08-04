@@ -103,13 +103,19 @@ const SupportDialog = () => {
 
 export default function InicioPage() {
   const router = useRouter();
-  const { currentUser, loadingAuth, userProfile } = useAuth();
+  const { currentUser, loadingAuth, userProfile, logoutUser } = useAuth();
 
   useEffect(() => {
     if (!loadingAuth && !currentUser) {
       router.replace('/login');
     }
   }, [currentUser, loadingAuth, router]);
+
+  const handleLogoutAndRedirect = async () => {
+    await logoutUser();
+    router.push('/login');
+  };
+
 
   if (loadingAuth) {
     return (
@@ -144,12 +150,12 @@ export default function InicioPage() {
             Bienvenido/a {userProfile?.name || currentUser.email}. Su cuenta ha sido registrada exitosamente pero está pendiente de activación por un Super Usuario.
           </p>
           <p className="text-sm text-muted-foreground max-w-lg mx-auto">
-            Una vez aprobada, tendrá acceso a todas las funcionalidades asignadas a su rol. Por favor, contacte al administrador del sistema si tiene alguna pregunta.
+            Una vez aprobada, tendrá acceso a todas las funcionalidades asignadas a su rol. Por favor, contacte al administrador del sistema si tiene alguna pregunta o refresque su sesión si su rol ya fue actualizado.
           </p>
         </header>
         <Card className="max-w-md mx-auto shadow-md">
             <CardContent className="pt-6">
-                <Button onClick={() => router.push('/login')} variant="outline" className="w-full">
+                <Button onClick={handleLogoutAndRedirect} variant="outline" className="w-full">
                     Volver a Inicio de Sesión
                 </Button>
             </CardContent>
