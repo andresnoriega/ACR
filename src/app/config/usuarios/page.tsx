@@ -78,7 +78,7 @@ export default function ConfiguracionUsuariosPage() {
 
 
   const fetchInitialData = useCallback(async () => {
-    if (!loggedInUserProfile) return;
+    if (!loggedInUserProfile) return; // Wait for user profile to be loaded
     setIsLoading(true);
     try {
       const usersCollectionRef = collection(db, "users");
