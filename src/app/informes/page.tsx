@@ -159,20 +159,16 @@ export default function DashboardRCAPage() {
   const [allReportedEvents, setAllReportedEvents] = useState<ReportedEvent[]>([]);
 
 
-  const fetchAllDashboardData = useCallback(async (currentFilters: DashboardFilters) => {
+  const fetchAllDashboardData = useCallback(async (profile: FullUserProfile, currentFilters: DashboardFilters) => {
     setIsLoadingData(true);
-    if (loadingAuth || !userProfile) {
-      setIsLoadingData(false);
-      return;
-    }
   
     try {
       const rcaQueryConstraints: QueryConstraint[] = [];
       const eventQueryConstraints: QueryConstraint[] = [];
   
-      if (userProfile.role !== 'Super User' && userProfile.empresa) {
-        rcaQueryConstraints.push(where("empresa", "==", userProfile.empresa));
-        eventQueryConstraints.push(where("empresa", "==", userProfile.empresa));
+      if (profile.role !== 'Super User' && profile.empresa) {
+        rcaQueryConstraints.push(where("empresa", "==", profile.empresa));
+        eventQueryConstraints.push(where("empresa", "==", profile.empresa));
       }
   
       if (currentFilters.site && currentFilters.site !== ALL_FILTER_VALUE) {
@@ -213,7 +209,7 @@ export default function DashboardRCAPage() {
     } finally {
       setIsLoadingData(false);
     }
-  }, [toast, userProfile, loadingAuth]);
+  }, [toast]);
 
 
   useEffect(() => {
@@ -324,14 +320,13 @@ export default function DashboardRCAPage() {
 
 
   useEffect(() => {
-    const fetchSitesData = async () => {
-      if (!userProfile) return;
+    const fetchSitesData = async (profile: FullUserProfile) => {
       setIsLoadingSites(true);
       try {
         const sitesCollectionRef = collection(db, "sites");
         const queryConstraints: QueryConstraint[] = [];
-        if (userProfile.role !== 'Super User' && userProfile.empresa) {
-          queryConstraints.push(where("empresa", "==", userProfile.empresa));
+        if (profile.role !== 'Super User' && profile.empresa) {
+          queryConstraints.push(where("empresa", "==", profile.empresa));
         }
         const q = query(sitesCollectionRef, ...queryConstraints);
         const querySnapshot = await getDocs(q);
@@ -346,14 +341,19 @@ export default function DashboardRCAPage() {
         setIsLoadingSites(false);
       }
     };
-    fetchSitesData();
+
+    if (userProfile) {
+        fetchSitesData(userProfile);
+    }
   }, [toast, userProfile]);
 
   useEffect(() => {
-    if (!loadingAuth && !isLoadingSites) {
-      fetchAllDashboardData(filters);
+    if (!loadingAuth && !isLoadingSites && userProfile) {
+      fetchAllDashboardData(userProfile, filters);
+    } else if (!loadingAuth && !userProfile) {
+        setIsLoadingData(false);
     }
-  }, [loadingAuth, isLoadingSites, fetchAllDashboardData, filters]);
+  }, [loadingAuth, isLoadingSites, fetchAllDashboardData, filters, userProfile]);
 
 
   const handleFilterChange = (field: keyof DashboardFilters, value: any) => {
@@ -361,22 +361,26 @@ export default function DashboardRCAPage() {
   };
 
   const applyFilters = () => {
-    toast({ title: "Aplicando Filtros...", description: "Recargando datos del dashboard." });
-    fetchAllDashboardData(filters);
-    setDrilldown({ level: 'site', siteFilter: null });
+    if (userProfile) {
+      toast({ title: "Aplicando Filtros...", description: "Recargando datos del dashboard." });
+      fetchAllDashboardData(userProfile, filters);
+      setDrilldown({ level: 'site', siteFilter: null });
+    }
   };
 
   const clearFilters = () => {
-    const emptyFilters: DashboardFilters = {
-        site: '',
-        type: '' as ReportedEventType,
-        priority: '' as PriorityType,
-        dateRange: undefined,
-    };
-    setFilters(emptyFilters);
-    toast({ title: "Filtros Limpiados", description: "Recargando todos los datos del dashboard." });
-    fetchAllDashboardData(emptyFilters);
-    setDrilldown({ level: 'site', siteFilter: null });
+    if (userProfile) {
+        const emptyFilters: DashboardFilters = {
+            site: '',
+            type: '' as ReportedEventType,
+            priority: '' as PriorityType,
+            dateRange: undefined,
+        };
+        setFilters(emptyFilters);
+        toast({ title: "Filtros Limpiados", description: "Recargando todos los datos del dashboard." });
+        fetchAllDashboardData(userProfile, emptyFilters);
+        setDrilldown({ level: 'site', siteFilter: null });
+    }
   };
 
   const isLoading = isLoadingData || isLoadingSites || loadingAuth;

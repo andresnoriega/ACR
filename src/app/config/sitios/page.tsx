@@ -15,7 +15,7 @@ import { Globe, PlusCircle, Edit2, Trash2, FileUp, FileDown, MapPin, Loader2, Bu
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase'; 
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, where, QueryConstraint } from "firebase/firestore";
-import type { Site, Company } from '@/types/rca';
+import type { Site, Company, FullUserProfile } from '@/types/rca';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { useAuth } from '@/contexts/AuthContext';
@@ -229,7 +229,7 @@ export default function ConfiguracionSitiosPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [companies, setCompanies] = useState<Company[]>([]);
-  const { userProfile } = useAuth();
+  const { userProfile, loadingAuth } = useAuth();
 
   const [isAddSiteDialogOpen, setIsAddSiteDialogOpen] = useState(false);
   const [newSiteName, setNewSiteName] = useState('');
@@ -251,11 +251,7 @@ export default function ConfiguracionSitiosPage() {
   const [isDeleteSiteConfirmOpen, setIsDeleteSiteConfirmOpen] = useState(false);
   const [siteToDelete, setSiteToDelete] = useState<Site | null>(null);
 
-  const fetchInitialData = useCallback(async () => {
-    if (!userProfile) { // Guard clause
-      setIsLoading(false);
-      return;
-    }
+  const fetchInitialData = useCallback(async (profile: FullUserProfile) => {
     setIsLoading(true);
     try {
       const sitesCollectionRef = collection(db, "sites");
@@ -264,9 +260,9 @@ export default function ConfiguracionSitiosPage() {
       const sitesQueryConstraints: QueryConstraint[] = [];
       const companiesQueryConstraints: QueryConstraint[] = [orderBy("name", "asc")];
       
-      if (userProfile.role !== 'Super User' && userProfile.empresa) {
-        sitesQueryConstraints.push(where("empresa", "==", userProfile.empresa));
-        companiesQueryConstraints.push(where("name", "==", userProfile.empresa));
+      if (profile.role !== 'Super User' && profile.empresa) {
+        sitesQueryConstraints.push(where("empresa", "==", profile.empresa));
+        companiesQueryConstraints.push(where("name", "==", profile.empresa));
       }
 
       const qSites = query(sitesCollectionRef, ...sitesQueryConstraints);
@@ -287,11 +283,15 @@ export default function ConfiguracionSitiosPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [userProfile, toast]);
+  }, [toast]);
 
   useEffect(() => {
-    fetchInitialData();
-  }, [fetchInitialData]);
+    if (!loadingAuth && userProfile) {
+      fetchInitialData(userProfile);
+    } else if (!loadingAuth && !userProfile) {
+      setIsLoading(false);
+    }
+  }, [loadingAuth, userProfile, fetchInitialData]);
 
   const resetNewSiteForm = () => {
     setNewSiteName('');
@@ -342,7 +342,7 @@ export default function ConfiguracionSitiosPage() {
       toast({ title: "Sitio Añadido", description: `El sitio "${newSiteData.name}" ha sido añadido con éxito.` });
       resetNewSiteForm();
       setIsAddSiteDialogOpen(false);
-      fetchInitialData(); 
+      if (userProfile) fetchInitialData(userProfile); 
     } catch (error) {
       console.error("Error adding site to Firestore: ", error);
       toast({ title: "Error al Añadir Sitio", description: "No se pudo añadir el sitio.", variant: "destructive" });
@@ -399,7 +399,7 @@ export default function ConfiguracionSitiosPage() {
       toast({ title: "Sitio Actualizado", description: `El sitio "${updatedSiteData.name}" ha sido actualizado.` });
       resetEditSiteForm();
       setIsEditSiteDialogOpen(false);
-      fetchInitialData();
+      if (userProfile) fetchInitialData(userProfile);
     } catch (error) {
       console.error("Error updating site in Firestore: ", error);
       toast({ title: "Error al Actualizar", description: "No se pudo actualizar el sitio.", variant: "destructive" });
@@ -420,7 +420,7 @@ export default function ConfiguracionSitiosPage() {
         await deleteDoc(doc(db, "sites", siteToDelete.id));
         toast({ title: "Sitio Eliminado", description: `El sitio "${siteToDelete.name}" ha sido eliminado.`, variant: 'destructive' });
         setSiteToDelete(null);
-        fetchInitialData();
+        if (userProfile) fetchInitialData(userProfile);
       } catch (error) {
         console.error("Error deleting site from Firestore: ", error);
         toast({ title: "Error al Eliminar", description: "No se pudo eliminar el sitio.", variant: "destructive" });
@@ -540,7 +540,7 @@ export default function ConfiguracionSitiosPage() {
         }
         
         toast({ title: "Importación Completada", description: `${importedCount} sitios importados. ${skippedCount} filas omitidas.` });
-        fetchInitialData();
+        if (userProfile) fetchInitialData(userProfile);
       } catch (error) {
         console.error("Error importing sites: ", error);
         toast({ title: "Error de Importación", description: "No se pudo procesar el archivo. Verifique el formato y los datos.", variant: "destructive" });

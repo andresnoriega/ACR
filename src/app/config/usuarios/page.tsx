@@ -57,7 +57,7 @@ export default function ConfiguracionUsuariosPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [companies, setCompanies] = useState<Company[]>([]);
-  const { userProfile: loggedInUserProfile } = useAuth();
+  const { userProfile: loggedInUserProfile, loadingAuth } = useAuth();
 
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -76,13 +76,7 @@ export default function ConfiguracionUsuariosPage() {
   const [filters, setFilters] = useState<Filters>({ searchTerm: '', role: '', empresa: '' });
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
 
-  const fetchInitialData = useCallback(async () => {
-    // Guard clause to prevent running if the user profile isn't loaded.
-    if (!loggedInUserProfile) {
-      setIsLoading(false);
-      return;
-    }
-
+  const fetchInitialData = useCallback(async (profile: FullUserProfile) => {
     setIsLoading(true);
     try {
       const usersCollectionRef = collection(db, "users");
@@ -91,19 +85,9 @@ export default function ConfiguracionUsuariosPage() {
       const usersQueryConstraints: QueryConstraint[] = [];
       const companiesQueryConstraints: QueryConstraint[] = [orderBy("name", "asc")];
       
-      // Filter by company if the logged-in user is an Admin
-      if (loggedInUserProfile.role === 'Admin' && loggedInUserProfile.empresa) {
-        usersQueryConstraints.push(where("empresa", "==", loggedInUserProfile.empresa));
-        companiesQueryConstraints.push(where("name", "==", loggedInUserProfile.empresa));
-      } else if (loggedInUserProfile.role !== 'Super User') {
-        // For other non-Super User roles, if they have a company, restrict to that
-        if (loggedInUserProfile.empresa) {
-          usersQueryConstraints.push(where("empresa", "==", loggedInUserProfile.empresa));
-          companiesQueryConstraints.push(where("name", "==", loggedInUserProfile.empresa));
-        } else {
-          // If no company, they see no one (except themselves, handled by profile page)
-          usersQueryConstraints.push(where("empresa", "==", "NON_EXISTENT_COMPANY_FOR_EMPTY_RESULT"));
-        }
+      if (profile.role !== 'Super User' && profile.empresa) {
+        usersQueryConstraints.push(where("empresa", "==", profile.empresa));
+        companiesQueryConstraints.push(where("name", "==", profile.empresa));
       }
 
       const qUsers = query(usersCollectionRef, ...usersQueryConstraints);
@@ -126,15 +110,16 @@ export default function ConfiguracionUsuariosPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [loggedInUserProfile, toast]);
+  }, [toast]);
   
-  // This useEffect now correctly depends on loggedInUserProfile.
-  // It will only run once the user's profile is available from the AuthContext.
   useEffect(() => {
-    if (loggedInUserProfile) {
-      fetchInitialData();
+    if (!loadingAuth && loggedInUserProfile) {
+      fetchInitialData(loggedInUserProfile);
+    } else if (!loadingAuth && !loggedInUserProfile) {
+      // User is not logged in or profile doesn't exist, stop loading
+      setIsLoading(false);
     }
-  }, [loggedInUserProfile, fetchInitialData]);
+  }, [loadingAuth, loggedInUserProfile, fetchInitialData]);
 
   const sortedFilteredUsers = useMemo(() => {
     let filtered = [...allUsers];
@@ -191,10 +176,18 @@ export default function ConfiguracionUsuariosPage() {
 
 
   const availableRolesForDropdown = useMemo(() => {
-    // Always return all roles to allow the first user to assign themselves Super User.
-    // The security is handled by who can access this page, not by this dropdown.
-    return ALL_USER_ROLES;
-  }, []);
+    // A Super User can assign any role.
+    // An Admin can assign any role except Super User.
+    // This logic ensures that once a user is Super User, they see all options.
+    if (loggedInUserProfile?.role === 'Super User') {
+      return ALL_USER_ROLES;
+    }
+    if (loggedInUserProfile?.role === 'Admin') {
+      return ALL_USER_ROLES.filter(r => r !== 'Super User');
+    }
+    // As a fallback (e.g. for a pending user who temporarily has access), show non-super roles.
+    return ALL_USER_ROLES.filter(r => r !== 'Super User');
+  }, [loggedInUserProfile]);
 
   const resetUserForm = () => {
     setUserName('');
@@ -283,7 +276,7 @@ export default function ConfiguracionUsuariosPage() {
         } else {
             toast({ title: "Usuario Actualizado", description: `El usuario "${userName}" ha sido actualizado.` });
         }
-        fetchInitialData(); 
+        if(loggedInUserProfile) fetchInitialData(loggedInUserProfile);
       } catch (error) {
         console.error("Error updating user in Firestore: ", error);
         toast({ title: "Error al Actualizar", description: "No se pudo actualizar el usuario.", variant: "destructive" });
@@ -301,7 +294,7 @@ export default function ConfiguracionUsuariosPage() {
       try {
         await addDoc(collection(db, "users"), sanitizeForFirestore(newUserPayload));
         toast({ title: "Perfil de Usuario Añadido", description: `El perfil para "${newUserPayload.name}" ha sido añadido a Firestore. El usuario deberá registrarse con este mismo correo para activar la cuenta.` });
-        fetchInitialData(); 
+        if(loggedInUserProfile) fetchInitialData(loggedInUserProfile);
       } catch (error) {
         console.error("Error adding user profile to Firestore: ", error);
         toast({ title: "Error al Añadir Perfil", description: "No se pudo añadir el perfil de usuario a Firestore.", variant: "destructive" });
@@ -325,7 +318,7 @@ export default function ConfiguracionUsuariosPage() {
         await deleteDoc(doc(db, "users", userToDelete.id));
         toast({ title: "Perfil de Usuario Eliminado", description: `El perfil de "${userToDelete.name}" ha sido eliminado de Firestore. El usuario de autenticación (si existe) debe eliminarse por separado.`, variant: 'destructive', duration: 7000 });
         setUserToDelete(null);
-        fetchInitialData(); 
+        if(loggedInUserProfile) fetchInitialData(loggedInUserProfile);
       } catch (error) {
         console.error("Error deleting user from Firestore: ", error);
         toast({ title: "Error al Eliminar Perfil", description: "No se pudo eliminar el perfil de usuario de Firestore.", variant: "destructive" });
@@ -455,7 +448,7 @@ export default function ConfiguracionUsuariosPage() {
         }
 
         toast({ title: "Importación Completada", description: `${importedCount} perfiles de usuario importados. ${skippedCount} filas omitidas por datos inválidos o faltantes.` });
-        fetchInitialData(); 
+        if(loggedInUserProfile) fetchInitialData(loggedInUserProfile);
       } catch (error) {
         console.error("Error importing users: ", error);
         toast({ title: "Error de Importación", description: "No se pudo procesar el archivo. Verifique el formato y los datos.", variant: "destructive" });
