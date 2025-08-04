@@ -179,7 +179,7 @@ export interface PlannedAction {
   responsible: string;
   dueDate: string;
   relatedRootCauseIds: string[];
-  evidencias: Evidence[];
+  evidences: Evidence[];
   userComments?: string;
   isNotificationSent: boolean;
   markedAsReadyAt?: string; // ISO string
@@ -250,7 +250,7 @@ export interface RCAAnalysisDocument {
   ctmData: CTMData;
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
-  evidences: Evidence[];
+  preservedFacts: PreservedFact[];
   validations: Validation[];
   finalComments: string;
   leccionesAprendidas: string;

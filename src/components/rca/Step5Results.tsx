@@ -1,7 +1,7 @@
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useEffect } from 'react';
-import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile, Site, InvestigationSession, EfficacyVerification, FiveWhysData, BrainstormIdea, TimelineEvent, Evidence } from '@/types/rca';
+import type { RCAEventData, DetailedFacts, AnalysisTechnique, IshikawaData, CTMData, PlannedAction, IdentifiedRootCause, FullUserProfile, Site, InvestigationSession, EfficacyVerification, FiveWhysData, BrainstormIdea, TimelineEvent, PreservedFact, Evidence } from '@/types/rca';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -38,7 +38,7 @@ interface Step5ResultsProps {
   brainstormingIdeas: BrainstormIdea[];
   identifiedRootCauses: IdentifiedRootCause[];
   plannedActions: PlannedAction[];
-  evidences: Evidence[];
+  preservedFacts: PreservedFact[];
   finalComments: string;
   onFinalCommentsChange: (value: string) => void;
   leccionesAprendidas: string;
@@ -71,15 +71,11 @@ const SectionContent: FC<{ children: React.ReactNode; className?: string }> = ({
 
 const getEvidenceIconLocal = (tipo?: Evidence['tipo']) => {
   if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
-  const simplifiedType = tipo.split('/')[1] || tipo;
-  switch (simplifiedType) {
-    case 'pdf': return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
-    case 'jpeg': case 'jpg': case 'png': case 'gif': return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
-    case 'msword':
-    case 'vnd.openxmlformats-officedocument.wordprocessingml.document':
-      return <Paperclip className="h-4 w-4 mr-2 flex-shrink-0 text-sky-700" />;
-    default: return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
-  }
+  if (tipo.startsWith('image/')) return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
+  if (tipo === 'application/pdf') return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
+  if (tipo.includes('word')) return <Paperclip className="h-4 w-4 mr-2 flex-shrink-0 text-sky-700" />;
+  if (tipo === 'link') return <Link2 className="h-4 w-4 mr-2 flex-shrink-0 text-indigo-600" />;
+  return <FileArchive className="h-4 w-4 mr-2 flex-shrink-0 text-gray-600" />;
 };
 
 
@@ -100,7 +96,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   brainstormingIdeas,
   identifiedRootCauses,
   plannedActions,
-  evidences,
+  preservedFacts,
   finalComments,
   onFinalCommentsChange,
   leccionesAprendidas,
@@ -421,7 +417,34 @@ export const Step5Results: FC<Step5ResultsProps> = ({
             </SectionContent>
           </section>
           <Separator className="my-4" />
-
+          <section>
+            <SectionTitle title="Anexos (Hechos Preservados)" icon={FileArchive} />
+            <SectionContent>
+            {preservedFacts && preservedFacts.length > 0 ? (
+                <ul className="list-none pl-0 space-y-2">
+                {preservedFacts.map((fact) => (
+                    <li key={fact.id} className="flex items-center justify-between text-sm p-2 border rounded-md bg-muted/30">
+                        <div className="flex items-center">
+                            {getEvidenceIconLocal(fact.tipo)}
+                            <div className="flex flex-col">
+                                <span className="font-medium">{fact.userGivenName}</span>
+                                <span className="text-xs text-muted-foreground">{fact.nombre}</span>
+                            </div>
+                        </div>
+                        <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
+                          <a href={fact.dataUrl} target="_blank" rel="noopener noreferrer" download={fact.nombre}>
+                              <ExternalLink className="mr-1.5 h-3 w-3" />Ver/Descargar
+                          </a>
+                        </Button>
+                    </li>
+                ))}
+                </ul>
+            ) : (
+                <p>No hay hechos preservados adjuntos a este análisis.</p>
+            )}
+            </SectionContent>
+          </section>
+          <Separator className="my-4" />
           <section>
             <SectionTitle title="Análisis de Causas" icon={Settings} />
             <div className="space-y-4">
