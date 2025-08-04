@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, initializeFirestore, memoryLocalCache } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import type { User as FirebaseUser } from 'firebase/auth';
 
@@ -21,7 +21,12 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
-const db = getFirestore(app);
+
+// Initialize Firestore with memory cache to avoid "client is offline" issues.
+const db = initializeFirestore(app, {
+  localCache: memoryLocalCache()
+});
+
 const storage = getStorage(app, firebaseConfig.storageBucket); // Explicitly pass bucket
 
 export { app, auth, db, storage, type FirebaseUser };
