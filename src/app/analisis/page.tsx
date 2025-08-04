@@ -1118,54 +1118,52 @@ function RCAAnalysisPageComponent() {
     factMetadata: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath'>,
     file: File
   ) => {
-    setIsSaving(true);
     try {
-        let currentEventId = analysisDocumentId;
-        if (!currentEventId) {
-            const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
-            if (!saveResult.success || !saveResult.newEventId) {
-                throw new Error("No se pudo guardar el análisis para poder adjuntar el archivo.");
-            }
-            currentEventId = saveResult.newEventId;
-            setAnalysisDocumentId(currentEventId);
+      let currentEventId = analysisDocumentId;
+      if (!currentEventId) {
+        const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
+        if (!saveResult.success || !saveResult.newEventId) {
+          throw new Error("No se pudo guardar el análisis para poder adjuntar el archivo.");
         }
+        currentEventId = saveResult.newEventId;
+        setAnalysisDocumentId(currentEventId);
+      }
 
-        toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
-        
-        const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
-        const fileStorageRef = storageRef(storage, filePath);
-    
-        await uploadBytes(fileStorageRef, file);
-        const downloadURL = await getDownloadURL(fileStorageRef);
+      toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
       
-        const newFact: PreservedFact = {
-            ...factMetadata,
-            id: generateClientSideId('pf'),
-            uploadDate: new Date().toISOString(),
-            eventId: currentEventId,
-            downloadURL: downloadURL,
-            storagePath: fileStorageRef.fullPath,
-        };
-
-        const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
-        await updateDoc(rcaDocRef, {
-            preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
-            updatedAt: new Date().toISOString()
-        });
+      const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
+      const fileStorageRef = storageRef(storage, filePath);
   
-        setPreservedFacts(prev => [...prev, newFact]);
-        toast({ title: "Subida Exitosa", description: `"${newFact.userGivenName}" fue añadido correctamente.` });
+      await uploadBytes(fileStorageRef, file);
+      const downloadURL = await getDownloadURL(fileStorageRef);
+    
+      const newFact: PreservedFact = {
+        ...factMetadata,
+        id: generateClientSideId('pf'),
+        uploadDate: new Date().toISOString(),
+        eventId: currentEventId,
+        downloadURL: downloadURL,
+        storagePath: fileStorageRef.fullPath,
+      };
+
+      const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
+      await updateDoc(rcaDocRef, {
+        preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
+        updatedAt: new Date().toISOString()
+      });
+
+      setPreservedFacts(prev => [...prev, newFact]);
+      toast({ title: "Subida Exitosa", description: `"${newFact.userGivenName}" fue añadido correctamente.` });
 
     } catch (error: any) {
-        console.error("Error al subir archivo:", error);
-        toast({
-            title: "Error de Subida",
-            description: `Ocurrió un error: ${error.message || 'Desconocido'}. Revise la consola para más detalles.`,
-            variant: "destructive"
-        });
-        throw error;
-    } finally {
-        setIsSaving(false);
+      console.error("Error al subir archivo:", error);
+      toast({
+        title: "Error de Subida",
+        description: `Ocurrió un error: ${error.message || 'Desconocido'}. Revise la consola para más detalles.`,
+        variant: "destructive"
+      });
+      // Re-throw to be caught by the calling component's finally block
+      throw error;
     }
   };
   

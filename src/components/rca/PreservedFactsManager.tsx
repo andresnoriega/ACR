@@ -74,24 +74,22 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
     }
 
     setIsProcessing(true);
-    const newFactPayload: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath'> = {
-        userGivenName,
-        nombre: selectedFile.name,
-        tipo: selectedFile.type,
-        comment: comment.trim() || undefined,
-    };
-    
     try {
-        await onAddFact(newFactPayload, selectedFile);
-        setUserGivenName('');
-        setComment('');
-        setSelectedFile(null);
-        const fileInput = document.getElementById('preserved-fact-file') as HTMLInputElement;
-        if (fileInput) fileInput.value = '';
-    } catch (error) {
-      // Error is already handled and toasted by the calling function in the page.
+      const newFactPayload: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath'> = {
+          userGivenName,
+          nombre: selectedFile.name,
+          tipo: selectedFile.type,
+          comment: comment.trim() || undefined,
+      };
+      await onAddFact(newFactPayload, selectedFile);
+      // Clear form on success
+      setUserGivenName('');
+      setComment('');
+      setSelectedFile(null);
+      const fileInput = document.getElementById('preserved-fact-file') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
     } finally {
-        setIsProcessing(false);
+      setIsProcessing(false);
     }
   };
 
