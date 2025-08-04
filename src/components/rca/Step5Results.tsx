@@ -69,13 +69,13 @@ const SectionContent: FC<{ children: React.ReactNode; className?: string }> = ({
   </div>
 );
 
-const getEvidenceIconLocal = (tipo?: Evidence['tipo']) => {
-  if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
-  if (tipo.startsWith('image/')) return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
-  if (tipo === 'application/pdf') return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
-  if (tipo.includes('word')) return <Paperclip className="h-4 w-4 mr-2 flex-shrink-0 text-sky-700" />;
-  if (tipo === 'link') return <Link2 className="h-4 w-4 mr-2 flex-shrink-0 text-indigo-600" />;
-  return <FileArchive className="h-4 w-4 mr-2 flex-shrink-0 text-gray-600" />;
+const getEvidenceIconLocal = (tipo?: PreservedFact['tipo']) => {
+    if (!tipo) return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-gray-500" />;
+    if (tipo.startsWith('image/')) return <ImageIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-600" />;
+    if (tipo === 'application/pdf') return <FileText className="h-4 w-4 mr-2 flex-shrink-0 text-red-600" />;
+    if (tipo.includes('word')) return <Paperclip className="h-4 w-4 mr-2 flex-shrink-0 text-sky-700" />;
+    if (tipo === 'link') return <Link2 className="h-4 w-4 mr-2 flex-shrink-0 text-indigo-600" />;
+    return <FileArchive className="h-4 w-4 mr-2 flex-shrink-0 text-gray-600" />;
 };
 
 
@@ -432,7 +432,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                             </div>
                         </div>
                         <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
-                          <a href={fact.dataUrl} target="_blank" rel="noopener noreferrer" download={fact.nombre}>
+                          <a href={fact.downloadURL} target="_blank" rel="noopener noreferrer">
                               <ExternalLink className="mr-1.5 h-3 w-3" />Ver/Descargar
                           </a>
                         </Button>

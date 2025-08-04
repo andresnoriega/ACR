@@ -169,7 +169,10 @@ export interface Evidence {
   storagePath?: string; // Optional: To track file in Firebase Storage if used
 }
 
-export interface PreservedFact extends Evidence {}
+export interface PreservedFact extends Omit<Evidence, 'uploadDate'> {
+  uploadDate: string; // ISO string for when the fact was preserved
+  downloadURL?: string; // URL to view/download the file from Storage
+}
 
 
 export interface PlannedAction {
@@ -198,7 +201,7 @@ export interface ActionPlan {
     descripcionDetallada: string;
     responsableDetalle: string;
     codigoRCA: string;
-    evidencias: Evidence[];
+    evidences: Evidence[];
     userComments: string;
     userMarkedReadyDate?: string; // 'dd/MM/yyyy HH:mm'
     validationDate?: string; // 'dd/MM/yyyy HH:mm'

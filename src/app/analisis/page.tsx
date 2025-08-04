@@ -10,8 +10,9 @@ import { Step5Results } from '@/components/rca/Step5Results';
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, updateDoc, where, type QueryConstraint, arrayUnion, arrayRemove } from "firebase/firestore";
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { Loader2 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { sanitizeForFirestore } from '@/lib/utils';
@@ -25,10 +26,11 @@ import { es } from 'date-fns/locale';
 
 export const dynamic = 'force-dynamic';
 
-let idCounter = Date.now();
 const generateClientSideId = (prefix: string) => {
-    idCounter++;
-    return `${prefix}-${idCounter}`;
+    // This is a safer way to generate client-side IDs to prevent hydration mismatch.
+    const randomPart = Math.random().toString(36).substring(2, 9);
+    const timePart = Date.now().toString(36);
+    return `${prefix}-${timePart}-${randomPart}`;
 };
 
 
@@ -62,6 +64,7 @@ const initialRCAAnalysisState: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedA
   investigationObjective: '', // <-- NUEVO ESTADO INICIAL
   investigationSessions: [],
   analysisDetails: '',
+  preservedFacts: [],
   timelineEvents: [],
   brainstormingIdeas: [],
   analysisTechnique: '',
@@ -79,7 +82,6 @@ const initialRCAAnalysisState: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedA
   createdBy: undefined,
   empresa: undefined,
   efficacyVerification: { status: 'pending', verifiedBy: '', verifiedAt: '', comments: '', verificationDate: '' },
-  preservedFacts: [],
 };
 
 // Helper function to convert old 'cuando' string to datetime-local format
@@ -1110,16 +1112,130 @@ function RCAAnalysisPageComponent() {
     setDetailedFacts(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleAddPreservedFact = async (fact: Omit<PreservedFact, 'id' | 'eventId'>) => {
-    const newFactWithId = { ...fact, id: generateClientSideId('pf'), eventId: analysisDocumentId || 'temp' };
-    setPreservedFacts(prev => [...prev, newFactWithId]);
-    await handleSaveAnalysisData(true);
+  const handleAddPreservedFact = async (
+    factMetadata: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath' | 'dataUrl'>,
+    file: File
+  ): Promise<void> => {
+    setIsSaving(true);
+    let currentEventId = analysisDocumentId;
+  
+    // 1. Ensure the analysis document exists and has an ID.
+    if (!currentEventId) {
+      const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
+      if (!saveResult.success || !saveResult.newEventId) {
+        toast({ title: "Error de Guardado", description: "No se pudo guardar el análisis antes de subir el archivo.", variant: "destructive" });
+        setIsSaving(false);
+        return;
+      }
+      currentEventId = saveResult.newEventId;
+    }
+  
+    // 2. Prepare for upload
+    const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
+    const fileStorageRef = storageRef(storage, filePath);
+    const uploadTask = uploadBytesResumable(fileStorageRef, file);
+  
+    const { toast: uploadToast } = toast({
+      title: "Subiendo archivo...",
+      description: `Iniciando subida de ${file.name}.`,
+    });
+  
+    // 3. Monitor the upload task
+    uploadTask.on('state_changed',
+      (snapshot) => {
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        uploadToast({
+          title: "Subiendo archivo...",
+          description: `${file.name} - ${Math.round(progress)}% completado.`,
+        });
+      },
+      (error) => {
+        // 4. Handle errors
+        console.error("Error al subir archivo a Storage:", error);
+        let description = "Ocurrió un error desconocido. Revise la consola para más detalles.";
+        switch (error.code) {
+          case 'storage/unauthorized':
+            description = "Permiso denegado. Revise las reglas de seguridad de Firebase Storage.";
+            break;
+          case 'storage/canceled':
+            description = "La subida fue cancelada.";
+            break;
+        }
+        uploadToast({ title: "Error de Subida", description, variant: "destructive" });
+        setIsSaving(false);
+      },
+      async () => {
+        // 5. On success, get URL and update Firestore
+        try {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          const newFact: PreservedFact = {
+            ...factMetadata,
+            id: generateClientSideId('pf'),
+            uploadDate: new Date().toISOString(),
+            eventId: currentEventId!,
+            downloadURL: downloadURL,
+            storagePath: uploadTask.snapshot.ref.fullPath,
+          };
+  
+          const rcaDocRef = doc(db, "rcaAnalyses", currentEventId!);
+          await updateDoc(rcaDocRef, {
+            preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
+            updatedAt: new Date().toISOString()
+          });
+  
+          setPreservedFacts(prev => [...prev, newFact]);
+          uploadToast({ title: "Subida Exitosa", description: `"${newFact.userGivenName}" fue añadido correctamente.` });
+        } catch (dbError) {
+          console.error("Error al guardar referencia en Firestore:", dbError);
+          uploadToast({ title: "Error de Base de Datos", description: "El archivo se subió pero no se pudo guardar la referencia.", variant: "destructive" });
+        } finally {
+          setIsSaving(false);
+        }
+      }
+    );
   };
   
-  const handleRemovePreservedFact = async (factId: string) => {
-    setPreservedFacts(prev => prev.filter(f => f.id !== factId));
-    await handleSaveAnalysisData(true);
+  const handleRemovePreservedFact = async (id: string) => {
+    if (!analysisDocumentId) {
+      toast({ title: "Error", description: "ID del análisis no encontrado.", variant: "destructive" });
+      return;
+    }
+    const factToRemove = preservedFacts.find(fact => fact.id === id);
+    if (!factToRemove) return;
+
+    setIsSaving(true);
+    
+    // First, try to delete from storage if a path exists
+    if (factToRemove.storagePath) {
+      try {
+        const fileRef = storageRef(storage, factToRemove.storagePath);
+        await deleteObject(fileRef);
+        toast({ title: "Archivo Eliminado de Storage", variant: "default" });
+      } catch (error: any) {
+        if (error.code !== 'storage/object-not-found') {
+          console.error("Error deleting file from Storage:", error);
+          toast({ title: "Error al Eliminar Archivo", description: "No se pudo eliminar el archivo de Storage, pero se eliminará la referencia.", variant: "destructive" });
+        }
+      }
+    }
+    
+    // Then, remove from Firestore using arrayRemove and update local state
+    const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
+    try {
+      await updateDoc(rcaDocRef, {
+          preservedFacts: arrayRemove(sanitizeForFirestore(factToRemove)),
+          updatedAt: new Date().toISOString()
+      });
+      setPreservedFacts(prev => prev.filter(fact => fact.id !== id));
+      toast({ title: "Hecho Preservado Eliminado", description: "La referencia se eliminó exitosamente.", variant: 'destructive' });
+    } catch (error: any) {
+      console.error("Error al actualizar Firestore después de eliminar hecho:", error);
+      toast({ title: "Error de Sincronización", description: `No se pudo confirmar la eliminación en la base de datos: ${error.message}. Recargue la página.`, variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
   };
+
 
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);

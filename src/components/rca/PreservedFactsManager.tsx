@@ -16,7 +16,7 @@ const MAX_FILE_SIZE_KB = 700; // Safe limit to avoid Firestore's 1MiB document l
 interface PreservedFactsManagerProps {
   analysisId: string | null;
   preservedFacts: PreservedFact[];
-  onAddFact: (factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>, file: File | null) => Promise<void>;
+  onAddFact: (factMetadata: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath' | 'dataUrl'>, file: File) => Promise<void>;
   onRemoveFact: (factId: string) => Promise<void>;
   isSaving: boolean;
 }
@@ -74,7 +74,7 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
     }
 
     setIsProcessing(true);
-    const newFactPayload: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath'> = {
+    const newFactPayload: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath' | 'dataUrl'> = {
         userGivenName,
         nombre: selectedFile.name,
         tipo: selectedFile.type,

@@ -32,7 +32,7 @@ export const Step2Facts: FC<{
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
   preservedFacts: PreservedFact[];
-  onAddPreservedFact: (factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>, file: File | null) => Promise<void>;
+  onAddPreservedFact: (factMetadata: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath' | 'dataUrl'>, file: File) => Promise<void>;
   onRemovePreservedFact: (factId: string) => Promise<void>;
   availableUsers: FullUserProfile[];
   availableSites: Site[];
@@ -132,7 +132,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     if (missingFields.length > 0) {
       toast({
         title: "Campos Obligatorios Faltantes",
-        description: `Por favor, complete los siguientes campos del Paso 2: ${missingFields.join(', ')}`,
+        description: `Por favor, complete los siguientes campos del Paso 2: ${missingFields.join(', ')}.`,
         variant: "destructive",
         duration: 7000,
       });
