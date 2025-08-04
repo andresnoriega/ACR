@@ -686,4 +686,3 @@ export default function ConfiguracionUsuariosPage() {
     </div>
   );
 }
-

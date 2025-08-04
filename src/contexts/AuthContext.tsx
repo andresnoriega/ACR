@@ -64,15 +64,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           if (docSnap.exists()) {
             setUserProfile({ id: docSnap.id, ...docSnap.data() } as FullUserProfile);
           } else {
-            console.warn(`No profile found for UID ${user.uid}. Checking if this is the first user.`);
+            console.warn(`No profile found for UID ${user.uid}. Creating a new 'Usuario Pendiente' profile.`);
             
-            // Check if the users collection is empty.
             const usersCollectionRef = collection(db, "users");
             const q = query(usersCollectionRef, limit(1));
             const querySnapshot = await getDocs(q);
             const isFirstEverUser = querySnapshot.empty;
-
-            console.log(`Is first user? ${isFirstEverUser}`);
 
             const newUserProfileData: Omit<FullUserProfile, 'id'> = {
               name: user.displayName || user.email || "Usuario Nuevo",
@@ -88,7 +85,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             await setDoc(userDocRef, sanitizeForFirestore(newUserProfileData));
             setUserProfile({ id: user.uid, ...newUserProfileData });
 
-            // Notify admins only if it's NOT the first user (i.e., it's a new pending user).
             if (!isFirstEverUser) {
               try {
                   const emailSubject = `Nuevo Usuario Pendiente de Aprobación: ${newUserProfileData.name}`;
@@ -125,8 +121,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const registerWithEmail = async (email: string, pass: string, name: string) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     await updateProfile(userCredential.user, { displayName: name });
-    // Force a reload of the user object to ensure the displayName is available for the onAuthStateChanged listener.
-    // This helps prevent a race condition where the Firestore profile is created before the displayName is set.
     await userCredential.user.reload();
     return userCredential;
   };
