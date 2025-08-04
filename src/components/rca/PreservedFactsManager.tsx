@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, type FC, type ChangeEvent } from 'react';
@@ -16,7 +17,7 @@ const MAX_FILE_SIZE_KB = 700; // Safe limit to avoid Firestore's 1MiB document l
 interface PreservedFactsManagerProps {
   analysisId: string | null;
   preservedFacts: PreservedFact[];
-  onAddFact: (factMetadata: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath' | 'dataUrl'>, file: File) => Promise<void>;
+  onAddFact: (factMetadata: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath'>, file: File) => Promise<void>;
   onRemoveFact: (factId: string) => Promise<void>;
   isSaving: boolean;
 }
@@ -47,10 +48,10 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.size > MAX_FILE_SIZE_KB * 1024) {
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit for Storage, can be higher
         toast({
           title: "Archivo Demasiado Grande",
-          description: `El archivo no puede superar los ${MAX_FILE_SIZE_KB} KB.`,
+          description: `El archivo no puede superar los 2MB.`,
           variant: "destructive",
         });
         setSelectedFile(null);
@@ -74,7 +75,7 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
     }
 
     setIsProcessing(true);
-    const newFactPayload: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath' | 'dataUrl'> = {
+    const newFactPayload: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath'> = {
         userGivenName,
         nombre: selectedFile.name,
         tipo: selectedFile.type,
@@ -115,7 +116,7 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
                 />
              </div>
              <div className="space-y-2">
-                <Label htmlFor="preserved-fact-file">Archivo (Máx {MAX_FILE_SIZE_KB} KB) <span className="text-destructive">*</span></Label>
+                <Label htmlFor="preserved-fact-file">Archivo (Máx 2MB) <span className="text-destructive">*</span></Label>
                  <Input
                     id="preserved-fact-file"
                     type="file"

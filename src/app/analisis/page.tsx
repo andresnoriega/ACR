@@ -1139,6 +1139,7 @@ function RCAAnalysisPageComponent() {
     
     // 3. Directly upload the file
     try {
+        toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
         await uploadBytes(fileStorageRef, file);
         
         // 4. On success, get URL and update Firestore
