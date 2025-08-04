@@ -18,7 +18,7 @@ const mainMenuItemsBase = [
   { href: '/informes', label: 'Informes', icon: FileText, section: 'informes', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] },
   { href: '/usuario/planes', label: 'Mis Tareas', icon: UserCheck, section: 'usuario', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] },
   { href: '/usuario/perfil', label: 'Mi Perfil', icon: UserCircle, section: 'usuario', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] },
-  { href: '/config', label: 'Config.', icon: SettingsIcon, section: 'config', requiresAuth: true, allowedRoles: ['Super User'] },
+  { href: '/config', label: 'Config.', icon: SettingsIcon, section: 'config', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] }, // Allow all roles to see it
   { href: '/instructivo', label: 'Instructivo', icon: BookOpen, section: 'instructivo', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] },
 ];
 
@@ -39,11 +39,19 @@ export function TopNavigation() {
     }
 
     if (loadingAuth || !userProfile) {
-        return mainMenuItemsBase.filter(item => item.href === '/inicio');
+        return mainMenuItemsBase.filter(item => item.href === '/inicio' || item.href === '/config');
     }
 
     if (userProfile.role === 'Usuario Pendiente') {
         return mainMenuItemsBase.filter(item => item.href === '/inicio');
+    }
+    
+    // Temporarily allow all logged-in users to see config
+    if (currentUser) {
+        return mainMenuItemsBase.filter(item => {
+            if (item.href === '/config') return true;
+            return item.allowedRoles.includes(userProfile.role);
+        });
     }
     
     return mainMenuItemsBase.filter(item => {

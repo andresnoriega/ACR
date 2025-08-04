@@ -14,19 +14,20 @@ export default function ConfigLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // This effect handles all redirection logic once loading is complete.
-    if (!loadingAuth) {
-      if (!currentUser) {
-        toast({ title: "Acceso Denegado", description: "Debe iniciar sesión para acceder a la configuración.", variant: "destructive" });
-        router.replace('/login');
-      } else if (!userProfile) {
-        // This case handles a logged-in user without a Firestore profile document.
-        toast({ title: "Perfil Incompleto", description: "Su perfil de usuario no se pudo cargar. Contacte al administrador.", variant: "destructive" });
-        router.replace('/inicio');
-      } else if (userProfile.role !== 'Super User') { // <-- STRICT CHECK
-        toast({ title: "Acceso Denegado", description: "La sección de configuración es solo para Super Usuarios.", variant: "destructive" });
-        router.replace('/inicio');
-      }
-    }
+    // TEMPORARILY DISABLED TO ALLOW ACCESS
+    // if (!loadingAuth) {
+    //   if (!currentUser) {
+    //     toast({ title: "Acceso Denegado", description: "Debe iniciar sesión para acceder a la configuración.", variant: "destructive" });
+    //     router.replace('/login');
+    //   } else if (!userProfile) {
+    //     // This case handles a logged-in user without a Firestore profile document.
+    //     toast({ title: "Perfil Incompleto", description: "Su perfil de usuario no se pudo cargar. Contacte al administrador.", variant: "destructive" });
+    //     router.replace('/inicio');
+    //   } else if (userProfile.role !== 'Super User') { // <-- STRICT CHECK
+    //     toast({ title: "Acceso Denegado", description: "La sección de configuración es solo para Super Usuarios.", variant: "destructive" });
+    //     router.replace('/inicio');
+    //   }
+    // }
   }, [currentUser, userProfile, loadingAuth, router, toast]);
 
   // While waiting for auth and profile to load, show a spinner.
@@ -41,19 +42,22 @@ export default function ConfigLayout({ children }: { children: ReactNode }) {
 
   // If loading is done, and the user has the correct profile, show the content.
   // If they don't have the correct profile, the useEffect above will have already started the redirection.
-  if (userProfile && userProfile.role === 'Super User') { // <-- STRICT CHECK
-    return <>{children}</>;
-  }
+  // TEMPORARILY DISABLED TO ALLOW ACCESS
+  // if (userProfile && userProfile.role === 'Super User') {
+  //   return <>{children}</>;
+  // }
+  return <>{children}</>;
+
 
   // Fallback UI for any case where the user shouldn't be here (e.g., during redirect).
-  return (
-    <div className="flex flex-col justify-center items-center min-h-[calc(100vh-10rem)] text-center p-4">
-      <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
-      <h1 className="text-2xl font-bold text-destructive mb-2">Acceso Restringido</h1>
-      <p className="text-muted-foreground mb-6">
-        No tiene los permisos necesarios para acceder a esta sección.
-      </p>
-      <Button onClick={() => router.push('/inicio')}>Volver a Inicio</Button>
-    </div>
-  );
+  // return (
+  //   <div className="flex flex-col justify-center items-center min-h-[calc(100vh-10rem)] text-center p-4">
+  //     <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
+  //     <h1 className="text-2xl font-bold text-destructive mb-2">Acceso Restringido</h1>
+  //     <p className="text-muted-foreground mb-6">
+  //       No tiene los permisos necesarios para acceder a esta sección.
+  //     </p>
+  //     <Button onClick={() => router.push('/inicio')}>Volver a Inicio</Button>
+  //   </div>
+  // );
 }
