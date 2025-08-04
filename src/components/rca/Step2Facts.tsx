@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { UserCircle, Save, Loader2, Target, ClipboardList, Sparkles, FileArchive } from 'lucide-react';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
@@ -176,7 +176,6 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
   };
 
   return (
-    <>
     <Card>
       <CardHeader>
         <CardTitle className="font-headline">Paso 2: Hechos y Análisis Preliminar</CardTitle>
@@ -335,6 +334,5 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
         </div>
       </CardFooter>
     </Card>
-    </>
   );
 };
