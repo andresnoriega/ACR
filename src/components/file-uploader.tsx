@@ -1,8 +1,8 @@
 
 "use client";
 import { useState, useCallback } from 'react';
-import { useDropzone } from 'react-dropzone';
-import { Loader2, UploadCloud, CheckCircle, AlertCircle } from 'lucide-react';
+import { useDropzone, type DropzoneState } from 'react-dropzone';
+import { Loader2, UploadCloud } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 
@@ -22,21 +22,28 @@ interface FileUploaderProps {
 
 export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  // Upload progress is not implemented in this version, so we remove the state
+  // const [uploadProgress, setUploadProgress] = useState(0);
   const { toast } = useToast();
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (!file) return;
 
-    setIsUploading(true);
-    setUploadProgress(0);
+    // Simple size validation
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+            title: "Archivo demasiado grande",
+            description: "El archivo no puede superar los 5MB.",
+            variant: "destructive",
+        });
+        return;
+    }
 
+    setIsUploading(true);
+    
     const formData = new FormData();
     formData.append('file', file);
-    // In this simplified version, we are not handling tags.
-    // If you need tags, you'd add an input and append it here:
-    // formData.append('tags', JSON.stringify(['auto-tag1', 'auto-tag2']));
     
     try {
       const response = await fetch('/api/upload', {
@@ -45,28 +52,29 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
       });
 
       if (!response.ok) {
-        throw new Error('Upload failed');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Upload failed');
       }
 
       const newFile: UploadedFile = await response.json();
       onUploadSuccess(newFile);
       toast({
-        title: "✅ Upload Successful",
-        description: `${newFile.name} has been uploaded.`,
+        title: "✅ Subida Exitosa",
+        description: `${newFile.name} ha sido subido.`,
       });
     } catch (error) {
       console.error("Upload error:", error);
       toast({
         variant: "destructive",
-        title: "Upload Failed",
-        description: "Could not upload the file.",
+        title: "Fallo en la Subida",
+        description: `No se pudo subir el archivo: ${(error as Error).message}`,
       });
     } finally {
       setIsUploading(false);
     }
   }, [onUploadSuccess, toast]);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive }: DropzoneState = useDropzone({
     onDrop,
     multiple: false,
     accept: {
@@ -87,16 +95,18 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
       {isUploading ? (
         <div className="flex flex-col items-center gap-2">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p>Uploading...</p>
-          <Progress value={uploadProgress} className="w-full" />
+          <p>Subiendo...</p>
+          {/* Progress bar can be re-added here if using uploadBytesResumable with progress tracking */}
         </div>
       ) : (
         <div className="flex flex-col items-center gap-2 text-muted-foreground">
           <UploadCloud className="h-8 w-8" />
-          <p>Drag & drop a file here, or click to select a file</p>
-          <p className="text-xs">Image, PDF, DOCX supported.</p>
+          <p>Arrastre un archivo aquí, o haga clic para seleccionar</p>
+          <p className="text-xs">Soporta Imagen, PDF, DOCX (Máx 5MB).</p>
         </div>
       )}
     </div>
   );
 }
+
+    
