@@ -1117,7 +1117,7 @@ function RCAAnalysisPageComponent() {
   const handleAddPreservedFact = async (
     factMetadata: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath'>,
     file: File
-  ): Promise<void> => {
+  ) => {
     setIsSaving(true);
     try {
         let currentEventId = analysisDocumentId;
@@ -1127,6 +1127,7 @@ function RCAAnalysisPageComponent() {
                 throw new Error("No se pudo guardar el análisis para poder adjuntar el archivo.");
             }
             currentEventId = saveResult.newEventId;
+            setAnalysisDocumentId(currentEventId);
         }
 
         toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
@@ -1567,9 +1568,9 @@ function RCAAnalysisPageComponent() {
           analysisTechniqueNotes={analysisTechniqueNotes}
           onAnalysisTechniqueNotesChange={setAnalysisTechniqueNotes}
           ishikawaData={ishikawaData}
-          onSetIshikawaData={onSetIshikawaData}
+          onSetIshikawaData={setIshikawaData}
           fiveWhysData={fiveWhysData}
-          onSetFiveWhysData={onSetFiveWhysData}
+          onSetFiveWhysData={setFiveWhysData}
           ctmData={ctmData}
           onSetCtmData={setCtmData}
           identifiedRootCauses={identifiedRootCauses}
