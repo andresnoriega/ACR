@@ -252,7 +252,10 @@ export default function ConfiguracionSitiosPage() {
   const [siteToDelete, setSiteToDelete] = useState<Site | null>(null);
 
   const fetchInitialData = useCallback(async () => {
-    if (!userProfile) return; // Guard clause
+    if (!userProfile) { // Guard clause
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
       const sitesCollectionRef = collection(db, "sites");
@@ -287,10 +290,8 @@ export default function ConfiguracionSitiosPage() {
   }, [userProfile, toast]);
 
   useEffect(() => {
-    if (userProfile) {
-      fetchInitialData();
-    }
-  }, [fetchInitialData, userProfile]);
+    fetchInitialData();
+  }, [fetchInitialData]);
 
   const resetNewSiteForm = () => {
     setNewSiteName('');
