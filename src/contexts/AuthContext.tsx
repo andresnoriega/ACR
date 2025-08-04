@@ -89,7 +89,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               await setDoc(userDocRef, sanitizeForFirestore(newUserProfileData));
               setUserProfile({ id: user.uid, ...newUserProfileData });
             } else {
-              setUserProfile(null);
+              // If not the first user and no profile exists, create a pending one.
+              // This can happen if registration was interrupted.
+              const pendingProfile: Omit<FullUserProfile, 'id'> = {
+                name: user.displayName || 'Usuario',
+                email: user.email!,
+                role: 'Usuario Pendiente',
+                permissionLevel: '',
+                photoURL: user.photoURL || '',
+                emailNotifications: true,
+              };
+              await setDoc(userDocRef, sanitizeForFirestore(pendingProfile));
+              setUserProfile({ id: user.uid, ...pendingProfile });
             }
           }
         } catch (error) {
@@ -114,6 +125,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await updateProfile(userCredential.user, { displayName: name });
   
     const usersCollectionRef = collection(db, "users");
+    // Check if any user document exists AT ALL
     const q = query(usersCollectionRef, limit(1));
     const snapshot = await getDocs(q);
     const isFirstUser = snapshot.empty;
@@ -133,15 +145,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   
     const userDocRef = doc(db, 'users', userCredential.user.uid);
+    // This is the critical step that was failing before.
     await setDoc(userDocRef, sanitizeForFirestore(newUserProfileData));
     
+    // Notify admin only if it's NOT the first user.
     if (!isFirstUser) {
       try {
         const emailSubject = `Nuevo Usuario Pendiente de Aprobación: ${newUserProfileData.name}`;
         const emailBody = `Hola,\n\nUn nuevo usuario se ha registrado y está pendiente de aprobación:\n\nNombre: ${newUserProfileData.name}\nCorreo: ${newUserProfileData.email}\n\nPor favor, revise la lista de usuarios en la sección de Configuración para aprobar esta cuenta.\n\nSaludos,\nSistema Asistente ACR`;
         
         await sendEmailAction({ 
-          to: 'contacto@damc.cl', 
+          to: 'contacto@damc.cl', // This should be a configurable admin email in a real app
           subject: emailSubject, 
           body: emailBody 
         });
