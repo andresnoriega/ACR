@@ -64,45 +64,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           if (docSnap.exists()) {
             setUserProfile({ id: docSnap.id, ...docSnap.data() } as FullUserProfile);
           } else {
-            console.warn(`No profile found for UID ${user.uid}. Creating a new 'Usuario Pendiente' profile.`);
-            
-            const usersCollectionRef = collection(db, "users");
-            const q = query(usersCollectionRef, limit(1));
-            const querySnapshot = await getDocs(q);
-            const isFirstEverUser = querySnapshot.empty;
-
-            const newUserProfileData: Omit<FullUserProfile, 'id'> = {
-              name: user.displayName || user.email || "Usuario Nuevo",
-              email: user.email!,
-              role: isFirstEverUser ? 'Super User' : 'Usuario Pendiente',
-              permissionLevel: isFirstEverUser ? 'Total' : '',
-              assignedSites: '',
-              emailNotifications: true,
-              empresa: '',
-              photoURL: user.photoURL || '',
-            };
-            
-            await setDoc(userDocRef, sanitizeForFirestore(newUserProfileData));
-            setUserProfile({ id: user.uid, ...newUserProfileData });
-
-            if (!isFirstEverUser) {
-              try {
-                  const emailSubject = `Nuevo Usuario Pendiente de Aprobación: ${newUserProfileData.name}`;
-                  const emailBody = `Hola,\n\nUn nuevo usuario se ha registrado y está pendiente de aprobación:\n\nNombre: ${newUserProfileData.name}\nCorreo: ${newUserProfileData.email}\n\nPor favor, revise la lista de usuarios en la sección de Configuración para aprobar esta cuenta.\n\nSaludos,\nSistema Asistente ACR`;
-                  
-                  await sendEmailAction({ 
-                    to: 'contacto@damc.cl', 
-                    subject: emailSubject, 
-                    body: emailBody 
-                  });
-
-              } catch (notifyError) {
-                console.error("[AuthContext] Failed to notify admins about new pending user:", notifyError);
-              }
-            }
+            // This case might happen if a user was created in Auth but the Firestore doc creation failed.
+            // The register function now handles doc creation, so this is a fallback.
+            console.warn(`No profile found for UID ${user.uid}. A profile should have been created on registration.`);
+            setUserProfile(null);
           }
         } catch (error) {
-          console.error(`[AuthContext] Critical error fetching/creating profile for UID ${user.uid}:`, error);
+          console.error(`[AuthContext] Critical error fetching profile for UID ${user.uid}:`, error);
           setUserProfile(null);
         }
       } else {
@@ -121,7 +89,46 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const registerWithEmail = async (email: string, pass: string, name: string) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     await updateProfile(userCredential.user, { displayName: name });
-    await userCredential.user.reload();
+  
+    // Immediately create the Firestore document
+    const usersCollectionRef = collection(db, "users");
+    const q = query(usersCollectionRef, limit(1));
+    const querySnapshot = await getDocs(q);
+    const isFirstEverUser = querySnapshot.empty;
+  
+    const newUserProfileData: Omit<FullUserProfile, 'id'> = {
+      name: name,
+      email: email,
+      role: isFirstEverUser ? 'Super User' : 'Usuario Pendiente',
+      permissionLevel: isFirstEverUser ? 'Total' : '',
+      assignedSites: '',
+      emailNotifications: true,
+      empresa: '',
+      photoURL: userCredential.user.photoURL || '',
+    };
+  
+    const userDocRef = doc(db, 'users', userCredential.user.uid);
+    await setDoc(userDocRef, sanitizeForFirestore(newUserProfileData));
+    
+    // Notify admins if not the first user
+    if (!isFirstEverUser) {
+      try {
+        const emailSubject = `Nuevo Usuario Pendiente de Aprobación: ${newUserProfileData.name}`;
+        const emailBody = `Hola,\n\nUn nuevo usuario se ha registrado y está pendiente de aprobación:\n\nNombre: ${newUserProfileData.name}\nCorreo: ${newUserProfileData.email}\n\nPor favor, revise la lista de usuarios en la sección de Configuración para aprobar esta cuenta.\n\nSaludos,\nSistema Asistente ACR`;
+        
+        await sendEmailAction({ 
+          to: 'contacto@damc.cl', // This should be a dynamic list of admins in a real app
+          subject: emailSubject, 
+          body: emailBody 
+        });
+
+      } catch (notifyError) {
+        console.error("[AuthContext] Failed to notify admins about new pending user:", notifyError);
+      }
+    }
+
+    // No need to call reload, as the onAuthStateChanged listener will pick up the new user
+    // and their newly created profile.
     return userCredential;
   };
 
@@ -138,9 +145,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await updateProfile(currentUser, updates);
     
     const userDocRef = doc(db, 'users', currentUser.uid);
-    await setDoc(userDocRef, { name: data.name }, { merge: true });
+    await updateDoc(userDocRef, { name: data.name });
 
     setUserProfile(prev => prev ? { ...prev, name: data.name ?? prev.name } : null);
+    await currentUser.reload();
     setCurrentUser(auth.currentUser);
   };
   
@@ -155,10 +163,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     });
 
     const userDocRef = doc(db, 'users', currentUser.uid);
-    await setDoc(userDocRef, { photoURL: dataUrl }, { merge: true });
+    await updateDoc(userDocRef, { photoURL: dataUrl });
   
     setUserProfile(prev => prev ? { ...prev, photoURL: dataUrl } : null);
-    // No need to update auth.currentUser.photoURL
+    
+    // We also update the Firebase Auth profile photoURL
+    await updateProfile(currentUser, { photoURL: dataUrl });
+    await currentUser.reload();
+    setCurrentUser(auth.currentUser);
   
     return dataUrl;
   };
