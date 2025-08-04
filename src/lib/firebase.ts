@@ -10,7 +10,7 @@ import type { User as FirebaseUser } from 'firebase/auth';
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSyA43L6Yw1NoCIj3a6dJ8hL0kZUNi_sdd2U",
+  apiKey: "TU_API_KEY_VA_AQUI", // <-- PEGA AQUÍ LA CLAVE QUE COPIASTE
   authDomain: "almacenador-cloud.firebaseapp.com",
   projectId: "almacenador-cloud",
   storageBucket: "almacenador-cloud.appspot.com",
