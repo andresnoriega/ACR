@@ -64,11 +64,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           if (docSnap.exists()) {
             setUserProfile({ id: docSnap.id, ...docSnap.data() } as FullUserProfile);
           } else {
-            // This case can happen if registration is interrupted.
-            // The system will try to create a profile on next login if needed,
-            // or the user might be stuck in a pending state until manual resolution.
             console.warn(`No profile found for UID ${user.uid}. The user may need to be re-registered or manually fixed in Firestore.`);
-            setUserProfile(null);
+            
+            const isFirstUserInSystem = async () => {
+              const usersCollectionRef = collection(db, "users");
+              const q = query(usersCollectionRef, limit(1));
+              const snapshot = await getDocs(q);
+              return snapshot.empty;
+            };
+
+            const isFirst = await isFirstUserInSystem();
+            
+            if (isFirst) {
+              const newUserProfileData: Omit<FullUserProfile, 'id'> = {
+                name: user.displayName || "Usuario sin nombre",
+                email: user.email || "no-email@error.com",
+                role: 'Super User',
+                permissionLevel: 'Total',
+                assignedSites: '',
+                emailNotifications: true,
+                empresa: '',
+                photoURL: user.photoURL || '',
+              };
+              await setDoc(userDocRef, sanitizeForFirestore(newUserProfileData));
+              setUserProfile({ id: user.uid, ...newUserProfileData });
+            } else {
+              setUserProfile(null);
+            }
           }
         } catch (error) {
           console.error(`[AuthContext] Critical error fetching profile for UID ${user.uid}:`, error);
@@ -91,13 +113,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     await updateProfile(userCredential.user, { displayName: name });
   
-    // Check if this is the very first user in the collection.
     const usersCollectionRef = collection(db, "users");
     const q = query(usersCollectionRef, limit(1));
     const snapshot = await getDocs(q);
     const isFirstUser = snapshot.empty;
   
-    // Determine the role based on whether it's the first user or not.
     const assignedRole = isFirstUser ? 'Super User' : 'Usuario Pendiente';
     const assignedPermissionLevel = isFirstUser ? 'Total' : '';
 
@@ -108,20 +128,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       permissionLevel: assignedPermissionLevel,
       assignedSites: '',
       emailNotifications: true,
-      empresa: '', // Super User can assign themselves a company later.
+      empresa: '',
       photoURL: userCredential.user.photoURL || '',
     };
   
     const userDocRef = doc(db, 'users', userCredential.user.uid);
     await setDoc(userDocRef, sanitizeForFirestore(newUserProfileData));
     
-    // Only send notification if it's not the first user (Super User).
     if (!isFirstUser) {
       try {
         const emailSubject = `Nuevo Usuario Pendiente de Aprobación: ${newUserProfileData.name}`;
         const emailBody = `Hola,\n\nUn nuevo usuario se ha registrado y está pendiente de aprobación:\n\nNombre: ${newUserProfileData.name}\nCorreo: ${newUserProfileData.email}\n\nPor favor, revise la lista de usuarios en la sección de Configuración para aprobar esta cuenta.\n\nSaludos,\nSistema Asistente ACR`;
         
-        // In a real app, this should fetch admins. For now, sends to a fixed address.
         await sendEmailAction({ 
           to: 'contacto@damc.cl', 
           subject: emailSubject, 
@@ -171,7 +189,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   
     setUserProfile(prev => prev ? { ...prev, photoURL: dataUrl } : null);
     
-    // We also update the Firebase Auth profile photoURL
     await updateProfile(currentUser, { photoURL: dataUrl });
     await currentUser.reload();
     setCurrentUser(auth.currentUser);
