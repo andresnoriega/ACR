@@ -1,16 +1,12 @@
-
 // Import the functions you need from the SDKs you need
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
+import { getAuth, type User as FirebaseUser } from "firebase/auth";
 import { getFirestore, initializeFirestore, memoryLocalCache } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import type { User as FirebaseUser } from 'firebase/auth';
-
 
 // Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "TU_API_KEY_VA_AQUI", // <-- PEGA AQUÍ LA CLAVE QUE COPIASTE
+  apiKey: "TU_API_KEY_VA_AQUI", // <--- PEGA TU API KEY AQUÍ
   authDomain: "almacenador-cloud.firebaseapp.com",
   projectId: "almacenador-cloud",
   storageBucket: "almacenador-cloud.appspot.com",
@@ -20,10 +16,12 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const app: FirebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+
 const auth = getAuth(app);
-// This is the correct way to initialize Firestore for this app to avoid "client is offline" issues.
-const db = initializeFirestore(app, { localCache: memoryLocalCache() });
+const db = initializeFirestore(app, {
+  localCache: memoryLocalCache()
+});
 const storage = getStorage(app);
 
 export { app, auth, db, storage, type FirebaseUser };
