@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { FC, ChangeEvent } from 'react';
@@ -337,5 +336,3 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
     </Card>
   );
 };
-
-    

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, type FC, type ChangeEvent } from 'react';
@@ -183,5 +182,3 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
     </div>
   );
 };
-
-    

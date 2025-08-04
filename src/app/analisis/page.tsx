@@ -1119,51 +1119,44 @@ function RCAAnalysisPageComponent() {
     factMetadata: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath'>,
     file: File
   ) => {
-    setIsSaving(true);
+    // This function no longer sets isSaving, the caller (manager) handles its own processing state
     let currentEventId = analysisDocumentId;
   
-    // 1. Ensure the analysis document exists and has an ID.
-    if (!currentEventId) {
-      const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
-      if (!saveResult.success || !saveResult.newEventId) {
-        toast({ title: "Error de Guardado", description: "No se pudo guardar el análisis antes de subir el archivo.", variant: "destructive" });
-        setIsSaving(false);
-        return;
-      }
-      currentEventId = saveResult.newEventId;
-    }
-  
-    // 2. Prepare for upload
-    const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
-    const fileStorageRef = storageRef(storage, filePath);
-    
-    // 3. Directly upload the file
     try {
-        toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
-        await uploadBytes(fileStorageRef, file);
-        
-        // 4. On success, get URL and update Firestore
-        const downloadURL = await getDownloadURL(fileStorageRef);
-        const newFact: PreservedFact = {
-            ...factMetadata,
-            id: generateClientSideId('pf'),
-            uploadDate: new Date().toISOString(),
-            eventId: currentEventId,
-            downloadURL: downloadURL,
-            storagePath: fileStorageRef.fullPath,
-        };
+      if (!currentEventId) {
+        const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
+        if (!saveResult.success || !saveResult.newEventId) {
+          throw new Error("No se pudo guardar el análisis antes de subir el archivo.");
+        }
+        currentEventId = saveResult.newEventId;
+      }
+    
+      const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
+      const fileStorageRef = storageRef(storage, filePath);
+    
+      toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
+      await uploadBytes(fileStorageRef, file);
+      
+      const downloadURL = await getDownloadURL(fileStorageRef);
+      const newFact: PreservedFact = {
+          ...factMetadata,
+          id: generateClientSideId('pf'),
+          uploadDate: new Date().toISOString(),
+          eventId: currentEventId,
+          downloadURL: downloadURL,
+          storagePath: fileStorageRef.fullPath,
+      };
 
-        const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
-        await updateDoc(rcaDocRef, {
-            preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
-            updatedAt: new Date().toISOString()
-        });
+      const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
+      await updateDoc(rcaDocRef, {
+          preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
+          updatedAt: new Date().toISOString()
+      });
   
-        setPreservedFacts(prev => [...prev, newFact]);
-        toast({ title: "Subida Exitosa", description: `"${newFact.userGivenName}" fue añadido correctamente.` });
+      setPreservedFacts(prev => [...prev, newFact]);
+      toast({ title: "Subida Exitosa", description: `"${newFact.userGivenName}" fue añadido correctamente.` });
 
     } catch (error) {
-        // 5. Handle errors
         console.error("Error al subir archivo a Storage:", error);
         let description = "Ocurrió un error desconocido. Revise la consola para más detalles.";
         if (error instanceof Error && 'code' in error) {
@@ -1180,8 +1173,6 @@ function RCAAnalysisPageComponent() {
             }
         }
         toast({ title: "Error de Subida", description, variant: "destructive" });
-    } finally {
-        setIsSaving(false);
     }
   };
   
@@ -1720,5 +1711,3 @@ export default function RCAAnalysisPage() {
     </Suspense>
   );
 }
-
-    
