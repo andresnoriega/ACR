@@ -1118,7 +1118,6 @@ function RCAAnalysisPageComponent() {
     factMetadata: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath'>,
     file: File
   ) => {
-    // This function no longer sets isSaving, the caller (manager) handles its own processing state
     let currentEventId = analysisDocumentId;
   
     try {
@@ -1128,6 +1127,7 @@ function RCAAnalysisPageComponent() {
           throw new Error("No se pudo guardar el análisis antes de subir el archivo.");
         }
         currentEventId = saveResult.newEventId;
+        if(!analysisDocumentId) setAnalysisDocumentId(currentEventId);
       }
     
       const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
@@ -1185,7 +1185,6 @@ function RCAAnalysisPageComponent() {
 
     setIsSaving(true);
     
-    // First, try to delete from storage if a path exists
     if (factToRemove.storagePath) {
       try {
         const fileRef = storageRef(storage, factToRemove.storagePath);
@@ -1199,7 +1198,6 @@ function RCAAnalysisPageComponent() {
       }
     }
     
-    // Then, remove from Firestore using arrayRemove and update local state
     const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
     try {
       await updateDoc(rcaDocRef, {

@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { PlusCircle, Trash2, Edit2, Loader2, FileArchive, FileText, ImageIcon, Paperclip, ExternalLink, Link2 } from 'lucide-react';
 import { format } from 'date-fns';
 
-const MAX_FILE_SIZE_KB = 700; // Safe limit to avoid Firestore's 1MiB document limit.
+const MAX_FILE_SIZE_KB = 2048; // 2MB limit
 
 interface PreservedFactsManagerProps {
   analysisId: string | null;
@@ -47,10 +47,10 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) { // 2MB limit for Storage, can be higher
+      if (file.size > MAX_FILE_SIZE_KB * 1024) {
         toast({
           title: "Archivo Demasiado Grande",
-          description: `El archivo no puede superar los 2MB.`,
+          description: `El archivo no puede superar los ${MAX_FILE_SIZE_KB / 1024}MB.`,
           variant: "destructive",
         });
         setSelectedFile(null);
