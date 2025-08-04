@@ -1,3 +1,4 @@
+
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type User as FirebaseUser } from "firebase/auth";
@@ -5,8 +6,12 @@ import { getFirestore, initializeFirestore, memoryLocalCache } from "firebase/fi
 import { getStorage } from "firebase/storage";
 
 // Your web app's Firebase configuration
+// =================================================================================
+// ATENCIÓN: Por favor, reemplace la línea `apiKey` de abajo con su clave real
+// que obtuvo de la consola de Firebase.
+// =================================================================================
 const firebaseConfig = {
-  apiKey: "TU_API_KEY_VA_AQUI", // <--- PEGA TU API KEY AQUÍ
+  apiKey: "POR_FAVOR_PEGA_AQUI_TU_API_KEY_DE_FIREBASE", // <--- ¡¡¡PEGA TU API KEY REAL AQUÍ!!!
   authDomain: "almacenador-cloud.firebaseapp.com",
   projectId: "almacenador-cloud",
   storageBucket: "almacenador-cloud.appspot.com",
@@ -16,7 +21,12 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app: FirebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+let app: FirebaseApp;
+if (!getApps().length) {
+  app = initializeApp(firebaseConfig);
+} else {
+  app = getApp();
+}
 
 const auth = getAuth(app);
 const db = initializeFirestore(app, {
