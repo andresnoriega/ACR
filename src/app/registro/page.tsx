@@ -60,8 +60,9 @@ export default function RegistroPage() {
         description: errorMessage,
         variant: 'destructive',
       });
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   return (
