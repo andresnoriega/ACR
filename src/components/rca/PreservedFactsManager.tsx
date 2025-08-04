@@ -11,18 +11,12 @@ import { useToast } from "@/hooks/use-toast";
 import { PlusCircle, Trash2, Edit2, Loader2, FileArchive, FileText, ImageIcon, Paperclip, ExternalLink, Link2 } from 'lucide-react';
 import { format } from 'date-fns';
 
-let idCounter = Date.now();
-const generateClientSideId = (prefix: string) => {
-    idCounter++;
-    return `${prefix}-${idCounter}`;
-};
-
 const MAX_FILE_SIZE_KB = 700; // Safe limit to avoid Firestore's 1MiB document limit.
 
 interface PreservedFactsManagerProps {
   analysisId: string | null;
   preservedFacts: PreservedFact[];
-  onAddFact: (fact: Omit<PreservedFact, 'id' | 'eventId'>) => Promise<void>;
+  onAddFact: (factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>, file: File | null) => Promise<void>;
   onRemoveFact: (factId: string) => Promise<void>;
   isSaving: boolean;
 }
@@ -80,38 +74,23 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
     }
 
     setIsProcessing(true);
-    try {
-        const reader = new FileReader();
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = (error) => reject(error);
-            reader.readAsDataURL(selectedFile);
-        });
+    const newFactPayload: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath'> = {
+        userGivenName,
+        nombre: selectedFile.name,
+        tipo: selectedFile.type,
+        comment: comment.trim() || undefined,
+    };
+    
+    await onAddFact(newFactPayload, selectedFile);
 
-        const newFactPayload: Omit<PreservedFact, 'id' | 'eventId'> = {
-            userGivenName,
-            nombre: selectedFile.name,
-            tipo: selectedFile.type,
-            comment: comment.trim() || undefined,
-            dataUrl,
-            uploadDate: new Date().toISOString(),
-        };
-
-        await onAddFact(newFactPayload);
-
-        // Reset form
-        setUserGivenName('');
-        setComment('');
-        setSelectedFile(null);
-        const fileInput = document.getElementById('preserved-fact-file') as HTMLInputElement;
-        if (fileInput) fileInput.value = '';
-
-    } catch (error) {
-        console.error("Error processing file for Data URL:", error);
-        toast({ title: "Error al Procesar Archivo", description: "No se pudo leer el archivo seleccionado.", variant: "destructive"});
-    } finally {
-        setIsProcessing(false);
-    }
+    // Reset form
+    setUserGivenName('');
+    setComment('');
+    setSelectedFile(null);
+    const fileInput = document.getElementById('preserved-fact-file') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
+    
+    setIsProcessing(false);
   };
 
   const isFormDisabled = isSaving || isProcessing;
@@ -164,7 +143,7 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
 
       <div className="space-y-2 pt-4">
         <h4 className="font-semibold">Hechos Preservados Adjuntos</h4>
-        {preservedFacts.length > 0 ? (
+        {(preservedFacts || []).length > 0 ? (
           preservedFacts.map((fact) => (
             <Card key={fact.id} className="p-3 flex items-center justify-between">
               <div className="flex items-center flex-grow min-w-0">
@@ -176,9 +155,9 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
                   </div>
               </div>
               <div className="flex-shrink-0 ml-2 flex items-center gap-2">
-                {fact.dataUrl && (
-                    <Button asChild variant="outline" size="sm">
-                        <a href={fact.dataUrl} target="_blank" rel="noopener noreferrer" download={fact.nombre}>
+                {fact.downloadURL && (
+                    <Button asChild variant="link" size="sm">
+                        <a href={fact.downloadURL} target="_blank" rel="noopener noreferrer">
                             <ExternalLink className="mr-1.5 h-3 w-3"/> Ver/Descargar
                         </a>
                     </Button>
