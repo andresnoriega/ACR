@@ -51,7 +51,7 @@ const expectedUserHeaders = ["Nombre Completo", "Correo Electrónico", "Rol", "E
 export default function ConfiguracionUsuariosPage() {
   const [allUsers, setAllUsers] = useState<UserConfigProfile[]>([]);
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -76,48 +76,6 @@ export default function ConfiguracionUsuariosPage() {
   const [filters, setFilters] = useState<Filters>({ searchTerm: '', role: '', empresa: '' });
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
 
-
-  const fetchInitialData = useCallback(async () => {
-    if (!loggedInUserProfile) return; // Wait for user profile to be loaded
-    setIsLoading(true);
-    try {
-      const usersCollectionRef = collection(db, "users");
-      const companiesCollectionRef = collection(db, "companies");
-
-      const usersQueryConstraints: QueryConstraint[] = [];
-      const companiesQueryConstraints: QueryConstraint[] = [orderBy("name", "asc")];
-
-      if (loggedInUserProfile.role !== 'Super User' && loggedInUserProfile.empresa) {
-        usersQueryConstraints.push(where("empresa", "==", loggedInUserProfile.empresa));
-        companiesQueryConstraints.push(where("name", "==", loggedInUserProfile.empresa));
-      }
-
-      const qUsers = query(usersCollectionRef, ...usersQueryConstraints);
-      const usersSnapshot = await getDocs(qUsers);
-      const usersData = usersSnapshot.docs.map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() } as UserConfigProfile));
-      
-      setAllUsers(usersData);
-
-      const qCompanies = query(companiesCollectionRef, ...companiesQueryConstraints);
-      const companiesSnapshot = await getDocs(qCompanies);
-      const companiesData = companiesSnapshot.docs.map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() } as Company));
-      setCompanies(companiesData);
-
-    } catch (error) {
-      console.error("Error fetching data: ", error);
-      toast({ title: "Error al Cargar Datos", description: "No se pudieron cargar los usuarios o empresas desde Firestore.", variant: "destructive" });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [loggedInUserProfile, toast]);
-
-
-  useEffect(() => {
-    if (loggedInUserProfile) {
-      fetchInitialData();
-    }
-  }, [fetchInitialData, loggedInUserProfile]);
-  
   const sortedFilteredUsers = useMemo(() => {
     let filtered = [...allUsers];
 
@@ -266,7 +224,7 @@ export default function ConfiguracionUsuariosPage() {
         } else {
             toast({ title: "Usuario Actualizado", description: `El usuario "${userName}" ha sido actualizado.` });
         }
-        fetchInitialData(); 
+        // fetchInitialData(); 
       } catch (error) {
         console.error("Error updating user in Firestore: ", error);
         toast({ title: "Error al Actualizar", description: "No se pudo actualizar el usuario.", variant: "destructive" });
@@ -284,7 +242,7 @@ export default function ConfiguracionUsuariosPage() {
       try {
         await addDoc(collection(db, "users"), sanitizeForFirestore(newUserPayload));
         toast({ title: "Perfil de Usuario Añadido", description: `El perfil para "${newUserPayload.name}" ha sido añadido a Firestore. El usuario deberá registrarse con este mismo correo para activar la cuenta.` });
-        fetchInitialData(); 
+        // fetchInitialData(); 
       } catch (error) {
         console.error("Error adding user profile to Firestore: ", error);
         toast({ title: "Error al Añadir Perfil", description: "No se pudo añadir el perfil de usuario a Firestore.", variant: "destructive" });
@@ -308,7 +266,7 @@ export default function ConfiguracionUsuariosPage() {
         await deleteDoc(doc(db, "users", userToDelete.id));
         toast({ title: "Perfil de Usuario Eliminado", description: `El perfil de "${userToDelete.name}" ha sido eliminado de Firestore. El usuario de autenticación (si existe) debe eliminarse por separado.`, variant: 'destructive', duration: 7000 });
         setUserToDelete(null);
-        fetchInitialData(); 
+        // fetchInitialData(); 
       } catch (error) {
         console.error("Error deleting user from Firestore: ", error);
         toast({ title: "Error al Eliminar Perfil", description: "No se pudo eliminar el perfil de usuario de Firestore.", variant: "destructive" });
@@ -438,7 +396,7 @@ export default function ConfiguracionUsuariosPage() {
         }
 
         toast({ title: "Importación Completada", description: `${importedCount} perfiles de usuario importados. ${skippedCount} filas omitidas por datos inválidos o faltantes.` });
-        fetchInitialData(); 
+        // fetchInitialData(); 
       } catch (error) {
         console.error("Error importing users: ", error);
         toast({ title: "Error de Importación", description: "No se pudo procesar el archivo. Verifique el formato y los datos.", variant: "destructive" });
