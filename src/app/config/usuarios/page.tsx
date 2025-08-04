@@ -116,7 +116,6 @@ export default function ConfiguracionUsuariosPage() {
     if (!loadingAuth && loggedInUserProfile) {
       fetchInitialData(loggedInUserProfile);
     } else if (!loadingAuth && !loggedInUserProfile) {
-      // User is not logged in or profile doesn't exist, stop loading
       setIsLoading(false);
     }
   }, [loadingAuth, loggedInUserProfile, fetchInitialData]);
@@ -176,17 +175,13 @@ export default function ConfiguracionUsuariosPage() {
 
 
   const availableRolesForDropdown = useMemo(() => {
-    // A Super User can assign any role.
-    // An Admin can assign any role except Super User.
-    // This logic ensures that once a user is Super User, they see all options.
     if (loggedInUserProfile?.role === 'Super User') {
       return ALL_USER_ROLES;
     }
     if (loggedInUserProfile?.role === 'Admin') {
       return ALL_USER_ROLES.filter(r => r !== 'Super User');
     }
-    // As a fallback (e.g. for a pending user who temporarily has access), show non-super roles.
-    return ALL_USER_ROLES.filter(r => r !== 'Super User');
+    return ALL_USER_ROLES;
   }, [loggedInUserProfile]);
 
   const resetUserForm = () => {
