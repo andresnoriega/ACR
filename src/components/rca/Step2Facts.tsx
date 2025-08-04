@@ -208,7 +208,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                                     <SelectItem key={user.id} value={user.name}>{user.name} ({user.role})</SelectItem>
                                     ))
                                 ) : (
-                                    <SelectItem value="" disabled>No hay líderes disponibles para esta empresa</SelectItem>
+                                    <div className="p-2 text-center text-sm text-muted-foreground">No hay líderes disponibles</div>
                                 )}
                                 </SelectContent>
                             </Select>
