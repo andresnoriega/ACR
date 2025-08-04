@@ -7,11 +7,11 @@ import { getStorage } from "firebase/storage";
 
 // Your web app's Firebase configuration
 // =================================================================================
-// La configuración ahora lee la API Key desde el archivo .env a través de la configuración de next.config.js
-// Por favor, asegúrese de que la API Key en el archivo .env es correcta.
+// Pega tu API Key directamente en la línea de abajo.
+// Esta es la solución definitiva para asegurar que la aplicación la utilice correctamente.
 // =================================================================================
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY, // <--- AHORA SÍ LEERÁ LA CLAVE CORRECTAMENTE
+  apiKey: "POR_FAVOR_PEGA_AQUI_TU_API_KEY", // <--- PÉGALA AQUÍ
   authDomain: "almacenador-cloud.firebaseapp.com",
   projectId: "almacenador-cloud",
   storageBucket: "almacenador-cloud.appspot.com",
