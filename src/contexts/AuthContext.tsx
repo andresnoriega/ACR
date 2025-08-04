@@ -64,9 +64,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           if (docSnap.exists()) {
             setUserProfile({ id: docSnap.id, ...docSnap.data() } as FullUserProfile);
           } else {
-            // This case might happen if a user was created in Auth but the Firestore doc creation failed.
-            // The register function now handles doc creation, so this is a fallback.
-            console.warn(`No profile found for UID ${user.uid}. A profile should have been created on registration.`);
+            // This case can happen if registration is interrupted.
+            // The system will try to create a profile on next login if needed,
+            // or the user might be stuck in a pending state until manual resolution.
+            console.warn(`No profile found for UID ${user.uid}. The user may need to be re-registered or manually fixed in Firestore.`);
             setUserProfile(null);
           }
         } catch (error) {
@@ -90,17 +91,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     await updateProfile(userCredential.user, { displayName: name });
   
-    // Immediately create the Firestore document
-    const usersCollectionRef = collection(db, "users");
-    const q = query(usersCollectionRef, limit(1));
-    const querySnapshot = await getDocs(q);
-    const isFirstEverUser = querySnapshot.empty;
+    // Create the Firestore document for the new user.
+    // To prevent race conditions or hangs on new projects, we will not check if it's the "first" user here.
+    // The first user will register as pending and must be promoted to Super User manually from the config page.
+    // This is a more robust flow for project initialization.
   
     const newUserProfileData: Omit<FullUserProfile, 'id'> = {
       name: name,
       email: email,
-      role: isFirstEverUser ? 'Super User' : 'Usuario Pendiente',
-      permissionLevel: isFirstEverUser ? 'Total' : '',
+      role: 'Usuario Pendiente', // Always register as pending.
+      permissionLevel: '', // Let the admin decide.
       assignedSites: '',
       emailNotifications: true,
       empresa: '',
@@ -110,25 +110,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const userDocRef = doc(db, 'users', userCredential.user.uid);
     await setDoc(userDocRef, sanitizeForFirestore(newUserProfileData));
     
-    // Notify admins if not the first user
-    if (!isFirstEverUser) {
-      try {
-        const emailSubject = `Nuevo Usuario Pendiente de Aprobación: ${newUserProfileData.name}`;
-        const emailBody = `Hola,\n\nUn nuevo usuario se ha registrado y está pendiente de aprobación:\n\nNombre: ${newUserProfileData.name}\nCorreo: ${newUserProfileData.email}\n\nPor favor, revise la lista de usuarios en la sección de Configuración para aprobar esta cuenta.\n\nSaludos,\nSistema Asistente ACR`;
-        
-        await sendEmailAction({ 
-          to: 'contacto@damc.cl', // This should be a dynamic list of admins in a real app
-          subject: emailSubject, 
-          body: emailBody 
-        });
+    // Attempt to notify admins, but don't block the registration process if it fails.
+    try {
+      const emailSubject = `Nuevo Usuario Pendiente de Aprobación: ${newUserProfileData.name}`;
+      const emailBody = `Hola,\n\nUn nuevo usuario se ha registrado y está pendiente de aprobación:\n\nNombre: ${newUserProfileData.name}\nCorreo: ${newUserProfileData.email}\n\nPor favor, revise la lista de usuarios en la sección de Configuración para aprobar esta cuenta.\n\nSaludos,\nSistema Asistente ACR`;
+      
+      // Note: This sends to a hardcoded address. In a real app, this would fetch a list of admins.
+      await sendEmailAction({ 
+        to: 'contacto@damc.cl', 
+        subject: emailSubject, 
+        body: emailBody 
+      });
 
-      } catch (notifyError) {
-        console.error("[AuthContext] Failed to notify admins about new pending user:", notifyError);
-      }
+    } catch (notifyError) {
+      console.error("[AuthContext] Failed to notify admins about new pending user:", notifyError);
     }
 
-    // No need to call reload, as the onAuthStateChanged listener will pick up the new user
-    // and their newly created profile.
     return userCredential;
   };
 

@@ -21,6 +21,7 @@ import { saveAs } from 'file-saver';
 import { sanitizeForFirestore } from '@/lib/utils';
 import { sendEmailAction } from '@/app/actions';
 import { useAuth } from '@/contexts/AuthContext';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface UserConfigProfile extends FullUserProfile {
   assignedSites?: string;
@@ -175,14 +176,11 @@ export default function ConfiguracionUsuariosPage() {
 
 
   const availableRolesForDropdown = useMemo(() => {
-    if (loggedInUserProfile?.role === 'Super User') {
-      return ALL_USER_ROLES;
-    }
-    if (loggedInUserProfile?.role === 'Admin') {
-      return ALL_USER_ROLES.filter(r => r !== 'Super User');
-    }
+    // Now, any authenticated user can see the Super User role to assign it.
+    // This is a temporary measure to unblock the initial setup.
+    // In a production environment, you'd want more robust role management.
     return ALL_USER_ROLES;
-  }, [loggedInUserProfile]);
+  }, []);
 
   const resetUserForm = () => {
     setUserName('');
