@@ -33,7 +33,7 @@ export const Step2Facts: FC<{
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
   preservedFacts: PreservedFact[];
-  onAddPreservedFact: (factMetadata: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath' | 'dataUrl'>, file: File) => Promise<void>;
+  onAddPreservedFact: (factMetadata: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath'>, file: File) => Promise<void>;
   onRemovePreservedFact: (factId: string) => Promise<void>;
   availableUsers: FullUserProfile[];
   availableSites: Site[];
