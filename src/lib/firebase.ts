@@ -22,7 +22,8 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
+// This is the correct way to initialize Firestore for this app to avoid "client is offline" issues.
 const db = initializeFirestore(app, { localCache: memoryLocalCache() });
-const storage = getStorage(app, firebaseConfig.storageBucket); // Explicitly pass bucket
+const storage = getStorage(app);
 
 export { app, auth, db, storage, type FirebaseUser };
