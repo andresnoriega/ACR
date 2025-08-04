@@ -1,3 +1,4 @@
+
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
@@ -12,7 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { db, storage } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, updateDoc, where, type QueryConstraint, arrayUnion, arrayRemove } from "firebase/firestore";
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { Loader2 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { sanitizeForFirestore } from '@/lib/utils';
@@ -517,6 +518,8 @@ function RCAAnalysisPageComponent() {
     };
     if (userProfile) { // Only fetch if user profile is loaded
       fetchConfigData();
+    } else { // If there's no user profile (e.g., on first load before auth resolves), we still need to stop loading
+      setConfigDataLoaded(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toast, userProfile]);
@@ -1113,9 +1116,9 @@ function RCAAnalysisPageComponent() {
   };
 
   const handleAddPreservedFact = async (
-    factMetadata: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath' | 'dataUrl'>,
+    factMetadata: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath'>,
     file: File
-  ): Promise<void> => {
+  ) => {
     setIsSaving(true);
     let currentEventId = analysisDocumentId;
   
@@ -1133,66 +1136,52 @@ function RCAAnalysisPageComponent() {
     // 2. Prepare for upload
     const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
     const fileStorageRef = storageRef(storage, filePath);
-    const uploadTask = uploadBytesResumable(fileStorageRef, file);
-  
-    const { toast: uploadToast } = toast({
-      title: "Subiendo archivo...",
-      description: `Iniciando subida de ${file.name}.`,
-    });
-  
-    // 3. Monitor the upload task
-    uploadTask.on('state_changed',
-      (snapshot) => {
-        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        uploadToast({
-          title: "Subiendo archivo...",
-          description: `${file.name} - ${Math.round(progress)}% completado.`,
-        });
-      },
-      (error) => {
-        // 4. Handle errors
-        console.error("Error al subir archivo a Storage:", error);
-        let description = "Ocurrió un error desconocido. Revise la consola para más detalles.";
-        switch (error.code) {
-          case 'storage/unauthorized':
-            description = "Permiso denegado. Revise las reglas de seguridad de Firebase Storage.";
-            break;
-          case 'storage/canceled':
-            description = "La subida fue cancelada.";
-            break;
-        }
-        uploadToast({ title: "Error de Subida", description, variant: "destructive" });
-        setIsSaving(false);
-      },
-      async () => {
-        // 5. On success, get URL and update Firestore
-        try {
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          const newFact: PreservedFact = {
+    
+    // 3. Directly upload the file
+    try {
+        await uploadBytes(fileStorageRef, file);
+        
+        // 4. On success, get URL and update Firestore
+        const downloadURL = await getDownloadURL(fileStorageRef);
+        const newFact: PreservedFact = {
             ...factMetadata,
             id: generateClientSideId('pf'),
             uploadDate: new Date().toISOString(),
-            eventId: currentEventId!,
+            eventId: currentEventId,
             downloadURL: downloadURL,
-            storagePath: uploadTask.snapshot.ref.fullPath,
-          };
-  
-          const rcaDocRef = doc(db, "rcaAnalyses", currentEventId!);
-          await updateDoc(rcaDocRef, {
+            storagePath: fileStorageRef.fullPath,
+        };
+
+        const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
+        await updateDoc(rcaDocRef, {
             preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
             updatedAt: new Date().toISOString()
-          });
+        });
   
-          setPreservedFacts(prev => [...prev, newFact]);
-          uploadToast({ title: "Subida Exitosa", description: `"${newFact.userGivenName}" fue añadido correctamente.` });
-        } catch (dbError) {
-          console.error("Error al guardar referencia en Firestore:", dbError);
-          uploadToast({ title: "Error de Base de Datos", description: "El archivo se subió pero no se pudo guardar la referencia.", variant: "destructive" });
-        } finally {
-          setIsSaving(false);
+        setPreservedFacts(prev => [...prev, newFact]);
+        toast({ title: "Subida Exitosa", description: `"${newFact.userGivenName}" fue añadido correctamente.` });
+
+    } catch (error) {
+        // 5. Handle errors
+        console.error("Error al subir archivo a Storage:", error);
+        let description = "Ocurrió un error desconocido. Revise la consola para más detalles.";
+        if (error instanceof Error && 'code' in error) {
+            switch ((error as any).code) {
+                case 'storage/unauthorized':
+                    description = "Permiso denegado. Revise las reglas de seguridad de Firebase Storage.";
+                    break;
+                case 'storage/canceled':
+                    description = "La subida fue cancelada.";
+                    break;
+                case 'storage/object-not-found':
+                    description = "El objeto no fue encontrado en Storage. Contacte al administrador.";
+                    break;
+            }
         }
-      }
-    );
+        toast({ title: "Error de Subida", description, variant: "destructive" });
+    } finally {
+        setIsSaving(false);
+    }
   };
   
   const handleRemovePreservedFact = async (id: string) => {
@@ -1289,7 +1278,7 @@ function RCAAnalysisPageComponent() {
       responsible: '',
       dueDate: '',
       relatedRootCauseIds: [],
-      evidences: [],
+      evidencias: [],
       userComments: '',
       isNotificationSent: false,
     };
