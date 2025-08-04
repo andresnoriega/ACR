@@ -1118,55 +1118,45 @@ function RCAAnalysisPageComponent() {
     factMetadata: Omit<PreservedFact, 'id' | 'eventId' | 'uploadDate' | 'downloadURL' | 'storagePath'>,
     file: File
   ) => {
-    try {
-      let currentEventId = analysisDocumentId;
-      if (!currentEventId) {
-        const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
-        if (!saveResult.success || !saveResult.newEventId) {
-          throw new Error("No se pudo guardar el análisis para poder adjuntar el archivo.");
-        }
-        currentEventId = saveResult.newEventId;
-        if(currentEventId) setAnalysisDocumentId(currentEventId);
-        // Ensure router reflects the new ID if we are creating one.
-        router.replace(`/analisis?id=${currentEventId}&step=${step}`, { scroll: false });
+    let currentEventId = analysisDocumentId;
+    if (!currentEventId) {
+      // Ensure the analysis document is created first to get an ID.
+      const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
+      if (!saveResult.success || !saveResult.newEventId) {
+        toast({ title: "Error", description: "No se pudo guardar el análisis para poder adjuntar el archivo.", variant: "destructive" });
+        // Re-throw to be caught by the calling component's finally block to stop its processing indicator.
+        throw new Error("Failed to save analysis before file upload.");
       }
-
-      toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
-      
-      const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
-      const fileStorageRef = storageRef(storage, filePath);
-  
-      await uploadBytes(fileStorageRef, file);
-      const downloadURL = await getDownloadURL(fileStorageRef);
-    
-      const newFact: PreservedFact = {
-        ...factMetadata,
-        id: generateClientSideId('pf'),
-        uploadDate: new Date().toISOString(),
-        eventId: currentEventId,
-        downloadURL: downloadURL,
-        storagePath: fileStorageRef.fullPath,
-      };
-
-      const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
-      await updateDoc(rcaDocRef, {
-        preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
-        updatedAt: new Date().toISOString()
-      });
-
-      setPreservedFacts(prev => [...prev, newFact]);
-      toast({ title: "Subida Exitosa", description: `"${newFact.userGivenName}" fue añadido correctamente.` });
-
-    } catch (error: any) {
-      console.error("Error al subir archivo:", error);
-      toast({
-        title: "Error de Subida",
-        description: `Ocurrió un error: ${error.message || 'Desconocido'}. Revise la consola para más detalles.`,
-        variant: "destructive"
-      });
-      // Re-throw to be caught by the calling component's finally block
-      throw error;
+      currentEventId = saveResult.newEventId;
+      setAnalysisDocumentId(currentEventId); // Update state
+       // Ensure router reflects the new ID if we are creating one.
+       router.replace(`/analisis?id=${currentEventId}&step=${step}`, { scroll: false });
     }
+
+    toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
+    const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
+    const fileStorageRef = storageRef(storage, filePath);
+
+    await uploadBytes(fileStorageRef, file);
+    const downloadURL = await getDownloadURL(fileStorageRef);
+  
+    const newFact: PreservedFact = {
+      ...factMetadata,
+      id: generateClientSideId('pf'),
+      uploadDate: new Date().toISOString(),
+      eventId: currentEventId,
+      downloadURL: downloadURL,
+      storagePath: fileStorageRef.fullPath,
+    };
+
+    const rcaDocRef = doc(db, "rcaAnalyses", currentEventId);
+    await updateDoc(rcaDocRef, {
+      preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
+      updatedAt: new Date().toISOString()
+    });
+
+    setPreservedFacts(prev => [...prev, newFact]);
+    toast({ title: "Subida Exitosa", description: `"${newFact.userGivenName}" fue añadido correctamente.` });
   };
   
   const handleRemovePreservedFact = async (id: string) => {
@@ -1176,33 +1166,35 @@ function RCAAnalysisPageComponent() {
     }
     const factToRemove = preservedFacts.find(fact => fact.id === id);
     if (!factToRemove) return;
-
+    
+    // Set a general saving state for the page while this operation is in progress.
     setIsSaving(true);
     
-    if (factToRemove.storagePath) {
-      try {
+    try {
+      if (factToRemove.storagePath) {
         const fileRef = storageRef(storage, factToRemove.storagePath);
         await deleteObject(fileRef);
         toast({ title: "Archivo Eliminado de Storage", variant: "default" });
-      } catch (error: any) {
-        if (error.code !== 'storage/object-not-found') {
-          console.error("Error deleting file from Storage:", error);
-          toast({ title: "Error al Eliminar Archivo", description: "No se pudo eliminar el archivo de Storage, pero se eliminará la referencia.", variant: "destructive" });
-        }
       }
-    }
-    
-    const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
-    try {
+      
+      const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
       await updateDoc(rcaDocRef, {
           preservedFacts: arrayRemove(sanitizeForFirestore(factToRemove)),
           updatedAt: new Date().toISOString()
       });
+      
       setPreservedFacts(prev => prev.filter(fact => fact.id !== id));
       toast({ title: "Hecho Preservado Eliminado", description: "La referencia se eliminó exitosamente.", variant: 'destructive' });
+
     } catch (error: any) {
-      console.error("Error al actualizar Firestore después de eliminar hecho:", error);
-      toast({ title: "Error de Sincronización", description: `No se pudo confirmar la eliminación en la base de datos: ${error.message}. Recargue la página.`, variant: 'destructive' });
+      console.error("Error al eliminar hecho preservado:", error);
+      let errorDesc = `No se pudo confirmar la eliminación en la base de datos: ${error.message}.`;
+      if (error.code === 'storage/object-not-found') {
+        errorDesc = "El archivo ya no existía en Storage, pero se eliminó la referencia de la base de datos.";
+      } else if (error.code) {
+        errorDesc = `No se pudo eliminar de Storage. Código: ${error.code}`
+      }
+      toast({ title: "Error de Eliminación", description: errorDesc, variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }

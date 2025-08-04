@@ -81,13 +81,19 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
           tipo: selectedFile.type,
           comment: comment.trim() || undefined,
       };
+      // onAddFact is now robust and will handle the entire upload flow.
       await onAddFact(newFactPayload, selectedFile);
+      
       // Clear form on success
       setUserGivenName('');
       setComment('');
       setSelectedFile(null);
       const fileInput = document.getElementById('preserved-fact-file') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
+    } catch (error) {
+      // The parent function (onAddFact) will show its own toast.
+      // We just need to ensure the processing state is reset.
+      console.error("Error caught in PreservedFactsManager:", error);
     } finally {
       setIsProcessing(false);
     }
