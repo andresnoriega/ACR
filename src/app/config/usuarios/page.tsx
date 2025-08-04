@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { FullUserProfile, Company } from '@/types/rca'; 
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogClose } from '@/components/ui/dialog';
@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Users, PlusCircle, Edit2, Trash2, FileUp, FileDown, Loader2, Building } from 'lucide-react';
+import { Users, PlusCircle, Edit2, Trash2, FileUp, FileDown, Loader2, Building, Filter, Search, RefreshCcw, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, where, QueryConstraint } from "firebase/firestore";
@@ -28,13 +28,28 @@ interface UserConfigProfile extends FullUserProfile {
   empresa?: string;
 }
 
+interface Filters {
+  searchTerm: string;
+  role: string;
+  empresa: string;
+}
+
+type SortableUserKey = 'name' | 'email' | 'role' | 'empresa';
+
+interface SortConfig {
+  key: SortableUserKey | null;
+  direction: 'ascending' | 'descending';
+}
+
+
 const ALL_USER_ROLES: FullUserProfile['role'][] = ['Super User', 'Admin', 'Analista', 'Revisor', 'Usuario Pendiente', ''];
 const defaultPermissionLevel: FullUserProfile['permissionLevel'] = 'Lectura';
+const ALL_FILTER_VALUE = "__ALL__";
 
 const expectedUserHeaders = ["Nombre Completo", "Correo Electrónico", "Rol", "Empresa", "Sitios Asignados", "Notificaciones Email"];
 
 export default function ConfiguracionUsuariosPage() {
-  const [users, setUsers] = useState<UserConfigProfile[]>([]);
+  const [allUsers, setAllUsers] = useState<UserConfigProfile[]>([]);
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,8 +73,12 @@ export default function ConfiguracionUsuariosPage() {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserConfigProfile | null>(null);
 
+  const [filters, setFilters] = useState<Filters>({ searchTerm: '', role: '', empresa: '' });
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'ascending' });
+
+
   const fetchInitialData = useCallback(async () => {
-    if (!loggedInUserProfile) return; // Guard clause to prevent running before profile is loaded.
+    if (!loggedInUserProfile) return;
     setIsLoading(true);
     try {
       const usersCollectionRef = collection(db, "users");
@@ -77,10 +96,7 @@ export default function ConfiguracionUsuariosPage() {
       const usersSnapshot = await getDocs(qUsers);
       const usersData = usersSnapshot.docs.map(docSnapshot => ({ id: docSnapshot.id, ...docSnapshot.data() } as UserConfigProfile));
       
-      // Sort on the client to avoid composite index
-      usersData.sort((a,b) => a.name.localeCompare(b.name));
-
-      setUsers(usersData);
+      setAllUsers(usersData);
 
       const qCompanies = query(companiesCollectionRef, ...companiesQueryConstraints);
       const companiesSnapshot = await getDocs(qCompanies);
@@ -97,17 +113,69 @@ export default function ConfiguracionUsuariosPage() {
 
 
   useEffect(() => {
-    // This effect ensures fetchInitialData runs only when loggedInUserProfile is available.
     if (loggedInUserProfile) {
       fetchInitialData();
     }
   }, [fetchInitialData, loggedInUserProfile]);
+  
+  const sortedFilteredUsers = useMemo(() => {
+    let filtered = [...allUsers];
+
+    if (filters.searchTerm) {
+      const term = filters.searchTerm.toLowerCase();
+      filtered = filtered.filter(user =>
+        user.name.toLowerCase().includes(term) ||
+        user.email.toLowerCase().includes(term)
+      );
+    }
+    if (filters.role) {
+      filtered = filtered.filter(user => user.role === filters.role);
+    }
+    if (filters.empresa && loggedInUserProfile?.role === 'Super User') {
+      filtered = filtered.filter(user => user.empresa === filters.empresa);
+    }
+
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        const valA = a[sortConfig.key!] ?? '';
+        const valB = b[sortConfig.key!] ?? '';
+        if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return filtered;
+  }, [allUsers, filters, sortConfig, loggedInUserProfile]);
+
+  const requestSort = (key: SortableUserKey) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const renderSortIcon = (columnKey: SortableUserKey) => {
+    if (sortConfig.key !== columnKey) {
+      return <ChevronsUpDown className="h-4 w-4 opacity-30 ml-1" />;
+    }
+    return sortConfig.direction === 'ascending' ? <ArrowUp className="h-4 w-4 ml-1" /> : <ArrowDown className="h-4 w-4 ml-1" />;
+  };
+
+  const handleFilterChange = (field: keyof Filters, value: string) => {
+    setFilters(prev => ({ ...prev, [field]: value === ALL_FILTER_VALUE ? '' : value }));
+  };
+
+  const clearFilters = () => {
+    setFilters({ searchTerm: '', role: '', empresa: '' });
+  };
+
 
   const availableRolesForDropdown = useMemo(() => {
     if (loggedInUserProfile?.role === 'Super User') {
       return ALL_USER_ROLES;
     }
-    // Admins cannot create or assign the Super User role.
     return ALL_USER_ROLES.filter(r => r !== 'Super User');
   }, [loggedInUserProfile]);
 
@@ -214,8 +282,6 @@ export default function ConfiguracionUsuariosPage() {
         emailNotifications: userEmailNotifications,
       };
       try {
-        // Here we add a user profile to Firestore. Registration in Firebase Auth is separate.
-        // A user might be created here first by an admin, then register later.
         await addDoc(collection(db, "users"), sanitizeForFirestore(newUserPayload));
         toast({ title: "Perfil de Usuario Añadido", description: `El perfil para "${newUserPayload.name}" ha sido añadido a Firestore. El usuario deberá registrarse con este mismo correo para activar la cuenta.` });
         fetchInitialData(); 
@@ -254,11 +320,11 @@ export default function ConfiguracionUsuariosPage() {
   };
   
   const handleUserExcelExport = () => {
-    if (users.length === 0) {
+    if (sortedFilteredUsers.length === 0) {
       toast({ title: "Sin Datos", description: "No hay usuarios para exportar.", variant: "default" });
       return;
     }
-    const dataToExport = users.map(user => ({
+    const dataToExport = sortedFilteredUsers.map(user => ({
       "Nombre Completo": user.name,
       "Correo Electrónico": user.email,
       "Rol": user.role,
@@ -419,7 +485,7 @@ export default function ConfiguracionUsuariosPage() {
                 {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
                 Importar Excel
               </Button>
-              <Button variant="outline" onClick={handleUserExcelExport} disabled={isLoading || users.length === 0}>
+              <Button variant="outline" onClick={handleUserExcelExport} disabled={isLoading || sortedFilteredUsers.length === 0}>
                 <FileDown className="mr-2 h-4 w-4" />
                 Exportar Excel
               </Button>
@@ -507,6 +573,46 @@ export default function ConfiguracionUsuariosPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="border rounded-md p-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="search-term">Buscar por Nombre/Correo</Label>
+                <Input
+                  id="search-term"
+                  placeholder="Buscar..."
+                  value={filters.searchTerm}
+                  onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="filter-role">Filtrar por Rol</Label>
+                <Select value={filters.role} onValueChange={(value) => handleFilterChange('role', value)}>
+                  <SelectTrigger><SelectValue placeholder="Todos los roles" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_FILTER_VALUE}>Todos los roles</SelectItem>
+                    {ALL_USER_ROLES.filter(r => r).map(role => (
+                      <SelectItem key={role} value={role}>{role}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="filter-empresa">Filtrar por Empresa</Label>
+                <Select value={filters.empresa} onValueChange={(value) => handleFilterChange('empresa', value)} disabled={loggedInUserProfile?.role !== 'Super User'}>
+                  <SelectTrigger><SelectValue placeholder="Todas las empresas" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL_FILTER_VALUE}>Todas las empresas</SelectItem>
+                    {companies.map(company => (
+                      <SelectItem key={company.id} value={company.name}>{company.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={clearFilters}><RefreshCcw className="mr-2 h-4 w-4"/>Limpiar</Button>
+            </div>
+          </div>
           {isLoading ? (
             <div className="flex justify-center items-center h-24">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -516,11 +622,26 @@ export default function ConfiguracionUsuariosPage() {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow><TableHead className="w-[25%]">Nombre</TableHead><TableHead className="w-[25%]">Correo Electrónico</TableHead><TableHead className="w-[15%]">Rol</TableHead><TableHead className="w-[15%]">Empresa</TableHead><TableHead className="w-[10%]">Notif. Email</TableHead><TableHead className="w-[10%] text-right">Acciones</TableHead></TableRow>
+                  <TableRow>
+                    <TableHead className="w-[25%] cursor-pointer" onClick={() => requestSort('name')}>
+                      <div className="flex items-center">Nombre {renderSortIcon('name')}</div>
+                    </TableHead>
+                    <TableHead className="w-[25%] cursor-pointer" onClick={() => requestSort('email')}>
+                      <div className="flex items-center">Correo Electrónico {renderSortIcon('email')}</div>
+                    </TableHead>
+                    <TableHead className="w-[15%] cursor-pointer" onClick={() => requestSort('role')}>
+                      <div className="flex items-center">Rol {renderSortIcon('role')}</div>
+                    </TableHead>
+                    <TableHead className="w-[15%] cursor-pointer" onClick={() => requestSort('empresa')}>
+                      <div className="flex items-center">Empresa {renderSortIcon('empresa')}</div>
+                    </TableHead>
+                    <TableHead className="w-[10%]">Notif. Email</TableHead>
+                    <TableHead className="w-[10%] text-right">Acciones</TableHead>
+                  </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.length > 0 ? (
-                    users.map((user) => (
+                  {sortedFilteredUsers.length > 0 ? (
+                    sortedFilteredUsers.map((user) => (
                       <TableRow key={user.id}><TableCell className="font-medium">{user.name}</TableCell><TableCell>{user.email}</TableCell><TableCell>{user.role || 'N/A'}</TableCell><TableCell>{user.empresa || '-'}</TableCell><TableCell>{user.emailNotifications ? 'Sí' : 'No'}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end items-center gap-1">
@@ -531,13 +652,18 @@ export default function ConfiguracionUsuariosPage() {
                       </TableRow>
                     ))
                   ) : (
-                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground h-24">No hay perfiles de usuario registrados. Puede añadir uno usando el botón de arriba o importando desde Excel.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground h-24">No se encontraron usuarios con los filtros actuales.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
             </div>
           )}
         </CardContent>
+         <CardFooter>
+            <p className="text-xs text-muted-foreground">
+              Mostrando {sortedFilteredUsers.length} de {allUsers.length} perfiles de usuario.
+            </p>
+          </CardFooter>
       </Card>
 
       <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
@@ -560,3 +686,4 @@ export default function ConfiguracionUsuariosPage() {
     </div>
   );
 }
+
