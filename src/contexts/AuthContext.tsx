@@ -1,26 +1,38 @@
-
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { auth, db, type FirebaseUser } from '@/lib/firebase';
-import { 
-  onAuthStateChanged, 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  signOut,
-  UserCredential,
-  updateProfile,
-  reauthenticateWithCredential,
-  EmailAuthProvider,
-  updatePassword,
-  deleteUser,
-} from 'firebase/auth';
-import { doc, setDoc, getDoc, collection, query, where, getDocs, limit, deleteDoc, updateDoc } from 'firebase/firestore';
+import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
+import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile, reauthenticateWithCredential, EmailAuthProvider, updatePassword, deleteUser, type User as FirebaseUser, type UserCredential } from 'firebase/auth';
+import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, limit, deleteDoc, updateDoc, initializeFirestore, memoryLocalCache } from 'firebase/firestore';
+import { getStorage, ref as storageRef, uploadString, getDownloadURL } from "firebase/storage";
 import type { FullUserProfile } from '@/types/rca';
 import { sanitizeForFirestore } from '@/lib/utils';
 import { sendEmailAction } from '@/app/actions';
-import { storage } from '@/lib/firebase';
-import { ref as storageRef, uploadString, getDownloadURL } from "firebase/storage";
+
+// =================================================================================
+// SOLUCIÓN DEFINITIVA: INICIALIZACIÓN DIRECTA DE FIREBASE
+// =================================================================================
+const firebaseConfig = {
+  apiKey: "POR_FAVOR_PEGA_AQUI_TU_API_KEY", // <--- PÉGALA AQUÍ
+  authDomain: "almacenador-cloud.firebaseapp.com",
+  projectId: "almacenador-cloud",
+  storageBucket: "almacenador-cloud.appspot.com",
+  messagingSenderId: "790911154631",
+  appId: "1:790911154631:web:91e2d71d8ccfbf058301e2",
+  measurementId: "G-R2NQTYM2GX"
+};
+
+let app: FirebaseApp;
+if (!getApps().length) {
+  app = initializeApp(firebaseConfig);
+} else {
+  app = getApp();
+}
+
+const auth = getAuth(app);
+const db = initializeFirestore(app, { localCache: memoryLocalCache() });
+const storage = getStorage(app);
+// =================================================================================
 
 
 interface AuthContextType {
@@ -66,8 +78,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           if (docSnap.exists()) {
             setUserProfile({ id: docSnap.id, ...docSnap.data() } as FullUserProfile);
           } else {
-            // This case handles users that were created in Auth but their Firestore doc creation failed.
-            // It's a fallback to prevent a broken state.
             console.warn(`No profile found for UID ${user.uid}. Attempting to create a pending profile.`);
             const pendingProfile: Omit<FullUserProfile, 'id'> = {
               name: user.displayName || 'Usuario (Pendiente)',
@@ -82,7 +92,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           }
         } catch (error) {
           console.error(`[AuthContext] Critical error fetching profile for UID ${user.uid}:`, error);
-          // If fetching fails, it's better to log out the user to avoid an inconsistent state
           await signOut(auth);
           setUserProfile(null);
           setCurrentUser(null);
@@ -105,7 +114,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const user = userCredential.user;
     await updateProfile(user, { displayName: name });
   
-    // Check if this is the very first user in the system
     const usersCollectionRef = collection(db, "users");
     const q = query(usersCollectionRef, limit(1));
     const snapshot = await getDocs(q);
@@ -128,13 +136,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const userDocRef = doc(db, 'users', user.uid);
     await setDoc(userDocRef, sanitizeForFirestore(newUserProfileData));
     
-    // Notify admin only if it's NOT the first user.
     if (!isFirstUser) {
       try {
         const emailSubject = `Nuevo Usuario Pendiente de Aprobación: ${newUserProfileData.name}`;
         const emailBody = `Hola,\n\nUn nuevo usuario se ha registrado y está pendiente de aprobación:\n\nNombre: ${newUserProfileData.name}\nCorreo: ${newUserProfileData.email}\n\nPor favor, revise la lista de usuarios en la sección de Configuración para aprobar esta cuenta.\n\nSaludos,\nSistema Asistente ACR`;
-        
-        // This should be a configurable admin email in a real app, hardcoded for now
         await sendEmailAction({ to: 'contacto@damc.cl', subject: emailSubject, body: emailBody });
       } catch (notifyError) {
         console.error("[AuthContext] Failed to notify admins about new pending user:", notifyError);
@@ -150,15 +155,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const updateUserProfileFunc = async (data: { name?: string }) => {
     if (!currentUser) throw new Error("No hay un usuario autenticado para actualizar.");
-
     const updates: { displayName?: string } = {};
     if (data.name) updates.displayName = data.name;
-    
     await updateProfile(currentUser, updates);
-    
     const userDocRef = doc(db, 'users', currentUser.uid);
     await updateDoc(userDocRef, { name: data.name });
-
     setUserProfile(prev => prev ? { ...prev, name: data.name ?? prev.name } : null);
     await currentUser.reload();
     setCurrentUser(auth.currentUser);
@@ -166,40 +167,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   
   const updateUserProfilePictureFunc = async (file: File): Promise<string> => {
     if (!currentUser) throw new Error("No hay un usuario autenticado para actualizar.");
-
-    // Define the path in Firebase Storage
     const filePath = `profile_pictures/${currentUser.uid}/${file.name}`;
     const fileRef = storageRef(storage, filePath);
-    
-    // Convert file to Data URL for upload
     const reader = new FileReader();
     const dataUrl = await new Promise<string>((resolve, reject) => {
         reader.onload = () => resolve(reader.result as string);
         reader.onerror = (error) => reject(error);
         reader.readAsDataURL(file);
     });
-
-    // Upload the file as a Data URL string
     await uploadString(fileRef, dataUrl, 'data_url');
-    
-    // Get the download URL
     const downloadURL = await getDownloadURL(fileRef);
-
-    // Update the user's profile in both Auth and Firestore
     await updateProfile(currentUser, { photoURL: downloadURL });
     const userDocRef = doc(db, 'users', currentUser.uid);
     await updateDoc(userDocRef, { photoURL: downloadURL });
-  
     setUserProfile(prev => prev ? { ...prev, photoURL: downloadURL } : null);
     await currentUser.reload();
     setCurrentUser(auth.currentUser);
-  
     return downloadURL;
   };
 
   const changePasswordFunc = async (currentPass: string, newPass: string) => {
     if (!currentUser || !currentUser.email) throw new Error("No hay un usuario autenticado o falta el correo electrónico.");
-    
     try {
       const credential = EmailAuthProvider.credential(currentUser.email, currentPass);
       await reauthenticateWithCredential(currentUser, credential);
@@ -214,14 +202,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const deleteAccountFunc = async (currentPass: string) => {
     if (!currentUser || !currentUser.email) throw new Error("No hay un usuario autenticado.");
-
     try {
         const credential = EmailAuthProvider.credential(currentUser.email, currentPass);
         await reauthenticateWithCredential(currentUser, credential);
-        
         const userDocRef = doc(db, 'users', currentUser.uid);
         await deleteDoc(userDocRef);
-        
         await deleteUser(currentUser);
     } catch (error: any) {
         if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {

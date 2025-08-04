@@ -10,9 +10,10 @@ import { Step5Results } from '@/components/rca/Step5Results';
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { db, storage } from '@/lib/firebase';
-import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, updateDoc, where, type QueryConstraint, arrayUnion, arrayRemove } from "firebase/firestore";
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
+import { getFirestore, initializeFirestore, memoryLocalCache, collection, getDocs, query, orderBy, doc, setDoc, getDoc, updateDoc, where, type QueryConstraint, arrayUnion, arrayRemove } from "firebase/firestore";
+import { getStorage, ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { Loader2 } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { sanitizeForFirestore } from '@/lib/utils';
@@ -23,6 +24,30 @@ import { useAuth } from '@/contexts/AuthContext';
 import { sendEmailAction } from '@/app/actions';
 import { format, parse, isValid, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+
+// =================================================================================
+// SOLUCIÓN DEFINITIVA: INICIALIZACIÓN DIRECTA DE FIREBASE
+// =================================================================================
+const firebaseConfig = {
+  apiKey: "POR_FAVOR_PEGA_AQUI_TU_API_KEY", // <--- PÉGALA AQUÍ
+  authDomain: "almacenador-cloud.firebaseapp.com",
+  projectId: "almacenador-cloud",
+  storageBucket: "almacenador-cloud.appspot.com",
+  messagingSenderId: "790911154631",
+  appId: "1:790911154631:web:91e2d71d8ccfbf058301e2",
+  measurementId: "G-R2NQTYM2GX"
+};
+
+let app: FirebaseApp;
+if (!getApps().length) {
+  app = initializeApp(firebaseConfig);
+} else {
+  app = getApp();
+}
+
+const db = initializeFirestore(app, { localCache: memoryLocalCache() });
+const storage = getStorage(app);
+// =================================================================================
 
 export const dynamic = 'force-dynamic';
 
@@ -1105,7 +1130,7 @@ function RCAAnalysisPageComponent() {
   };
 
   const handleAddPreservedFact = async (
-    newFact: PreservedFact
+    fact: PreservedFact
   ): Promise<boolean> => {
     try {
       let currentAnalysisId = analysisDocumentId;
@@ -1119,11 +1144,11 @@ function RCAAnalysisPageComponent() {
 
       const rcaDocRef = doc(db, 'rcaAnalyses', currentAnalysisId!);
       await updateDoc(rcaDocRef, {
-        preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
+        preservedFacts: arrayUnion(sanitizeForFirestore(fact)),
         updatedAt: new Date().toISOString()
       });
       
-      setPreservedFacts(prev => [...prev, newFact]);
+      setPreservedFacts(prev => [...prev, fact]);
       return true;
     } catch (error) {
       console.error("Error in handleAddPreservedFact:", error);
@@ -1508,12 +1533,13 @@ function RCAAnalysisPageComponent() {
           investigationSessions={investigationSessions}
           onSetInvestigationSessions={setInvestigationSessions}
           preservedFacts={preservedFacts}
-          onAddPreservedFact={handleAddPreservedFact}
+          analysisId={analysisDocumentId}
+          onAnalysisSaveRequired={() => handleSaveAnalysisData(false).then(res => res.newEventId || analysisDocumentId)}
+          onAddFact={handleAddPreservedFact}
           onRemovePreservedFact={handleRemovePreservedFact}
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
           isSaving={isSaving}
-          analysisId={analysisDocumentId}
           activeTab={factsTab}
           onTabChange={setFactsTab}
         />
