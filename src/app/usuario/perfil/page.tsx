@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -146,7 +147,7 @@ export default function PerfilPage() {
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/png, image/jpeg" className="hidden" />
                 <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
                   {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UploadCloud className="mr-2 h-4 w-4" />}
-                  {isUploading ? 'Subiendo...' : 'Cambiar Foto de Perfil'}
+                  {isUploading ? 'Subiendo...' : 'Cambiar Foto'}
                 </Button>
               </div>
               <form onSubmit={handleSubmitProfile(onProfileSubmit)} className="space-y-4">

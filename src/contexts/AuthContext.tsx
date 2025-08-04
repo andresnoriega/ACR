@@ -19,6 +19,9 @@ import { doc, setDoc, getDoc, collection, query, where, getDocs, limit, deleteDo
 import type { FullUserProfile } from '@/types/rca';
 import { sanitizeForFirestore } from '@/lib/utils';
 import { sendEmailAction } from '@/app/actions';
+import { storage } from '@/lib/firebase';
+import { ref as storageRef, uploadString, getDownloadURL } from "firebase/storage";
+
 
 interface AuthContextType {
   currentUser: FirebaseUser | null;
@@ -60,52 +63,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const userDocRef = doc(db, 'users', user.uid);
         try {
           const docSnap = await getDoc(userDocRef);
-
           if (docSnap.exists()) {
             setUserProfile({ id: docSnap.id, ...docSnap.data() } as FullUserProfile);
           } else {
-            console.warn(`No profile found for UID ${user.uid}. The user may need to be re-registered or manually fixed in Firestore.`);
-            
-            const isFirstUserInSystem = async () => {
-              const usersCollectionRef = collection(db, "users");
-              const q = query(usersCollectionRef, limit(1));
-              const snapshot = await getDocs(q);
-              return snapshot.empty;
+            // This case handles users that were created in Auth but their Firestore doc creation failed.
+            // It's a fallback to prevent a broken state.
+            console.warn(`No profile found for UID ${user.uid}. Attempting to create a pending profile.`);
+            const pendingProfile: Omit<FullUserProfile, 'id'> = {
+              name: user.displayName || 'Usuario (Pendiente)',
+              email: user.email!,
+              role: 'Usuario Pendiente',
+              permissionLevel: '',
+              photoURL: user.photoURL || '',
+              emailNotifications: true,
             };
-
-            const isFirst = await isFirstUserInSystem();
-            
-            if (isFirst) {
-              const newUserProfileData: Omit<FullUserProfile, 'id'> = {
-                name: user.displayName || "Usuario sin nombre",
-                email: user.email || "no-email@error.com",
-                role: 'Super User',
-                permissionLevel: 'Total',
-                assignedSites: '',
-                emailNotifications: true,
-                empresa: '',
-                photoURL: user.photoURL || '',
-              };
-              await setDoc(userDocRef, sanitizeForFirestore(newUserProfileData));
-              setUserProfile({ id: user.uid, ...newUserProfileData });
-            } else {
-              // If not the first user and no profile exists, create a pending one.
-              // This can happen if registration was interrupted.
-              const pendingProfile: Omit<FullUserProfile, 'id'> = {
-                name: user.displayName || 'Usuario',
-                email: user.email!,
-                role: 'Usuario Pendiente',
-                permissionLevel: '',
-                photoURL: user.photoURL || '',
-                emailNotifications: true,
-              };
-              await setDoc(userDocRef, sanitizeForFirestore(pendingProfile));
-              setUserProfile({ id: user.uid, ...pendingProfile });
-            }
+            await setDoc(userDocRef, sanitizeForFirestore(pendingProfile));
+            setUserProfile({ id: user.uid, ...pendingProfile });
           }
         } catch (error) {
           console.error(`[AuthContext] Critical error fetching profile for UID ${user.uid}:`, error);
+          // If fetching fails, it's better to log out the user to avoid an inconsistent state
+          await signOut(auth);
           setUserProfile(null);
+          setCurrentUser(null);
         }
       } else {
         setCurrentUser(null);
@@ -122,10 +102,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   
   const registerWithEmail = async (email: string, pass: string, name: string) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-    await updateProfile(userCredential.user, { displayName: name });
+    const user = userCredential.user;
+    await updateProfile(user, { displayName: name });
   
+    // Check if this is the very first user in the system
     const usersCollectionRef = collection(db, "users");
-    // Check if any user document exists AT ALL
     const q = query(usersCollectionRef, limit(1));
     const snapshot = await getDocs(q);
     const isFirstUser = snapshot.empty;
@@ -141,11 +122,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       assignedSites: '',
       emailNotifications: true,
       empresa: '',
-      photoURL: userCredential.user.photoURL || '',
+      photoURL: user.photoURL || '',
     };
   
-    const userDocRef = doc(db, 'users', userCredential.user.uid);
-    // This is the critical step that was failing before.
+    const userDocRef = doc(db, 'users', user.uid);
     await setDoc(userDocRef, sanitizeForFirestore(newUserProfileData));
     
     // Notify admin only if it's NOT the first user.
@@ -154,12 +134,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const emailSubject = `Nuevo Usuario Pendiente de Aprobación: ${newUserProfileData.name}`;
         const emailBody = `Hola,\n\nUn nuevo usuario se ha registrado y está pendiente de aprobación:\n\nNombre: ${newUserProfileData.name}\nCorreo: ${newUserProfileData.email}\n\nPor favor, revise la lista de usuarios en la sección de Configuración para aprobar esta cuenta.\n\nSaludos,\nSistema Asistente ACR`;
         
-        await sendEmailAction({ 
-          to: 'contacto@damc.cl', // This should be a configurable admin email in a real app
-          subject: emailSubject, 
-          body: emailBody 
-        });
-
+        // This should be a configurable admin email in a real app, hardcoded for now
+        await sendEmailAction({ to: 'contacto@damc.cl', subject: emailSubject, body: emailBody });
       } catch (notifyError) {
         console.error("[AuthContext] Failed to notify admins about new pending user:", notifyError);
       }
@@ -191,6 +167,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const updateUserProfilePictureFunc = async (file: File): Promise<string> => {
     if (!currentUser) throw new Error("No hay un usuario autenticado para actualizar.");
 
+    // Define the path in Firebase Storage
+    const filePath = `profile_pictures/${currentUser.uid}/${file.name}`;
+    const fileRef = storageRef(storage, filePath);
+    
+    // Convert file to Data URL for upload
     const reader = new FileReader();
     const dataUrl = await new Promise<string>((resolve, reject) => {
         reader.onload = () => resolve(reader.result as string);
@@ -198,16 +179,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         reader.readAsDataURL(file);
     });
 
-    const userDocRef = doc(db, 'users', currentUser.uid);
-    await updateDoc(userDocRef, { photoURL: dataUrl });
-  
-    setUserProfile(prev => prev ? { ...prev, photoURL: dataUrl } : null);
+    // Upload the file as a Data URL string
+    await uploadString(fileRef, dataUrl, 'data_url');
     
-    await updateProfile(currentUser, { photoURL: dataUrl });
+    // Get the download URL
+    const downloadURL = await getDownloadURL(fileRef);
+
+    // Update the user's profile in both Auth and Firestore
+    await updateProfile(currentUser, { photoURL: downloadURL });
+    const userDocRef = doc(db, 'users', currentUser.uid);
+    await updateDoc(userDocRef, { photoURL: downloadURL });
+  
+    setUserProfile(prev => prev ? { ...prev, photoURL: downloadURL } : null);
     await currentUser.reload();
     setCurrentUser(auth.currentUser);
   
-    return dataUrl;
+    return downloadURL;
   };
 
   const changePasswordFunc = async (currentPass: string, newPass: string) => {
