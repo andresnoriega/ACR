@@ -90,7 +90,7 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
   };
 
 
-  const handleUploadSuccess = async (uploadedFile: UploadedFile) => {
+  const handleUploadSuccess = async (uploadedFile: UploadedFile, file: File) => {
     setIsLoading(true);
     let currentAnalysisId = analysisId;
     
@@ -112,10 +112,10 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
 
     const newFact: PreservedFact = {
       id: `fact-${Date.now()}`,
-      userGivenName: uploadedFile.name,
-      nombre: uploadedFile.name,
-      size: uploadedFile.size,
-      tipo: uploadedFile.type,
+      userGivenName: file.name,
+      nombre: file.name,
+      size: file.size,
+      tipo: file.type,
       downloadURL: uploadedFile.url,
       storagePath: uploadedFile.fullPath,
       uploadDate: uploadedFile.uploadedAt,
@@ -192,10 +192,16 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
       <Card>
         <CardHeader>
           <CardTitle>Subir Nuevo Hecho Preservado</CardTitle>
-          <CardDescription>Suba un archivo (imagen, documento, etc.) para preservarlo como evidencia. Límite recomendado: 5-10 MB.</CardDescription>
+          <CardDescription>
+            Suba archivos (imágenes, documentos, etc.) para preservarlos como evidencia.
+            El límite recomendado es de 5-10 MB por archivo para asegurar un buen rendimiento.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <FileUploader onUploadSuccess={handleUploadSuccess} />
+          <FileUploader 
+            onUploadSuccess={handleUploadSuccess} 
+            storagePathPrefix={analysisId ? `preserved_facts/${analysisId}` : 'preserved_facts/unassigned'}
+            />
         </CardContent>
       </Card>
       
@@ -300,5 +306,3 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
 };
 
 export default PreservedFactsManager;
-
-    

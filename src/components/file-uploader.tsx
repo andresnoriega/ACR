@@ -1,7 +1,6 @@
 
 "use client";
 import { useState, useCallback, useRef } from 'react';
-import { useDropzone, type DropzoneState } from 'react-dropzone';
 import { storage } from '@/lib/firebase';
 import { ref, uploadBytesResumable, getDownloadURL, getMetadata } from 'firebase/storage';
 import { Loader2, UploadCloud, File as FileIcon } from 'lucide-react';
@@ -12,10 +11,11 @@ import { Button } from '@/components/ui/button';
 import type { UploadedFile } from '@/app/page';
 
 interface FileUploaderProps {
-  onUploadSuccess: (UploadedFile) => void;
+  onUploadSuccess: (uploadedFile: UploadedFile, originalFile: File) => void;
+  storagePathPrefix?: string;
 }
 
-export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
+export default function FileUploader({ onUploadSuccess, storagePathPrefix = 'uploads' }: FileUploaderProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -62,7 +62,7 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
     setStatusText("Preparando para subir...");
     
     // Use the filename directly to allow for replacement
-    const storagePath = `uploads/${Date.now()}-${file.name}`;
+    const storagePath = `${storagePathPrefix}/${Date.now()}-${file.name}`;
     const fileStorageRef = ref(storage, storagePath);
     const uploadTask = uploadBytesResumable(fileStorageRef, file);
 
@@ -119,7 +119,7 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
             uploadedAt: finalMetadata.timeCreated,
           };
 
-          onUploadSuccess(newFile);
+          onUploadSuccess(newFile, file);
 
           setStatusText("✅ ¡Éxito! Archivo subido.");
           toast({
