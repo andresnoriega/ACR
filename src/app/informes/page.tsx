@@ -329,25 +329,6 @@ export default function InformesPage() {
         </CardContent>
       </Card>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle>Gráfico Estado de Análisis de Causa Raíz</CardTitle>
-          </CardHeader>
-          <CardContent>
-             <p className="text-center text-muted-foreground py-10">Visualización de gráfico en desarrollo.</p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle>Gráfico Estado de Acciones Correctivas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-center text-muted-foreground py-10">Visualización de gráfico en desarrollo.</p>
-          </CardContent>
-        </Card>
-      </div>
-
       <Card>
         <CardHeader>
           <CardTitle>Resumen de Causas Raíz Identificadas</CardTitle>
@@ -432,4 +413,3 @@ export default function InformesPage() {
     </div>
   );
 }
-
