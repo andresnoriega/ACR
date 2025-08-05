@@ -247,7 +247,6 @@ export default function UserActionPlansPage() {
       
       // Populate Efficacy Verification Tasks
       if (
-        rcaDoc.isFinalized &&
         rcaDoc.efficacyVerification?.status === 'pending' &&
         rcaDoc.efficacyVerification?.verificationDate &&
         rcaDoc.efficacyVerification?.verifiedBy === userProfile.name
