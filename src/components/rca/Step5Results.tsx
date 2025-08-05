@@ -636,11 +636,12 @@ export const Step5Results: FC<Step5ResultsProps> = ({
             </SectionContent>
           </section>
           <Separator className="my-4" />
-          
-           <section>
-            <SectionTitle title="Anexos (Hechos Preservados)" icon={FileArchive} />
+
+          <section>
+            <SectionTitle title="Anexos" icon={FileArchive} />
             <SectionContent>
-            {preservedFacts && preservedFacts.length > 0 ? (
+              <h4 className="font-semibold text-md mb-2">Hechos Preservados</h4>
+              {preservedFacts && preservedFacts.length > 0 ? (
                 <ul className="list-none pl-0 space-y-2">
                 {preservedFacts.map((fact) => (
                     <li key={fact.id} className="flex items-center justify-between text-sm p-2 border rounded-md bg-muted/30">
@@ -659,11 +660,12 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                     </li>
                 ))}
                 </ul>
-            ) : (
+              ) : (
                 <p>No hay hechos preservados adjuntos a este análisis.</p>
-            )}
+              )}
             </SectionContent>
           </section>
+
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row justify-center items-center gap-3 mt-6 pt-4 border-t no-print">
           <Button onClick={onPrintReport} variant="default" className="w-full sm:w-auto" disabled={isBusy}>
