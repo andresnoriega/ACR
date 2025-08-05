@@ -640,29 +640,49 @@ export const Step5Results: FC<Step5ResultsProps> = ({
           <section>
             <SectionTitle title="Anexos" icon={FileArchive} />
             <SectionContent>
-              <h4 className="font-semibold text-md mb-2">Hechos Preservados</h4>
-              {preservedFacts && preservedFacts.length > 0 ? (
-                <ul className="list-none pl-0 space-y-2">
-                {preservedFacts.map((fact) => (
-                    <li key={fact.id} className="flex items-center justify-between text-sm p-2 border rounded-md bg-muted/30">
-                        <div className="flex items-center">
-                            {getEvidenceIconLocal(fact.tipo)}
-                            <div className="flex flex-col">
-                                <span className="font-medium">{fact.userGivenName}</span>
-                                <span className="text-xs text-muted-foreground">{fact.category}: {fact.comment}</span>
+                <h4 className="font-semibold text-md mb-2">Equipo de Investigación</h4>
+                {investigationSessions && investigationSessions.length > 0 ? (
+                  <div className="space-y-3">
+                    {investigationSessions.map((session, index) => (
+                      <div key={session.id}>
+                        <p className="font-medium text-primary/90">Sesión #{index + 1} - Fecha: {session.sessionDate ? format(parseISO(session.sessionDate), "dd/MM/yyyy") : 'N/A'}</p>
+                        <ul className="list-disc pl-5 mt-1 text-xs">
+                          {session.members.map(member => (
+                            <li key={member.id}>
+                              {member.name} - {member.position} ({member.site}) - Rol: {member.role}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p>No se registraron sesiones del equipo de investigación.</p>
+                )}
+
+                <h4 className="font-semibold text-md mb-2 mt-4">Hechos Preservados</h4>
+                {preservedFacts && preservedFacts.length > 0 ? (
+                    <ul className="list-none pl-0 space-y-2">
+                    {preservedFacts.map((fact) => (
+                        <li key={fact.id} className="flex items-center justify-between text-sm p-2 border rounded-md bg-muted/30">
+                            <div className="flex items-center">
+                                {getEvidenceIconLocal(fact.tipo)}
+                                <div className="flex flex-col">
+                                    <span className="font-medium">{fact.userGivenName}</span>
+                                    <span className="text-xs text-muted-foreground">{fact.category}: {fact.comment}</span>
+                                </div>
                             </div>
-                        </div>
-                        <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
-                          <a href={fact.downloadURL} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="mr-1.5 h-3 w-3" />Ver/Descargar
-                          </a>
-                        </Button>
-                    </li>
-                ))}
-                </ul>
-              ) : (
-                <p>No hay hechos preservados adjuntos a este análisis.</p>
-              )}
+                            <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
+                              <a href={fact.downloadURL} target="_blank" rel="noopener noreferrer">
+                                  <ExternalLink className="mr-1.5 h-3 w-3" />Ver/Descargar
+                              </a>
+                            </Button>
+                        </li>
+                    ))}
+                    </ul>
+                ) : (
+                    <p>No hay hechos preservados adjuntos a este análisis.</p>
+                )}
             </SectionContent>
           </section>
 
