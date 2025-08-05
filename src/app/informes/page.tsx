@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
@@ -9,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from "@/hooks/use-toast";
 import type { ReportedEvent, ReportedEventType, PriorityType, Site, RCAAnalysisDocument, IdentifiedRootCause } from '@/types/rca';
-import { ListOrdered, PieChart, BarChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, Loader2, FileDown } from 'lucide-react';
+import { ListOrdered, PieChart, BarChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, Loader2, FileDown, History } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, where, type QueryConstraint } from "firebase/firestore";
 import { useAuth } from '@/contexts/AuthContext';
@@ -166,11 +165,11 @@ export default function InformesPage() {
 
     const allActions = dataSet.flatMap(doc => doc.plannedActions || []);
     const totalAcciones = allActions.length;
-    const accionesPendientes = allActions.filter(a => {
+    const accionesValidadas = allActions.filter(a => {
         const validation = dataSet.find(d => d.eventData.id === a.eventId)?.validations.find(v => v.actionId === a.id);
-        return !validation || validation.status === 'pending' || validation.status === 'rejected';
+        return validation?.status === 'validated';
     }).length;
-    const accionesValidadas = totalAcciones - accionesPendientes;
+    const accionesPendientes = totalAcciones - accionesValidadas;
     const cumplimientoAcciones = totalAcciones > 0 ? (accionesValidadas / totalAcciones) * 100 : 0;
 
     return { total, pendientes, finalizados, verificados, cumplimiento, totalAcciones, accionesPendientes, accionesValidadas, cumplimientoAcciones };
@@ -326,6 +325,18 @@ export default function InformesPage() {
           <div className="p-3 bg-green-400/10 rounded-lg text-center"><p className="text-2xl font-bold">{summaryData.finalizados}</p><p className="text-xs text-muted-foreground">ACR Finalizados</p></div>
           <div className="p-3 bg-blue-400/10 rounded-lg text-center"><p className="text-2xl font-bold">{summaryData.verificados}</p><p className="text-xs text-muted-foreground">ACR Verificados</p></div>
           <div className="p-3 bg-primary/10 rounded-lg text-center"><p className="text-2xl font-bold">{summaryData.cumplimiento.toFixed(1)}%</p><p className="text-xs text-muted-foreground">Cumplimiento ACR</p></div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center"><History className="mr-2 h-5 w-5" />Resumen de Acciones Correctivas</CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="p-3 bg-secondary/40 rounded-lg text-center"><p className="text-2xl font-bold">{summaryData.totalAcciones}</p><p className="text-xs text-muted-foreground">Total de Acciones</p></div>
+          <div className="p-3 bg-yellow-400/10 rounded-lg text-center"><p className="text-2xl font-bold text-yellow-600">{summaryData.accionesPendientes}</p><p className="text-xs text-muted-foreground">Acciones Pendientes</p></div>
+          <div className="p-3 bg-green-400/10 rounded-lg text-center"><p className="text-2xl font-bold text-green-600">{summaryData.accionesValidadas}</p><p className="text-xs text-muted-foreground">Acciones Validadas</p></div>
+          <div className="p-3 bg-blue-400/10 rounded-lg text-center"><p className="text-2xl font-bold text-blue-600">{summaryData.cumplimientoAcciones.toFixed(1)}%</p><p className="text-xs text-muted-foreground">Cumplimiento</p></div>
         </CardContent>
       </Card>
       
