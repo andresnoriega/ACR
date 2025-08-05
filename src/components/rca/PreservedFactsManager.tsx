@@ -86,10 +86,11 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
 
     setIsProcessing(true);
 
+    // --- CRITICAL CHANGE: Ensure analysisId exists BEFORE uploading ---
     let currentAnalysisId = analysisId;
     if (!currentAnalysisId) {
       setStatusText("Guardando análisis para obtener ID...");
-      currentAnalysisId = await onAnalysisSaveRequired();
+      currentAnalysisId = await onAnalysisSaveRequired(); // This now waits for the ID
     }
     
     if (!currentAnalysisId) {
@@ -98,7 +99,7 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
       return;
     }
     
-    const filePath = `uploads/${Date.now()}-${selectedFile.name}`;
+    const filePath = `uploads/${currentAnalysisId}/${Date.now()}-${selectedFile.name}`;
     const fileStorageRef = storageRef(storage, filePath);
     const uploadTask = uploadBytesResumable(fileStorageRef, selectedFile);
 
