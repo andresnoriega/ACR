@@ -208,29 +208,29 @@ const EventosPorSitioYEquipoChart: FC<{ data: RCAAnalysisDocument[] }> = ({ data
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
-          <BarChart data={chartData} layout="horizontal">
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" type="category" tick={{ fontSize: 12 }} interval={0} />
-            <YAxis dataKey="Eventos" type="number" allowDecimals={false} />
-            <ChartTooltip
-                cursor={false}
-                content={
-                <ChartTooltipContent
-                    labelFormatter={(label) => chartData.find((d) => d.name === label)?.name || label}
-                    formatter={(value) => `${value} Eventos`}
-                    hideIndicator
-                />
-                }
-            />
-            <Legend />
-            <Bar 
-              dataKey="Eventos" 
-              fill="var(--color-Eventos)"
-              radius={4} 
-              onClick={(payload) => handleBarClick(payload)}
-              cursor={drilldownLevel === 'sitio' ? 'pointer' : 'default'}
-            />
-          </BarChart>
+            <BarChart data={chartData} layout="horizontal">
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" type="category" tick={{ fontSize: 12 }} interval={0} />
+              <YAxis dataKey="Eventos" type="number" allowDecimals={false} />
+              <ChartTooltip
+                  cursor={false}
+                  content={
+                  <ChartTooltipContent
+                      labelFormatter={(label) => chartData.find((d) => d.name === label)?.name || label}
+                      formatter={(value) => `${value} Eventos`}
+                      hideIndicator
+                  />
+                  }
+              />
+              <Legend />
+              <Bar 
+                dataKey="Eventos" 
+                fill="var(--color-Eventos)"
+                radius={4} 
+                onClick={(payload) => handleBarClick(payload)}
+                cursor={drilldownLevel === 'sitio' ? 'pointer' : 'default'}
+              />
+            </BarChart>
         </ChartContainer>
       </CardContent>
     </Card>
@@ -359,8 +359,8 @@ export default function InformesPage() {
   const summaryData = useMemo(() => {
     const dataSet = filteredRcaDocs;
     const total = dataSet.length;
-    const pendientes = dataSet.filter(e => !e.isFinalized && e.rejectionDetails === undefined).length;
-    const finalizados = dataSet.filter(e => e.isFinalized && e.rejectionDetails === undefined).length;
+    const pendientes = dataSet.filter(e => !e.isFinalized && !e.rejectionDetails).length;
+    const finalizados = dataSet.filter(e => e.isFinalized && !e.rejectionDetails).length;
     const verificados = dataSet.filter(e => e.efficacyVerification?.status === 'verified').length;
     const cumplimiento = total > 0 ? (verificados / total) * 100 : 0;
 
