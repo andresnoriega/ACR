@@ -193,7 +193,7 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
       <Card>
         <CardHeader>
           <CardTitle>Subir Nuevo Hecho Preservado</CardTitle>
-          <CardDescription>Suba un archivo (imagen, documento, etc.) para preservarlo como evidencia.</CardDescription>
+          <CardDescription>Suba un archivo (imagen, documento, etc.) para preservarlo como evidencia. Límite recomendado: 5-10 MB.</CardDescription>
         </CardHeader>
         <CardContent>
           <FileUploader onUploadSuccess={handleUploadSuccess} />
@@ -222,7 +222,7 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
                         className={cn(
                           "transition-colors",
                           editingRowId === fact.id ? "bg-yellow-50 dark:bg-yellow-900/20" : 
-                          (!fact.category || !fact.comment?.trim()) ? "bg-red-50 dark:bg-red-900/20" : "bg-green-50 dark:bg-green-900/20"
+                          (fact.category && fact.comment?.trim()) ? "bg-green-50 dark:bg-green-900/20" : "bg-red-50 dark:bg-red-900/20"
                         )}
                       >
                         <TableCell>
@@ -301,3 +301,5 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
 };
 
 export default PreservedFactsManager;
+
+    
