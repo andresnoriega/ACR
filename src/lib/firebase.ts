@@ -6,10 +6,10 @@ import { getStorage } from "firebase/storage";
 
 // =================================================================================
 // SOLUCIÓN DEFINITIVA: Configuración de Firebase Codificada Directamente
-// Se elimina la dependencia de variables de entorno para garantizar la conexión.
+// Se usa la configuración verificada para garantizar la conexión.
 // =================================================================================
 const firebaseConfig = {
-  apiKey: "AIzaSyDPfL1Jrh1SGF0x863C9cqOa-Yn9oJcMZU", // Clave codificada directamente.
+  apiKey: "AIzaSyDPfL1Jrh1SGF0x863C9cqOa-Yn9oJcMZU",
   authDomain: "almacenador-cloud.firebaseapp.com",
   projectId: "almacenador-cloud",
   storageBucket: "almacenador-cloud.appspot.com",
@@ -20,6 +20,7 @@ const firebaseConfig = {
 
 let app: FirebaseApp;
 
+// Evitar reinicializar la app
 if (!getApps().length) {
   app = initializeApp(firebaseConfig);
 } else {
