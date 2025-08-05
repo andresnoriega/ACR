@@ -28,6 +28,15 @@ const appHasAllConfig =
 
 let app: FirebaseApp;
 
+// Only log the warning on the client-side, where process.env.NODE_ENV is available.
+if (typeof window !== 'undefined' && !appHasAllConfig) {
+  console.warn(
+    'ADVERTENCIA: Faltan variables de configuración de Firebase en el entorno. ' +
+    'La aplicación no se puede inicializar correctamente. ' +
+    'Asegúrese de que la aplicación esté conectada a un backend de Firebase App Hosting y las variables de entorno estén configuradas.'
+  );
+}
+
 if (appHasAllConfig) {
   if (!getApps().length) {
     app = initializeApp(firebaseConfig);
@@ -35,16 +44,12 @@ if (appHasAllConfig) {
     app = getApp();
   }
 } else {
-  console.error(
-    'Faltan variables de configuración de Firebase en el entorno. ' +
-    'La aplicación no se puede inicializar correctamente. ' +
-    'Asegúrese de que la aplicación esté conectada a un backend de Firebase App Hosting.'
-  );
   // We don't initialize app if config is missing.
   // Services will fail, but the app might still build.
   // @ts-ignore
   app = {}; // Assign a dummy object to prevent further crashes on server-side rendering
 }
+
 
 // Se exportan las instancias de los servicios para ser usadas en la aplicación.
 // Si 'app' no se inicializó, estas funciones lanzarán un error, lo cual es esperado.
