@@ -48,7 +48,6 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
     const factToSave = preservedFacts.find(fact => fact.id === id);
     if (!factToSave) return;
 
-    // --- VALIDATION ADDED HERE ---
     if (!factToSave.category || !factToSave.comment?.trim()) {
         toast({
             title: "Campos Obligatorios",
@@ -57,7 +56,6 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
         });
         return;
     }
-    // --- END OF VALIDATION ---
 
     let currentAnalysisId = analysisId;
     if (!currentAnalysisId) {
@@ -76,14 +74,13 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
 
     try {
         const rcaDocRef = doc(db, "rcaAnalyses", currentAnalysisId);
-        // We update the entire array to ensure consistency
         await updateDoc(rcaDocRef, {
             preservedFacts: sanitizeForFirestore(preservedFacts),
             updatedAt: new Date().toISOString()
         });
         
         toast({ title: "Hecho Actualizado", description: "Se guardaron los cambios para el hecho preservado." });
-        setEditingRowId(null); // Mark as not editing after save
+        setEditingRowId(null);
     } catch (error: any) {
         console.error("Error updating fact in Firestore:", error);
         toast({ title: "Error al Guardar", description: "No se pudo actualizar la información del hecho.", variant: "destructive" });
@@ -97,7 +94,6 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
     setIsLoading(true);
     let currentAnalysisId = analysisId;
     
-    // Ensure we have an analysis ID to associate the file with.
     if (!currentAnalysisId) {
       currentAnalysisId = await onAnalysisSaveRequired();
     }
@@ -108,9 +104,8 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
         description: "No se pudo obtener un ID para el análisis. Guarde el progreso e intente de nuevo.",
         variant: "destructive"
       });
-      // Try to delete the orphaned file from storage
       const orphanRef = storageRef(storage, uploadedFile.fullPath);
-      await deleteObject(orphanRef);
+      await deleteObject(orphanRef).catch(err => console.error("Error deleting orphaned file:", err));
       setIsLoading(false);
       return;
     }
@@ -125,8 +120,8 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
       storagePath: uploadedFile.fullPath,
       uploadDate: uploadedFile.uploadedAt,
       tags: uploadedFile.tags,
-      category: '', // Initialize with empty category
-      comment: '', // Initialize with empty comment
+      category: '',
+      comment: '',
     };
     
     try {
@@ -151,39 +146,42 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
     }
   };
 
-  const handleRemoveFact = async (storagePath: string) => {
-    if (!analysisId) {
-      toast({ title: "Error", description: "ID del análisis no encontrado.", variant: "destructive" });
-      return;
-    }
-    const factToRemove = preservedFacts.find(fact => fact.storagePath === storagePath);
+  const handleRemoveFact = async (factId: string) => {
+    const factToRemove = preservedFacts.find(fact => fact.id === factId);
     if (!factToRemove) return;
     
+    let currentAnalysisId = analysisId;
+    if (!currentAnalysisId) {
+       toast({ title: "Error", description: "ID del análisis no encontrado para eliminar el hecho.", variant: "destructive" });
+       return;
+    }
+
     setIsLoading(true);
     
     try {
-      // Delete from storage
-      const fileRef = storageRef(storage, factToRemove.storagePath);
-      await deleteObject(fileRef);
+      if (factToRemove.storagePath) {
+        const fileRef = storageRef(storage, factToRemove.storagePath);
+        await deleteObject(fileRef).catch(err => {
+          if (err.code !== 'storage/object-not-found') {
+            console.warn("Could not delete file from Storage, but proceeding to remove DB reference:", err);
+          }
+        });
+      }
       
-      // Update local state first for responsiveness
-      const updatedFacts = preservedFacts.filter(fact => fact.storagePath !== storagePath);
-      setPreservedFacts(updatedFacts);
-      
-      // Update Firestore document with the new array
-      const rcaDocRef = doc(db, "rcaAnalyses", analysisId);
+      const updatedFacts = preservedFacts.filter(fact => fact.id !== factId);
+      const rcaDocRef = doc(db, "rcaAnalyses", currentAnalysisId);
       await updateDoc(rcaDocRef, {
           preservedFacts: sanitizeForFirestore(updatedFacts),
           updatedAt: new Date().toISOString()
       });
+
+      setPreservedFacts(updatedFacts);
       
       toast({ title: "Hecho Preservado Eliminado", variant: 'destructive' });
 
     } catch (error: any) {
       console.error("Error al eliminar hecho preservado:", error);
       toast({ title: "Error de Eliminación", description: `No se pudo eliminar el hecho: ${error.message}`, variant: "destructive" });
-      // Revert local state if Firestore update fails (optional)
-      setPreservedFacts(preservedFacts);
     } finally {
       setIsLoading(false);
     }
@@ -195,7 +193,7 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
       <Card>
         <CardHeader>
           <CardTitle>Subir Nuevo Hecho Preservado</CardTitle>
-          <CardDescription>Suba un archivo (imagen, documento, etc.) para preservarlo como evidencia. El tamaño máximo por archivo es de 700 KB.</CardDescription>
+          <CardDescription>Suba un archivo (imagen, documento, etc.) para preservarlo como evidencia.</CardDescription>
         </CardHeader>
         <CardContent>
           <FileUploader onUploadSuccess={handleUploadSuccess} />
@@ -223,7 +221,8 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
                         key={fact.id}
                         className={cn(
                           "transition-colors",
-                          editingRowId === fact.id ? "bg-yellow-50 dark:bg-yellow-900/20" : "bg-green-50 dark:bg-green-900/20"
+                          editingRowId === fact.id ? "bg-yellow-50 dark:bg-yellow-900/20" : 
+                          (!fact.category || !fact.comment?.trim()) ? "bg-red-50 dark:bg-red-900/20" : "bg-green-50 dark:bg-green-900/20"
                         )}
                       >
                         <TableCell>
@@ -273,7 +272,7 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
                             <Button
                                 size="icon"
                                 variant="ghost"
-                                onClick={() => fact.storagePath && handleRemoveFact(fact.storagePath)}
+                                onClick={() => handleRemoveFact(fact.id)}
                                 disabled={isLoading}
                                 className="h-8 w-8 hover:text-destructive"
                                 title="Eliminar hecho preservado"

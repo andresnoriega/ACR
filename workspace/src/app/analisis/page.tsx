@@ -1,6 +1,6 @@
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession } from '@/types/rca';
+import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
 import { Step2Facts } from '@/components/rca/Step2Facts';
@@ -76,10 +76,12 @@ const initialRCAAnalysisState: Omit<RCAAnalysisDocument, 'createdAt' | 'updatedA
   plannedActions: [],
   validations: [],
   finalComments: '',
+  leccionesAprendidas: '',
   isFinalized: false,
   rejectionDetails: undefined,
   createdBy: undefined,
   empresa: undefined,
+  efficacyVerification: { status: 'pending', verifiedBy: '', verifiedAt: '', comments: '', verificationDate: '' },
 };
 
 // Helper function to convert old 'cuando' string to datetime-local format
@@ -143,6 +145,7 @@ function RCAAnalysisPageComponent() {
   const { userProfile, loadingAuth } = useAuth(); 
 
   const [step, setStep] = useState(1);
+  const [factsTab, setFactsTab] = useState('facts');
   const [maxCompletedStep, setMaxCompletedStep] = useState(0);
   const [isLoadingPage, setIsLoadingPage] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -166,6 +169,7 @@ function RCAAnalysisPageComponent() {
   const [analysisDetails, setAnalysisDetails] = useState(initialRCAAnalysisState.analysisDetails);
   const [preservedFacts, setPreservedFacts] = useState<PreservedFact[]>(initialRCAAnalysisState.preservedFacts);
 
+
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>(initialRCAAnalysisState.timelineEvents || []);
   const [brainstormingIdeas, setBrainstormingIdeas] = useState<BrainstormIdea[]>(initialRCAAnalysisState.brainstormingIdeas || []);
   const [analysisTechnique, setAnalysisTechnique] = useState<AnalysisTechnique>(initialRCAAnalysisState.analysisTechnique);
@@ -180,7 +184,9 @@ function RCAAnalysisPageComponent() {
 
   const [validations, setValidations] = useState<Validation[]>(initialRCAAnalysisState.validations);
   const [finalComments, setFinalComments] = useState(initialRCAAnalysisState.finalComments);
+  const [leccionesAprendidas, setLeccionesAprendidas] = useState(initialRCAAnalysisState.leccionesAprendidas);
   const [isFinalized, setIsFinalized] = useState(initialRCAAnalysisState.isFinalized);
+  const [efficacyVerification, setEfficacyVerification] = useState<EfficacyVerification>(initialRCAAnalysisState.efficacyVerification);
   const [analysisDocumentId, setAnalysisDocumentId] = useState<string | null>(null);
   
   const [isRejectConfirmOpen, setIsRejectConfirmOpen] = useState(false);
@@ -290,7 +296,9 @@ function RCAAnalysisPageComponent() {
 
         setValidations(data.validations || []);
         setFinalComments(data.finalComments || '');
+        setLeccionesAprendidas(data.leccionesAprendidas || '');
         setIsFinalized(data.isFinalized || false);
+        setEfficacyVerification(data.efficacyVerification || { status: 'pending', verifiedBy: '', verifiedAt: '', comments: '', verificationDate: '' });
         setRejectionDetails(data.rejectionDetails);
         setCreatedBy(data.createdBy);
         setAnalysisDocumentId(id);
@@ -303,9 +311,18 @@ function RCAAnalysisPageComponent() {
         const isIshikawaPopulated = data.ishikawaData?.some(cat => cat.causes.length > 0);
         const is5WhysPopulated = data.fiveWhysData?.length > 0 && data.fiveWhysData[0] && data.fiveWhysData[0].becauses && data.fiveWhysData[0].becauses.some(b => b.description.trim() !== '');
         const isCtmPopulated = data.ctmData?.some(fm => fm.hypotheses.length > 0);
-        const hasStep3Content = data.identifiedRootCauses?.length > 0 || isIshikawaPopulated || is5WhysPopulated || isCtmPopulated;
+        const hasAnalysisContent = data.identifiedRootCauses?.length > 0 || isIshikawaPopulated || is5WhysPopulated || isCtmPopulated;
         
-        setMaxCompletedStep(prevMax => Math.max(prevMax, data.isFinalized ? 5 : (data.validations?.length > 0 && data.plannedActions?.every(pa => data.validations.find(v => v.actionId === pa.id)?.status === 'validated') ? 4 : (hasStep3Content ? 3 : (data.projectLeader ? 2 : 1)))));
+        const hasFactsContent = Object.values(data.detailedFacts).some(v => v?.trim());
+        const hasTasksContent = !!data.timelineEvents?.length || !!data.brainstormingIdeas?.length || !!data.projectLeader?.trim();
+        
+        let newMaxCompletedStep = 1;
+        if(hasFactsContent) newMaxCompletedStep = 2;
+        if(hasAnalysisContent) newMaxCompletedStep = 3;
+        if(data.validations?.length > 0 && data.plannedActions?.every(pa => data.validations.find(v => v.actionId === pa.id)?.status === 'validated')) newMaxCompletedStep = 4;
+        if(data.isFinalized) newMaxCompletedStep = 5;
+
+        setMaxCompletedStep(prevMax => Math.max(prevMax, newMaxCompletedStep));
 
         return true;
       } else {
@@ -332,13 +349,15 @@ function RCAAnalysisPageComponent() {
             setPlannedActionCounter(1);
             setValidations(initialRCAAnalysisState.validations);
             setFinalComments(initialRCAAnalysisState.finalComments);
+            setLeccionesAprendidas(initialRCAAnalysisState.leccionesAprendidas);
             setIsFinalized(initialRCAAnalysisState.isFinalized);
+            setEfficacyVerification(initialRCAAnalysisState.efficacyVerification);
             setRejectionDetails(initialRCAAnalysisState.rejectionDetails);
             setCreatedBy(initialRCAAnalysisState.createdBy);
             setCurrentEventStatus('Pendiente');
-            setAnalysisDocumentId(null);
-            setMaxCompletedStep(0);
-            lastLoadedAnalysisIdRef.current = null;
+            setAnalysisDocumentId(null); 
+            setMaxCompletedStep(0); 
+            lastLoadedAnalysisIdRef.current = null; 
             router.replace('/analisis', { scroll: false });
         }
         return false;
@@ -367,7 +386,9 @@ function RCAAnalysisPageComponent() {
         setPlannedActionCounter(1);
         setValidations(initialRCAAnalysisState.validations);
         setFinalComments(initialRCAAnalysisState.finalComments);
+        setLeccionesAprendidas(initialRCAAnalysisState.leccionesAprendidas);
         setIsFinalized(initialRCAAnalysisState.isFinalized);
+        setEfficacyVerification(initialRCAAnalysisState.efficacyVerification);
         setRejectionDetails(initialRCAAnalysisState.rejectionDetails);
         setCreatedBy(initialRCAAnalysisState.createdBy);
         setCurrentEventStatus('Pendiente');
@@ -436,7 +457,9 @@ function RCAAnalysisPageComponent() {
             setPlannedActionCounter(1);
             setValidations(initialRCAAnalysisState.validations);
             setFinalComments(initialRCAAnalysisState.finalComments);
+            setLeccionesAprendidas(initialRCAAnalysisState.leccionesAprendidas);
             setIsFinalized(initialRCAAnalysisState.isFinalized);
+            setEfficacyVerification(initialRCAAnalysisState.efficacyVerification);
             setRejectionDetails(initialRCAAnalysisState.rejectionDetails);
             setCreatedBy(initialRCAAnalysisState.createdBy);
             setCurrentEventStatus('Pendiente');
@@ -494,6 +517,8 @@ function RCAAnalysisPageComponent() {
     };
     if (userProfile) { // Only fetch if user profile is loaded
       fetchConfigData();
+    } else { // If there's no user profile (e.g., on first load before auth resolves), we still need to stop loading
+      setConfigDataLoaded(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toast, userProfile]);
@@ -524,9 +549,10 @@ function RCAAnalysisPageComponent() {
       validationsOverride?: Validation[];
       plannedActionsOverride?: PlannedAction[];
       suppressNavigation?: boolean; 
+      efficacyVerificationOverride?: EfficacyVerification;
     }
-  ): Promise<{ success: boolean; newEventId?: string; needsNavigationUrl?: string }> => {
-    const { finalizedOverride, statusOverride, rejectionReason: currentRejectionReason, validationsOverride, plannedActionsOverride, suppressNavigation } = options || {};
+  ): Promise<{ success: boolean; newEventId?: string }> => {
+    const { finalizedOverride, statusOverride, rejectionReason: currentRejectionReason, validationsOverride, plannedActionsOverride, suppressNavigation, efficacyVerificationOverride } = options || {};
 
     let currentId = analysisDocumentId;
     let isNewEventCreation = false;
@@ -545,7 +571,6 @@ function RCAAnalysisPageComponent() {
     setIsSaving(true);
     const currentIsFinalized = finalizedOverride !== undefined ? finalizedOverride : isFinalized;
     
-    // Get company from selected site to denormalize data
     const siteInfo = availableSitesFromDB.find(s => s.name === eventData.place);
     const siteEmpresa = siteInfo?.empresa;
     const consistentEventData = { ...eventData, id: currentId, empresa: siteEmpresa };
@@ -557,7 +582,7 @@ function RCAAnalysisPageComponent() {
         rejectedBy: userProfile?.name || "Sistema",
         rejectedAt: new Date().toISOString(),
       };
-    } else if (statusOverride === "En análisis" || statusOverride === "Pendiente" || statusOverride === "Finalizado") {
+    } else if ( (statusOverride === "En análisis" || statusOverride === "Pendiente" || statusOverride === "Finalizado" || statusOverride === "Verificado") && currentRejectionDetailsToSave ) {
         currentRejectionDetailsToSave = undefined; 
     }
 
@@ -566,14 +591,18 @@ function RCAAnalysisPageComponent() {
       currentCreatedByState = userProfile.name;
       if (!createdBy) setCreatedBy(currentCreatedByState);
     }
+    
+    const currentEfficacyVerification = efficacyVerificationOverride || efficacyVerification;
+    let currentPlannedActions = (plannedActionsOverride !== undefined) ? plannedActionsOverride : plannedActions;
 
     const rcaDocPayload: Partial<RCAAnalysisDocument> = {
       eventData: consistentEventData, immediateActions, projectLeader, detailedFacts, investigationObjective, investigationSessions, analysisDetails,
       preservedFacts, timelineEvents, brainstormingIdeas, analysisTechnique, analysisTechniqueNotes, ishikawaData,
       fiveWhysData, ctmData, identifiedRootCauses, 
-      plannedActions: (plannedActionsOverride !== undefined) ? plannedActionsOverride : plannedActions,
+      plannedActions: currentPlannedActions,
       validations: (validationsOverride !== undefined) ? validationsOverride : validations,
-      finalComments, isFinalized: currentIsFinalized,
+      finalComments, isFinalized: currentIsFinalized, efficacyVerification: currentEfficacyVerification,
+      leccionesAprendidas,
       rejectionDetails: currentRejectionDetailsToSave,
       createdBy: currentCreatedByState,
       empresa: siteEmpresa,
@@ -591,8 +620,8 @@ function RCAAnalysisPageComponent() {
             baseRejectMsg += `\nMotivo: ${currentRejectionReason}`;
           }
           finalCommentsToSave = `${baseRejectMsg}${finalComments && !finalComments.startsWith('Evento Rechazado') ? `\n\nComentarios Adicionales Previos:\n${finalComments}` : ''}`;
-      } else if ( (statusOverride === "En análisis" || statusOverride === "Pendiente" || statusOverride === "Finalizado") && finalComments.startsWith("Evento Rechazado")) {
-           finalCommentsToSave = finalComments.split("\n\nComentarios Adicionales Previos:\n")[1] || "";
+      } else if ( (statusOverride === "En análisis" || statusOverride === "Pendiente" || statusOverride === "Finalizado" || statusOverride === "Verificado") && finalComments.startsWith("Evento Rechazado")) {
+            finalCommentsToSave = finalComments.split("\n\nComentarios Adicionales Previos:\n")[1] || "";
       }
 
       const dataToSave: RCAAnalysisDocument = {
@@ -608,9 +637,10 @@ function RCAAnalysisPageComponent() {
 
       if (finalCommentsToSave !== finalComments) setFinalComments(finalCommentsToSave);
       if (finalizedOverride !== undefined && isFinalized !== finalizedOverride) setIsFinalized(finalizedOverride);
+      if (efficacyVerificationOverride && efficacyVerification !== efficacyVerificationOverride) setEfficacyVerification(efficacyVerificationOverride);
       if (currentRejectionDetailsToSave !== rejectionDetails) setRejectionDetails(currentRejectionDetailsToSave);
       if (validationsOverride !== undefined && validationsOverride !== validations) setValidations(validationsOverride); 
-      if (plannedActionsOverride !== undefined && plannedActionsOverride !== plannedActions) setPlannedActions(plannedActionsOverride);
+      if (currentPlannedActions !== plannedActions) setPlannedActions(currentPlannedActions);
       if (dataToSave.createdBy && createdBy !== dataToSave.createdBy) setCreatedBy(dataToSave.createdBy);
       if(consistentEventData.id !== eventData.id) setEventData(consistentEventData);
 
@@ -618,14 +648,18 @@ function RCAAnalysisPageComponent() {
       const reportedEventRef = doc(db, "reportedEvents", currentId);
       const reportedEventSnap = await getDoc(reportedEventRef);
       let statusForReportedEvent: ReportedEventStatus;
+      
+      const latestRcaDoc = (await getDoc(rcaDocRef)).data() as RCAAnalysisDocument;
 
       if(statusOverride) {
         statusForReportedEvent = statusOverride;
+      } else if (currentEfficacyVerification.status === 'verified') {
+        statusForReportedEvent = 'Verificado';
       } else if (currentIsFinalized) {
         statusForReportedEvent = "Finalizado";
       } else if (reportedEventSnap.exists()) {
         statusForReportedEvent = reportedEventSnap.data().status;
-        const rcaData = sanitizedDataToSave;
+        const rcaData = latestRcaDoc;
         if (rcaData.plannedActions && rcaData.plannedActions.length > 0) {
             const allActionsValidatedInSave = rcaData.plannedActions.every(pa => {
                 const validationEntry = rcaData.validations.find(v => v.actionId === pa.id);
@@ -680,23 +714,18 @@ function RCAAnalysisPageComponent() {
         await updateDoc(reportedEventRef, sanitizeForFirestore(updatePayload));
       }
 
-      let navigationUrl: string | undefined = undefined;
-      if (isNewEventCreation) {
+      if (isNewEventCreation && !suppressNavigation) {
         const currentStep = step; 
         const targetUrl = `/analisis?id=${currentId}&step=${currentStep}`;
         lastLoadedAnalysisIdRef.current = currentId; 
-        if (!suppressNavigation) {
-          router.replace(targetUrl, { scroll: false });
-        } else {
-          navigationUrl = targetUrl;
-        }
+        router.replace(targetUrl, { scroll: false });
       }
 
 
       if (showToast) {
         toast({ title: "Progreso Guardado", description: `Análisis ${currentId} guardado. Evento reportado actualizado a estado: ${statusForReportedEvent}.` });
       }
-      return { success: true, newEventId: isNewEventCreation ? currentId : undefined, needsNavigationUrl: navigationUrl };
+      return { success: true, newEventId: isNewEventCreation ? currentId : undefined };
     } catch (error) {
       console.error("Error saving data to Firestore: ", error);
       if (isNewEventCreation) { 
@@ -711,35 +740,7 @@ function RCAAnalysisPageComponent() {
       setIsSaving(false);
     }
   };
-
-  const handleSaveFromStep2 = async (showToast: boolean = true) => {
-    const saveResult = await handleSaveAnalysisData(showToast); 
-    if (!saveResult.success) return;
-
-    const currentIdToUpdate = saveResult.newEventId || analysisDocumentId; 
-    if (currentIdToUpdate) {
-      setIsSaving(true);
-      try {
-        const reportedEventRef = doc(db, "reportedEvents", currentIdToUpdate);
-        const reportedEventSnap = await getDoc(reportedEventRef);
-        if (reportedEventSnap.exists() && reportedEventSnap.data().status === "Pendiente") {
-          await updateDoc(reportedEventRef, sanitizeForFirestore({ status: "En análisis", updatedAt: new Date().toISOString() }));
-          setCurrentEventStatus("En análisis"); 
-          if (showToast) {
-            toast({ title: "Estado Actualizado", description: `El evento ${currentIdToUpdate} ahora está "En análisis".` });
-          }
-        }
-      } catch (error) {
-        console.error("Error updating ReportedEvent status from Step 2: ", error);
-        if (showToast) {
-          toast({ title: "Error al Actualizar Estado", description: "No se pudo actualizar el estado del evento reportado.", variant: "destructive" });
-        }
-      } finally {
-        setIsSaving(false);
-      }
-    }
-  };
-
+  
   const handleApproveEvent = async () => {
     let currentId = analysisDocumentId;
     if (!currentId) { 
@@ -951,11 +952,9 @@ function RCAAnalysisPageComponent() {
     return { isValid: true };
   };
 
-
   const handleGoToStep = async (targetStep: number) => {
-    // If trying to go to step 4 or beyond, check if step 3 is valid first.
     if (targetStep >= 4 && !isStep3ValidForNavigation) {
-       toast({
+      toast({
         title: "Validación Requerida en Paso 3",
         description: "Asegúrese de que todas las causas raíz descritas estén abordadas por un plan de acción antes de continuar.",
         variant: "destructive",
@@ -964,7 +963,7 @@ function RCAAnalysisPageComponent() {
       return;
     }
 
-    if (targetStep > step && targetStep > maxCompletedStep + 1 && targetStep !== 1) {
+    if (targetStep > maxCompletedStep + 1 && targetStep !== 1) {
       return;
     }
 
@@ -980,39 +979,12 @@ function RCAAnalysisPageComponent() {
       }
     }
     
-    let currentIdToNavigate = analysisDocumentId;
-    let isNewEventForNav = false;
-    if (!currentIdToNavigate && targetStep > 1) { 
-        const newId = ensureEventId();
-        currentIdToNavigate = newId;
-        setAnalysisDocumentId(newId); 
-        isNewEventForNav = true;
-    }
-
-    if (isNewEventForNav && currentIdToNavigate) {
-       const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: false }); 
-       if (!saveResult.success) {
-         if (analysisDocumentId === currentIdToNavigate) setAnalysisDocumentId(null);
-         return; 
-       }
-    }
-
-
-    if (!isNewEventForNav || (isNewEventForNav && !currentIdToNavigate)) {
-      const navId = analysisDocumentId || eventData.id; 
-      if (navId) {
-         router.replace(`/analisis?id=${navId}&step=${targetStep}`, { scroll: false });
-      } else {
-         router.replace(`/analisis?step=${targetStep}`, { scroll: false }); 
-      }
-    }
-
-
     setStep(targetStep);
-    if (targetStep > maxCompletedStep && targetStep > step ) { 
-        setMaxCompletedStep(targetStep -1);
+    if (analysisDocumentId) {
+      router.replace(`/analisis?id=${analysisDocumentId}&step=${targetStep}`, { scroll: false });
     }
   };
+
 
   const handleNextStep = async () => {
     if (step === 1) {
@@ -1027,66 +999,60 @@ function RCAAnalysisPageComponent() {
       }
     }
     
-    let currentId = analysisDocumentId;
-    let isNewEventCreationForNext = false;
-    if (!currentId && step >= 1) { 
-        const newId = ensureEventId();
-        currentId = newId;
-        setAnalysisDocumentId(newId); 
-        isNewEventCreationForNext = true;
-    }
-    
-    let saveOutcome: { success: boolean; newEventId?: string; needsNavigationUrl?: string } = { success: false };
-    if (step === 1) {
-      saveOutcome = await handleSaveAnalysisData(false, { suppressNavigation: false });
-    } else if (step === 2) {
-      await handleSaveFromStep2(false); 
-      saveOutcome = { success: true };
-    } else if (step === 3) {
-       if (!isStep3ValidForNavigation) {
-         toast({
-            title: "Revisión Necesaria en Paso 3",
-            description: "Verifique que todas las causas raíz descritas estén abordadas por un plan de acción completo.",
+    if (step === 2) {
+        const missingFields = [];
+        if (!detailedFacts.como.trim()) missingFields.push("Hechos Detallados: CÓMO");
+        if (!detailedFacts.que.trim()) missingFields.push("Hechos Detallados: QUÉ");
+        if (!detailedFacts.donde.trim()) missingFields.push("Hechos Detallados: DÓNDE");
+        if (!detailedFacts.cuando.trim()) missingFields.push("Hechos Detallados: CUÁNDO");
+        if (!detailedFacts.cualCuanto.trim()) missingFields.push("Hechos Detallados: CUÁL/CUÁNTO");
+        if (!detailedFacts.quien.trim()) missingFields.push("Hechos Detallados: QUIÉN");
+        
+        if (missingFields.length > 0) {
+          toast({
+            title: "Campos Obligatorios Faltantes",
+            description: `Por favor, complete los siguientes campos del Paso 2: ${missingFields.join(', ')}.`,
             variant: "destructive",
-            duration: 7000
+            duration: 7000,
           });
+          return;
+        }
+    } else if (step === 3) {
+      if (!isStep3ValidForNavigation) {
+        toast({
+          title: "Revisión Necesaria en Paso 3",
+          description: "Verifique que todas las causas raíz descritas estén abordadas por un plan de acción completo.",
+          variant: "destructive",
+          duration: 7000,
+        });
         return;
       }
-      saveOutcome = await handleSaveAnalysisData(false);
     } else if (step === 4) {
-        if (plannedActions.length > 0) {
-            const allActionsDecided = plannedActions.every(pa => {
-                if (!pa || !pa.id) return true; 
-                const validationEntry = validations.find(v => v && v.actionId === pa.id);
-                return validationEntry && (validationEntry.status === 'validated' || validationEntry.status === 'rejected');
-            });
+      if (plannedActions.length > 0) {
+        const allActionsDecided = plannedActions.every(pa => {
+          if (!pa || !pa.id) return true; 
+          const validationEntry = validations.find(v => v && v.actionId === pa.id);
+          return validationEntry && (validationEntry.status === 'validated' || validationEntry.status === 'rejected');
+        });
 
-            if (!allActionsDecided) {
-                toast({
-                    title: "Acciones Pendientes de Decisión",
-                    description: "Todas las acciones planificadas deben estar validadas o rechazadas para continuar al Paso 5.",
-                    variant: "destructive",
-                });
-                return;
-            }
+        if (!allActionsDecided) {
+          toast({
+            title: "Acciones Pendientes de Decisión",
+            description: "Todas las acciones planificadas deben estar validadas o rechazadas para continuar al Paso 5.",
+            variant: "destructive",
+          });
+          return;
         }
-        saveOutcome = await handleSaveAnalysisData(false);
-    } else {
-      saveOutcome = { success: true }; 
-    }
-
-    if (saveOutcome.success) {
-      const newStep = Math.min(step + 1, 5);
-      const newMaxCompletedStep = Math.max(maxCompletedStep, step);
-      setStep(newStep);
-      setMaxCompletedStep(newMaxCompletedStep);
-      
-      const idForNav = saveOutcome.newEventId || analysisDocumentId || eventData.id;
-      if (idForNav && !saveOutcome.needsNavigationUrl && !isNewEventCreationForNext) { 
-         router.replace(`/analisis?id=${idForNav}&step=${newStep}`, { scroll: false });
-      } else if (idForNav && isNewEventCreationForNext && !saveOutcome.needsNavigationUrl){
-         router.replace(`/analisis?id=${idForNav}&step=${newStep}`, { scroll: false });
       }
+    }
+    
+    await handleSaveAnalysisData(false);
+
+    const newStep = Math.min(step + 1, 5);
+    setStep(newStep);
+    setMaxCompletedStep(Math.max(maxCompletedStep, step));
+    if (analysisDocumentId) {
+        router.replace(`/analisis?id=${analysisDocumentId}&step=${newStep}`, { scroll: false });
     }
   };
 
@@ -1133,103 +1099,6 @@ function RCAAnalysisPageComponent() {
   const onDetailedFactChange = (field: keyof DetailedFacts, value: string) => {
     setDetailedFacts(prev => ({ ...prev, [field]: value }));
   };
-
-  const handleAddPreservedFact = async (
-    factMetadata: Omit<PreservedFact, 'id' | 'uploadDate' | 'eventId' | 'downloadURL' | 'storagePath'>,
-    file: File | null
-  ) => {
-    setIsSaving(true);
-    try {
-      if (!file) {
-        throw new Error("No se seleccionó ningún archivo.");
-      }
-      
-      let currentEventId = analysisDocumentId;
-      if (!currentEventId) {
-        // First save creates the document and gives us an ID
-        const saveResult = await handleSaveAnalysisData(false, { suppressNavigation: true });
-        if (!saveResult.success || !saveResult.newEventId) {
-          throw new Error("No se pudo crear el documento de análisis antes de subir el archivo.");
-        }
-        currentEventId = saveResult.newEventId;
-      }
-
-      toast({ title: "Subiendo archivo...", description: `Subiendo ${file.name}, por favor espere.` });
-      const filePath = `preserved_facts/${currentEventId}/${Date.now()}-${file.name}`;
-      const fileStorageRef = storageRef(storage, filePath);
-      
-      const uploadResult = await uploadBytes(fileStorageRef, file);
-      const downloadURL = await getDownloadURL(uploadResult.ref);
-
-      const newFact: PreservedFact = {
-        ...factMetadata,
-        id: generateClientSideId('pf'),
-        uploadDate: new Date().toISOString(),
-        eventId: currentEventId,
-        downloadURL: downloadURL,
-        storagePath: uploadResult.ref.fullPath,
-      };
-
-      const rcaDocRef = doc(db, "rcaAnalyses", currentEventId!);
-      // Use an update operation to just add the new fact, which is more efficient.
-      await updateDoc(rcaDocRef, {
-        preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
-        updatedAt: new Date().toISOString()
-      });
-
-      // Update local state to match
-      setPreservedFacts(prev => [...prev, newFact]);
-      toast({ title: "Hecho Preservado Añadido", description: `Se añadió y subió "${newFact.userGivenName}".` });
-
-    } catch (error: any) {
-      console.error("Error detallado al subir hecho preservado:", error);
-      toast({ title: "Error al Subir", description: `No se pudo subir el archivo. Verifique la consola. Código: ${error.code || 'Desconocido'}`, variant: "destructive" });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-  
-  const handleRemovePreservedFact = async (id: string) => {
-    if (!analysisDocumentId) {
-      toast({ title: "Error", description: "ID del análisis no encontrado.", variant: "destructive" });
-      return;
-    }
-    const factToRemove = preservedFacts.find(fact => fact.id === id);
-    if (!factToRemove) return;
-
-    setIsSaving(true);
-    
-    // First, try to delete from storage if a path exists
-    if (factToRemove.storagePath) {
-      try {
-        const fileRef = storageRef(storage, factToRemove.storagePath);
-        await deleteObject(fileRef);
-        toast({ title: "Archivo Eliminado de Storage", variant: "default" });
-      } catch (error: any) {
-        if (error.code !== 'storage/object-not-found') {
-          console.error("Error deleting file from Storage:", error);
-          toast({ title: "Error al Eliminar Archivo", description: "No se pudo eliminar el archivo de Storage, pero se eliminará la referencia.", variant: "destructive" });
-        }
-      }
-    }
-    
-    // Then, remove from Firestore using arrayRemove and update local state
-    const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
-    try {
-      await updateDoc(rcaDocRef, {
-          preservedFacts: arrayRemove(sanitizeForFirestore(factToRemove)),
-          updatedAt: new Date().toISOString()
-      });
-      setPreservedFacts(prev => prev.filter(fact => fact.id !== id));
-      toast({ title: "Hecho Preservado Eliminado", description: "La referencia se eliminó exitosamente.", variant: 'destructive' });
-    } catch (error: any) {
-      console.error("Error al actualizar Firestore después de eliminar hecho:", error);
-      toast({ title: "Error de Sincronización", description: `No se pudo confirmar la eliminación en la base de datos: ${error.message}. Recargue la página.`, variant: 'destructive' });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
 
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);
@@ -1440,6 +1309,41 @@ function RCAAnalysisPageComponent() {
     setIsSaving(false);
   };
   
+  const handleVerifyEfficacy = async (comments: string) => {
+    const verificationData: EfficacyVerification = {
+      ...efficacyVerification,
+      status: 'verified',
+      comments,
+      verifiedAt: new Date().toISOString(),
+      verifiedBy: userProfile!.name,
+    };
+    const saveResult = await handleSaveAnalysisData(false, {
+      efficacyVerificationOverride: verificationData,
+      statusOverride: 'Verificado',
+    });
+    if(saveResult.success){
+        toast({ title: "Eficacia Verificada", description: "El análisis ha sido verificado con éxito." });
+    } else {
+        toast({ title: "Error", description: "No se pudo guardar la verificación de eficacia.", variant: "destructive" });
+    }
+  };
+
+  const handlePlanEfficacyVerification = async (responsible: string, verificationDate: string) => {
+    const verificationData: EfficacyVerification = {
+      ...efficacyVerification,
+      verifiedBy: responsible,
+      verificationDate: verificationDate,
+    };
+    const saveResult = await handleSaveAnalysisData(false, {
+      efficacyVerificationOverride: verificationData,
+    });
+    if(saveResult.success){
+        toast({ title: "Planificación Guardada", description: "Se ha guardado la planificación de la verificación." });
+    } else {
+        toast({ title: "Error", description: "No se pudo guardar la planificación.", variant: "destructive" });
+    }
+  };
+
 
   useEffect(() => {
     if (step > maxCompletedStep) {
@@ -1514,13 +1418,10 @@ function RCAAnalysisPageComponent() {
       <div className={step === 2 ? "" : "print:hidden"}>
       {step === 2 && (
         <Step2Facts
-          eventData={eventData}
-          availableSites={availableSitesFromDB}
-          projectLeader={projectLeader}
-          onProjectLeaderChange={handleProjectLeaderChange}
-          availableUsers={availableUsersFromDB}
           detailedFacts={detailedFacts}
           onDetailedFactChange={onDetailedFactChange}
+          projectLeader={projectLeader}
+          onProjectLeaderChange={handleProjectLeaderChange}
           investigationObjective={investigationObjective}
           onInvestigationObjectiveChange={setInvestigationObjective}
           investigationSessions={investigationSessions}
@@ -1528,12 +1429,16 @@ function RCAAnalysisPageComponent() {
           analysisDetails={analysisDetails}
           onAnalysisDetailsChange={setAnalysisDetails}
           preservedFacts={preservedFacts}
-          onAddPreservedFact={handleAddPreservedFact}
-          onRemovePreservedFact={handleRemovePreservedFact}
+          setPreservedFacts={setPreservedFacts}
+          onAnalysisSaveRequired={() => handleSaveAnalysisData(false).then(res => res.newEventId || analysisDocumentId)}
+          availableUsers={availableUsersFromDB}
+          availableSites={availableSitesFromDB}
+          isSaving={isSaving}
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
-          onSaveAnalysis={handleSaveFromStep2}
-          isSaving={isSaving}
+          analysisId={analysisDocumentId}
+          activeTab={factsTab}
+          onTabChange={setFactsTab}
         />
       )}
       </div>
@@ -1601,18 +1506,28 @@ function RCAAnalysisPageComponent() {
           analysisTechnique={analysisTechnique}
           analysisTechniqueNotes={analysisTechniqueNotes}
           ishikawaData={ishikawaData}
+          fiveWhysData={fiveWhysData}
           ctmData={ctmData}
+          timelineEvents={timelineEvents}
+          brainstormingIdeas={brainstormingIdeas}
           identifiedRootCauses={identifiedRootCauses}
           plannedActions={plannedActions}
           preservedFacts={preservedFacts}
           finalComments={finalComments}
           onFinalCommentsChange={setFinalComments}
+          leccionesAprendidas={leccionesAprendidas}
+          onLeccionesAprendidasChange={setLeccionesAprendidas}
           onPrintReport={handlePrintReport}
           availableUsers={availableUsersFromDB}
           isFinalized={isFinalized}
           onMarkAsFinalized={handleMarkAsFinalized}
           onSaveAnalysis={handleSaveAnalysisData}
           isSaving={isSaving}
+          investigationObjective={investigationObjective}
+          onInvestigationObjectiveChange={setInvestigationObjective}
+          efficacyVerification={efficacyVerification}
+          onVerifyEfficacy={handleVerifyEfficacy}
+          onPlanEfficacyVerification={handlePlanEfficacyVerification}
         />
       )}
       <AlertDialog open={isRejectConfirmOpen} onOpenChange={(open) => {

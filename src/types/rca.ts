@@ -160,14 +160,14 @@ export interface IdentifiedRootCause {
 }
 
 export interface Evidence {
-  id: string;
-  nombre: string;
-  tipo?: 'pdf' | 'jpg' | 'png' | 'jpeg' | 'doc' | 'docx' | 'link' | 'other' | string;
-  dataUrl?: string; // Optional because a fact can be created before a file is attached
-  comment?: string;
-  uploadDate: string; // ISO string
-  userGivenName?: string; // Name given by user in the input
-  storagePath?: string; // Optional: To track file in Firebase Storage if used
+    id: string;
+    nombre: string; // Original file name
+    tipo?: string; // Mime type
+    comment?: string;
+    downloadURL: string; // URL from Firebase Storage
+    storagePath: string; // Path in Firebase Storage
+    userGivenName?: string; // Name given by user in the input, if different
+    uploadDate: string; // ISO string
 }
 
 export const PRESERVED_FACT_CATEGORIES = [
@@ -186,8 +186,9 @@ export const PRESERVED_FACT_CATEGORIES = [
 export type PreservedFactCategory = typeof PRESERVED_FACT_CATEGORIES[number] | '';
 
 export interface PreservedFact extends Omit<Evidence, 'uploadDate'> {
+  size: number;
+  tags: string[];
   uploadDate: string; // ISO string for when the fact was preserved
-  downloadURL?: string; // URL to view/download the file from Storage
   category: PreservedFactCategory; // New field for categorization
 }
 
@@ -199,7 +200,7 @@ export interface PlannedAction {
   responsible: string;
   dueDate: string;
   relatedRootCauseIds: string[];
-  evidences: Evidence[];
+  evidencias: Evidence[];
   userComments?: string;
   isNotificationSent: boolean;
   markedAsReadyAt?: string; // ISO string

@@ -74,8 +74,8 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
     
     // Use the filename directly to allow for replacement
     const storagePath = `uploads/${Date.now()}-${file.name}`;
-    const storageRef = ref(storage, storagePath);
-    const uploadTask = uploadBytesResumable(storageRef, file);
+    const fileStorageRef = ref(storage, storagePath);
+    const uploadTask = uploadBytesResumable(fileStorageRef, file);
 
     uploadTask.on('state_changed',
       (snapshot) => {
@@ -111,10 +111,12 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
       },
       async () => {
         try {
-          setStatusText("Procesando archivo...");
+          setStatusText("Obteniendo URL y analizando con IA...");
           setUploadProgress(100);
           
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          
+          // Generate Data URL for AI processing only, not for storage
           const fileDataUri = await fileToDataUri(file);
 
           const aiInput: GenerateTagsForFileInput = {
@@ -160,8 +162,8 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
 
         } catch (error: any) {
           console.error("Post-upload processing failed:", error);
-          setStatusText("El procesamiento falló.");
-          toast({ variant: "destructive", title: "Fallo en el Procesamiento", description: "El proceso de etiquetado falló. Por favor, intente de nuevo." });
+          setStatusText("El procesamiento del etiquetado con IA falló.");
+          toast({ variant: "destructive", title: "Fallo en el Procesamiento", description: `El proceso de etiquetado falló: ${error.message}` });
           setTimeout(resetState, 4000);
         }
       }
