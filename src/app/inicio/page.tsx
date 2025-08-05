@@ -19,14 +19,13 @@ interface FeatureCardProps {
 const FeatureCard: React.FC<FeatureCardProps> = ({ title, description, icon: Icon, href, buttonText }) => {
   return (
     <Card className="flex flex-col shadow-sm hover:shadow-lg transition-shadow duration-300">
-      <CardHeader>
+      <CardHeader className="pb-4">
         <div className="flex items-center gap-3 mb-1">
           <Icon className="h-6 w-6 text-primary" />
           <CardTitle className="text-xl">{title}</CardTitle>
         </div>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent className="pt-0 flex-grow" />
       <CardFooter>
         <Button asChild className="w-full">
           <Link href={href}>{buttonText}</Link>
@@ -77,7 +76,7 @@ export default function InicioPage() {
         </p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 max-w-4xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
         {filteredFeatures.map(item => (
             <FeatureCard 
                 key={item.title}
@@ -86,7 +85,7 @@ export default function InicioPage() {
         ))}
       </div>
       
-      <div className="grid grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 gap-6 max-w-6xl mx-auto">
         <Card className="shadow-sm">
           <CardHeader>
               <CardTitle className="flex items-center gap-3"><Phone className="h-6 w-6 text-primary"/>Soporte Técnico</CardTitle>
