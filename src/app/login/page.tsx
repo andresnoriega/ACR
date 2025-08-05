@@ -28,16 +28,24 @@ export default function LoginPage() {
       toast({ title: 'Inicio de Sesión Exitoso', description: 'Bienvenido de nuevo.' });
       router.push('/inicio'); // Redirect to a protected page or dashboard
     } catch (error: any) {
-      console.error("Error en inicio de sesión:", error); // Existing log
+      // Log the full error for debugging purposes in the developer console
+      console.error("Error en inicio de sesión:", error);
+      
       let errorMessage = "Ocurrió un error desconocido.";
+
       if (error.code) {
         switch (error.code) {
           case 'auth/user-not-found':
           case 'auth/wrong-password':
           case 'auth/invalid-credential':
             errorMessage = 'Correo electrónico o contraseña incorrectos.';
-            // Added more detailed log for developer for these specific cases
-            console.warn(`[Auth Login]: Firebase Authentication failed with code '${error.code}'. This usually means the provided email/password combination is incorrect, the user account does not exist, or the account might be disabled. Please verify the credentials and the user's status in your Firebase project.`);
+            // Add a more detailed developer-facing warning to the console
+            console.warn(
+              `[Auth Login]: Firebase Authentication failed with code '${error.code}'. ` +
+              "This usually means the provided email/password combination is incorrect, " +
+              "the user account does not exist, or the account might be disabled. " +
+              "Please verify the credentials and the user's status in your Firebase project."
+            );
             break;
           case 'auth/invalid-email':
             errorMessage = 'El formato del correo electrónico no es válido.';
@@ -46,6 +54,7 @@ export default function LoginPage() {
             errorMessage = `Error: ${error.message}`;
         }
       }
+      
       toast({
         title: 'Error al Iniciar Sesión',
         description: errorMessage,
