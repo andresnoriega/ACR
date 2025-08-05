@@ -1,10 +1,11 @@
 import {genkit, type GenkitConfig} from 'genkit';
 import {googleAI} from '@genkit-ai/googleai'; // Corrected import
+import { firebaseConfig } from '@/lib/firebase'; // Importar la configuración de firebase
 
 // Define Genkit configuration
 const genkitConfig: GenkitConfig = {
   plugins: [
-    googleAI({apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY}), // Use the consistent Firebase API Key
+    googleAI({apiKey: firebaseConfig.apiKey}), // Usar la misma API key que el resto de la app
   ],
   // flowStateStore: 'firebase', // Optional: Store flow states in Firestore
   // traceStore: 'firebase',     // Optional: Store traces in Firestore
@@ -99,9 +100,3 @@ try {
     isMocked: true, 
   };
   
-  // Add a special toString to the mocked `ai` object for easier debugging
-  ai.toString = () => "[Mocked Genkit AI Object]";
-}
-
-
-export {ai, genkitConfig};
