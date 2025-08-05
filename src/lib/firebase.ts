@@ -1,3 +1,4 @@
+
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
@@ -25,10 +26,10 @@ const appHasAllConfig =
   firebaseConfig.messagingSenderId &&
   firebaseConfig.appId;
 
-let app: FirebaseApp | null = null;
-let auth: ReturnType<typeof getAuth> | null = null;
-let db: ReturnType<typeof getFirestore> | null = null;
-let storage: ReturnType<typeof getStorage> | null = null;
+let app: FirebaseApp;
+let auth: ReturnType<typeof getAuth>;
+let db: ReturnType<typeof getFirestore>;
+let storage: ReturnType<typeof getStorage>;
 
 if (appHasAllConfig) {
   app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
@@ -43,6 +44,16 @@ if (appHasAllConfig) {
       'Asegúrese de que la aplicación esté conectada a un backend de Firebase App Hosting y las variables de entorno estén configuradas.'
     );
   }
+  // Provide dummy objects to prevent app crash on import,
+  // but functions will fail if called, which is handled in AuthContext.
+  // @ts-ignore
+  app = {}; 
+  // @ts-ignore
+  auth = {};
+  // @ts-ignore
+  db = {};
+  // @ts-ignore
+  storage = {};
 }
 
-export { app, auth, db, storage };
+export { app, auth, db, storage, appHasAllConfig };
