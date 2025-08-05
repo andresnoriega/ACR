@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useCallback, useEffect, FC } from 'react';
@@ -8,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from "@/hooks/use-toast";
 import type { ReportedEvent, ReportedEventType, PriorityType, Site, RCAAnalysisDocument, IdentifiedRootCause, PlannedAction } from '@/types/rca';
-import { ListOrdered, PieChart as PieChartIcon, BarChart as BarChartIcon, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, Loader2, FileDown, History, ChevronsRight, Home, ListChecks, Bell } from 'lucide-react';
+import { ListOrdered, PieChart as PieChartIcon, BarChart as BarChartIcon, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, Loader2, FileDown, History, ChevronsRight, Home, ListChecks, Bell, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, where, type QueryConstraint } from "firebase/firestore";
 import { useAuth } from '@/contexts/AuthContext';
@@ -42,6 +43,12 @@ interface RootCauseSummary extends IdentifiedRootCause {
   eventDate: string;
   site: string;
   equipo: string;
+}
+
+type SortableRootCauseKey = 'eventDate' | 'site' | 'equipo' | 'description';
+interface SortConfigRootCause {
+  key: SortableRootCauseKey | null;
+  direction: 'ascending' | 'descending';
 }
 
 // --- Chart Components ---
@@ -235,6 +242,9 @@ export default function InformesPage() {
     priority: '',
   });
 
+  const [sortConfigRootCauses, setSortConfigRootCauses] = useState<SortConfigRootCause>({ key: 'eventDate', direction: 'descending' });
+
+
   const fetchAllData = useCallback(async () => {
     if (loadingAuth || !userProfile) {
       setIsLoadingData(false);
@@ -379,12 +389,55 @@ export default function InformesPage() {
     );
   }, [filteredRcaDocs]);
 
+  const requestSortRootCauses = (key: SortableRootCauseKey) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfigRootCauses.key === key && sortConfigRootCauses.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfigRootCauses({ key, direction });
+  };
+
+  const sortedRootCauseSummaryData = useMemo(() => {
+    let sortableItems = [...rootCauseSummaryData];
+    if (sortConfigRootCauses.key) {
+      sortableItems.sort((a, b) => {
+        const key = sortConfigRootCauses.key!;
+        const valA = a[key] ?? '';
+        const valB = b[key] ?? '';
+        
+        if (key === 'eventDate') {
+          const dateA = valA ? parseISO(valA as string).getTime() : 0;
+          const dateB = valB ? parseISO(valB as string).getTime() : 0;
+          return dateA - dateB;
+        }
+
+        if (typeof valA === 'string' && typeof valB === 'string') {
+          return valA.localeCompare(valB, undefined, { numeric: true });
+        }
+        
+        return 0;
+      });
+
+      if (sortConfigRootCauses.direction === 'descending') {
+        sortableItems.reverse();
+      }
+    }
+    return sortableItems;
+  }, [rootCauseSummaryData, sortConfigRootCauses]);
+
+  const renderSortIconRootCauses = (columnKey: SortableRootCauseKey) => {
+    if (sortConfigRootCauses.key !== columnKey) {
+      return <ChevronsUpDown className="h-4 w-4 opacity-30 ml-1" />;
+    }
+    return sortConfigRootCauses.direction === 'ascending' ? <ArrowUp className="h-4 w-4 ml-1" /> : <ArrowDown className="h-4 w-4 ml-1" />;
+  };
+
   const handleExportRootCauses = () => {
-    if (rootCauseSummaryData.length === 0) {
+    if (sortedRootCauseSummaryData.length === 0) {
       toast({ title: "Sin Datos para Exportar", description: "No hay causas raíz en la tabla para exportar.", variant: "default" });
       return;
     }
-    const dataToExport = rootCauseSummaryData.map(item => ({
+    const dataToExport = sortedRootCauseSummaryData.map(item => ({
       'Fecha Evento': item.eventDate ? format(parseISO(item.eventDate), "dd/MM/yyyy") : 'N/A',
       'Sitio/Planta': item.site,
       'Equipo': item.equipo,
@@ -558,15 +611,23 @@ export default function InformesPage() {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Fecha Evento</TableHead>
-                        <TableHead>Sitio/Planta</TableHead>
-                        <TableHead>Equipo</TableHead>
-                        <TableHead>Causa Raíz Identificada</TableHead>
+                        <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => requestSortRootCauses('eventDate')}>
+                          <div className="flex items-center">Fecha Evento {renderSortIconRootCauses('eventDate')}</div>
+                        </TableHead>
+                        <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => requestSortRootCauses('site')}>
+                           <div className="flex items-center">Sitio/Planta {renderSortIconRootCauses('site')}</div>
+                        </TableHead>
+                        <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => requestSortRootCauses('equipo')}>
+                           <div className="flex items-center">Equipo {renderSortIconRootCauses('equipo')}</div>
+                        </TableHead>
+                        <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => requestSortRootCauses('description')}>
+                           <div className="flex items-center">Causa Raíz Identificada {renderSortIconRootCauses('description')}</div>
+                        </TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {rootCauseSummaryData.length > 0 ? (
-                        rootCauseSummaryData.map((rc, index) => (
+                    {sortedRootCauseSummaryData.length > 0 ? (
+                        sortedRootCauseSummaryData.map((rc, index) => (
                             <TableRow key={`${rc.id}-${index}`}>
                                 <TableCell>{rc.eventDate ? format(parseISO(rc.eventDate), "dd/MM/yyyy") : 'N/A'}</TableCell>
                                 <TableCell>{rc.site}</TableCell>
@@ -583,7 +644,7 @@ export default function InformesPage() {
             </Table>
         </CardContent>
         <CardFooter className="flex justify-end">
-            <Button variant="outline" size="sm" onClick={handleExportRootCauses} disabled={rootCauseSummaryData.length === 0}>
+            <Button variant="outline" size="sm" onClick={handleExportRootCauses} disabled={sortedRootCauseSummaryData.length === 0}>
                 <FileDown className="mr-2 h-4 w-4"/>
                 Exportar a Excel
             </Button>
