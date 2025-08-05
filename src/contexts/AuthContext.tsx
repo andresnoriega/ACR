@@ -46,7 +46,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     // If the Firebase config is not available, we should not proceed.
     // We set loading to false and exit, preventing errors from onAuthStateChanged.
-    if (!appHasAllConfig) {
+    if (!appHasAllConfig || !auth) {
       console.warn("[AuthContext] Firebase Auth service is not available due to missing config. Skipping authentication.");
       setLoadingAuth(false);
       return;
@@ -57,7 +57,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (user) {
         setCurrentUser(user);
         // Ensure db object is valid before querying
-        if (!db || !appHasAllConfig) {
+        if (!db) {
             console.error("[AuthContext] Firestore is not initialized correctly.");
             setUserProfile(null);
             setLoadingAuth(false);
@@ -95,12 +95,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const loginWithEmail = (email: string, pass: string) => {
-    if (!appHasAllConfig) throw new Error("Firebase Auth is not initialized.");
+    if (!appHasAllConfig || !auth) {
+      return Promise.reject(new Error("El servicio de autenticación no está disponible. Verifique la configuración."));
+    }
     return signInWithEmailAndPassword(auth, email, pass);
   };
   
   const registerWithEmail = async (email: string, pass: string, name: string) => {
-    if (!appHasAllConfig || !db) throw new Error("Firebase Auth or Firestore is not initialized.");
+    if (!appHasAllConfig || !db || !auth) {
+      return Promise.reject(new Error("El servicio de registro no está disponible. Verifique la configuración."));
+    }
     
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     const user = userCredential.user;
@@ -142,7 +146,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logoutUser = () => {
-    if (!appHasAllConfig) throw new Error("Firebase Auth is not initialized.");
+    if (!appHasAllConfig || !auth) return Promise.resolve();
     return signOut(auth);
   };
 
@@ -224,3 +228,5 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+
+    

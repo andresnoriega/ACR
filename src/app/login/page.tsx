@@ -33,19 +33,12 @@ export default function LoginPage() {
       
       let errorMessage = "Ocurrió un error desconocido.";
 
-      if (error.code) {
+      if (error.code) { // Firebase errors have a 'code' property
         switch (error.code) {
           case 'auth/user-not-found':
           case 'auth/wrong-password':
           case 'auth/invalid-credential':
             errorMessage = 'Correo electrónico o contraseña incorrectos.';
-            // Add a more detailed developer-facing warning to the console
-            console.warn(
-              `[Auth Login]: Firebase Authentication failed with code '${error.code}'. ` +
-              "This usually means the provided email/password combination is incorrect, " +
-              "the user account does not exist, or the account might be disabled. " +
-              "Please verify the credentials and the user's status in your Firebase project."
-            );
             break;
           case 'auth/invalid-email':
             errorMessage = 'El formato del correo electrónico no es válido.';
@@ -53,6 +46,9 @@ export default function LoginPage() {
           default:
             errorMessage = `Error: ${error.message}`;
         }
+      } else {
+        // Handle custom errors thrown from the context
+        errorMessage = error.message;
       }
       
       toast({
@@ -118,3 +114,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    
