@@ -4,7 +4,7 @@ import {googleAI} from '@genkit-ai/googleai'; // Corrected import
 // Define Genkit configuration
 const genkitConfig: GenkitConfig = {
   plugins: [
-    googleAI(), // Use the imported googleAI plugin
+    googleAI({apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY}), // Use the consistent Firebase API Key
   ],
   // flowStateStore: 'firebase', // Optional: Store flow states in Firestore
   // traceStore: 'firebase',     // Optional: Store traces in Firestore
