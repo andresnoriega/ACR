@@ -1,4 +1,3 @@
-
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useEffect } from 'react';
@@ -689,15 +688,21 @@ export const Step5Results: FC<Step5ResultsProps> = ({
               </Button>
             )
           ) : (
-            <Button
-              onClick={handleFinalize}
-              variant="secondary"
-              className="w-full sm:w-auto"
-              disabled={isFinalized || isBusy}
-            >
-              {isFinalizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-              Finalizar Análisis
-            </Button>
+            <>
+              <Button onClick={() => onSaveAnalysis(true)} variant="outline" className="w-full sm:w-auto" disabled={isBusy}>
+                  {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  Guardar Avance
+              </Button>
+              <Button
+                onClick={handleFinalize}
+                variant="secondary"
+                className="w-full sm:w-auto"
+                disabled={isFinalized || isBusy}
+              >
+                {isFinalizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+                Finalizar Análisis
+              </Button>
+            </>
           )}
 
         </CardFooter>
