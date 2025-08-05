@@ -1,10 +1,24 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
+
+export interface UploadedFile {
+    name: string;
+    size: number;
+    type: string;
+    url: string;
+    tags: string[];
+    fullPath: string;
+    uploadedAt: string;
+}
+
+export type SortKey = 'name' | 'size' | 'type' | 'uploadedAt';
+export type SortDirection = 'asc' | 'desc';
+
 
 export default function RootPage() {
   const { currentUser, loadingAuth } = useAuth();
@@ -30,3 +44,5 @@ export default function RootPage() {
     </div>
   );
 }
+
+    

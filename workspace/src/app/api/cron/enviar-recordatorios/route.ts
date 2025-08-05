@@ -1,2 +1,3 @@
-// This file is being removed as it was in the wrong directory.
-// The correct file is located at /src/app/api/cron/enviar-recordatorios/route.ts
+// This file was in the wrong directory and is now removed.
+// The new, correct file is located at /src/app/api/upload/route.ts
+// Or rather, we are removing the API route altogether.

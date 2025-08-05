@@ -1,3 +1,4 @@
+
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
@@ -1424,19 +1425,19 @@ function RCAAnalysisPageComponent() {
           onProjectLeaderChange={handleProjectLeaderChange}
           investigationObjective={investigationObjective}
           onInvestigationObjectiveChange={setInvestigationObjective}
-          analysisDetails={analysisDetails}
-          onAnalysisDetailsChange={setAnalysisDetails}
-          availableUsers={availableUsersFromDB}
-          availableSites={availableSitesFromDB}
           investigationSessions={investigationSessions}
           onSetInvestigationSessions={setInvestigationSessions}
+          analysisDetails={analysisDetails}
+          onAnalysisDetailsChange={setAnalysisDetails}
           preservedFacts={preservedFacts}
           setPreservedFacts={setPreservedFacts}
-          analysisId={analysisDocumentId}
           onAnalysisSaveRequired={() => handleSaveAnalysisData(false).then(res => res.newEventId || analysisDocumentId)}
+          availableUsers={availableUsersFromDB}
+          availableSites={availableSitesFromDB}
+          isSaving={isSaving}
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
-          isSaving={isSaving}
+          analysisId={analysisDocumentId}
           activeTab={factsTab}
           onTabChange={setFactsTab}
         />
@@ -1592,3 +1593,5 @@ export default function RCAAnalysisPage() {
     </Suspense>
   );
 }
+
+    
