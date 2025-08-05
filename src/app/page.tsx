@@ -11,7 +11,6 @@ export interface UploadedFile {
     size: number;
     type: string;
     url: string;
-    tags: string[];
     fullPath: string;
     uploadedAt: string;
 }

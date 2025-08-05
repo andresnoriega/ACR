@@ -3,24 +3,13 @@
 import { useState, useCallback, useRef } from 'react';
 import { useDropzone, type DropzoneState } from 'react-dropzone';
 import { storage } from '@/lib/firebase';
-import { ref, uploadBytesResumable, getDownloadURL, updateMetadata, getMetadata } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL, getMetadata } from 'firebase/storage';
 import { Loader2, UploadCloud, File as FileIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 import { cn, formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { generateTagsForFile, type GenerateTagsForFileInput } from '@/ai/flows/generate-tags-for-file';
 import type { UploadedFile } from '@/app/page';
-
-
-const fileToDataUri = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-};
 
 interface FileUploaderProps {
   onUploadSuccess: (UploadedFile) => void;
@@ -111,59 +100,39 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
       },
       async () => {
         try {
-          setStatusText("Obteniendo URL y analizando con IA...");
+          setStatusText("Obteniendo URL...");
           setUploadProgress(100);
           
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           
-          // Generate Data URL for AI processing only, not for storage
-          const fileDataUri = await fileToDataUri(file);
-
-          const aiInput: GenerateTagsForFileInput = {
-            fileDataUri,
-            fileName: file.name,
-            fileType: file.type,
-          };
-          
-          const { tags } = await generateTagsForFile(aiInput);
-
-          setStatusText("Guardando etiquetas...");
-          const newMetadata = {
-            customMetadata: {
-              tags: JSON.stringify(tags)
-            }
-          };
-          await updateMetadata(uploadTask.snapshot.ref, newMetadata);
-
-          setStatusText("Finalizando...");
-
-          // Get the full metadata to have access to timeCreated
+          setStatusText("Obteniendo metadatos...");
           const finalMetadata = await getMetadata(uploadTask.snapshot.ref);
+          
+          setStatusText("Finalizando...");
 
           const newFile: UploadedFile = {
             name: file.name,
             size: file.size,
             type: file.type,
             url: downloadURL,
-            tags: tags,
             fullPath: uploadTask.snapshot.ref.fullPath,
             uploadedAt: finalMetadata.timeCreated,
           };
 
           onUploadSuccess(newFile);
 
-          setStatusText("✅ ¡Éxito! Archivo procesado.");
+          setStatusText("✅ ¡Éxito! Archivo subido.");
           toast({
-            title: "✅ Archivo Procesado",
-            description: `${file.name} fue subido y etiquetado exitosamente.`,
+            title: "✅ Archivo Subido",
+            description: `${file.name} fue subido exitosamente.`,
           });
           
           setTimeout(resetState, 2000);
 
         } catch (error: any) {
           console.error("Post-upload processing failed:", error);
-          setStatusText("El procesamiento del etiquetado con IA falló.");
-          toast({ variant: "destructive", title: "Fallo en el Procesamiento", description: `El proceso de etiquetado falló: ${error.message}` });
+          setStatusText("El procesamiento post-subida falló.");
+          toast({ variant: "destructive", title: "Fallo en el Procesamiento", description: `El proceso de finalización falló: ${error.message}` });
           setTimeout(resetState, 4000);
         }
       }

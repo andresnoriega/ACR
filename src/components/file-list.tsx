@@ -4,7 +4,6 @@ import { UploadedFile, SortKey, SortDirection } from '@/app/page';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ArrowUpDown, Trash2, Loader2, ExternalLink } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { format } from 'date-fns';
 
 interface FileListProps {
@@ -39,7 +38,6 @@ export default function FileList({ files, onFileDelete, isLoading, sortKey, sort
                     <TableHead className="cursor-pointer" onClick={() => onSort('type')}>
                         <div className="flex items-center">Type {renderSortArrow('type')}</div>
                     </TableHead>
-                    <TableHead>Tags</TableHead>
                     <TableHead className="cursor-pointer" onClick={() => onSort('uploadedAt')}>
                         <div className="flex items-center">Uploaded {renderSortArrow('uploadedAt')}</div>
                     </TableHead>
@@ -49,7 +47,7 @@ export default function FileList({ files, onFileDelete, isLoading, sortKey, sort
             <TableBody>
                 {isLoading ? (
                     <TableRow>
-                        <TableCell colSpan={6} className="text-center h-24">
+                        <TableCell colSpan={5} className="text-center h-24">
                             <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
                         </TableCell>
                     </TableRow>
@@ -59,11 +57,6 @@ export default function FileList({ files, onFileDelete, isLoading, sortKey, sort
                             <TableCell className="font-medium max-w-xs truncate" title={file.name}>{file.name}</TableCell>
                             <TableCell>{(file.size / 1024).toFixed(2)} KB</TableCell>
                             <TableCell>{file.type}</TableCell>
-                            <TableCell>
-                                <div className="flex flex-wrap gap-1">
-                                {file.tags.map((tag, index) => <Badge key={index} variant="secondary">{tag}</Badge>)}
-                                </div>
-                            </TableCell>
                             <TableCell>{format(new Date(file.uploadedAt), 'PPp')}</TableCell>
                             <TableCell className="text-right">
                                 <a href={file.url} target="_blank" rel="noopener noreferrer">
@@ -79,7 +72,7 @@ export default function FileList({ files, onFileDelete, isLoading, sortKey, sort
                     ))
                 ) : (
                     <TableRow>
-                        <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
+                        <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
                             No files found. Upload one to get started!
                         </TableCell>
                     </TableRow>
@@ -89,5 +82,3 @@ export default function FileList({ files, onFileDelete, isLoading, sortKey, sort
         </div>
     );
 }
-
-    

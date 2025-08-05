@@ -119,7 +119,6 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
       downloadURL: uploadedFile.url,
       storagePath: uploadedFile.fullPath,
       uploadDate: uploadedFile.uploadedAt,
-      tags: uploadedFile.tags,
       category: '',
       comment: '',
     };

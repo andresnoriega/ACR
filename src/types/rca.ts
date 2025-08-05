@@ -187,7 +187,6 @@ export type PreservedFactCategory = typeof PRESERVED_FACT_CATEGORIES[number] | '
 
 export interface PreservedFact extends Omit<Evidence, 'uploadDate'> {
   size: number;
-  tags: string[];
   uploadDate: string; // ISO string for when the fact was preserved
   category: PreservedFactCategory; // New field for categorization
 }
