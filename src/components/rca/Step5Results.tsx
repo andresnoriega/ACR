@@ -1,3 +1,4 @@
+
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useEffect } from 'react';
@@ -417,34 +418,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
             </SectionContent>
           </section>
           <Separator className="my-4" />
-          <section>
-            <SectionTitle title="Anexos (Hechos Preservados)" icon={FileArchive} />
-            <SectionContent>
-            {preservedFacts && preservedFacts.length > 0 ? (
-                <ul className="list-none pl-0 space-y-2">
-                {preservedFacts.map((fact) => (
-                    <li key={fact.id} className="flex items-center justify-between text-sm p-2 border rounded-md bg-muted/30">
-                        <div className="flex items-center">
-                            {getEvidenceIconLocal(fact.tipo)}
-                            <div className="flex flex-col">
-                                <span className="font-medium">{fact.userGivenName}</span>
-                                <span className="text-xs text-muted-foreground">{fact.category}: {fact.comment}</span>
-                            </div>
-                        </div>
-                        <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
-                          <a href={fact.downloadURL} target="_blank" rel="noopener noreferrer">
-                              <ExternalLink className="mr-1.5 h-3 w-3" />Ver/Descargar
-                          </a>
-                        </Button>
-                    </li>
-                ))}
-                </ul>
-            ) : (
-                <p>No hay hechos preservados adjuntos a este análisis.</p>
-            )}
-            </SectionContent>
-          </section>
-          <Separator className="my-4" />
+          
           <section>
             <SectionTitle title="Análisis de Causas" icon={Settings} />
             <div className="space-y-4">
@@ -643,7 +617,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
               </CardContent>
             </Card>
           </section>
-          {/* === NUEVA SECCIÓN: Lecciones Aprendidas === */}
+          
           <section>
             <SectionTitle title="Lecciones Aprendidas" icon={Lightbulb} />
             <SectionContent>
@@ -662,6 +636,34 @@ export const Step5Results: FC<Step5ResultsProps> = ({
             </SectionContent>
           </section>
           <Separator className="my-4" />
+          
+           <section>
+            <SectionTitle title="Anexos (Hechos Preservados)" icon={FileArchive} />
+            <SectionContent>
+            {preservedFacts && preservedFacts.length > 0 ? (
+                <ul className="list-none pl-0 space-y-2">
+                {preservedFacts.map((fact) => (
+                    <li key={fact.id} className="flex items-center justify-between text-sm p-2 border rounded-md bg-muted/30">
+                        <div className="flex items-center">
+                            {getEvidenceIconLocal(fact.tipo)}
+                            <div className="flex flex-col">
+                                <span className="font-medium">{fact.userGivenName}</span>
+                                <span className="text-xs text-muted-foreground">{fact.category}: {fact.comment}</span>
+                            </div>
+                        </div>
+                        <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
+                          <a href={fact.downloadURL} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="mr-1.5 h-3 w-3" />Ver/Descargar
+                          </a>
+                        </Button>
+                    </li>
+                ))}
+                </ul>
+            ) : (
+                <p>No hay hechos preservados adjuntos a este análisis.</p>
+            )}
+            </SectionContent>
+          </section>
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row justify-center items-center gap-3 mt-6 pt-4 border-t no-print">
           <Button onClick={onPrintReport} variant="default" className="w-full sm:w-auto" disabled={isBusy}>
