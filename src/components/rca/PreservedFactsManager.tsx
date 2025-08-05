@@ -1,19 +1,15 @@
 
 "use client";
 
-import { useState, useRef, type FC, useCallback } from 'react';
+import { useState, useRef, type FC } from 'react';
 import { storage } from '@/lib/firebase';
-import { ref, uploadBytesResumable, getDownloadURL, updateMetadata, getMetadata, deleteObject } from 'firebase/storage';
-import { UploadCloud, Loader2, File as FileIcon, Trash2 } from 'lucide-react';
+import { ref, uploadBytesResumable, getDownloadURL, updateMetadata, getMetadata } from 'firebase/storage';
+import { UploadCloud, Loader2, File as FileIcon } from 'lucide-react';
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { cn, formatBytes } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { generateTagsForFile, type GenerateTagsForFileInput } from '@/ai/flows/generate-tags-for-file';
-import type { PreservedFact } from '@/types/rca';
-import { sanitizeForFirestore } from '@/lib/utils';
-import { db } from '@/lib/firebase';
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 
 const fileToDataUri = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -24,19 +20,26 @@ const fileToDataUri = (file: File): Promise<string> => {
     });
 };
 
-interface PreservedFactsManagerProps {
-  analysisId: string | null;
-  onAnalysisSaveRequired: () => Promise<string | null>;
-  preservedFacts: PreservedFact[];
-  setPreservedFacts: (facts: PreservedFact[] | ((prevState: PreservedFact[]) => PreservedFact[])) => void;
+export interface UploadedFile {
+    name: string;
+    size: number;
+    type: string;
+    url: string;
+    tags: string[];
+    fullPath: string;
+    uploadedAt: string;
 }
 
-const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({ analysisId, onAnalysisSaveRequired, setPreservedFacts }) => {
+interface FileUploaderProps {
+  onUploadSuccess: (file: UploadedFile) => void;
+}
+
+const FileUploader: FC<FileUploaderProps> = ({ onUploadSuccess }) => {
   const [file, setFile] = useState<File | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [statusText, setStatusText] = useState("Arrastre un archivo aquí, o haga clic para seleccionar un archivo");
+  const [statusText, setStatusText] = useState("Drag & drop a file here, or click to select a file");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -60,69 +63,62 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({ analysisId, onA
     }
   };
   
-  const resetState = useCallback(() => {
+  const resetState = () => {
     setFile(null);
     setIsProcessing(false);
     setUploadProgress(0);
-    setStatusText("Arrastre un archivo aquí, o haga clic para seleccionar un archivo");
+    setStatusText("Drag & drop a file here, or click to select a file");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
-  }, []);
+  };
 
   const handleProcessFile = async () => {
     if (!file) return;
 
-    let currentAnalysisId = analysisId;
-    if (!currentAnalysisId) {
-      currentAnalysisId = await onAnalysisSaveRequired();
-    }
-    if (!currentAnalysisId) {
-      toast({
-        title: "Error de Análisis",
-        description: "Se necesita guardar el análisis antes de poder subir archivos. Intente de nuevo.",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setIsProcessing(true);
     setUploadProgress(0);
-    setStatusText("Preparando para subir...");
+    setStatusText("Preparing to upload...");
     
-    const storagePath = `uploads/${currentAnalysisId}/${Date.now()}-${file.name}`;
-    const storageRefInstance = ref(storage, storagePath);
-    const uploadTask = uploadBytesResumable(storageRefInstance, file);
+    // Use the filename directly to allow for replacement
+    const storageRef = ref(storage, `uploads/${file.name}`);
+    const uploadTask = uploadBytesResumable(storageRef, file);
 
     uploadTask.on('state_changed',
       (snapshot) => {
         const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
         setUploadProgress(progress);
-        setStatusText(`Subiendo archivo... ${Math.round(progress)}%`);
+        setStatusText(`Uploading file... ${Math.round(progress)}%`);
       },
       (error) => {
-        console.error("Fallo en la subida:", error);
+        console.error("Upload failed:", error);
         const bucket = storage.app.options.storageBucket || 'N/A';
-        let description = `No se pudo subir al bucket '${bucket}'. Por favor revise su red y configuración de Firebase, incluyendo CORS.`;
+        let description = `Could not upload to bucket '${bucket}'. Please check your network and Firebase configuration.`;
 
         if (error.code) {
             switch(error.code) {
+                case 'storage/bucket-not-found':
+                    description = `Firebase Storage bucket '${bucket}' not found. Please ensure Storage is enabled and the bucket name in your config is correct.`;
+                    break;
+                case 'storage/project-not-found':
+                    description = "Firebase project not found. Please check your Firebase configuration.";
+                    break;
                 case 'storage/unauthorized':
-                    description = `Permiso denegado para el bucket '${bucket}'. Por favor revise sus reglas de seguridad de Firebase Storage (incluyendo CORS) para permitir escrituras desde su dominio.`;
+                    description = `Permission Denied for bucket '${bucket}'. Please check your Firebase Storage security rules to allow writes.`;
                     break;
                 case 'storage/unknown':
-                    description = `Un error desconocido ocurrió. Esto suele ser un problema de configuración de CORS en su bucket de Firebase Storage.`;
+                    description = `An unknown error occurred with bucket '${bucket}'. This could be a CORS configuration issue. Please check the browser console for details.`;
                     break;
             }
         }
 
-        toast({ variant: "destructive", title: "Fallo en la Subida", description, duration: 9000 });
-        setStatusText("Fallo en la subida. Por favor, intente de nuevo.");
+        toast({ variant: "destructive", title: "Upload Failed", description });
+        setStatusText("Upload failed. Please try again.");
         setTimeout(resetState, 4000);
       },
       async () => {
         try {
-          setStatusText("Procesando archivo con IA...");
+          setStatusText("Processing file with AI...");
           setUploadProgress(100);
           
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
@@ -136,7 +132,7 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({ analysisId, onA
           
           const { tags } = await generateTagsForFile(aiInput);
 
-          setStatusText("Guardando etiquetas...");
+          setStatusText("Saving tags...");
           const newMetadata = {
             customMetadata: {
               tags: JSON.stringify(tags)
@@ -144,49 +140,41 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({ analysisId, onA
           };
           await updateMetadata(uploadTask.snapshot.ref, newMetadata);
 
-          setStatusText("Finalizando...");
+          setStatusText("Finalizing...");
 
+          // Get the full metadata to have access to timeCreated
           const finalMetadata = await getMetadata(uploadTask.snapshot.ref);
 
-          const newFact: PreservedFact = {
-            id: `pf-${finalMetadata.generation}`,
-            userGivenName: file.name,
-            nombre: file.name,
+          const newFile: UploadedFile = {
+            name: file.name,
             size: file.size,
-            tipo: file.type,
-            downloadURL: downloadURL,
-            storagePath: uploadTask.snapshot.ref.fullPath,
-            uploadDate: finalMetadata.timeCreated,
+            type: file.type,
+            url: downloadURL,
             tags: tags,
-            eventId: currentAnalysisId!
+            fullPath: uploadTask.snapshot.ref.fullPath,
+            uploadedAt: finalMetadata.timeCreated,
           };
 
-          const rcaDocRef = doc(db, 'rcaAnalyses', currentAnalysisId!);
-            await updateDoc(rcaDocRef, {
-            preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
-            updatedAt: new Date().toISOString()
-          });
+          onUploadSuccess(newFile);
 
-          setPreservedFacts(prev => [...(prev || []), newFact]);
-
-          setStatusText("✅ ¡Éxito! Archivo procesado.");
+          setStatusText("✅ Success! File processed.");
           toast({
-            title: "✅ Archivo Procesado",
-            description: `${file.name} fue subido y etiquetado exitosamente.`,
+            title: "✅ File Processed",
+            description: `${file.name} was successfully uploaded and tagged.`,
           });
           
           setTimeout(resetState, 2000);
 
         } catch (error: any) {
-          console.error("Fallo en el procesamiento post-subida:", error);
-          setStatusText("Fallo en el procesamiento con IA.");
-          toast({ variant: "destructive", title: "Fallo en el Procesamiento", description: `El proceso de etiquetado con IA falló: ${error.message}` });
+          console.error("Post-upload processing failed:", error);
+          setStatusText("AI processing failed.");
+          toast({ variant: "destructive", title: "Processing Failed", description: "The AI tagging process failed. Please try again." });
           setTimeout(resetState, 4000);
         }
       }
     );
   };
-  
+
   return (
     <div className="flex flex-col items-center gap-4">
       {!file ? (
@@ -204,9 +192,9 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({ analysisId, onA
           <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
             <UploadCloud className="w-10 h-10 mb-3 text-muted-foreground" />
             <p className="mb-2 text-sm text-muted-foreground">
-              <span className="font-semibold text-primary">Haga clic para subir</span> o arrastre y suelte
+              <span className="font-semibold text-primary">Click to upload</span> or drag and drop
             </p>
-            <p className="text-xs text-muted-foreground">Cualquier tipo de archivo soportado</p>
+            <p className="text-xs text-muted-foreground">Any file type supported</p>
           </div>
           <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
         </div>
@@ -219,7 +207,7 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({ analysisId, onA
                     <p className="text-xs text-muted-foreground">{formatBytes(file.size)}</p>
                 </div>
                 {!isProcessing && (
-                    <Button variant="ghost" size="sm" onClick={resetState}>Cambiar</Button>
+                    <Button variant="ghost" size="sm" onClick={resetState}>Change</Button>
                 )}
             </div>
             {isProcessing ? (
@@ -233,7 +221,7 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({ analysisId, onA
             ) : (
                 <Button onClick={handleProcessFile} className="w-full">
                     <UploadCloud className="mr-2 h-4 w-4" />
-                    Procesar y Etiquetar Archivo
+                    Process and Tag File
                 </Button>
             )}
         </div>
@@ -242,4 +230,4 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({ analysisId, onA
   );
 };
 
-export default PreservedFactsManager;
+export default FileUploader;
