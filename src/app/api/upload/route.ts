@@ -1,6 +1,6 @@
 
 import { NextResponse } from 'next/server';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
 
 export async function POST(request: Request) {
@@ -44,5 +44,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Internal server error." }, { status: 500 });
   }
 }
-
-    
