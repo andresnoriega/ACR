@@ -7,14 +7,15 @@ import { getStorage } from "firebase/storage";
 // =================================================================================
 // CONFIGURACIÓN CENTRALIZADA USANDO VARIABLES DE ENTORNO
 // =================================================================================
+// Las variables de entorno son proporcionadas por el entorno de App Hosting.
 export const firebaseConfig = {
-  apiKey: "AIzaSyBpRAXR8mTcBTXwuXV5VaXdqCP6yx85MUE",
-  authDomain: "almacenador-cloud.firebaseapp.com",
-  projectId: "almacenador-cloud",
-  storageBucket: "almacenador-cloud.firebasestorage.app",
-  messagingSenderId: "790911154631",
-  appId: "1:790911154631:web:91e2d71d8ccfbf058301e2",
-  measurementId: "G-R2NQTYM2GX"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 const appHasAllConfig =
@@ -35,9 +36,9 @@ if (appHasAllConfig) {
   }
 } else {
   console.error(
-    'Faltan variables de configuración de Firebase en el archivo .env. ' +
+    'Faltan variables de configuración de Firebase en el entorno. ' +
     'La aplicación no se puede inicializar correctamente. ' +
-    'Por favor, copie la configuración desde la consola de Firebase a su archivo .env.'
+    'Asegúrese de que la aplicación esté conectada a un backend de Firebase App Hosting.'
   );
   // We don't initialize app if config is missing.
   // Services will fail, but the app might still build.
