@@ -4,14 +4,18 @@
 import { useState, useRef, type FC } from 'react';
 import { storage, db } from '@/lib/firebase';
 import { ref as storageRef, deleteObject } from 'firebase/storage';
-import { doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import { doc, updateDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { formatBytes, sanitizeForFirestore } from '@/lib/utils';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import type { PreservedFact } from '@/types/rca';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PRESERVED_FACT_CATEGORIES, type PreservedFact, type PreservedFactCategory } from '@/types/rca';
 import type { UploadedFile } from '@/app/page';
 import FileUploader from '../file-uploader';
-import FileList from '../file-list';
+import { ExternalLink, Loader2, Save, Trash2 } from 'lucide-react';
 
 interface PreservedFactsManagerProps {
   analysisId: string | null;
@@ -27,7 +31,55 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
   setPreservedFacts
 }) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const handleUpdateFact = (id: string, field: 'category' | 'comment', value: string) => {
+    setPreservedFacts(prev =>
+      prev.map(fact =>
+        fact.id === id ? { ...fact, [field]: value } : fact
+      )
+    );
+    setEditingRowId(id);
+  };
+  
+  const handleSaveFact = async (id: string) => {
+    let currentAnalysisId = analysisId;
+    if (!currentAnalysisId) {
+        currentAnalysisId = await onAnalysisSaveRequired();
+    }
+     if (!currentAnalysisId) {
+      toast({
+        title: "Error Crítico",
+        description: "No se pudo obtener un ID para el análisis. Guarde el progreso e intente de nuevo.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const factToSave = preservedFacts.find(fact => fact.id === id);
+    if (!factToSave) return;
+    
+    setIsLoading(true);
+
+    try {
+        const rcaDocRef = doc(db, "rcaAnalyses", currentAnalysisId);
+        // We update the entire array to ensure consistency
+        await updateDoc(rcaDocRef, {
+            preservedFacts: sanitizeForFirestore(preservedFacts),
+            updatedAt: new Date().toISOString()
+        });
+        
+        toast({ title: "Hecho Actualizado", description: "Se guardaron los cambios para el hecho preservado." });
+        setEditingRowId(null); // Mark as not editing after save
+    } catch (error: any) {
+        console.error("Error updating fact in Firestore:", error);
+        toast({ title: "Error al Guardar", description: "No se pudo actualizar la información del hecho.", variant: "destructive" });
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
 
   const handleUploadSuccess = async (uploadedFile: UploadedFile) => {
     setIsLoading(true);
@@ -53,7 +105,7 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
 
     const newFact: PreservedFact = {
       id: `fact-${Date.now()}`,
-      userGivenName: uploadedFile.name, // Use original file name as default
+      userGivenName: uploadedFile.name,
       nombre: uploadedFile.name,
       size: uploadedFile.size,
       tipo: uploadedFile.type,
@@ -61,17 +113,20 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
       storagePath: uploadedFile.fullPath,
       uploadDate: uploadedFile.uploadedAt,
       tags: uploadedFile.tags,
+      category: '', // Initialize with empty category
+      comment: '', // Initialize with empty comment
     };
     
     try {
       const rcaDocRef = doc(db, "rcaAnalyses", currentAnalysisId);
+      const updatedFacts = [...(preservedFacts || []), newFact];
       await updateDoc(rcaDocRef, {
-        preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
+        preservedFacts: sanitizeForFirestore(updatedFacts),
         updatedAt: new Date().toISOString()
       });
       
-      setPreservedFacts(prev => [...(prev || []), newFact]);
-      toast({ title: "Hecho Preservado Añadido", description: `${newFact.userGivenName} fue guardado en el análisis.` });
+      setPreservedFacts(updatedFacts);
+      toast({ title: "Hecho Preservado Añadido", description: `${newFact.userGivenName} fue guardado. Ahora puede categorizarlo.` });
     } catch (error: any) {
       console.error("Error updating Firestore:", error);
       toast({
@@ -99,19 +154,24 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
       const fileRef = storageRef(storage, factToRemove.storagePath);
       await deleteObject(fileRef);
       
-      // Remove from Firestore document
+      // Update local state first for responsiveness
+      const updatedFacts = preservedFacts.filter(fact => fact.storagePath !== storagePath);
+      setPreservedFacts(updatedFacts);
+      
+      // Update Firestore document with the new array
       const rcaDocRef = doc(db, "rcaAnalyses", analysisId);
       await updateDoc(rcaDocRef, {
-          preservedFacts: arrayRemove(sanitizeForFirestore(factToRemove)),
+          preservedFacts: sanitizeForFirestore(updatedFacts),
           updatedAt: new Date().toISOString()
       });
       
-      setPreservedFacts(prev => prev.filter(fact => fact.storagePath !== storagePath));
       toast({ title: "Hecho Preservado Eliminado", variant: 'destructive' });
 
     } catch (error: any) {
       console.error("Error al eliminar hecho preservado:", error);
       toast({ title: "Error de Eliminación", description: `No se pudo eliminar el hecho: ${error.message}`, variant: "destructive" });
+      // Revert local state if Firestore update fails (optional)
+      setPreservedFacts(preservedFacts);
     } finally {
       setIsLoading(false);
     }
@@ -130,19 +190,97 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
         </CardContent>
       </Card>
       
-      <div className="space-y-2 pt-4">
-        <h4 className="font-semibold">Hechos Preservados Adjuntos</h4>
-        {/* The FileList component will be added in a future step, for now we just show a message */}
-        {(preservedFacts || []).length > 0 ? (
-          <p className="text-sm text-muted-foreground">{preservedFacts.length} hecho(s) preservado(s) adjunto(s).</p>
-        ) : (
-          <p className="text-sm text-muted-foreground italic">No hay hechos preservados adjuntos a este análisis.</p>
-        )}
+      <div className="space-y-4 pt-4">
+        <h4 className="font-semibold text-lg">Hechos Preservados Adjuntos</h4>
+        <Card>
+          <CardContent className="p-0">
+             <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[30%]">Categoría</TableHead>
+                    <TableHead className="w-[30%]">Comentario</TableHead>
+                    <TableHead className="w-[25%]">Nombre del Archivo</TableHead>
+                    <TableHead className="w-[15%] text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(preservedFacts || []).length > 0 ? (
+                    preservedFacts.map((fact) => (
+                      <TableRow key={fact.id}>
+                        <TableCell>
+                          <Select
+                            value={fact.category}
+                            onValueChange={(value) => handleUpdateFact(fact.id, 'category', value as PreservedFactCategory)}
+                          >
+                            <SelectTrigger><SelectValue placeholder="-- Seleccione una categoría --" /></SelectTrigger>
+                            <SelectContent>
+                              {PRESERVED_FACT_CATEGORIES.map(cat => (
+                                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={fact.comment || ''}
+                            onChange={(e) => handleUpdateFact(fact.id, 'comment', e.target.value)}
+                            placeholder="Añada un comentario..."
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium text-sm flex items-center">
+                          <a
+                            href={fact.downloadURL}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center hover:text-primary hover:underline"
+                            title={fact.userGivenName}
+                          >
+                           <ExternalLink className="mr-1.5 h-3.5 w-3.5 flex-shrink-0" />
+                           <span className="truncate">{fact.userGivenName}</span>
+                          </a>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => handleSaveFact(fact.id)}
+                                disabled={isLoading && editingRowId === fact.id}
+                                className="h-8 w-8 hover:text-primary"
+                                title="Guardar cambios de categoría y comentario"
+                            >
+                                {isLoading && editingRowId === fact.id ? <Loader2 className="h-4 w-4 animate-spin"/> : <Save className="h-4 w-4" />}
+                            </Button>
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => fact.storagePath && handleRemoveFact(fact.storagePath)}
+                                disabled={isLoading}
+                                className="h-8 w-8 hover:text-destructive"
+                                title="Eliminar hecho preservado"
+                            >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center text-muted-foreground h-24">
+                        No hay hechos preservados adjuntos a este análisis.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
 };
 
 export default PreservedFactsManager;
-
-    

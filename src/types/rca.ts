@@ -1,3 +1,4 @@
+
 'use client';
 // --- Common Enums and Types ---
 export type EventType = 'Incidente' | 'Falla de Equipo' | 'Accidente' | 'No Conformidad' | 'Evento Operacional' | '';
@@ -169,9 +170,25 @@ export interface Evidence {
   storagePath?: string; // Optional: To track file in Firebase Storage if used
 }
 
+export const PRESERVED_FACT_CATEGORIES = [
+    "Partes, Posición, Personas, Papel y Paradigmas",
+    "Fotografías o videos del Evento",
+    "Datos operacionales (Sensores, Vibraciones, etc.)",
+    "Registro mantenimientos y pruebas realizadas",
+    "Procedimientos",
+    "Entrevistas",
+    "PT, AST, OT",
+    "Charlas",
+    "Manuales, planos, P&ID, catálogos, Normativa asociada",
+    "Otras"
+] as const;
+
+export type PreservedFactCategory = typeof PRESERVED_FACT_CATEGORIES[number] | '';
+
 export interface PreservedFact extends Omit<Evidence, 'uploadDate'> {
   uploadDate: string; // ISO string for when the fact was preserved
   downloadURL?: string; // URL to view/download the file from Storage
+  category: PreservedFactCategory; // New field for categorization
 }
 
 
@@ -201,7 +218,7 @@ export interface ActionPlan {
     descripcionDetallada: string;
     responsableDetalle: string;
     codigoRCA: string;
-    evidences: Evidence[];
+    evidencias: Evidence[];
     userComments: string;
     userMarkedReadyDate?: string; // 'dd/MM/yyyy HH:mm'
     validationDate?: string; // 'dd/MM/yyyy HH:mm'
