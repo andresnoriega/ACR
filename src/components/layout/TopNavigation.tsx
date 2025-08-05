@@ -12,10 +12,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 
 const mainMenuItemsBase = [
-  { href: '/', label: 'Inicio', icon: Home, section: 'inicio', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User', 'Usuario Pendiente'] },
+  { href: '/inicio', label: 'Inicio', icon: Home, section: 'inicio', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User', 'Usuario Pendiente'] },
   { href: '/eventos', label: 'Eventos', icon: ListOrdered, section: 'eventos', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] },
   { href: '/analisis', label: 'Análisis', icon: BarChart3, section: 'analisis', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Super User'] },
-  { href: '/informes', label: 'Informes', icon: FileText, section: 'informes', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] },
   { href: '/usuario/planes', label: 'Mis Tareas', icon: UserCheck, section: 'usuario', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] },
   { href: '/usuario/perfil', label: 'Mi Perfil', icon: UserCircle, section: 'usuario', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User', 'Usuario Pendiente'] },
   { href: '/config', label: 'Config.', icon: SettingsIcon, section: 'config', requiresAuth: true, allowedRoles: ['Super User', 'Admin'] },
@@ -76,10 +75,8 @@ export function TopNavigation() {
               <div className="flex space-x-1 sm:space-x-2 md:space-x-4 overflow-x-auto py-2">
                 {visibleMenuItems.map((item) => {
                   let isActive = false;
-                  if (item.href === '/') { 
-                      isActive = pathname === '/';
-                  } else if (item.section === 'inicio') {
-                    isActive = pathname === '/' || pathname === '/inicio';
+                  if (item.href === '/inicio') { 
+                      isActive = pathname === '/inicio' || pathname === '/';
                   } else if (item.href === '/analisis') {
                     isActive = pathname.startsWith('/analisis'); 
                   } else if (item.href === '/config') {
