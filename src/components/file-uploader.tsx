@@ -31,7 +31,7 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [statusText, setStatusText] = useState("Drag & drop a file here, or click to select a file");
+  const [statusText, setStatusText] = useState("Arrastra y suelta un archivo aquí, o haz clic para seleccionarlo");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -59,7 +59,7 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
     setFile(null);
     setIsProcessing(false);
     setUploadProgress(0);
-    setStatusText("Drag & drop a file here, or click to select a file");
+    setStatusText("Arrastra y suelta un archivo aquí, o haz clic para seleccionarlo");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -70,7 +70,7 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
 
     setIsProcessing(true);
     setUploadProgress(0);
-    setStatusText("Preparing to upload...");
+    setStatusText("Preparando para subir...");
     
     // Use the filename directly to allow for replacement
     const storagePath = `uploads/${Date.now()}-${file.name}`;
@@ -81,37 +81,37 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
       (snapshot) => {
         const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
         setUploadProgress(progress);
-        setStatusText(`Uploading file... ${Math.round(progress)}%`);
+        setStatusText(`Subiendo archivo... ${Math.round(progress)}%`);
       },
       (error) => {
         console.error("Upload failed:", error);
         const bucket = storage.app.options.storageBucket || 'N/A';
-        let description = `Could not upload to bucket '${bucket}'. Please check your network and Firebase configuration.`;
+        let description = `No se pudo subir al bucket '${bucket}'. Por favor, revise su red y la configuración de Firebase.`;
 
         if (error.code) {
             switch(error.code) {
                 case 'storage/bucket-not-found':
-                    description = `Firebase Storage bucket '${bucket}' not found. Please ensure Storage is enabled and the bucket name in your config is correct.`;
+                    description = `El bucket de Firebase Storage '${bucket}' no fue encontrado. Asegúrese de que Storage esté habilitado y el nombre del bucket en su configuración sea correcto.`;
                     break;
                 case 'storage/project-not-found':
-                    description = "Firebase project not found. Please check your Firebase configuration.";
+                    description = "Proyecto de Firebase no encontrado. Por favor, revise su configuración de Firebase.";
                     break;
                 case 'storage/unauthorized':
-                    description = `Permission Denied for bucket '${bucket}'. Please check your Firebase Storage security rules to allow writes.`;
+                    description = `Permiso denegado para el bucket '${bucket}'. Por favor, revise las reglas de seguridad de Firebase Storage para permitir escrituras.`;
                     break;
                 case 'storage/unknown':
-                    description = `An unknown error occurred with bucket '${bucket}'. This could be a CORS configuration issue. Please check the browser console for details.`;
+                    description = `Ocurrió un error desconocido con el bucket '${bucket}'. Esto podría ser un problema de configuración CORS. Revise la consola del navegador para más detalles.`;
                     break;
             }
         }
 
-        toast({ variant: "destructive", title: "Upload Failed", description });
-        setStatusText("Upload failed. Please try again.");
+        toast({ variant: "destructive", title: "Fallo en la Subida", description });
+        setStatusText("Fallo en la subida. Por favor, intente de nuevo.");
         setTimeout(resetState, 4000);
       },
       async () => {
         try {
-          setStatusText("Processing file with AI...");
+          setStatusText("Procesando archivo...");
           setUploadProgress(100);
           
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
@@ -125,7 +125,7 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
           
           const { tags } = await generateTagsForFile(aiInput);
 
-          setStatusText("Saving tags...");
+          setStatusText("Guardando etiquetas...");
           const newMetadata = {
             customMetadata: {
               tags: JSON.stringify(tags)
@@ -133,7 +133,7 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
           };
           await updateMetadata(uploadTask.snapshot.ref, newMetadata);
 
-          setStatusText("Finalizing...");
+          setStatusText("Finalizando...");
 
           // Get the full metadata to have access to timeCreated
           const finalMetadata = await getMetadata(uploadTask.snapshot.ref);
@@ -150,18 +150,18 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
 
           onUploadSuccess(newFile);
 
-          setStatusText("✅ Success! File processed.");
+          setStatusText("✅ ¡Éxito! Archivo procesado.");
           toast({
-            title: "✅ File Processed",
-            description: `${file.name} was successfully uploaded and tagged.`,
+            title: "✅ Archivo Procesado",
+            description: `${file.name} fue subido y etiquetado exitosamente.`,
           });
           
           setTimeout(resetState, 2000);
 
         } catch (error: any) {
           console.error("Post-upload processing failed:", error);
-          setStatusText("AI processing failed.");
-          toast({ variant: "destructive", title: "Processing Failed", description: "The AI tagging process failed. Please try again." });
+          setStatusText("El procesamiento falló.");
+          toast({ variant: "destructive", title: "Fallo en el Procesamiento", description: "El proceso de etiquetado falló. Por favor, intente de nuevo." });
           setTimeout(resetState, 4000);
         }
       }
@@ -185,9 +185,9 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
           <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
             <UploadCloud className="w-10 h-10 mb-3 text-muted-foreground" />
             <p className="mb-2 text-sm text-muted-foreground">
-              <span className="font-semibold text-primary">Click to upload</span> or drag and drop
+              <span className="font-semibold text-primary">Haz clic para subir</span> o arrastra y suelta un archivo
             </p>
-            <p className="text-xs text-muted-foreground">Any file type supported</p>
+            <p className="text-xs text-muted-foreground">Cualquier tipo de archivo es soportado</p>
           </div>
           <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
         </div>
@@ -200,7 +200,7 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
                     <p className="text-xs text-muted-foreground">{formatBytes(file.size)}</p>
                 </div>
                 {!isProcessing && (
-                    <Button variant="ghost" size="sm" onClick={resetState}>Change</Button>
+                    <Button variant="ghost" size="sm" onClick={resetState}>Cambiar</Button>
                 )}
             </div>
             {isProcessing ? (
@@ -214,7 +214,7 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
             ) : (
                 <Button onClick={handleProcessFile} className="w-full">
                     <UploadCloud className="mr-2 h-4 w-4" />
-                    Process and Tag File
+                    Procesar Archivo
                 </Button>
             )}
         </div>

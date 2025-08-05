@@ -195,7 +195,7 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
       <Card>
         <CardHeader>
           <CardTitle>Subir Nuevo Hecho Preservado</CardTitle>
-          <CardDescription>Suba un archivo (imagen, documento, etc.) para preservarlo como evidencia. La IA generará etiquetas automáticamente.</CardDescription>
+          <CardDescription>Suba un archivo (imagen, documento, etc.) para preservarlo como evidencia.</CardDescription>
         </CardHeader>
         <CardContent>
           <FileUploader onUploadSuccess={handleUploadSuccess} />
