@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useCallback, useEffect, FC } from 'react';
@@ -8,8 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from "@/hooks/use-toast";
-import type { ReportedEvent, ReportedEventType, PriorityType, Site, RCAAnalysisDocument, IdentifiedRootCause } from '@/types/rca';
-import { ListOrdered, PieChart as PieChartIcon, BarChart as BarChartIcon, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, Loader2, FileDown, History, ChevronsRight, Home } from 'lucide-react';
+import type { ReportedEvent, ReportedEventType, PriorityType, Site, RCAAnalysisDocument, IdentifiedRootCause, PlannedAction } from '@/types/rca';
+import { ListOrdered, PieChart as PieChartIcon, BarChart as BarChartIcon, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, Loader2, FileDown, History, ChevronsRight, Home, ListChecks, Bell } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, where, type QueryConstraint } from "firebase/firestore";
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,7 +21,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { Progress } from '@/components/ui/progress';
-import { BarChart, PieChart, Pie, Cell, Legend, ResponsiveContainer, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { BarChart, PieChart, Pie, Cell, Legend, ResponsiveContainer, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 
 
@@ -409,6 +408,17 @@ export default function InformesPage() {
       return filteredRcaDocs.filter(doc => !doc.isFinalized && !doc.rejectionDetails);
   }, [filteredRcaDocs]);
 
+  const activeActionPlans = useMemo(() => {
+    return filteredRcaDocs
+      .filter(doc => !doc.isFinalized)
+      .flatMap(doc => (doc.plannedActions || []).map(action => ({ ...action, rcaDoc: doc })))
+      .filter(actionWithDoc => {
+        const validation = actionWithDoc.rcaDoc.validations.find(v => v.actionId === actionWithDoc.id);
+        return !validation || validation.status !== 'validated';
+      })
+      .slice(0, 5); // Limitar a 5 como en la imagen
+  }, [filteredRcaDocs]);
+
   const handleFilterChange = (field: keyof Filters, value: any) => {
     setFilters(prev => ({ ...prev, [field]: value === ALL_FILTER_VALUE ? '' : value }));
   };
@@ -624,6 +634,66 @@ export default function InformesPage() {
                   </TableBody>
               </Table>
           </CardContent>
+      </Card>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center"><ListChecks className="mr-2 h-5 w-5"/>Planes de Acción Activos</CardTitle>
+          <CardDescription>Acciones de análisis no finalizados que aún no han sido validadas (máx. 5).</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID Evento</TableHead>
+                <TableHead>ID Acción</TableHead>
+                <TableHead>Acción (Análisis: Título ACR)</TableHead>
+                <TableHead>Responsable</TableHead>
+                <TableHead>Fecha Límite</TableHead>
+                <TableHead>Estado Acción</TableHead>
+                <TableHead className="text-right">Recordatorio</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {activeActionPlans.length > 0 ? (
+                activeActionPlans.map(action => (
+                  <TableRow key={action.id}>
+                    <TableCell className="font-mono text-xs">{action.rcaDoc.eventData.id.substring(0, 8)}...</TableCell>
+                    <TableCell className="font-mono text-xs">{action.id.substring(0, 8)}...</TableCell>
+                    <TableCell>
+                      <p className="font-medium">{action.description}</p>
+                      <p className="text-xs text-muted-foreground">Del Análisis: {action.rcaDoc.eventData.focusEventDescription}</p>
+                    </TableCell>
+                    <TableCell>{action.responsible}</TableCell>
+                    <TableCell>{action.dueDate ? format(parseISO(action.dueDate), 'dd/MM/yyyy') : 'N/A'}</TableCell>
+                    <TableCell>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                        Activa
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" title="Enviar recordatorio">
+                        <Bell className="h-4 w-4"/>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
+                    No hay planes de acción activos que mostrar.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+        <CardFooter className="flex justify-end">
+            <Button variant="outline" size="sm">
+                <FileDown className="mr-2 h-4 w-4"/>
+                Exportar Excel (Todos los Activos)
+            </Button>
+        </CardFooter>
       </Card>
 
     </div>
