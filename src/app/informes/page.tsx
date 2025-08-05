@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from "@/hooks/use-toast";
 import type { ReportedEvent, ReportedEventType, PriorityType, Site, RCAAnalysisDocument, IdentifiedRootCause } from '@/types/rca';
-import { ListOrdered, PieChart as PieChartIcon, BarChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, Loader2, FileDown, History, ChevronsRight, Home } from 'lucide-react';
+import { ListOrdered, PieChart as PieChartIcon, BarChart as BarChartIcon, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, Loader2, FileDown, History, ChevronsRight, Home } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, where, type QueryConstraint } from "firebase/firestore";
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,7 +22,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { Progress } from '@/components/ui/progress';
-import { PieChart, Pie, Cell, Legend, ResponsiveContainer, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { BarChart, PieChart, Pie, Cell, Legend, ResponsiveContainer, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 
 
@@ -189,35 +189,35 @@ const EventosPorSitioYEquipoChart: FC<{ data: RCAAnalysisDocument[] }> = ({ data
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
-          <BarChart data={chartData} layout="vertical">
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis type="number" dataKey="Eventos" allowDecimals={false} />
-            <YAxis 
-              dataKey="name" 
-              type="category" 
-              width={120} 
-              tick={{ fontSize: 12 }}
-              interval={0}
-            />
-            <ChartTooltip
-                cursor={false}
-                content={
-                  <ChartTooltipContent
-                    labelFormatter={(label) => chartData.find((d) => d.name === label)?.name || label}
-                    formatter={(value) => `${value} Eventos`}
-                    hideIndicator
-                  />
-                }
-              />
-            <Legend />
-            <Bar 
-              dataKey="Eventos" 
-              fill="var(--color-Eventos)"
-              radius={4} 
-              onClick={(payload) => handleBarClick(payload)}
-              cursor={drilldownLevel === 'sitio' ? 'pointer' : 'default'}
-            />
-          </BarChart>
+            <BarChart data={chartData} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" dataKey="Eventos" allowDecimals={false} />
+                <YAxis 
+                dataKey="name" 
+                type="category" 
+                width={120} 
+                tick={{ fontSize: 12 }}
+                interval={0}
+                />
+                <ChartTooltip
+                    cursor={false}
+                    content={
+                    <ChartTooltipContent
+                        labelFormatter={(label) => chartData.find((d) => d.name === label)?.name || label}
+                        formatter={(value) => `${value} Eventos`}
+                        hideIndicator
+                    />
+                    }
+                />
+                <Legend />
+                <Bar 
+                dataKey="Eventos" 
+                fill="var(--color-Eventos)"
+                radius={4} 
+                onClick={(payload) => handleBarClick(payload)}
+                cursor={drilldownLevel === 'sitio' ? 'pointer' : 'default'}
+                />
+            </BarChart>
         </ChartContainer>
       </CardContent>
     </Card>
@@ -428,7 +428,7 @@ export default function InformesPage() {
     <div className="space-y-8 py-8">
       <header className="text-center space-y-2">
         <div className="inline-flex items-center justify-center bg-primary/10 text-primary p-3 rounded-full mb-4">
-          <BarChart className="h-10 w-10" />
+          <BarChartIcon className="h-10 w-10" />
         </div>
         <h1 className="text-4xl font-bold font-headline text-primary">
           Dashboard de Informes
