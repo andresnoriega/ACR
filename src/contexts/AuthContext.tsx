@@ -5,7 +5,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile, reauthenticateWithCredential, EmailAuthProvider, updatePassword, deleteUser, type User as FirebaseUser, type UserCredential } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, limit, deleteDoc, updateDoc } from 'firebase/firestore';
 import { getStorage, ref as storageRef, uploadString, getDownloadURL } from "firebase/storage";
-import { app, auth, db, storage } from '@/lib/firebase'; // <--- IMPORTACIÓN CENTRALIZADA
+import { app, auth, db, storage, firebaseConfig } from '@/lib/firebase';
 import type { FullUserProfile } from '@/types/rca';
 import { sanitizeForFirestore } from '@/lib/utils';
 import { sendEmailAction } from '@/app/actions';
@@ -67,10 +67,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             setUserProfile({ id: user.uid, ...pendingProfile });
           }
         } catch (error) {
-          console.error(`[AuthContext] Critical error fetching profile for UID ${user.uid}:`, error);
-          await signOut(auth);
+          console.error(`[AuthContext] Error fetching profile for UID ${user.uid}:`, error);
+          // CRITICAL FIX: Do NOT sign out the user if the profile fetch fails.
+          // This prevents the user from being kicked out on a temporary network issue or race condition.
+          // The user remains logged in, but with a null profile, which the UI should handle gracefully.
           setUserProfile(null);
-          setCurrentUser(null);
         }
       } else {
         setCurrentUser(null);
