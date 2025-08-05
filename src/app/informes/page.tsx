@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from "@/hooks/use-toast";
 import type { ReportedEvent, ReportedEventType, PriorityType, Site, RCAAnalysisDocument, IdentifiedRootCause } from '@/types/rca';
-import { ListOrdered, PieChart, BarChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, Loader2, FileDown, History } from 'lucide-react';
+import { ListOrdered, PieChart as PieChartIcon, BarChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, Loader2, FileDown, History } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, where, type QueryConstraint } from "firebase/firestore";
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,6 +21,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { Progress } from '@/components/ui/progress';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { ChartContainer, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 
 
 const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Falla de Equipo', 'Accidente', 'No Conformidad', 'Evento Operacional'];
@@ -41,6 +43,92 @@ interface RootCauseSummary extends IdentifiedRootCause {
   site: string;
   equipo: string;
 }
+
+// --- Chart Components ---
+
+const RcaStatusChart: FC<{ data: { name: string; value: number; fill: string; }[] }> = ({ data }) => {
+  const chartConfig = {
+    pendientes: { label: "ACR Pendientes", color: "hsl(var(--chart-4))" },
+    finalizados: { label: "ACR Finalizados", color: "hsl(var(--chart-2))" },
+  } satisfies ChartConfig;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Gráfico Estado de Análisis de Causa Raíz</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
+          <ResponsiveContainer width="100%" height={250}>
+            <PieChart>
+              <Pie
+                data={data}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={80}
+                label={({ name, value, percent }) => `${value} (${(percent * 100).toFixed(0)}%)`}
+              >
+                {data.map((entry) => (
+                  <Cell key={`cell-${entry.name}`} fill={entry.fill} />
+                ))}
+              </Pie>
+              <ChartTooltipContent
+                  nameKey="name"
+                  formatter={(value, name) => `${name}: ${value}`}
+              />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartContainer>
+      </CardContent>
+    </Card>
+  );
+};
+
+
+const ActionStatusChart: FC<{ data: { name: string; value: number; fill: string; }[] }> = ({ data }) => {
+   const chartConfig = {
+    pendientes: { label: "Pendientes", color: "hsl(var(--chart-4))" },
+    validadas: { label: "Validadas", color: "hsl(var(--chart-2))" },
+  } satisfies ChartConfig;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Gráfico Estado de Acciones Correctivas</CardTitle>
+      </CardHeader>
+      <CardContent>
+         <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
+           <ResponsiveContainer width="100%" height={250}>
+            <PieChart>
+              <Pie
+                data={data}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={80}
+                label={({ name, value, percent }) => `${value} (${(percent * 100).toFixed(0)}%)`}
+              >
+                {data.map((entry) => (
+                  <Cell key={`cell-${entry.name}`} fill={entry.fill} />
+                ))}
+              </Pie>
+               <ChartTooltipContent
+                  nameKey="name"
+                  formatter={(value, name) => `${name}: ${value}`}
+                />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartContainer>
+      </CardContent>
+    </Card>
+  );
+};
+
 
 export default function InformesPage() {
   const { toast } = useToast();
@@ -174,6 +262,21 @@ export default function InformesPage() {
 
     return { total, pendientes, finalizados, verificados, cumplimiento, totalAcciones, accionesPendientes, accionesValidadas, cumplimientoAcciones };
   }, [filteredRcaDocs]);
+
+  const { rcaStatusChartData, actionStatusChartData } = useMemo(() => {
+    const rcaData = [
+      { name: 'ACR Pendientes', value: summaryData.pendientes, fill: 'hsl(var(--chart-4))' },
+      { name: 'ACR Finalizados', value: summaryData.finalizados, fill: 'hsl(var(--chart-2))' },
+    ].filter(item => item.value > 0);
+
+    const actionData = [
+      { name: 'Pendientes', value: summaryData.accionesPendientes, fill: 'hsl(var(--chart-4))' },
+      { name: 'Validadas', value: summaryData.accionesValidadas, fill: 'hsl(var(--chart-2))' },
+    ].filter(item => item.value > 0);
+
+    return { rcaStatusChartData: rcaData, actionStatusChartData: actionData };
+  }, [summaryData]);
+
 
   const rootCauseSummaryData = useMemo(() => {
     return filteredRcaDocs.flatMap(doc => 
@@ -340,6 +443,11 @@ export default function InformesPage() {
         </CardContent>
       </Card>
       
+      <div className="grid md:grid-cols-2 gap-8">
+        <RcaStatusChart data={rcaStatusChartData} />
+        <ActionStatusChart data={actionStatusChartData} />
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Resumen de Causas Raíz Identificadas</CardTitle>
