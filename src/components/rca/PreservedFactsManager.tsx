@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useRef, type FC } from 'react';
+import { useState, useRef, type FC, useEffect } from 'react';
 import { storage, db } from '@/lib/firebase';
 import { ref as storageRef, deleteObject } from 'firebase/storage';
 import { doc, updateDoc } from "firebase/firestore";
@@ -16,6 +16,7 @@ import { PRESERVED_FACT_CATEGORIES, type PreservedFact, type PreservedFactCatego
 import type { UploadedFile } from '@/app/page';
 import FileUploader from '../file-uploader';
 import { ExternalLink, Loader2, Save, Trash2 } from 'lucide-react';
+import { cn } from "@/lib/utils"
 
 interface PreservedFactsManagerProps {
   analysisId: string | null;
@@ -32,7 +33,17 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const [justSavedRowId, setJustSavedRowId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (justSavedRowId) {
+      const timer = setTimeout(() => {
+        setJustSavedRowId(null);
+      }, 2000); // Highlight for 2 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [justSavedRowId]);
 
   const handleUpdateFact = (id: string, field: 'category' | 'comment', value: string) => {
     setPreservedFacts(prev =>
@@ -72,6 +83,7 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
         
         toast({ title: "Hecho Actualizado", description: "Se guardaron los cambios para el hecho preservado." });
         setEditingRowId(null); // Mark as not editing after save
+        setJustSavedRowId(id); // Trigger highlight
     } catch (error: any) {
         console.error("Error updating fact in Firestore:", error);
         toast({ title: "Error al Guardar", description: "No se pudo actualizar la información del hecho.", variant: "destructive" });
@@ -207,7 +219,13 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
                 <TableBody>
                   {(preservedFacts || []).length > 0 ? (
                     preservedFacts.map((fact) => (
-                      <TableRow key={fact.id}>
+                      <TableRow
+                        key={fact.id}
+                        className={cn(
+                          "transition-colors duration-1000",
+                          justSavedRowId === fact.id ? "bg-green-100 dark:bg-green-900/20" : "bg-transparent"
+                        )}
+                      >
                         <TableCell>
                           <Select
                             value={fact.category}
