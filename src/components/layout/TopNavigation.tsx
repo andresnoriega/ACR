@@ -57,7 +57,9 @@ export function TopNavigation() {
     }
   };
 
-  const isPublicFacingPage = !currentUser && (pathname === '/' || pathname === '/login' || pathname === '/registro');
+  // Determines if the page is a public-facing one (login, register, etc.)
+  // This logic is crucial for deciding which header version to show.
+  const isPublicPage = !currentUser && (pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/registro'));
 
   return (
     <header className="bg-card border-b border-border shadow-sm no-print sticky top-0 z-40">
@@ -65,29 +67,21 @@ export function TopNavigation() {
         <div className="flex items-center justify-between h-16">
           {/* Logo or Menu Items Section */}
           <div className="flex items-center gap-2 sm:gap-4">
-            {isPublicFacingPage ? (
+            {isPublicPage ? (
               <Link href="/" className="flex items-center gap-2 text-lg font-bold text-primary">
                 <Zap className="h-7 w-7" />
                 <span className="font-headline text-xl hidden sm:inline">Asistente ACR</span>
               </Link>
-            ) : hasMounted && !loadingAuth && currentUser ? (
+            ) : hasMounted && currentUser ? (
               <div className="flex space-x-1 sm:space-x-2 md:space-x-4 overflow-x-auto py-2">
                 {visibleMenuItems.map((item) => {
                   let isActive = false;
                   if (item.href === '/inicio') { 
                       isActive = pathname === '/inicio' || pathname === '/';
-                  } else if (item.href === '/analisis') {
-                    isActive = pathname.startsWith('/analisis'); 
-                  } else if (item.href === '/config') {
-                      isActive = pathname.startsWith('/config');
-                  } else if (item.section === 'usuario') {
-                      isActive = pathname.startsWith(item.href);
-                  } else if (item.href === '/instructivo') {
-                      isActive = pathname.startsWith('/instructivo');
-                  } else if (item.href === '/informes') {
-                      isActive = pathname.startsWith('/informes');
+                  } else if (item.section === 'config' || item.section === 'usuario' || item.section === 'analisis') {
+                    isActive = pathname.startsWith(item.href);
                   } else {
-                    isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                    isActive = pathname === item.href;
                   }
 
                   return (
@@ -109,10 +103,11 @@ export function TopNavigation() {
                 })}
               </div>
             ) : (
-                 <Link href="/" className="flex items-center gap-2 text-lg font-bold text-primary">
-                    <Zap className="h-7 w-7" />
-                    <span className="font-headline text-xl hidden sm:inline">Asistente ACR</span>
-                 </Link>
+              // This is a fallback for the loading state, showing the logo.
+              <Link href="/" className="flex items-center gap-2 text-lg font-bold text-primary">
+                 <Zap className="h-7 w-7" />
+                 <span className="font-headline text-xl hidden sm:inline">Asistente ACR</span>
+              </Link>
             )}
           </div>
           
@@ -131,7 +126,7 @@ export function TopNavigation() {
                     </Button>
                   </>
                 ) : (
-                  (pathname !== '/login' && pathname !== '/registro') && (
+                  !isPublicPage && (
                     <Button asChild variant="default" size="sm">
                       <Link href="/login">
                         <LogInIcon className="h-4 w-4 mr-0 sm:mr-2" />
@@ -142,7 +137,7 @@ export function TopNavigation() {
                 )}
               </>
             ) : (
-              <div className="h-9 w-28"></div> 
+              <div className="h-9 w-28 animate-pulse bg-muted rounded-md" /> 
             )}
           </div>
         </div>
