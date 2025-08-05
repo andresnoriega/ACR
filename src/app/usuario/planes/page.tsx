@@ -13,8 +13,9 @@ import { useToast } from "@/hooks/use-toast";
 import { ListTodo, FileText, ImageIcon, Paperclip, CheckCircle2, Save, Info, MessageSquare, Loader2, CalendarCheck, History, Trash2, Mail, ArrowUp, ArrowDown, ChevronsUpDown, UserCircle, FolderKanban, CheckSquare, Link2, ExternalLink, XCircle, ShieldCheck } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, query, orderBy, where, QueryConstraint, getDoc } from "firebase/firestore";
+import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { sendEmailAction } from '@/app/actions';
@@ -404,47 +405,74 @@ export default function UserActionPlansPage() {
     const { _originalRcaDocId, _originalActionId } = selectedPlan;
 
     try {
-      const rcaDocRef = doc(db, 'rcaAnalyses', _originalRcaDocId);
-      const docSnap = await getDoc(rcaDocRef);
+        const rcaDocRef = doc(db, 'rcaAnalyses', _originalRcaDocId);
+        const docSnap = await getDoc(rcaDocRef);
 
-      if (!docSnap.exists()) {
-        throw new Error("El documento de análisis no se encontró en la base de datos.");
-      }
+        if (!docSnap.exists()) {
+            throw new Error("El documento de análisis no se encontró en la base de datos.");
+        }
 
-      const currentRcaDoc = docSnap.data() as RCAAnalysisDocument;
-      let updatedPlannedActions: FirestorePlannedAction[];
+        const currentRcaDoc = docSnap.data() as RCAAnalysisDocument;
+        const actionToUpdate = currentRcaDoc.plannedActions.find(a => a.id === _originalActionId);
+        
+        if (!actionToUpdate) {
+            throw new Error("La acción planificada no se encontró en el documento.");
+        }
 
-      const updatedRcaDoc = {
-        ...currentRcaDoc,
-        plannedActions: currentRcaDoc.plannedActions.map(action => {
-          if (action.id === _originalActionId) {
-            const updatedEvidences = (action.evidencias || []).filter(e => e.id !== evidenceIdToRemove);
-            return { ...action, evidencias: updatedEvidences };
-          }
-          return action;
-        }),
-        updatedAt: new Date().toISOString(),
-      };
+        const evidenceToRemove = actionToUpdate.evidencias?.find(e => e.id === evidenceIdToRemove);
+
+        if (evidenceToRemove && evidenceToRemove.storagePath) {
+            const fileRef = storageRef(storage, evidenceToRemove.storagePath);
+            await deleteObject(fileRef).catch(err => {
+              // Log error but don't block DB update if file is already gone
+              console.warn(`Could not delete file ${evidenceToRemove.storagePath} from Storage, but proceeding. Error:`, err);
+            });
+        }
+        
+        const updatedEvidences = (actionToUpdate.evidencias || []).filter(e => e.id !== evidenceIdToRemove);
+        const updatedPlannedActions = currentRcaDoc.plannedActions.map(action => 
+            action.id === _originalActionId ? { ...action, evidencias: updatedEvidences } : action
+        );
+
+        await updateDoc(rcaDocRef, {
+            plannedActions: sanitizeForFirestore(updatedPlannedActions),
+            updatedAt: new Date().toISOString(),
+        });
       
-      updatedPlannedActions = updatedRcaDoc.plannedActions;
-
-      await updateDoc(rcaDocRef, sanitizeForFirestore(updatedRcaDoc));
-      
-      toast({ title: "Evidencia Eliminada", variant: 'destructive' });
-      setAllRcaDocuments(prevDocs => 
-        prevDocs.map(d => d.eventData.id === _originalRcaDocId ? updatedRcaDoc : d)
-      );
+        toast({ title: "Evidencia Eliminada", variant: 'destructive' });
+        
+        setAllRcaDocuments(prevDocs => 
+            prevDocs.map(d => 
+                d.eventData.id === _originalRcaDocId ? { ...d, plannedActions: updatedPlannedActions, updatedAt: new Date().toISOString() } : d
+            )
+        );
+        setSelectedPlan(prev => prev ? { ...prev, evidencias: updatedEvidences } : null);
 
     } catch (error) {
-      console.error("Error removing evidence:", error);
-      toast({ title: "Error", description: `No se pudo eliminar la evidencia: ${(error as Error).message}`, variant: "destructive" });
+        console.error("Error removing evidence:", error);
+        toast({ title: "Error", description: `No se pudo eliminar la evidencia: ${(error as Error).message}`, variant: "destructive" });
     } finally {
-      setIsUpdatingAction(false);
+        setIsUpdatingAction(false);
     }
   };
   
   const handleSignalTaskReadyForValidation = async () => {
     if (!selectedPlan || !userProfile) return;
+    
+    // Check for required fields or new evidence
+    if (!fileToUpload && !(selectedPlan.userComments && selectedPlan.userComments.trim())) {
+      const hasExistingEvidence = selectedPlan.evidencias && selectedPlan.evidencias.length > 0;
+      if (!hasExistingEvidence) {
+        toast({
+            title: "Acción requerida",
+            description: "Debe adjuntar al menos un archivo de evidencia o agregar un comentario para marcar la tarea como lista.",
+            variant: "destructive",
+            duration: 6000,
+        });
+        return;
+      }
+    }
+
     setIsUpdatingAction(true);
     
     try {
@@ -453,7 +481,7 @@ export default function UserActionPlansPage() {
         if (fileToUpload.size > 700 * 1024) { // 700 KB limit
           toast({
             title: "Archivo Demasiado Grande",
-            description: "El archivo de evidencia no puede superar los 700 KB para ser guardado en la base de datos.",
+            description: "El archivo de evidencia no puede superar los 700 KB para ser guardado.",
             variant: "destructive",
             duration: 7000,
           });
@@ -461,20 +489,21 @@ export default function UserActionPlansPage() {
           return;
         }
 
-        toast({ title: "Procesando archivo...", description: `Convirtiendo ${fileToUpload.name} a Data URL.` });
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = (error) => reject(error);
-            reader.readAsDataURL(fileToUpload);
-        });
+        toast({ title: "Procesando archivo...", description: `Subiendo ${fileToUpload.name}...` });
+        
+        const storagePath = `evidencias/${selectedPlan._originalRcaDocId}/${selectedPlan.id}/${Date.now()}-${fileToUpload.name}`;
+        const fileStorageRef = storageRef(storage, storagePath);
+        const uploadResult = await uploadBytes(fileStorageRef, fileToUpload);
+        const downloadURL = await getDownloadURL(uploadResult.ref);
 
         newEvidencePayload = {
           id: generateClientSideId('ev'),
           nombre: fileToUpload.name,
-          tipo: (fileToUpload.type as FirestoreEvidence['tipo']) || 'other',
+          tipo: fileToUpload.type,
           comment: evidenceComment.trim() || undefined,
-          dataUrl: dataUrl,
+          downloadURL,
+          storagePath,
+          uploadDate: new Date().toISOString(),
         };
       }
 
@@ -489,15 +518,13 @@ export default function UserActionPlansPage() {
       const updatedPlannedActions = currentRcaDoc.plannedActions.map(action => {
         if (action.id === selectedPlan._originalActionId) {
           const currentDateISO = new Date().toISOString();
-          const formattedCurrentDate = format(parseISO(currentDateISO), 'dd/MM/yyyy HH:mm', { locale: es });
           const updatedEvidences = newEvidencePayload ? [...(action.evidencias || []), newEvidencePayload] : action.evidencias;
-          const newComment = (action.userComments?.trim() ? action.userComments.trim() + "\n\n" : "") + `[Sistema] Tarea marcada como lista para validación por ${userProfile.name} el ${formattedCurrentDate}.`;
           
           actionToNotify = {
             ...action,
             markedAsReadyAt: currentDateISO,
             evidencias: updatedEvidences,
-            userComments: newComment,
+            userComments: selectedPlan.userComments,
           };
           return actionToNotify;
         }
@@ -512,7 +539,6 @@ export default function UserActionPlansPage() {
 
       await updateDoc(rcaDocRef, sanitizeForFirestore(updatedRcaDoc));
       
-      // State is now updated directly, avoiding a full re-fetch.
       setAllRcaDocuments(prevDocs =>
         prevDocs.map(doc =>
           doc.eventData.id === selectedPlan._originalRcaDocId
@@ -734,14 +760,14 @@ export default function UserActionPlansPage() {
                           <div className="flex-grow"><div className="flex items-center">{getEvidenceIconLocal(ev.tipo)}<span className="font-medium">{ev.nombre}</span></div>
                             {ev.comment && <p className="text-xs text-muted-foreground ml-[calc(1rem+0.5rem)] mt-0.5">Comentario: {ev.comment}</p>}</div>
                           <div className="flex-shrink-0 ml-2">
-                             <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mr-2"><a href={ev.dataUrl} target="_blank" rel="noopener noreferrer" download={ev.nombre}><ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar</a></Button>
+                             <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs mr-2"><a href={ev.downloadURL} target="_blank" rel="noopener noreferrer" download={ev.nombre}><ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar</a></Button>
                              <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-destructive/10" onClick={() => handleRemoveEvidence(ev.id)} disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || selectedPlan.estado === 'Rechazado'} aria-label="Eliminar evidencia"><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
                           </div>
                           </li>))}</ul>
                   ) : <p className="text-xs text-muted-foreground">No hay evidencias adjuntas.</p>}</div>
                 <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Adjuntar nueva evidencia]</h4>
                   <div className="space-y-2">
-                    <Label htmlFor="evidence-file-input">Archivo de Evidencia</Label>
+                    <Label htmlFor="evidence-file-input">Archivo de Evidencia (máx 700KB)</Label>
                     <Input id="evidence-file-input" type="file" onChange={handleFileChange} className="text-xs h-9" disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || selectedPlan.estado === 'Rechazado'} />
                     <Label htmlFor="evidence-comment">Comentario para esta evidencia (opcional)</Label>
                     <Input id="evidence-comment" type="text" placeholder="Ej: Foto de la reparación, documento de capacitación..." value={evidenceComment} onChange={(e) => setEvidenceComment(e.target.value)} className="text-xs h-9" disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || selectedPlan.estado === 'Rechazado'} />
@@ -752,7 +778,7 @@ export default function UserActionPlansPage() {
                   <Textarea value={selectedPlan.userComments || ''} onChange={(e) => setSelectedPlan(prev => prev ? { ...prev, userComments: e.target.value } : null)} placeholder="Añada sus comentarios sobre el progreso o finalización de esta tarea..." rows={3} className="text-sm" disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || selectedPlan.estado === 'Rechazado'} /></div>
                 <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Actualizar estado de esta tarea]</h4>
                   <div className="flex items-center gap-2">
-                     <Button size="sm" variant="default" onClick={handleSignalTaskReadyForValidation} disabled={isUpdatingAction || ['Completado', 'En Validación', 'Rechazado'].includes(selectedPlan.estado) || (!fileToUpload && !(selectedPlan.userComments && selectedPlan.userComments.trim()))} title={selectedPlan.estado === 'Completado' ? "Esta tarea ya ha sido validada y no puede modificarse." : ['En Validación', 'Rechazado'].includes(selectedPlan.estado) ? `La tarea ya está en estado '${selectedPlan.estado}'` : (!fileToUpload && !(selectedPlan.userComments && selectedPlan.userComments.trim())) ? "Debe adjuntar un archivo o agregar un comentario para marcar la tarea como lista." : "Guardar evidencias, comentarios y marcar la tarea como lista para ser validada por el Líder del Proyecto."}>
+                     <Button size="sm" variant="default" onClick={handleSignalTaskReadyForValidation} disabled={isUpdatingAction || ['Completado', 'En Validación', 'Rechazado'].includes(selectedPlan.estado)} title={selectedPlan.estado === 'Completado' ? "Esta tarea ya ha sido validada y no puede modificarse." : ['En Validación', 'Rechazado'].includes(selectedPlan.estado) ? `La tarea ya está en estado '${selectedPlan.estado}'` : (!fileToUpload && !(selectedPlan.userComments && selectedPlan.userComments.trim()) && selectedPlan.evidencias.length === 0) ? "Debe adjuntar un archivo o agregar un comentario para marcar la tarea como lista." : "Guardar evidencias, comentarios y marcar la tarea como lista para ser validada por el Líder del Proyecto."}>
                       {isUpdatingAction ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-4 w-4" />} 
                       {isUpdatingAction ? 'Procesando...' : 'Marcar como listo para validación'}
                     </Button>
