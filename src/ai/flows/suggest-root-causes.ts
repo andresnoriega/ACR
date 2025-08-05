@@ -233,8 +233,11 @@ export async function suggestLatentRootCauses(input: SuggestLatentRootCausesInpu
     console.error("Error executing suggestLatentRootCauses:", error);
     let errorMessage = "Error al procesar la solicitud con IA.";
     if (error instanceof Error) {
-        // More specific error messages can be added here if needed
-        errorMessage += ` (${error.message})`;
+        if (error.message.includes("SERVICE_DISABLED") || error.message.includes("it is disabled")) {
+            errorMessage = "[IA no disponible] La API de Lenguaje Generativo está deshabilitada. Habilítela en Google Cloud y reintente.";
+        } else {
+             errorMessage += ` (${error.message})`;
+        }
     }
     return { suggestedLatentCauses: [`[Sugerencias IA no disponibles] ${errorMessage}`] };
   }

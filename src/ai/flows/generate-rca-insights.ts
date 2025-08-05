@@ -111,6 +111,8 @@ export async function generateRcaInsights(input: GenerateRcaInsightsInput): Prom
             errorMessage = "[Resumen IA no disponible: El modelo configurado no existe o no está disponible.]";
         } else if (error.message.includes("Must supply a `model`")) {
              errorMessage = "[Resumen IA no disponible: Problema con la configuración del modelo o la API Key. Verifique la consola.]";
+        } else if (error.message.includes("SERVICE_DISABLED") || error.message.includes("it is disabled")) {
+            errorMessage = "[Resumen IA no disponible: La API de Lenguaje Generativo está deshabilitada. Habilítela en la consola de Google Cloud y reintente.]";
         } else {
             errorMessage += ` (${error.message})`;
         }
