@@ -21,7 +21,7 @@ import PreservedFactsManager from './PreservedFactsManager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db, storage } from '@/lib/firebase';
 import { ref as storageRef, deleteObject } from "firebase/storage";
-import { doc, updateDoc, arrayRemove } from "firebase/firestore";
+import { doc, updateDoc, arrayRemove } from 'firebase/firestore';
 import { sanitizeForFirestore } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { formatBytes } from '@/lib/utils';
@@ -181,11 +181,7 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
       setIsParaphrasing(false);
     }
   };
-
-  const handleUploadSuccess = (newFact: PreservedFact) => {
-    setPreservedFacts(prev => [...prev, newFact]);
-  };
-
+  
   const handleRemoveFact = async (factId: string) => {
     if (!analysisId) {
       toast({ title: "Error", description: "ID del análisis no encontrado.", variant: "destructive" });
@@ -363,7 +359,8 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                 <PreservedFactsManager
                     analysisId={analysisId}
                     onAnalysisSaveRequired={onAnalysisSaveRequired}
-                    onFactAdded={handleUploadSuccess}
+                    preservedFacts={preservedFacts}
+                    setPreservedFacts={setPreservedFacts}
                 />
 
                 <div className="space-y-2 pt-4">

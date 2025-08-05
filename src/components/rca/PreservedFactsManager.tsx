@@ -3,8 +3,8 @@
 
 import { useState, useRef, type FC, useCallback } from 'react';
 import { storage } from '@/lib/firebase';
-import { ref, uploadBytesResumable, getDownloadURL, updateMetadata, getMetadata } from 'firebase/storage';
-import { UploadCloud, Loader2, File as FileIcon, Trash2, ExternalLink } from 'lucide-react';
+import { ref, uploadBytesResumable, getDownloadURL, updateMetadata, getMetadata, deleteObject } from 'firebase/storage';
+import { UploadCloud, Loader2, File as FileIcon, Trash2 } from 'lucide-react';
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { cn, formatBytes } from '@/lib/utils';
@@ -13,7 +13,7 @@ import { generateTagsForFile, type GenerateTagsForFileInput } from '@/ai/flows/g
 import type { PreservedFact } from '@/types/rca';
 import { sanitizeForFirestore } from '@/lib/utils';
 import { db } from '@/lib/firebase';
-import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 
 const fileToDataUri = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -27,10 +27,11 @@ const fileToDataUri = (file: File): Promise<string> => {
 interface PreservedFactsManagerProps {
   analysisId: string | null;
   onAnalysisSaveRequired: () => Promise<string | null>;
-  onFactAdded: (fact: PreservedFact) => void;
+  preservedFacts: PreservedFact[];
+  setPreservedFacts: (facts: PreservedFact[] | ((prevState: PreservedFact[]) => PreservedFact[])) => void;
 }
 
-const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({ analysisId, onAnalysisSaveRequired, onFactAdded }) => {
+const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({ analysisId, onAnalysisSaveRequired, setPreservedFacts }) => {
   const [file, setFile] = useState<File | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -166,7 +167,7 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({ analysisId, onA
             updatedAt: new Date().toISOString()
           });
 
-          onFactAdded(newFact);
+          setPreservedFacts(prev => [...(prev || []), newFact]);
 
           setStatusText("✅ ¡Éxito! Archivo procesado.");
           toast({
