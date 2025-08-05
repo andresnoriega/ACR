@@ -1,5 +1,5 @@
 import {genkit, type GenkitConfig} from 'genkit';
-import {googleAI} from '@genkit-ai/googleai'; // Corrected import
+import {googleAI} from '@genkit-ai/googleai'; 
 import { firebaseConfig } from '@/lib/firebase'; // Importar la configuración de firebase
 
 // Define Genkit configuration
@@ -25,10 +25,9 @@ const genkitConfig: GenkitConfig = {
 // Attempt to initialize Genkit, provide a mock if it fails
 export let ai: any;
 try {
-  // Check if genkitConfig.plugins is empty or if googleAI is not available (it should be if import worked)
-  if (!genkitConfig.plugins || genkitConfig.plugins.length === 0 || typeof googleAI !== 'function') {
-    console.warn('[AI Genkit] No Genkit plugins are configured, or googleAI plugin is unavailable. AI functionality will be mocked/disabled.');
-    throw new Error("No Genkit plugins configured or googleAI unavailable."); // Force fallback to mock
+  // Check if firebaseConfig is valid before initializing Genkit
+  if (!firebaseConfig.apiKey) {
+    throw new Error("La API Key de Firebase no está definida en la configuración. No se puede inicializar Genkit.");
   }
   
   ai = genkit(genkitConfig);
@@ -58,6 +57,7 @@ try {
   const aiMockMessage = "AI functionality is disabled due to a Genkit configuration or initialization issue.";
   
   ai = {
+    isMocked: true, // Add a flag to easily check if AI is mocked
     defineFlow: (config: any, func: any) => {
       // Return a function that immediately returns a mocked "disabled" response,
       // conforming to the expected output schema of the flows.
@@ -66,8 +66,14 @@ try {
         if (config.name === 'generateRcaInsightsFlow') {
           return { summary: `[Resumen IA Deshabilitado] ${aiMockMessage}` };
         }
-        if (config.name === 'suggestRootCausesFlow') {
-          return { suggestedRootCauses: [`[Sugerencias IA Deshabilitadas] ${aiMockMessage}`] };
+        if (config.name === 'suggestRootCausesFlow' || config.name === 'suggestLatentRootCausesFlow') {
+          return { suggestedLatentCauses: [`[Sugerencias IA Deshabilitadas] ${aiMockMessage}`] };
+        }
+         if (config.name === 'paraphrasePhenomenonFlow') {
+          return { paraphrasedText: `[IA Deshabilitada] ${aiMockMessage}` };
+        }
+        if (config.name === 'generateTagsForFileFlow') {
+          return { tags: [`tag-ia-deshabilitada`] };
         }
         // Generic fallback for other potential flows
         return { error: `Flow '${config.name}' is disabled. ${aiMockMessage}` };
@@ -90,13 +96,8 @@ try {
         usage: {},
         toString: () => aiMockMessage, // For easy debugging
       };
-      // Adding this to the object itself for cases where it's not a function call
-      (mockGenerateResponse as any).summary = `[Resumen IA Deshabilitado] ${aiMockMessage}`;
-      (mockGenerateResponse as any).suggestedRootCauses = [`[Sugerencias IA Deshabilitadas] ${aiMockMessage}`];
       
       return Promise.resolve(mockGenerateResponse);
     },
-    // Add a simple property to allow easy checking if the AI is mocked
-    isMocked: true, 
   };
 }
