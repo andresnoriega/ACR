@@ -5,17 +5,18 @@ import { getFirestore, initializeFirestore, memoryLocalCache } from "firebase/fi
 import { getStorage } from "firebase/storage";
 
 // =================================================================================
-// CONFIGURACIÓN CORREGIDA PARA EL PROYECTO: Asistente-ACR Cloud
+// CONFIGURACIÓN CORREGIDA PARA EL PROYECTO: asistente-acr-cloud
 // =================================================================================
 const firebaseConfig = {
   apiKey: "AIzaSyBpRAXR8mTcBTXwuXV5VaXdqCP6yx85MUE",
-  authDomain: "almacenador-cloud.firebaseapp.com",
-  projectId: "almacenador-cloud",
-  storageBucket: "almacenador-cloud.appspot.com",
+  authDomain: "asistente-acr-cloud.firebaseapp.com",
+  projectId: "asistente-acr-cloud",
+  storageBucket: "asistente-acr-cloud.appspot.com",
   messagingSenderId: "790911154631",
-  // appId y measurementId no son estrictamente necesarios para los servicios
-  // principales de Firestore, Auth y Storage en esta aplicación.
+  appId: "1:790911154631:web:2c5f18c6454a869e9f7834",
+  measurementId: "G-1T4X7V4X7B"
 };
+
 
 let app: FirebaseApp;
 

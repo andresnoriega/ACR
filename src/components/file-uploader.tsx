@@ -221,6 +221,4 @@ export default function FileUploader({ onUploadSuccess }: FileUploaderProps) {
       )}
     </div>
   );
-};
-
-    
+}
