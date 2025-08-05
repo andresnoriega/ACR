@@ -1,5 +1,6 @@
 
 'use client';
+
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
@@ -1660,14 +1661,25 @@ function RCAAnalysisPageComponent() {
 }
 
 export default function RCAAnalysisPage() {
+  const { currentUser, loadingAuth } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loadingAuth) {
+      if (currentUser) {
+        // If user is logged in, redirect to the main dashboard/home page
+        router.replace('/inicio');
+      } else {
+        // If user is not logged in, redirect to the login page
+        router.replace('/login');
+      }
+    }
+  }, [currentUser, loadingAuth, router]);
+
   return (
-    <Suspense fallback={
-      <div className="flex flex-col justify-center items-center min-h-[calc(100vh-10rem)] text-center">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-lg text-muted-foreground">Cargando analizador...</p>
-      </div>
-    }>
-      <RCAAnalysisPageComponent />
-    </Suspense>
+    <div className="flex flex-col justify-center items-center min-h-screen">
+      <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+      <p className="text-lg text-muted-foreground">Cargando...</p>
+    </div>
   );
 }
