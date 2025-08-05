@@ -9,13 +9,13 @@ import { getStorage } from "firebase/storage";
 // Se usa la configuración verificada para garantizar la conexión.
 // =================================================================================
 const firebaseConfig = {
-  apiKey: "AIzaSyDPfL1Jrh1SGF0x863C9cqOa-Yn9oJcMZU",
-  authDomain: "almacenador-cloud.firebaseapp.com",
-  projectId: "almacenador-cloud",
-  storageBucket: "almacenador-cloud.appspot.com",
-  messagingSenderId: "790911154631",
-  appId: "1:790911154631:web:91e2d71d8ccfbf058301e2",
-  measurementId: "G-R2NQTYM2GX"
+  "projectId": "rca-assistant-jk3ja",
+  "appId": "1:1044963774198:web:4ae00d1ee674f1864ea6d7",
+  "storageBucket": "rca-assistant-jk3ja.appspot.com",
+  "apiKey": "AIzaSyA3a8UytRbwFKWT9ISF1OlYaizC37b3rZQ",
+  "authDomain": "rca-assistant-jk3ja.firebaseapp.com",
+  "measurementId": "",
+  "messagingSenderId": "1044963774198"
 };
 
 let app: FirebaseApp;
