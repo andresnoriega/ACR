@@ -93,14 +93,14 @@ function IdleManager() {
 function AppContent({ children }: { children: ReactNode }) {
   const { currentUser } = useAuth();
   const pathname = usePathname();
-  const isPublicPage = pathname === '/' || pathname === '/login' || pathname === '/registro';
+  const isPublicHomePage = pathname === '/';
 
   return (
     <>
-      {!isPublicPage && currentUser && <TopNavigation />}
+      {!isPublicHomePage && currentUser && <TopNavigation />}
       <main className="flex-grow w-full print-container">
-        {isPublicPage ? (
-            children // Public pages have their own layout, so just render children
+        {isPublicHomePage ? (
+            children
         ) : (
             <div className="container mx-auto p-4 sm:p-6 lg:p-8 h-full">
                 {children}
