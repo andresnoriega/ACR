@@ -23,7 +23,7 @@ const genkitConfig: GenkitConfig = {
 
 // Initialize Genkit with the configuration
 // Attempt to initialize Genkit, provide a mock if it fails
-let ai: any;
+export let ai: any;
 try {
   // Check if genkitConfig.plugins is empty or if googleAI is not available (it should be if import worked)
   if (!genkitConfig.plugins || genkitConfig.plugins.length === 0 || typeof googleAI !== 'function') {
@@ -99,4 +99,4 @@ try {
     // Add a simple property to allow easy checking if the AI is mocked
     isMocked: true, 
   };
-  
+}
