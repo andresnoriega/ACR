@@ -741,10 +741,6 @@ function RCAAnalysisPageComponent() {
     }
   };
   
-  const handleSaveFromStep2 = async () => {
-    await handleSaveAnalysisData(true);
-  };
-
   const handleApproveEvent = async () => {
     let currentId = analysisDocumentId;
     if (!currentId) { 
