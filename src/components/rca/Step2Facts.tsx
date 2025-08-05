@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { FC, ChangeEvent } from 'react';
@@ -32,8 +33,7 @@ export const Step2Facts: FC<{
   analysisDetails: string;
   onAnalysisDetailsChange: (value: string) => void;
   preservedFacts: PreservedFact[];
-  onAddPreservedFact: (fact: PreservedFact) => Promise<boolean>;
-  onRemovePreservedFact: (factId: string) => Promise<void>;
+  setPreservedFacts: (facts: PreservedFact[] | ((prevState: PreservedFact[]) => PreservedFact[])) => void;
   onAnalysisSaveRequired: () => Promise<string | null>; // Callback to save parent state
   availableUsers: FullUserProfile[];
   availableSites: Site[];
@@ -55,8 +55,7 @@ export const Step2Facts: FC<{
   analysisDetails,
   onAnalysisDetailsChange,
   preservedFacts,
-  onAddPreservedFact,
-  onRemovePreservedFact,
+  setPreservedFacts,
   onAnalysisSaveRequired,
   availableUsers,
   availableSites,
@@ -312,10 +311,9 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
             <TabsContent value="preservation" className="mt-4">
                  <PreservedFactsManager
                     preservedFacts={preservedFacts}
+                    setPreservedFacts={setPreservedFacts}
                     analysisId={analysisId}
                     onAnalysisSaveRequired={onAnalysisSaveRequired}
-                    onAddFact={onAddPreservedFact}
-                    onRemoveFact={onRemovePreservedFact}
                  />
             </TabsContent>
         </Tabs>

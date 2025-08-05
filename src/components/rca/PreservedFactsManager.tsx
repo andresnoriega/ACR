@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, type FC, type ChangeEvent, useRef, useCallback } from 'react';
@@ -10,14 +11,15 @@ import { useToast } from "@/hooks/use-toast";
 import { PlusCircle, Trash2, Loader2, FileArchive, FileText, ImageIcon, Paperclip, ExternalLink, Link2, UploadCloud } from 'lucide-react';
 import { format } from 'date-fns';
 import { Progress } from '@/components/ui/progress';
-import { storage } from '@/lib/firebase';
-import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { db, storage } from '@/lib/firebase';
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { cn } from '@/lib/utils';
+import { sanitizeForFirestore } from '@/lib/utils';
 
 
 const MAX_FILE_SIZE_KB = 2048; // 2MB limit
 
-// This function now resides inside the component that uses it.
 const generateClientSideId = (prefix: string) => {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 };
@@ -34,18 +36,16 @@ const getEvidenceIcon = (tipo?: PreservedFact['tipo']) => {
 
 interface PreservedFactsManagerProps {
   preservedFacts: PreservedFact[];
+  setPreservedFacts: (facts: PreservedFact[] | ((prevState: PreservedFact[]) => PreservedFact[])) => void;
   analysisId: string | null;
-  onAnalysisSaveRequired: () => Promise<string | null>; // Returns the analysis ID or null if failed
-  onAddFact: (fact: PreservedFact) => void;
-  onRemoveFact: (factId: string) => Promise<void>;
+  onAnalysisSaveRequired: () => Promise<string | null>;
 }
 
 export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
   preservedFacts,
+  setPreservedFacts,
   analysisId,
   onAnalysisSaveRequired,
-  onAddFact,
-  onRemoveFact,
 }) => {
   const { toast } = useToast();
   const [userGivenName, setUserGivenName] = useState('');
@@ -151,7 +151,13 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
                     storagePath: uploadTask.snapshot.ref.fullPath,
                 };
                 
-                onAddFact(newFact);
+                const rcaDocRef = doc(db, 'rcaAnalyses', currentAnalysisId!);
+                await updateDoc(rcaDocRef, {
+                  preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
+                  updatedAt: new Date().toISOString()
+                });
+                
+                setPreservedFacts(prev => [...prev, newFact]);
                 toast({ title: "Éxito", description: "Hecho preservado añadido y subido correctamente." });
                 resetForm();
 
@@ -169,6 +175,47 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
       resetForm();
     }
   };
+
+  const handleRemoveFact = async (factId: string) => {
+    if (!analysisId) {
+      toast({ title: "Error", description: "ID del análisis no encontrado.", variant: "destructive" });
+      return;
+    }
+    const factToRemove = preservedFacts.find(fact => fact.id === factId);
+    if (!factToRemove) return;
+    
+    setIsProcessing(true);
+    
+    try {
+      if (factToRemove.storagePath) {
+        const fileRef = storageRef(storage, factToRemove.storagePath);
+        await deleteObject(fileRef);
+        toast({ title: "Archivo Eliminado de Storage", variant: "default" });
+      }
+      
+      const rcaDocRef = doc(db, "rcaAnalyses", analysisId);
+      await updateDoc(rcaDocRef, {
+          preservedFacts: arrayRemove(sanitizeForFirestore(factToRemove)),
+          updatedAt: new Date().toISOString()
+      });
+      
+      setPreservedFacts(prev => prev.filter(fact => fact.id !== factId));
+      toast({ title: "Hecho Preservado Eliminado", description: "La referencia se eliminó exitosamente.", variant: 'destructive' });
+
+    } catch (error: any) {
+      console.error("Error al eliminar hecho preservado:", error);
+      let errorDesc = `No se pudo confirmar la eliminación en la base de datos: ${error.message}.`;
+      if (error.code === 'storage/object-not-found') {
+        errorDesc = "El archivo ya no existía en Storage, pero se eliminó la referencia de la base de datos.";
+      } else if (error.code) {
+        errorDesc = `No se pudo eliminar de Storage. Código: ${error.code}`
+      }
+      toast({ title: "Error de Eliminación", description: errorDesc, variant: 'destructive' });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
 
   return (
     <div className="space-y-4 pt-4 border-t">
@@ -245,7 +292,7 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 hover:bg-destructive/10"
-                  onClick={() => onRemoveFact(fact.id)}
+                  onClick={() => handleRemoveFact(fact.id)}
                   disabled={isProcessing}
                   aria-label="Eliminar hecho preservado"
                 >

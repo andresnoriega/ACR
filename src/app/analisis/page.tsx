@@ -1105,79 +1105,6 @@ function RCAAnalysisPageComponent() {
     setDetailedFacts(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleAddPreservedFact = async (
-    fact: PreservedFact
-  ): Promise<boolean> => {
-    try {
-      let currentAnalysisId = analysisDocumentId;
-      if (!currentAnalysisId) {
-        const saveResult = await handleSaveAnalysisData(false);
-        if (!saveResult.success || !saveResult.newEventId) {
-          throw new Error("No se pudo crear el documento de análisis antes de subir el archivo.");
-        }
-        currentAnalysisId = saveResult.newEventId;
-      }
-
-      const rcaDocRef = doc(db, 'rcaAnalyses', currentAnalysisId!);
-      await updateDoc(rcaDocRef, {
-        preservedFacts: arrayUnion(sanitizeForFirestore(fact)),
-        updatedAt: new Date().toISOString()
-      });
-      
-      setPreservedFacts(prev => [...prev, fact]);
-      return true;
-    } catch (error) {
-      console.error("Error in handleAddPreservedFact:", error);
-      toast({
-        title: "Error al Añadir Hecho",
-        description: `No se pudo guardar el hecho preservado. ${(error as Error).message}`,
-        variant: "destructive"
-      });
-      return false;
-    }
-  };
-  
-  const handleRemovePreservedFact = async (id: string) => {
-    if (!analysisDocumentId) {
-      toast({ title: "Error", description: "ID del análisis no encontrado.", variant: "destructive" });
-      return;
-    }
-    const factToRemove = preservedFacts.find(fact => fact.id === id);
-    if (!factToRemove) return;
-    
-    setIsSaving(true);
-    
-    try {
-      if (factToRemove.storagePath) {
-        const fileRef = storageRef(storage, factToRemove.storagePath);
-        await deleteObject(fileRef);
-        toast({ title: "Archivo Eliminado de Storage", variant: "default" });
-      }
-      
-      const rcaDocRef = doc(db, "rcaAnalyses", analysisDocumentId);
-      await updateDoc(rcaDocRef, {
-          preservedFacts: arrayRemove(sanitizeForFirestore(factToRemove)),
-          updatedAt: new Date().toISOString()
-      });
-      
-      setPreservedFacts(prev => prev.filter(fact => fact.id !== id));
-      toast({ title: "Hecho Preservado Eliminado", description: "La referencia se eliminó exitosamente.", variant: 'destructive' });
-
-    } catch (error: any) {
-      console.error("Error al eliminar hecho preservado:", error);
-      let errorDesc = `No se pudo confirmar la eliminación en la base de datos: ${error.message}.`;
-      if (error.code === 'storage/object-not-found') {
-        errorDesc = "El archivo ya no existía en Storage, pero se eliminó la referencia de la base de datos.";
-      } else if (error.code) {
-        errorDesc = `No se pudo eliminar de Storage. Código: ${error.code}`
-      }
-      toast({ title: "Error de Eliminación", description: errorDesc, variant: 'destructive' });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-
   const handleAnalysisTechniqueChange = (value: AnalysisTechnique) => {
     setAnalysisTechnique(value);
     
@@ -1509,10 +1436,9 @@ function RCAAnalysisPageComponent() {
           investigationSessions={investigationSessions}
           onSetInvestigationSessions={setInvestigationSessions}
           preservedFacts={preservedFacts}
+          setPreservedFacts={setPreservedFacts}
           analysisId={analysisDocumentId}
           onAnalysisSaveRequired={() => handleSaveAnalysisData(false).then(res => res.newEventId || analysisDocumentId)}
-          onAddFact={handleAddPreservedFact}
-          onRemovePreservedFact={handleRemovePreservedFact}
           onPrevious={handlePreviousStep}
           onNext={handleNextStep}
           isSaving={isSaving}
