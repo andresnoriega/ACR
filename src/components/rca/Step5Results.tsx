@@ -1,3 +1,4 @@
+
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useMemo, useEffect } from 'react';
@@ -428,7 +429,7 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                             {getEvidenceIconLocal(fact.tipo)}
                             <div className="flex flex-col">
                                 <span className="font-medium">{fact.userGivenName}</span>
-                                <span className="text-xs text-muted-foreground">{fact.nombre}</span>
+                                <span className="text-xs text-muted-foreground">{fact.category}: {fact.comment}</span>
                             </div>
                         </div>
                         <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
