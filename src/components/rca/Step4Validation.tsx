@@ -357,7 +357,7 @@ export const Step4Validation: FC<Step4ValidationProps> = ({
                                       </div>
                                     </div>
                                     <Button asChild variant="link" size="sm" className="p-0 h-auto text-xs">
-                                      <a href={ev.dataUrl} target="_blank" rel="noopener noreferrer" download={ev.nombre}>
+                                      <a href={ev.downloadURL} target="_blank" rel="noopener noreferrer" download={ev.nombre}>
                                         <ExternalLink className="mr-1 h-3 w-3" />Ver/Descargar
                                       </a>
                                     </Button>
