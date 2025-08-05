@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -55,12 +55,12 @@ export default function InicioPage() {
   const [isSendingSupport, setIsSendingSupport] = useState(false);
 
   // Pre-fill form when user profile is available
-  useState(() => {
+  useEffect(() => {
     if (userProfile) {
       setSupportName(userProfile.name || '');
       setSupportEmail(userProfile.email || '');
     }
-  });
+  }, [userProfile]);
   
   const handleSupportSubmit = async () => {
     if (!supportName.trim() || !supportEmail.trim() || !supportRequest.trim()) {
@@ -151,7 +151,7 @@ export default function InicioPage() {
           ))}
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 gap-6 max-w-6xl mx-auto">
           <Card className="shadow-sm">
             <CardHeader>
                 <CardTitle className="flex items-center gap-3"><Phone className="h-6 w-6 text-primary"/>Soporte Técnico</CardTitle>
