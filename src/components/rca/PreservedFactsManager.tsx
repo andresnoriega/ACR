@@ -195,7 +195,7 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
       <Card>
         <CardHeader>
           <CardTitle>Subir Nuevo Hecho Preservado</CardTitle>
-          <CardDescription>Suba un archivo (imagen, documento, etc.) para preservarlo como evidencia.</CardDescription>
+          <CardDescription>Suba un archivo (imagen, documento, etc.) para preservarlo como evidencia. El tamaño máximo por archivo es de 700 KB.</CardDescription>
         </CardHeader>
         <CardContent>
           <FileUploader onUploadSuccess={handleUploadSuccess} />
