@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useRef, type FC, useCallback } from 'react';
@@ -9,7 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { cn, formatBytes, sanitizeForFirestore } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -77,6 +78,11 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
       toast({ title: "Nombre requerido", description: "Por favor, asigne un nombre al hecho preservado.", variant: "destructive" });
       return;
     }
+    if (selectedFile.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({ title: "Archivo Demasiado Grande", description: "El archivo no puede superar los 5MB.", variant: "destructive" });
+        return;
+    }
+
 
     setIsProcessing(true);
 
@@ -92,7 +98,7 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
       return;
     }
     
-    const filePath = `uploads/${currentAnalysisId}/${Date.now()}-${selectedFile.name}`;
+    const filePath = `uploads/${Date.now()}-${selectedFile.name}`;
     const fileStorageRef = storageRef(storage, filePath);
     const uploadTask = uploadBytesResumable(fileStorageRef, selectedFile);
 
@@ -207,7 +213,7 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="file-input-preservation">Archivo <span className="text-destructive">*</span></Label>
+            <Label htmlFor="file-input-preservation">Archivo (Máx 5MB)<span className="text-destructive">*</span></Label>
             <Input id="file-input-preservation" ref={fileInputRef} type="file" onChange={handleFileChange} disabled={isProcessing} />
           </div>
           {selectedFile && !isProcessing && (
@@ -250,7 +256,7 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
                   <div className="flex-shrink-0 ml-2 flex items-center gap-2">
                     {fact.downloadURL && (
                       <Button asChild variant="link" size="sm">
-                        <a href={fact.downloadURL} target="_blank" rel="noopener noreferrer">
+                        <a href={fact.downloadURL} target="_blank" rel="noopener noreferrer" download={fact.nombre}>
                           <ExternalLink className="mr-1.5 h-3 w-3"/> Ver/Descargar
                         </a>
                       </Button>
