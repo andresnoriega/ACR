@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, type FC, type ChangeEvent, useRef, useCallback } from 'react';
@@ -108,7 +107,7 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
         throw new Error("No se pudo obtener un ID de análisis válido. No se puede subir el archivo.");
       }
 
-      const filePath = `preserved_facts/${currentAnalysisId}/${Date.now()}-${selectedFile.name}`;
+      const filePath = `uploads/${currentAnalysisId}/${Date.now()}-${selectedFile.name}`;
       const fileStorageRef = storageRef(storage, filePath);
       const uploadTask = uploadBytesResumable(fileStorageRef, selectedFile);
 
