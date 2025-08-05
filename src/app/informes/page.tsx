@@ -6,6 +6,7 @@
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { FileText } from "lucide-react";
+import Link from 'next/link';
 
 export default function InformesPage() {
   return (
@@ -24,7 +25,7 @@ export default function InformesPage() {
        <Card className="max-w-2xl mx-auto">
         <CardContent className="pt-6">
             <p className="text-center text-muted-foreground">
-                Actualmente, puede encontrar un resumen de datos y exportaciones en el <a href="/inicio" className="text-primary underline">Dashboard de Inicio</a>.
+                Puede encontrar un resumen de datos y exportaciones en el <Link href="/inicio" className="text-primary underline">Dashboard de Inicio</Link>.
             </p>
         </CardContent>
        </Card>
