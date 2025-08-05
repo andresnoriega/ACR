@@ -7,13 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from "@/hooks/use-toast";
-import { PlusCircle, Trash2, Loader2, FileArchive, FileText, ImageIcon, Paperclip, ExternalLink, Link2, UploadCloud } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, FileArchive, FileText, ImageIcon, Paperclip, ExternalLink, Link2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Progress } from '@/components/ui/progress';
 import { db, storage } from '@/lib/firebase';
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref as storageRef, deleteObject } from "firebase/storage";
 import { doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
-import { cn } from '@/lib/utils';
 import { sanitizeForFirestore } from '@/lib/utils';
 
 
@@ -52,8 +51,6 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   
   const [isProcessing, setIsProcessing] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [statusText, setStatusText] = useState("Añadir Hecho Preservado");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const resetForm = useCallback(() => {
@@ -64,8 +61,6 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
         fileInputRef.current.value = "";
       }
       setIsProcessing(false);
-      setUploadProgress(0);
-      setStatusText("Añadir Hecho Preservado");
   }, []);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -94,79 +89,54 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
     }
 
     setIsProcessing(true);
-    setStatusText("Preparando...");
     
     try {
       let currentAnalysisId = analysisId;
       if (!currentAnalysisId) {
-        setStatusText("Guardando análisis...");
         currentAnalysisId = await onAnalysisSaveRequired();
       }
 
       if (!currentAnalysisId) {
         throw new Error("No se pudo obtener un ID de análisis válido. No se puede subir el archivo.");
       }
+      
+      const formData = new FormData();
+      formData.append('file', selectedFile);
 
-      const filePath = `uploads/${currentAnalysisId}/${Date.now()}-${selectedFile.name}`;
-      const fileStorageRef = storageRef(storage, filePath);
-      const uploadTask = uploadBytesResumable(fileStorageRef, selectedFile);
+      toast({ title: "Subiendo archivo...", description: `Subiendo ${selectedFile.name}, por favor espere.` });
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
 
-      uploadTask.on('state_changed',
-        (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setUploadProgress(progress);
-          setStatusText(`Subiendo... ${Math.round(progress)}%`);
-        },
-        (error) => {
-          console.error("Upload failed:", error);
-           let description = "No se pudo subir el archivo. Revise la consola para detalles.";
-            if (error.code) {
-                switch(error.code) {
-                    case 'storage/unauthorized':
-                        description = `Permiso denegado. Revise las reglas de seguridad de Firebase Storage para permitir escrituras.`;
-                        break;
-                    case 'storage/retry-limit-exceeded':
-                        description = `Se superó el tiempo de espera. Revise su conexión de red.`;
-                        break;
-                }
-            }
-          toast({ variant: "destructive", title: "Fallo en la Subida", description });
-          resetForm();
-        },
-        async () => {
-            try {
-                setStatusText("Finalizando...");
-                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Fallo en la subida desde el servidor');
+      }
 
-                const newFact: PreservedFact = {
-                    id: generateClientSideId('pf'),
-                    userGivenName: userGivenName.trim(),
-                    nombre: selectedFile.name,
-                    tipo: selectedFile.type,
-                    comment: comment.trim() || undefined,
-                    uploadDate: new Date().toISOString(),
-                    eventId: currentAnalysisId!,
-                    downloadURL: downloadURL,
-                    storagePath: uploadTask.snapshot.ref.fullPath,
-                };
-                
-                const rcaDocRef = doc(db, 'rcaAnalyses', currentAnalysisId!);
-                await updateDoc(rcaDocRef, {
-                  preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
-                  updatedAt: new Date().toISOString()
-                });
-                
-                setPreservedFacts(prev => [...prev, newFact]);
-                toast({ title: "Éxito", description: "Hecho preservado añadido y subido correctamente." });
-                resetForm();
-
-            } catch (finalizationError) {
-                 console.error("Error finalizing upload:", finalizationError);
-                 toast({ variant: "destructive", title: "Error Post-Subida", description: "El archivo se subió pero no se pudo guardar la referencia." });
-                 resetForm();
-            }
-        }
-      );
+      const uploadedFileResponse = await response.json();
+      
+      const newFact: PreservedFact = {
+          id: generateClientSideId('pf'),
+          userGivenName: userGivenName.trim(),
+          nombre: uploadedFileResponse.name,
+          tipo: uploadedFileResponse.type,
+          comment: comment.trim() || undefined,
+          uploadDate: uploadedFileResponse.uploadedAt,
+          eventId: currentAnalysisId!,
+          downloadURL: uploadedFileResponse.url,
+          storagePath: uploadedFileResponse.fullPath,
+      };
+      
+      const rcaDocRef = doc(db, 'rcaAnalyses', currentAnalysisId!);
+      await updateDoc(rcaDocRef, {
+        preservedFacts: arrayUnion(sanitizeForFirestore(newFact)),
+        updatedAt: new Date().toISOString()
+      });
+      
+      setPreservedFacts(prev => [...prev, newFact]);
+      toast({ title: "Éxito", description: "Hecho preservado añadido y subido correctamente." });
+      resetForm();
 
     } catch (error) {
       console.error("Error in handleAddClick:", error);
@@ -189,7 +159,6 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
       if (factToRemove.storagePath) {
         const fileRef = storageRef(storage, factToRemove.storagePath);
         await deleteObject(fileRef);
-        toast({ title: "Archivo Eliminado de Storage", variant: "default" });
       }
       
       const rcaDocRef = doc(db, "rcaAnalyses", analysisId);
@@ -199,7 +168,7 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
       });
       
       setPreservedFacts(prev => prev.filter(fact => fact.id !== factId));
-      toast({ title: "Hecho Preservado Eliminado", description: "La referencia se eliminó exitosamente.", variant: 'destructive' });
+      toast({ title: "Hecho Preservado Eliminado", description: "El archivo y su referencia se eliminaron exitosamente.", variant: 'destructive' });
 
     } catch (error: any) {
       console.error("Error al eliminar hecho preservado:", error);
@@ -260,9 +229,8 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
          <div className="flex flex-col gap-2">
             <Button onClick={handleAddClick} disabled={isProcessing || !selectedFile || !userGivenName.trim()}>
                 {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                {isProcessing ? statusText : 'Añadir Hecho Preservado'}
+                {isProcessing ? 'Procesando...' : 'Añadir Hecho Preservado'}
             </Button>
-            {isProcessing && uploadProgress > 0 && <Progress value={uploadProgress} className="w-full h-2" />}
          </div>
       </div>
 
