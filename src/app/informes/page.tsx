@@ -26,7 +26,7 @@ import { BarChart, PieChart, Pie, Cell, Legend, ResponsiveContainer, Bar, XAxis,
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 
 
-const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Falla de Equipo', 'Accidente', 'No Conformidad', 'Evento Operacional'];
+const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Falla de Equipo', 'Accidente', 'No Conformidad', 'Evento Operacional', 'No Conformidad Potencial', 'Hallazgo'];
 const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
 
 const ALL_FILTER_VALUE = "__ALL__";

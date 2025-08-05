@@ -39,7 +39,7 @@ interface Step1InitiationProps {
   validateStep1PreRequisites: () => { isValid: boolean, message?: string }; // Added prop
 }
 
-const EVENT_TYPES: EventType[] = ['Incidente', 'Accidente', 'Falla de Equipo', 'No Conformidad', 'Evento Operacional'];
+const EVENT_TYPES: EventType[] = ['Incidente', 'Accidente', 'Falla de Equipo', 'No Conformidad', 'Evento Operacional', 'No Conformidad Potencial', 'Hallazgo'];
 const PRIORITIES: PriorityType[] = ['Alta', 'Media', 'Baja'];
 
 // --- NotifyEventCreationDialog Component ---
@@ -108,7 +108,7 @@ const NotifyEventCreationDialog: FC<NotifyEventCreationDialogProps> = ({
     if (checked) {
       setSelectedUserEmails(prev => [...prev, userEmail]);
     } else {
-      setSelectedUserEmails(prev => prev.filter(email => email !== userEmail));
+      setSelectedUserEmails(prev => prev.filter(email => email !== email));
     }
   };
   

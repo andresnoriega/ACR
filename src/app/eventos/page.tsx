@@ -25,7 +25,7 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { useAuth } from '@/contexts/AuthContext';
 
-const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Falla de Equipo', 'Accidente', 'No Conformidad', 'Evento Operacional'];
+const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Falla de Equipo', 'Accidente', 'No Conformidad', 'Evento Operacional', 'No Conformidad Potencial', 'Hallazgo'];
 const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
 const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'En validación', 'Finalizado', 'Rechazado', 'Verificado'];
 
@@ -117,7 +117,7 @@ export default function EventosReportadosPage() {
         return { id: doc.id, ...data, date: eventDate } as ReportedEvent;
       });
 
-      // Sort on the client to avoid needing a composite index
+      // Sort on the client side to avoid needing a composite index
       rawEventsData.sort((a, b) => {
         const dateA = a.date ? new Date(a.date).getTime() : 0;
         const dateB = b.date ? new Date(b.date).getTime() : 0;

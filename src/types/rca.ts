@@ -1,7 +1,7 @@
 
 'use client';
 // --- Common Enums and Types ---
-export type EventType = 'Incidente' | 'Falla de Equipo' | 'Accidente' | 'No Conformidad' | 'Evento Operacional' | '';
+export type EventType = 'Incidente' | 'Falla de Equipo' | 'Accidente' | 'No Conformidad' | 'Evento Operacional' | 'No Conformidad Potencial' | 'Hallazgo' | '';
 export type PriorityType = 'Alta' | 'Media' | 'Baja' | '';
 export type ReportedEventStatus = 'Pendiente' | 'En análisis' | 'En validación' | 'Finalizado' | 'Rechazado' | 'Verificado';
 
@@ -307,4 +307,4 @@ export interface EfficacyVerificationTask {
     finalizedDate: string; // ISO string
 }
 
-export type ReportedEventType = 'Incidente' | 'Falla de Equipo' | 'Accidente' | 'No Conformidad' | 'Evento Operacional' | '';
+export type ReportedEventType = 'Incidente' | 'Falla de Equipo' | 'Accidente' | 'No Conformidad' | 'Evento Operacional' | 'No Conformidad Potencial' | 'Hallazgo' | '';

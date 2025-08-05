@@ -68,7 +68,7 @@ async function deleteAllDocsInCollection(collectionName: string): Promise<{ succ
   }
 }
 
-const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Falla de Equipo', 'Accidente', 'No Conformidad', 'Evento Operacional'];
+const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Falla de Equipo', 'Accidente', 'No Conformidad', 'Evento Operacional', 'No Conformidad Potencial', 'Hallazgo'];
 const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
 const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'En validación', 'Finalizado', 'Rechazado'];
 const ALL_FILTER_VALUE = "__ALL__";
@@ -612,6 +612,3 @@ export default function ConfiguracionPrivacidadPage() {
     </div>
   );
 }
-    
-
-    
