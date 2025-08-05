@@ -45,6 +45,20 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
   };
   
   const handleSaveFact = async (id: string) => {
+    const factToSave = preservedFacts.find(fact => fact.id === id);
+    if (!factToSave) return;
+
+    // --- VALIDATION ADDED HERE ---
+    if (!factToSave.category || !factToSave.comment?.trim()) {
+        toast({
+            title: "Campos Obligatorios",
+            description: "Debe seleccionar una Categoría y añadir un Comentario para guardar el hecho.",
+            variant: "destructive",
+        });
+        return;
+    }
+    // --- END OF VALIDATION ---
+
     let currentAnalysisId = analysisId;
     if (!currentAnalysisId) {
         currentAnalysisId = await onAnalysisSaveRequired();
@@ -58,9 +72,6 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
       return;
     }
 
-    const factToSave = preservedFacts.find(fact => fact.id === id);
-    if (!factToSave) return;
-    
     setIsLoading(true);
 
     try {
@@ -199,8 +210,8 @@ const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[30%]">Categoría</TableHead>
-                    <TableHead className="w-[30%]">Comentario</TableHead>
+                    <TableHead className="w-[30%]">Categoría <span className="text-destructive">*</span></TableHead>
+                    <TableHead className="w-[30%]">Comentario <span className="text-destructive">*</span></TableHead>
                     <TableHead className="w-[25%]">Nombre del Archivo</TableHead>
                     <TableHead className="w-[15%] text-right">Acciones</TableHead>
                   </TableRow>
