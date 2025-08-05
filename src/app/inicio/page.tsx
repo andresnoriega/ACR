@@ -26,7 +26,7 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ title, description, icon: Ico
         </div>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent className="flex-grow" />
+      <CardContent className="pt-0" />
       <CardFooter>
         <Button asChild className="w-full">
           <Link href={href}>{buttonText}</Link>
@@ -86,7 +86,7 @@ export default function InicioPage() {
         ))}
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         <Card className="shadow-sm">
           <CardHeader>
               <CardTitle className="flex items-center gap-3"><Phone className="h-6 w-6 text-primary"/>Soporte Técnico</CardTitle>
