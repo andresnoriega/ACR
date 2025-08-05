@@ -10,7 +10,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'zod';
 
-export const GenerateTagsForFileInputSchema = z.object({
+const GenerateTagsForFileInputSchema = z.object({
   fileDataUri: z
     .string()
     .describe(
@@ -21,7 +21,7 @@ export const GenerateTagsForFileInputSchema = z.object({
 });
 export type GenerateTagsForFileInput = z.infer<typeof GenerateTagsForFileInputSchema>;
 
-export const GenerateTagsForFileOutputSchema = z.object({
+const GenerateTagsForFileOutputSchema = z.object({
   tags: z.array(z.string()).describe('An array of 3-5 relevant, one-word, lowercase tags in Spanish that describe the file content.'),
 });
 export type GenerateTagsForFileOutput = z.infer<typeof GenerateTagsForFileOutputSchema>;
