@@ -188,35 +188,29 @@ const EventosPorSitioYEquipoChart: FC<{ data: RCAAnalysisDocument[] }> = ({ data
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
-            <BarChart data={chartData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" dataKey="Eventos" allowDecimals={false} />
-                <YAxis 
-                dataKey="name" 
-                type="category" 
-                width={120} 
-                tick={{ fontSize: 12 }}
-                interval={0}
+          <BarChart data={chartData} layout="horizontal">
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" type="category" tick={{ fontSize: 12 }} interval={0} />
+            <YAxis dataKey="Eventos" type="number" allowDecimals={false} />
+            <ChartTooltip
+                cursor={false}
+                content={
+                <ChartTooltipContent
+                    labelFormatter={(label) => chartData.find((d) => d.name === label)?.name || label}
+                    formatter={(value) => `${value} Eventos`}
+                    hideIndicator
                 />
-                <ChartTooltip
-                    cursor={false}
-                    content={
-                    <ChartTooltipContent
-                        labelFormatter={(label) => chartData.find((d) => d.name === label)?.name || label}
-                        formatter={(value) => `${value} Eventos`}
-                        hideIndicator
-                    />
-                    }
-                />
-                <Legend />
-                <Bar 
-                dataKey="Eventos" 
-                fill="var(--color-Eventos)"
-                radius={4} 
-                onClick={(payload) => handleBarClick(payload)}
-                cursor={drilldownLevel === 'sitio' ? 'pointer' : 'default'}
-                />
-            </BarChart>
+                }
+            />
+            <Legend />
+            <Bar 
+              dataKey="Eventos" 
+              fill="var(--color-Eventos)"
+              radius={4} 
+              onClick={(payload) => handleBarClick(payload)}
+              cursor={drilldownLevel === 'sitio' ? 'pointer' : 'default'}
+            />
+          </BarChart>
         </ChartContainer>
       </CardContent>
     </Card>
