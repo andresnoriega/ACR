@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useCallback, useEffect, FC } from 'react';
@@ -59,28 +60,26 @@ const RcaStatusChart: FC<{ data: { name: string; value: number; fill: string; }[
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
-          <ResponsiveContainer width="100%" height={250}>
-            <PieChart>
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent hideLabel />}
-              />
-              <Pie
-                data={data}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                label={({ name, value, percent }) => `${value} (${(percent * 100).toFixed(0)}%)`}
-              >
-                {data.map((entry) => (
-                  <Cell key={`cell-${entry.name}`} fill={entry.fill} />
-                ))}
-              </Pie>
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
+          <PieChart>
+            <ChartTooltip
+              cursor={false}
+              content={<ChartTooltipContent hideLabel />}
+            />
+            <Pie
+              data={data}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              outerRadius={80}
+              label={({ name, value, percent }) => `${value} (${(percent * 100).toFixed(0)}%)`}
+            >
+              {data.map((entry) => (
+                <Cell key={`cell-${entry.name}`} fill={entry.fill} />
+              ))}
+            </Pie>
+            <Legend />
+          </PieChart>
         </ChartContainer>
       </CardContent>
     </Card>
@@ -101,28 +100,26 @@ const ActionStatusChart: FC<{ data: { name: string; value: number; fill: string;
       </CardHeader>
       <CardContent>
          <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
-           <ResponsiveContainer width="100%" height={250}>
-            <PieChart>
-              <ChartTooltip
-                  cursor={false}
-                  content={<ChartTooltipContent hideLabel />}
-                />
-              <Pie
-                data={data}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                label={({ name, value, percent }) => `${value} (${(percent * 100).toFixed(0)}%)`}
-              >
-                {data.map((entry) => (
-                  <Cell key={`cell-${entry.name}`} fill={entry.fill} />
-                ))}
-              </Pie>
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
+           <PieChart>
+             <ChartTooltip
+                 cursor={false}
+                 content={<ChartTooltipContent hideLabel />}
+               />
+             <Pie
+               data={data}
+               dataKey="value"
+               nameKey="name"
+               cx="50%"
+               cy="50%"
+               outerRadius={80}
+               label={({ name, value, percent }) => `${value} (${(percent * 100).toFixed(0)}%)`}
+             >
+               {data.map((entry) => (
+                 <Cell key={`cell-${entry.name}`} fill={entry.fill} />
+               ))}
+             </Pie>
+             <Legend />
+           </PieChart>
         </ChartContainer>
       </CardContent>
     </Card>
@@ -192,35 +189,35 @@ const EventosPorSitioYEquipoChart: FC<{ data: RCAAnalysisDocument[] }> = ({ data
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" dataKey="Eventos" allowDecimals={false} />
-                <YAxis 
-                  dataKey="name" 
-                  type="category" 
-                  width={120} 
-                  tick={{ fontSize: 12 }}
-                  interval={0}
-                />
-                <ChartTooltip
-                    content={
-                      <ChartTooltipContent
-                        labelFormatter={(label) => chartData.find((d) => d.name === label)?.name || label}
-                        formatter={(value) => `${value} Eventos`}
-                      />
-                    }
+          <BarChart data={chartData} layout="vertical">
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis type="number" dataKey="Eventos" allowDecimals={false} />
+            <YAxis 
+              dataKey="name" 
+              type="category" 
+              width={120} 
+              tick={{ fontSize: 12 }}
+              interval={0}
+            />
+            <ChartTooltip
+                cursor={false}
+                content={
+                  <ChartTooltipContent
+                    labelFormatter={(label) => chartData.find((d) => d.name === label)?.name || label}
+                    formatter={(value) => `${value} Eventos`}
+                    hideIndicator
                   />
-                <Legend />
-                <Bar 
-                  dataKey="Eventos" 
-                  fill="var(--color-Eventos)"
-                  radius={4} 
-                  onClick={(payload) => handleBarClick(payload)}
-                  cursor={drilldownLevel === 'sitio' ? 'pointer' : 'default'}
-                />
-              </BarChart>
-            </ResponsiveContainer>
+                }
+              />
+            <Legend />
+            <Bar 
+              dataKey="Eventos" 
+              fill="var(--color-Eventos)"
+              radius={4} 
+              onClick={(payload) => handleBarClick(payload)}
+              cursor={drilldownLevel === 'sitio' ? 'pointer' : 'default'}
+            />
+          </BarChart>
         </ChartContainer>
       </CardContent>
     </Card>
