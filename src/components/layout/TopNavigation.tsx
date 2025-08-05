@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -50,7 +51,7 @@ export function TopNavigation() {
     try {
       await logoutUser();
       toast({ title: 'Sesión Cerrada', description: 'Has cerrado sesión exitosamente.' });
-      window.location.href = '/'; // Redirect to the public home page
+      window.location.href = '/login'; // Redirect to the public home page
     } catch (error) {
       console.error("Error al cerrar sesión:", error);
       toast({ title: 'Error', description: 'No se pudo cerrar la sesión.', variant: 'destructive' });
@@ -75,7 +76,7 @@ export function TopNavigation() {
                 {visibleMenuItems.map((item) => {
                   let isActive = false;
                   if (item.href === '/inicio') { 
-                      isActive = pathname === '/inicio' || pathname === '/';
+                      isActive = pathname === '/inicio';
                   } else if (item.section === 'config' || item.section === 'usuario' || item.section === 'analisis') {
                     isActive = pathname.startsWith(item.href);
                   } else {

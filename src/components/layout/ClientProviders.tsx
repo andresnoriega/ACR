@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { Toaster } from "@/components/ui/toaster";
 import { TopNavigation } from '@/components/layout/TopNavigation';
+import { usePathname } from 'next/navigation';
 
 function IdleManager() {
   const { currentUser, logoutUser } = useAuth();
@@ -38,7 +39,7 @@ function IdleManager() {
     setIsLoggingOut(true);
     try {
       await logoutUser();
-      window.location.href = '/'; // Redirect to public home page on idle logout
+      window.location.href = '/login'; // Redirect to login page on idle logout
     } catch (error) {
       console.error("Error during automatic logout for inactivity:", error);
     } finally {
@@ -89,18 +90,35 @@ function IdleManager() {
   );
 }
 
+function AppContent({ children }: { children: ReactNode }) {
+  const { currentUser } = useAuth();
+  const pathname = usePathname();
+  const isPublicPage = pathname === '/' || pathname === '/login' || pathname === '/registro';
+
+  return (
+    <>
+      {!isPublicPage && currentUser && <TopNavigation />}
+      <main className="flex-grow w-full print-container">
+        {isPublicPage ? (
+            children // Public pages have their own layout, so just render children
+        ) : (
+            <div className="container mx-auto p-4 sm:p-6 lg:p-8 h-full">
+                {children}
+            </div>
+        )}
+      </main>
+      <Toaster />
+      <IdleManager />
+    </>
+  );
+}
 
 export default function ClientProviders({ children }: { children: ReactNode }) {
   return (
     <AuthProvider>
-      <TopNavigation />
-      <main className="flex-grow w-full print-container">
-        <div className="container mx-auto p-4 sm:p-6 lg:p-8 h-full">
-          {children}
-        </div>
-      </main>
-      <Toaster />
-      <IdleManager />
+      <AppContent>
+        {children}
+      </AppContent>
     </AuthProvider>
   );
 }
