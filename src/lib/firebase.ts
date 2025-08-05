@@ -5,17 +5,18 @@ import { getFirestore, initializeFirestore, memoryLocalCache } from "firebase/fi
 import { getStorage } from "firebase/storage";
 
 // =================================================================================
-// SOLUCIÓN DEFINITIVA: Configuración de Firebase Codificada Directamente
-// Se usa la configuración verificada para garantizar la conexión.
+// ACCIÓN REQUERIDA: POR FAVOR, REEMPLACE ESTOS VALORES
+// Vaya a la configuración de su proyecto original en la Consola de Firebase
+// y copie los valores correspondientes aquí.
 // =================================================================================
 const firebaseConfig = {
-  "projectId": "rca-assistant-jk3ja",
-  "appId": "1:1044963774198:web:4ae00d1ee674f1864ea6d7",
-  "storageBucket": "rca-assistant-jk3ja.appspot.com",
-  "apiKey": "AIzaSyA3a8UytRbwFKWT9ISF1OlYaizC37b3rZQ",
-  "authDomain": "rca-assistant-jk3ja.firebaseapp.com",
-  "measurementId": "",
-  "messagingSenderId": "1044963774198"
+  "projectId": "REEMPLAZAR_CON_TU_PROJECT_ID",
+  "appId": "REEMPLAZAR_CON_TU_APP_ID",
+  "storageBucket": "REEMPLAZAR_CON_TU_STORAGE_BUCKET",
+  "apiKey": "REEMPLAZAR_CON_TU_API_KEY",
+  "authDomain": "REEMPLAZAR_CON_TU_AUTH_DOMAIN",
+  "measurementId": "REEMPLAZAR_CON_TU_MEASUREMENT_ID",
+  "messagingSenderId": "REEMPLAZAR_CON_TU_MESSAGING_SENDER_ID"
 };
 
 let app: FirebaseApp;
