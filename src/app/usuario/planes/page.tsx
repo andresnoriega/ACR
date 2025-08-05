@@ -478,10 +478,10 @@ export default function UserActionPlansPage() {
     try {
       let newEvidencePayload: FirestoreEvidence | null = null;
       if (fileToUpload) {
-        if (fileToUpload.size > 700 * 1024) { // 700 KB limit
+        if (fileToUpload.size > 5 * 1024 * 1024) { // 5 MB limit
           toast({
             title: "Archivo Demasiado Grande",
-            description: "El archivo de evidencia no puede superar los 700 KB para ser guardado.",
+            description: "El archivo de evidencia no puede superar los 5 MB.",
             variant: "destructive",
             duration: 7000,
           });
@@ -767,7 +767,7 @@ export default function UserActionPlansPage() {
                   ) : <p className="text-xs text-muted-foreground">No hay evidencias adjuntas.</p>}</div>
                 <div className="pt-2"><h4 className="font-semibold text-primary mb-1">[Adjuntar nueva evidencia]</h4>
                   <div className="space-y-2">
-                    <Label htmlFor="evidence-file-input">Archivo de Evidencia (máx 700KB)</Label>
+                    <Label htmlFor="evidence-file-input">Archivo de Evidencia (máx 5MB)</Label>
                     <Input id="evidence-file-input" type="file" onChange={handleFileChange} className="text-xs h-9" disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || selectedPlan.estado === 'Rechazado'} />
                     <Label htmlFor="evidence-comment">Comentario para esta evidencia (opcional)</Label>
                     <Input id="evidence-comment" type="text" placeholder="Ej: Foto de la reparación, documento de capacitación..." value={evidenceComment} onChange={(e) => setEvidenceComment(e.target.value)} className="text-xs h-9" disabled={isUpdatingAction || selectedPlan.estado === 'Completado' || selectedPlan.estado === 'Rechazado'} />
