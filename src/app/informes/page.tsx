@@ -45,10 +45,23 @@ interface RootCauseSummary extends IdentifiedRootCause {
   equipo: string;
 }
 
+// --- Tipos para Ordenamiento ---
 type SortableRootCauseKey = 'eventDate' | 'site' | 'equipo' | 'description';
 interface SortConfigRootCause {
   key: SortableRootCauseKey | null;
   direction: 'ascending' | 'descending';
+}
+
+type SortableAnalysisInProgressKey = 'proyecto' | 'paso' | 'progreso';
+interface SortConfigAnalysis {
+  key: SortableAnalysisInProgressKey | null;
+  direction: 'ascending' | 'descending';
+}
+
+type SortableActionPlanKey = 'idEvento' | 'idAccion' | 'descripcion' | 'responsable' | 'fechaLimite' | 'estado';
+interface SortConfigActionPlan {
+    key: SortableActionPlanKey | null;
+    direction: 'ascending' | 'descending';
 }
 
 // --- Chart Components ---
@@ -243,6 +256,8 @@ export default function InformesPage() {
   });
 
   const [sortConfigRootCauses, setSortConfigRootCauses] = useState<SortConfigRootCause>({ key: 'eventDate', direction: 'descending' });
+  const [sortConfigAnalysis, setSortConfigAnalysis] = useState<SortConfigAnalysis>({ key: 'proyecto', direction: 'ascending' });
+  const [sortConfigActionPlan, setSortConfigActionPlan] = useState<SortConfigActionPlan>({ key: 'fechaLimite', direction: 'ascending' });
 
 
   const fetchAllData = useCallback(async () => {
@@ -451,20 +466,118 @@ export default function InformesPage() {
     saveAs(new Blob([excelBuffer]), `Resumen_Causas_Raiz_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  const analysesEnCurso = useMemo(() => {
-      return filteredRcaDocs.filter(doc => !doc.isFinalized && !doc.rejectionDetails);
+  const analysesEnCursoRaw = useMemo(() => {
+    return filteredRcaDocs
+      .filter(doc => !doc.isFinalized && !doc.rejectionDetails)
+      .map(doc => {
+        const totalSteps = 5;
+        const hasStep3Content = doc.identifiedRootCauses?.length > 0 || doc.ishikawaData?.some(c => c.causes.length > 0) || doc.fiveWhysData?.length > 0 || doc.ctmData?.length > 0;
+        const currentStep = doc.isFinalized ? 5 : doc.validations?.some(v => v.status === 'validated') ? 4 : hasStep3Content ? 3 : (doc.projectLeader || doc.detailedFacts.como) ? 2 : 1;
+        const progress = (currentStep / totalSteps) * 100;
+        return {
+          id: doc.eventData.id,
+          proyecto: doc.eventData.focusEventDescription,
+          paso: currentStep,
+          progreso: progress,
+        };
+      });
   }, [filteredRcaDocs]);
 
-  const activeActionPlans = useMemo(() => {
+  const requestSortAnalysis = (key: SortableAnalysisInProgressKey) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfigAnalysis.key === key && sortConfigAnalysis.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfigAnalysis({ key, direction });
+  };
+  
+  const sortedAnalysesEnCurso = useMemo(() => {
+      let sortableItems = [...analysesEnCursoRaw];
+      if (sortConfigAnalysis.key) {
+          sortableItems.sort((a, b) => {
+              const valA = a[sortConfigAnalysis.key!];
+              const valB = b[sortConfigAnalysis.key!];
+              if (typeof valA === 'number' && typeof valB === 'number') {
+                  return valA - valB;
+              }
+              if (typeof valA === 'string' && typeof valB === 'string') {
+                  return valA.localeCompare(valB);
+              }
+              return 0;
+          });
+          if (sortConfigAnalysis.direction === 'descending') {
+              sortableItems.reverse();
+          }
+      }
+      return sortableItems;
+  }, [analysesEnCursoRaw, sortConfigAnalysis]);
+
+  const renderSortIconAnalysis = (columnKey: SortableAnalysisInProgressKey) => {
+      if (sortConfigAnalysis.key !== columnKey) {
+          return <ChevronsUpDown className="h-4 w-4 opacity-30 ml-1" />;
+      }
+      return sortConfigAnalysis.direction === 'ascending' ? <ArrowUp className="h-4 w-4 ml-1" /> : <ArrowDown className="h-4 w-4 ml-1" />;
+  };
+
+  const activeActionPlansRaw = useMemo(() => {
     return filteredRcaDocs
       .filter(doc => !doc.isFinalized)
-      .flatMap(doc => (doc.plannedActions || []).map(action => ({ ...action, rcaDoc: doc })))
-      .filter(actionWithDoc => {
-        const validation = actionWithDoc.rcaDoc.validations.find(v => v.actionId === actionWithDoc.id);
+      .flatMap(doc => (doc.plannedActions || []).map(action => ({
+        idAccion: action.id,
+        idEvento: doc.eventData.id,
+        descripcion: action.description,
+        responsable: action.responsible,
+        fechaLimite: action.dueDate,
+        tituloRCA: doc.eventData.focusEventDescription,
+        estado: 'Activa'
+      })))
+      .filter(action => {
+        const rcaDoc = filteredRcaDocs.find(d => d.eventData.id === action.idEvento);
+        if (!rcaDoc) return false;
+        const validation = rcaDoc.validations.find(v => v.actionId === action.idAccion);
         return !validation || validation.status !== 'validated';
       })
-      .slice(0, 5); // Limitar a 5 como en la imagen
+      .slice(0, 5);
   }, [filteredRcaDocs]);
+  
+  const requestSortActionPlan = (key: SortableActionPlanKey) => {
+      let direction: 'ascending' | 'descending' = 'ascending';
+      if (sortConfigActionPlan.key === key && sortConfigActionPlan.direction === 'ascending') {
+          direction = 'descending';
+      }
+      setSortConfigActionPlan({ key, direction });
+  };
+
+  const sortedActiveActionPlans = useMemo(() => {
+    let sortableItems = [...activeActionPlansRaw];
+    if (sortConfigActionPlan.key) {
+        sortableItems.sort((a, b) => {
+            const key = sortConfigActionPlan.key!;
+            const valA = a[key] || '';
+            const valB = b[key] || '';
+            if (key === 'fechaLimite') {
+                const dateA = valA ? parseISO(valA as string).getTime() : 0;
+                const dateB = valB ? parseISO(valB as string).getTime() : 0;
+                return dateA - dateB;
+            }
+            if (typeof valA === 'string' && typeof valB === 'string') {
+                return valA.localeCompare(valB, undefined, { numeric: true });
+            }
+            return 0;
+        });
+        if (sortConfigActionPlan.direction === 'descending') {
+            sortableItems.reverse();
+        }
+    }
+    return sortableItems;
+  }, [activeActionPlansRaw, sortConfigActionPlan]);
+
+  const renderSortIconActionPlan = (columnKey: SortableActionPlanKey) => {
+      if (sortConfigActionPlan.key !== columnKey) {
+          return <ChevronsUpDown className="h-4 w-4 opacity-30 ml-1" />;
+      }
+      return sortConfigActionPlan.direction === 'ascending' ? <ArrowUp className="h-4 w-4 ml-1" /> : <ArrowDown className="h-4 w-4 ml-1" />;
+  };
 
   const handleFilterChange = (field: keyof Filters, value: any) => {
     setFilters(prev => ({ ...prev, [field]: value === ALL_FILTER_VALUE ? '' : value }));
@@ -660,27 +773,26 @@ export default function InformesPage() {
               <Table>
                   <TableHeader>
                       <TableRow>
-                          <TableHead>Proyecto/Evento</TableHead>
-                          <TableHead>Paso Actual</TableHead>
-                          <TableHead>Progreso Estimado</TableHead>
+                          <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => requestSortAnalysis('proyecto')}>
+                              <div className="flex items-center">Proyecto/Evento {renderSortIconAnalysis('proyecto')}</div>
+                          </TableHead>
+                          <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => requestSortAnalysis('paso')}>
+                              <div className="flex items-center">Paso Actual {renderSortIconAnalysis('paso')}</div>
+                          </TableHead>
+                          <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => requestSortAnalysis('progreso')}>
+                              <div className="flex items-center">Progreso Estimado {renderSortIconAnalysis('progreso')}</div>
+                          </TableHead>
                       </TableRow>
                   </TableHeader>
                   <TableBody>
-                      {analysesEnCurso.length > 0 ? (
-                          analysesEnCurso.map(doc => {
-                              const totalSteps = 5;
-                              const hasStep3Content = doc.identifiedRootCauses?.length > 0 || doc.ishikawaData?.some(c => c.causes.length > 0) || doc.fiveWhysData?.length > 0 || doc.ctmData?.length > 0;
-                              const currentStep = doc.isFinalized ? 5 : doc.validations?.some(v => v.status === 'validated') ? 4 : hasStep3Content ? 3 : (doc.projectLeader || doc.detailedFacts.como) ? 2 : 1;
-                              const progress = (currentStep / totalSteps) * 100;
-                              
-                              return (
-                                  <TableRow key={doc.eventData.id}>
-                                      <TableCell className="font-medium">{doc.eventData.focusEventDescription}</TableCell>
-                                      <TableCell>Paso {currentStep} de {totalSteps}</TableCell>
-                                      <TableCell><Progress value={progress} className="w-[60%]" /></TableCell>
-                                  </TableRow>
-                              )
-                          })
+                      {sortedAnalysesEnCurso.length > 0 ? (
+                          sortedAnalysesEnCurso.map(doc => (
+                            <TableRow key={doc.id}>
+                                <TableCell className="font-medium">{doc.proyecto}</TableCell>
+                                <TableCell>Paso {doc.paso} de 5</TableCell>
+                                <TableCell><Progress value={doc.progreso} className="w-[60%]" /></TableCell>
+                            </TableRow>
+                          ))
                       ) : (
                           <TableRow>
                               <TableCell colSpan={3} className="text-center text-muted-foreground h-24">No hay análisis en curso que coincidan con los filtros actuales.</TableCell>
@@ -700,30 +812,42 @@ export default function InformesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ID Evento</TableHead>
-                <TableHead>ID Acción</TableHead>
-                <TableHead>Acción (Análisis: Título ACR)</TableHead>
-                <TableHead>Responsable</TableHead>
-                <TableHead>Fecha Límite</TableHead>
-                <TableHead>Estado Acción</TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => requestSortActionPlan('idEvento')}>
+                    <div className="flex items-center">ID Evento {renderSortIconActionPlan('idEvento')}</div>
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => requestSortActionPlan('idAccion')}>
+                    <div className="flex items-center">ID Acción {renderSortIconActionPlan('idAccion')}</div>
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => requestSortActionPlan('descripcion')}>
+                    <div className="flex items-center">Acción (Análisis: Título ACR) {renderSortIconActionPlan('descripcion')}</div>
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => requestSortActionPlan('responsable')}>
+                    <div className="flex items-center">Responsable {renderSortIconActionPlan('responsable')}</div>
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => requestSortActionPlan('fechaLimite')}>
+                    <div className="flex items-center">Fecha Límite {renderSortIconActionPlan('fechaLimite')}</div>
+                </TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => requestSortActionPlan('estado')}>
+                    <div className="flex items-center">Estado Acción {renderSortIconActionPlan('estado')}</div>
+                </TableHead>
                 <TableHead className="text-right">Recordatorio</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {activeActionPlans.length > 0 ? (
-                activeActionPlans.map(action => (
-                  <TableRow key={action.id}>
-                    <TableCell className="font-mono text-xs">{action.rcaDoc.eventData.id.substring(0, 8)}...</TableCell>
-                    <TableCell className="font-mono text-xs">{action.id.substring(0, 8)}...</TableCell>
+              {sortedActiveActionPlans.length > 0 ? (
+                sortedActiveActionPlans.map(action => (
+                  <TableRow key={action.idAccion}>
+                    <TableCell className="font-mono text-xs">{action.idEvento.substring(0, 8)}...</TableCell>
+                    <TableCell className="font-mono text-xs">{action.idAccion.substring(0, 8)}...</TableCell>
                     <TableCell>
-                      <p className="font-medium">{action.description}</p>
-                      <p className="text-xs text-muted-foreground">Del Análisis: {action.rcaDoc.eventData.focusEventDescription}</p>
+                      <p className="font-medium">{action.descripcion}</p>
+                      <p className="text-xs text-muted-foreground">Del Análisis: {action.tituloRCA}</p>
                     </TableCell>
-                    <TableCell>{action.responsible}</TableCell>
-                    <TableCell>{action.dueDate ? format(parseISO(action.dueDate), 'dd/MM/yyyy') : 'N/A'}</TableCell>
+                    <TableCell>{action.responsable}</TableCell>
+                    <TableCell>{action.fechaLimite ? format(parseISO(action.fechaLimite), 'dd/MM/yyyy') : 'N/A'}</TableCell>
                     <TableCell>
                       <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                        Activa
+                        {action.estado}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
