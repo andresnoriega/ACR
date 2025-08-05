@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
@@ -6,25 +7,31 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { useToast } from "@/hooks/use-toast";
-import type { ReportedEvent, ReportedEventType, PriorityType, Site, ReportedEventStatus } from '@/types/rca';
-import { ListOrdered, PieChart, BarChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, PlayCircle, Info, Loader2, Eye, Fingerprint, FileDown, ArrowUp, ArrowDown, ChevronsUpDown, XCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import type { ReportedEvent, ReportedEventType, PriorityType, Site } from '@/types/rca';
+import { ListOrdered, PieChart, BarChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, Loader2 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, where, type QueryConstraint } from "firebase/firestore";
 import { useAuth } from '@/contexts/AuthContext';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format, parseISO, isValid as isValidDate } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { DateRange } from 'react-day-picker';
 
 
 const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Falla de Equipo', 'Accidente', 'No Conformidad', 'Evento Operacional'];
 const priorityOptions: PriorityType[] = ['Alta', 'Media', 'Baja'];
-const statusOptions: ReportedEventStatus[] = ['Pendiente', 'En análisis', 'En validación', 'Finalizado', 'Rechazado', 'Verificado'];
-
 
 const ALL_FILTER_VALUE = "__ALL__";
 const NO_SITES_PLACEHOLDER_VALUE = "__NO_SITES_PLACEHOLDER__";
 
+interface Filters {
+  site: string;
+  dateRange: DateRange | undefined;
+  type: ReportedEventType | '';
+  priority: PriorityType | '';
+}
 
 export default function InformesPage() {
   const { toast } = useToast();
@@ -32,16 +39,23 @@ export default function InformesPage() {
   const { userProfile, loadingAuth } = useAuth();
 
   const [allEvents, setAllEvents] = useState<ReportedEvent[]>([]);
+  const [filteredEvents, setFilteredEvents] = useState<ReportedEvent[]>([]);
   const [availableSites, setAvailableSites] = useState<Site[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
 
+  const [filters, setFilters] = useState<Filters>({
+    site: '',
+    dateRange: undefined,
+    type: '',
+    priority: '',
+  });
+
   const fetchAllData = useCallback(async () => {
     if (loadingAuth || !userProfile) {
-        setIsLoadingData(false);
-        return;
+      setIsLoadingData(false);
+      return;
     }
     setIsLoadingData(true);
-
     try {
       const sitesCollectionRef = collection(db, "sites");
       const sitesQueryConstraints: QueryConstraint[] = [];
@@ -77,12 +91,14 @@ export default function InformesPage() {
         const dateB = b.date ? new Date(b.date).getTime() : 0;
         return dateB - dateA;
       });
-
+      
       setAllEvents(rawEventsData);
+      setFilteredEvents(rawEventsData);
     } catch (error) {
       console.error("Error fetching data for reports: ", error);
       toast({ title: "Error al Cargar Datos", description: "No se pudieron cargar los datos para los informes.", variant: "destructive" });
       setAllEvents([]);
+      setFilteredEvents([]);
     } finally {
       setIsLoadingData(false);
     }
@@ -92,15 +108,53 @@ export default function InformesPage() {
     fetchAllData();
   }, [fetchAllData]);
 
-  const summaryData = useMemo(() => ({
-    total: allEvents.length,
-    pendientes: allEvents.filter(e => e.status === 'Pendiente').length,
-    enAnalisis: allEvents.filter(e => e.status === 'En análisis').length,
-    enValidacion: allEvents.filter(e => e.status === 'En validación').length,
-    finalizados: allEvents.filter(e => e.status === 'Finalizado').length,
-    verificados: allEvents.filter(e => e.status === 'Verificado').length,
-    rechazados: allEvents.filter(e => e.status === 'Rechazado').length,
-  }), [allEvents]);
+  const handleFilterChange = (field: keyof Filters, value: any) => {
+    setFilters(prev => ({ ...prev, [field]: value === ALL_FILTER_VALUE ? '' : value }));
+  };
+
+  const applyFilters = useCallback(() => {
+    let events = [...allEvents];
+    if (filters.site) {
+      events = events.filter(e => e.site === filters.site);
+    }
+    if (filters.dateRange?.from) {
+      events = events.filter(e => {
+        const eventDate = parseISO(e.date);
+        if (!isValidDate(eventDate)) return false;
+        const fromDate = filters.dateRange!.from!;
+        const toDate = filters.dateRange!.to || fromDate;
+        return eventDate >= fromDate && eventDate <= toDate;
+      });
+    }
+    if (filters.type) {
+      events = events.filter(e => e.type === filters.type);
+    }
+    if (filters.priority) {
+      events = events.filter(e => e.priority === filters.priority);
+    }
+    setFilteredEvents(events);
+    toast({ title: "Filtros Aplicados", description: `${events.length} eventos encontrados.` });
+  }, [filters, allEvents, toast]);
+
+  const clearFilters = () => {
+    setFilters({ site: '', dateRange: undefined, type: '', priority: '' });
+    setFilteredEvents(allEvents);
+    toast({ title: "Filtros Limpiados" });
+  };
+
+  const summaryData = useMemo(() => {
+    const dataSet = filters.site || filters.dateRange || filters.type || filters.priority ? filteredEvents : allEvents;
+    return {
+      total: dataSet.length,
+      pendientes: dataSet.filter(e => e.status === 'Pendiente').length,
+      enAnalisis: dataSet.filter(e => e.status === 'En análisis').length,
+      enValidacion: dataSet.filter(e => e.status === 'En validación').length,
+      finalizados: dataSet.filter(e => e.status === 'Finalizado').length,
+      verificados: dataSet.filter(e => e.status === 'Verificado').length,
+      rechazados: dataSet.filter(e => e.status === 'Rechazado').length,
+    }
+  }, [allEvents, filteredEvents, filters]);
+
 
   const isLoading = isLoadingData || loadingAuth;
 
@@ -130,14 +184,89 @@ export default function InformesPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <div className="flex items-center gap-3">
+            <ListFilter className="h-6 w-6 text-primary" />
+            <CardTitle className="text-2xl">Filtros de Búsqueda</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-4">
+          <div>
+            <Label htmlFor="filter-site" className="flex items-center mb-1"><Globe className="mr-1.5 h-4 w-4 text-muted-foreground"/>Sitio/Planta</Label>
+            <Select value={filters.site || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('site', val)}>
+              <SelectTrigger id="filter-site"><SelectValue placeholder="Todos los sitios" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_FILTER_VALUE}>Todos los sitios</SelectItem>
+                {availableSites.map(s => <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>)}
+                {availableSites.length === 0 && <SelectItem value={NO_SITES_PLACEHOLDER_VALUE} disabled>No hay sitios</SelectItem>}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="filter-type" className="flex items-center mb-1"><AlertTriangle className="mr-1.5 h-4 w-4 text-muted-foreground"/>Tipo de Evento</Label>
+            <Select value={filters.type || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('type', val as ReportedEventType | typeof ALL_FILTER_VALUE)}>
+              <SelectTrigger id="filter-type"><SelectValue placeholder="Todos los tipos" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_FILTER_VALUE}>Todos los tipos</SelectItem>
+                {eventTypeOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="filter-priority" className="flex items-center mb-1"><Flame className="mr-1.5 h-4 w-4 text-muted-foreground"/>Prioridad</Label>
+            <Select value={filters.priority || ALL_FILTER_VALUE} onValueChange={(val) => handleFilterChange('priority', val as PriorityType | typeof ALL_FILTER_VALUE)}>
+              <SelectTrigger id="filter-priority"><SelectValue placeholder="Todas las prioridades" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_FILTER_VALUE}>Todas las prioridades</SelectItem>
+                {priorityOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+           <div>
+            <Label htmlFor="filter-date-range" className="flex items-center mb-1"><CalendarDays className="mr-1.5 h-4 w-4 text-muted-foreground"/>Rango de Fechas</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button id="filter-date-range" variant="outline" className="w-full justify-start text-left font-normal">
+                  {filters.dateRange?.from ? (
+                    filters.dateRange.to ? (
+                      `${format(filters.dateRange.from, "LLL dd, y", {locale: es})} - ${format(filters.dateRange.to, "LLL dd, y", {locale: es})}`
+                    ) : (
+                      format(filters.dateRange.from, "LLL dd, y", {locale: es})
+                    )
+                  ) : (
+                    <span>Seleccione un rango</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={filters.dateRange?.from}
+                  selected={filters.dateRange}
+                  onSelect={(range) => handleFilterChange('dateRange', range)}
+                  numberOfMonths={2}
+                  locale={es}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        </CardContent>
+        <CardFooter className="flex justify-start gap-3 pt-4 border-t">
+          <Button onClick={applyFilters}><Search className="mr-2"/>Aplicar Filtros</Button>
+          <Button onClick={clearFilters} variant="outline"><RefreshCcw className="mr-2"/>Limpiar Filtros</Button>
+        </CardFooter>
+      </Card>
+
+      <Card className="shadow-lg">
+        <CardHeader>
+          <div className="flex items-center gap-3">
             <PieChart className="h-6 w-6 text-primary" />
-            <CardTitle className="text-2xl">Resumen Rápido</CardTitle>
+            <CardTitle className="text-2xl">Resumen de Datos Filtrados</CardTitle>
           </div>
         </CardHeader>
         <CardContent className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 text-center">
           <div className="p-4 bg-secondary/40 rounded-lg">
             <p className="text-3xl font-bold text-foreground">{summaryData.total}</p>
-            <p className="text-sm text-muted-foreground">Total</p>
+            <p className="text-sm text-muted-foreground">Total Eventos</p>
           </div>
           <div className="p-4 bg-destructive/10 rounded-lg">
             <p className="text-3xl font-bold text-destructive">{summaryData.pendientes}</p>
@@ -164,11 +293,6 @@ export default function InformesPage() {
             <p className="text-sm text-muted-foreground">Rechazados</p>
           </div>
         </CardContent>
-         <CardFooter>
-            <p className="text-xs text-muted-foreground">
-              Datos actualizados en tiempo real desde Firestore.
-            </p>
-          </CardFooter>
       </Card>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -205,3 +329,5 @@ export default function InformesPage() {
     </div>
   );
 }
+
+    
