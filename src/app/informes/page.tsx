@@ -21,8 +21,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { Progress } from '@/components/ui/progress';
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { ChartContainer, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
+import { PieChart, Pie, Cell, Legend, ResponsiveContainer, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 
 
 const eventTypeOptions: ReportedEventType[] = ['Incidente', 'Falla de Equipo', 'Accidente', 'No Conformidad', 'Evento Operacional'];
@@ -61,6 +61,10 @@ const RcaStatusChart: FC<{ data: { name: string; value: number; fill: string; }[
         <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent hideLabel />}
+              />
               <Pie
                 data={data}
                 dataKey="value"
@@ -74,10 +78,6 @@ const RcaStatusChart: FC<{ data: { name: string; value: number; fill: string; }[
                   <Cell key={`cell-${entry.name}`} fill={entry.fill} />
                 ))}
               </Pie>
-              <ChartTooltipContent
-                  nameKey="name"
-                  formatter={(value, name) => `${name}: ${value}`}
-              />
               <Legend />
             </PieChart>
           </ResponsiveContainer>
@@ -103,6 +103,10 @@ const ActionStatusChart: FC<{ data: { name: string; value: number; fill: string;
          <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
            <ResponsiveContainer width="100%" height={250}>
             <PieChart>
+              <ChartTooltip
+                  cursor={false}
+                  content={<ChartTooltipContent hideLabel />}
+                />
               <Pie
                 data={data}
                 dataKey="value"
@@ -116,10 +120,6 @@ const ActionStatusChart: FC<{ data: { name: string; value: number; fill: string;
                   <Cell key={`cell-${entry.name}`} fill={entry.fill} />
                 ))}
               </Pie>
-               <ChartTooltipContent
-                  nameKey="name"
-                  formatter={(value, name) => `${name}: ${value}`}
-                />
               <Legend />
             </PieChart>
           </ResponsiveContainer>
@@ -169,6 +169,14 @@ const EventosPorSitioYEquipoChart: FC<{ data: RCAAnalysisDocument[] }> = ({ data
   const chartTitle = drilldownLevel === 'sitio' 
     ? "Eventos por Sitio" 
     : `Eventos por Equipo en "${selectedSite}"`;
+    
+  const chartConfig = {
+    Eventos: {
+      label: "Eventos",
+      color: "hsl(var(--chart-1))",
+    },
+  } satisfies ChartConfig;
+
 
   return (
     <Card>
@@ -183,10 +191,10 @@ const EventosPorSitioYEquipoChart: FC<{ data: RCAAnalysisDocument[] }> = ({ data
         </div>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
+        <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
           <BarChart data={chartData} layout="vertical">
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis type="number" allowDecimals={false} />
+            <XAxis type="number" dataKey="Eventos" allowDecimals={false} />
             <YAxis 
               dataKey="name" 
               type="category" 
@@ -194,42 +202,24 @@ const EventosPorSitioYEquipoChart: FC<{ data: RCAAnalysisDocument[] }> = ({ data
               tick={{ fontSize: 12 }}
               interval={0}
             />
-            <Tooltip
-              content={({ active, payload, label }) =>
-                active && payload && payload.length ? (
-                  <div className="rounded-lg border bg-background p-2 shadow-sm">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="flex flex-col">
-                        <span className="text-[0.70rem] uppercase text-muted-foreground">
-                          {drilldownLevel === 'sitio' ? 'Sitio' : 'Equipo'}
-                        </span>
-                        <span className="font-bold text-muted-foreground">
-                          {label}
-                        </span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-[0.70rem] uppercase text-muted-foreground">
-                          Eventos
-                        </span>
-                        <span className="font-bold">
-                          {payload[0].value}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ) : null
-              }
-            />
+            <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    labelFormatter={(label) => chartData.find((d) => d.name === label)?.name || label}
+                    formatter={(value) => `${value} Eventos`}
+                  />
+                }
+              />
             <Legend />
             <Bar 
               dataKey="Eventos" 
-              fill="hsl(var(--chart-1))" 
+              fill="var(--color-Eventos)"
               radius={4} 
-              onClick={handleBarClick} 
+              onClick={(payload) => handleBarClick(payload)}
               cursor={drilldownLevel === 'sitio' ? 'pointer' : 'default'}
             />
           </BarChart>
-        </ResponsiveContainer>
+        </ChartContainer>
       </CardContent>
     </Card>
   );
