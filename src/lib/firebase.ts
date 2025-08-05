@@ -25,11 +25,10 @@ const appHasAllConfig =
   firebaseConfig.messagingSenderId &&
   firebaseConfig.appId;
 
-let app: FirebaseApp;
-let auth: ReturnType<typeof getAuth>;
-let db: ReturnType<typeof getFirestore>;
-let storage: ReturnType<typeof getStorage>;
-
+let app: FirebaseApp | null = null;
+let auth: ReturnType<typeof getAuth> | null = null;
+let db: ReturnType<typeof getFirestore> | null = null;
+let storage: ReturnType<typeof getStorage> | null = null;
 
 if (appHasAllConfig) {
   app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
@@ -44,16 +43,6 @@ if (appHasAllConfig) {
       'Asegúrese de que la aplicación esté conectada a un backend de Firebase App Hosting y las variables de entorno estén configuradas.'
     );
   }
-  // Assign dummy objects to prevent crashes on both server and client
-  const dummyApp = { name: 'dummy', options: {}, automaticDataCollectionEnabled: false };
-  // @ts-ignore
-  app = dummyApp;
-  // @ts-ignore
-  auth = { app: dummyApp };
-  // @ts-ignore
-  db = { app: dummyApp };
-  // @ts-ignore
-  storage = { app: dummyApp };
 }
 
 export { app, auth, db, storage };
