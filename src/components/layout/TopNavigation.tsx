@@ -65,12 +65,12 @@ export function TopNavigation() {
         <div className="flex items-center justify-between h-16">
           {/* Logo or Menu Items Section */}
           <div className="flex items-center gap-2 sm:gap-4">
-            {isPublicFacingPage || !currentUser ? (
+            {isPublicFacingPage ? (
               <Link href="/" className="flex items-center gap-2 text-lg font-bold text-primary">
                 <Zap className="h-7 w-7" />
                 <span className="font-headline text-xl hidden sm:inline">Asistente ACR</span>
               </Link>
-            ) : (
+            ) : hasMounted && !loadingAuth && currentUser ? (
               <div className="flex space-x-1 sm:space-x-2 md:space-x-4 overflow-x-auto py-2">
                 {visibleMenuItems.map((item) => {
                   let isActive = false;
@@ -108,6 +108,11 @@ export function TopNavigation() {
                   );
                 })}
               </div>
+            ) : (
+                 <Link href="/" className="flex items-center gap-2 text-lg font-bold text-primary">
+                    <Zap className="h-7 w-7" />
+                    <span className="font-headline text-xl hidden sm:inline">Asistente ACR</span>
+                 </Link>
             )}
           </div>
           
