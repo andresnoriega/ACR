@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, FC } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from "@/hooks/use-toast";
 import type { ReportedEvent, ReportedEventType, PriorityType, Site, RCAAnalysisDocument, IdentifiedRootCause } from '@/types/rca';
-import { ListOrdered, PieChart as PieChartIcon, BarChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, Loader2, FileDown, History } from 'lucide-react';
+import { ListOrdered, PieChart as PieChartIcon, BarChart, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, Loader2, FileDown, History, ChevronsRight, Home } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, where, type QueryConstraint } from "firebase/firestore";
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,7 +21,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { Progress } from '@/components/ui/progress';
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { ChartContainer, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 
 
@@ -124,6 +124,112 @@ const ActionStatusChart: FC<{ data: { name: string; value: number; fill: string;
             </PieChart>
           </ResponsiveContainer>
         </ChartContainer>
+      </CardContent>
+    </Card>
+  );
+};
+
+const EventosPorSitioYEquipoChart: FC<{ data: RCAAnalysisDocument[] }> = ({ data }) => {
+  const [drilldownLevel, setDrilldownLevel] = useState<'sitio' | 'equipo'>('sitio');
+  const [selectedSite, setSelectedSite] = useState<string | null>(null);
+
+  const handleBarClick = (barData: any) => {
+    if (drilldownLevel === 'sitio' && barData && barData.name) {
+      setSelectedSite(barData.name);
+      setDrilldownLevel('equipo');
+    }
+  };
+
+  const resetDrilldown = () => {
+    setSelectedSite(null);
+    setDrilldownLevel('sitio');
+  };
+
+  const chartData = useMemo(() => {
+    if (drilldownLevel === 'sitio') {
+      const counts = data.reduce((acc, doc) => {
+        const site = doc.eventData?.place || 'Sin Sitio';
+        acc[site] = (acc[site] || 0) + 1;
+        return acc;
+      }, {} as { [key: string]: number });
+      return Object.entries(counts).map(([name, value]) => ({ name, Eventos: value }));
+    } else if (drilldownLevel === 'equipo' && selectedSite) {
+      const counts = data
+        .filter(doc => (doc.eventData?.place || 'Sin Sitio') === selectedSite)
+        .reduce((acc, doc) => {
+          const equipo = doc.eventData?.equipo || 'Sin Equipo';
+          acc[equipo] = (acc[equipo] || 0) + 1;
+          return acc;
+        }, {} as { [key: string]: number });
+      return Object.entries(counts).map(([name, value]) => ({ name, Eventos: value }));
+    }
+    return [];
+  }, [data, drilldownLevel, selectedSite]);
+  
+  const chartTitle = drilldownLevel === 'sitio' 
+    ? "Eventos por Sitio" 
+    : `Eventos por Equipo en "${selectedSite}"`;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <CardTitle>{chartTitle}</CardTitle>
+          {drilldownLevel === 'equipo' && (
+            <Button variant="outline" size="sm" onClick={resetDrilldown}>
+              <Home className="mr-2 h-4 w-4" /> Volver a Sitios
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={chartData} layout="vertical">
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis type="number" allowDecimals={false} />
+            <YAxis 
+              dataKey="name" 
+              type="category" 
+              width={120} 
+              tick={{ fontSize: 12 }}
+              interval={0}
+            />
+            <Tooltip
+              content={({ active, payload, label }) =>
+                active && payload && payload.length ? (
+                  <div className="rounded-lg border bg-background p-2 shadow-sm">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col">
+                        <span className="text-[0.70rem] uppercase text-muted-foreground">
+                          {drilldownLevel === 'sitio' ? 'Sitio' : 'Equipo'}
+                        </span>
+                        <span className="font-bold text-muted-foreground">
+                          {label}
+                        </span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[0.70rem] uppercase text-muted-foreground">
+                          Eventos
+                        </span>
+                        <span className="font-bold">
+                          {payload[0].value}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : null
+              }
+            />
+            <Legend />
+            <Bar 
+              dataKey="Eventos" 
+              fill="hsl(var(--chart-1))" 
+              radius={4} 
+              onClick={handleBarClick} 
+              cursor={drilldownLevel === 'sitio' ? 'pointer' : 'default'}
+            />
+          </BarChart>
+        </ResponsiveContainer>
       </CardContent>
     </Card>
   );
@@ -447,6 +553,8 @@ export default function InformesPage() {
         <RcaStatusChart data={rcaStatusChartData} />
         <ActionStatusChart data={actionStatusChartData} />
       </div>
+
+      <EventosPorSitioYEquipoChart data={filteredRcaDocs} />
 
       <Card>
         <CardHeader>
