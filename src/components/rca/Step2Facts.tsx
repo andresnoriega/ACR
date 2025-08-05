@@ -322,6 +322,10 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
       <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 border-t">
         <Button onClick={onPrevious} variant="outline" className="w-full sm:w-auto mb-2 sm:mb-0 transition-transform hover:scale-105" disabled={isSaving}>Anterior</Button>
         <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto sm:space-x-2">
+            <Button onClick={() => onAnalysisSaveRequired()} variant="secondary" className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Save className="mr-2 h-4 w-4" /> Guardar Avance
+            </Button>
             <Button onClick={handleNextWithSave} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
                   {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Siguiente
