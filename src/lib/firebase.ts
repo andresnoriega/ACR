@@ -5,18 +5,16 @@ import { getFirestore, initializeFirestore, memoryLocalCache } from "firebase/fi
 import { getStorage } from "firebase/storage";
 
 // =================================================================================
-// ACCIÓN REQUERIDA: POR FAVOR, REEMPLACE ESTOS VALORES
-// Vaya a la configuración de su proyecto original en la Consola de Firebase
-// y copie los valores correspondientes aquí.
+// CONFIGURACIÓN CORREGIDA PARA EL PROYECTO: Asistente-ACR Cloud
 // =================================================================================
 const firebaseConfig = {
-  "projectId": "REEMPLAZAR_CON_TU_PROJECT_ID",
-  "appId": "REEMPLAZAR_CON_TU_APP_ID",
-  "storageBucket": "REEMPLAZAR_CON_TU_STORAGE_BUCKET",
-  "apiKey": "REEMPLAZAR_CON_TU_API_KEY",
-  "authDomain": "REEMPLAZAR_CON_TU_AUTH_DOMAIN",
-  "measurementId": "REEMPLAZAR_CON_TU_MEASUREMENT_ID",
-  "messagingSenderId": "REEMPLAZAR_CON_TU_MESSAGING_SENDER_ID"
+  apiKey: "AIzaSyBpRAXR8mTcBTXwuXV5VaXdqCP6yx85MUE",
+  authDomain: "almacenador-cloud.firebaseapp.com",
+  projectId: "almacenador-cloud",
+  storageBucket: "almacenador-cloud.appspot.com",
+  messagingSenderId: "790911154631",
+  // appId y measurementId no son estrictamente necesarios para los servicios
+  // principales de Firestore, Auth y Storage en esta aplicación.
 };
 
 let app: FirebaseApp;
