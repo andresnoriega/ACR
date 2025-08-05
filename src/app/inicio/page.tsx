@@ -26,7 +26,7 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ title, description, icon: Ico
         </div>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent className="pt-0" />
+      <CardContent className="pt-0 flex-grow" />
       <CardFooter>
         <Button asChild className="w-full">
           <Link href={href}>{buttonText}</Link>
@@ -77,7 +77,7 @@ export default function InicioPage() {
         </p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 max-w-4xl mx-auto">
         {filteredFeatures.map(item => (
             <FeatureCard 
                 key={item.title}
