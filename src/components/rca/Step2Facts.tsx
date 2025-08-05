@@ -1,7 +1,7 @@
 'use client';
 
 import type { FC, ChangeEvent } from 'react';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { DetailedFacts, FullUserProfile, Site, InvestigationSession, PreservedFact } from '@/types/rca';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -9,15 +9,22 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserCircle, Save, Loader2, Target, ClipboardList, Sparkles, FileArchive } from 'lucide-react';
+import { UserCircle, Save, Loader2, Target, ClipboardList, Sparkles, FileArchive, Trash2, ExternalLink } from 'lucide-react';
 import { format, parseISO, isValid as isValidDate } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
 import { paraphrasePhenomenon, type ParaphrasePhenomenonInput } from '@/ai/flows/paraphrase-phenomenon';
 import { InvestigationTeamManager } from './InvestigationTeamManager';
-import { PreservedFactsManager } from './PreservedFactsManager';
+import FileUploader from './PreservedFactsManager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { db, storage } from '@/lib/firebase';
+import { ref as storageRef, deleteObject } from "firebase/storage";
+import { doc, updateDoc, arrayRemove } from "firebase/firestore";
+import { sanitizeForFirestore } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { formatBytes } from '@/lib/utils';
+
 
 // ------ COMPONENTE PRINCIPAL ------
 export const Step2Facts: FC<{
@@ -33,7 +40,7 @@ export const Step2Facts: FC<{
   onAnalysisDetailsChange: (value: string) => void;
   preservedFacts: PreservedFact[];
   setPreservedFacts: (facts: PreservedFact[] | ((prevState: PreservedFact[]) => PreservedFact[])) => void;
-  onAnalysisSaveRequired: () => Promise<string | null>; // Callback to save parent state
+  onAnalysisSaveRequired: () => Promise<string | null>;
   availableUsers: FullUserProfile[];
   availableSites: Site[];
   isSaving: boolean;
@@ -69,6 +76,7 @@ export const Step2Facts: FC<{
   const [clientSideMaxDateTime, setClientSideMaxDateTime] = useState<string | undefined>(undefined);
   const [isParaphrasing, setIsParaphrasing] = useState(false);
   const { userProfile } = useAuth();
+  const [isProcessingDelete, setIsProcessingDelete] = useState(false);
 
   const usersForDropdown = useMemo(() => {
     if (userProfile?.role === 'Super User') {
@@ -170,6 +178,49 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
       toast({ title: "Error de IA", description: `Ocurrió un error al contactar la IA: ${(error as Error).message}`, variant: "destructive" });
     } finally {
       setIsParaphrasing(false);
+    }
+  };
+
+  const handleUploadSuccess = (newFact: PreservedFact) => {
+    setPreservedFacts(prev => [...prev, newFact]);
+  };
+
+  const handleRemoveFact = async (factId: string) => {
+    if (!analysisId) {
+      toast({ title: "Error", description: "ID del análisis no encontrado.", variant: "destructive" });
+      return;
+    }
+    const factToRemove = preservedFacts.find(fact => fact.id === factId);
+    if (!factToRemove) return;
+    
+    setIsProcessingDelete(true);
+    
+    try {
+      if (factToRemove.storagePath) {
+        const fileRef = storageRef(storage, factToRemove.storagePath);
+        await deleteObject(fileRef);
+      }
+      
+      const rcaDocRef = doc(db, "rcaAnalyses", analysisId);
+      await updateDoc(rcaDocRef, {
+          preservedFacts: arrayRemove(sanitizeForFirestore(factToRemove)),
+          updatedAt: new Date().toISOString()
+      });
+      
+      setPreservedFacts(prev => prev.filter(fact => fact.id !== factId));
+      toast({ title: "Hecho Preservado Eliminado", description: "El archivo y su referencia se eliminaron exitosamente.", variant: 'destructive' });
+
+    } catch (error: any) {
+      console.error("Error al eliminar hecho preservado:", error);
+      let errorDesc = `No se pudo confirmar la eliminación en la base de datos: ${error.message}.`;
+      if (error.code === 'storage/object-not-found') {
+        errorDesc = "El archivo ya no existía en Storage, pero se eliminó la referencia de la base de datos.";
+      } else if (error.code) {
+        errorDesc = `No se pudo eliminar de Storage. Código: ${error.code}`
+      }
+      toast({ title: "Error de Eliminación", description: errorDesc, variant: "destructive" });
+    } finally {
+      setIsProcessingDelete(false);
     }
   };
   
@@ -307,13 +358,54 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                     </Card>
                 </div>
             </TabsContent>
-            <TabsContent value="preservation" className="mt-4">
-                 <PreservedFactsManager
-                    preservedFacts={preservedFacts}
-                    setPreservedFacts={setPreservedFacts}
+            <TabsContent value="preservation" className="mt-4 space-y-4">
+                <FileUploader
                     analysisId={analysisId}
+                    onUploadSuccess={handleUploadSuccess}
                     onAnalysisSaveRequired={onAnalysisSaveRequired}
-                 />
+                />
+
+                <div className="space-y-2 pt-4">
+                    <h4 className="font-semibold">Hechos Preservados Adjuntos</h4>
+                    {(preservedFacts || []).length > 0 ? (
+                        <div className="space-y-2">
+                            {preservedFacts.map((fact) => (
+                                <Card key={fact.id} className="p-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex-grow min-w-0">
+                                            <p className="font-medium truncate">{fact.userGivenName}</p>
+                                            <p className="text-xs text-muted-foreground">{formatBytes(fact.size || 0)} - {format(new Date(fact.uploadDate), "dd/MM/yyyy HH:mm")}</p>
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                {fact.tags?.map((tag, i) => <Badge key={i} variant="secondary">{tag}</Badge>)}
+                                            </div>
+                                        </div>
+                                        <div className="flex-shrink-0 ml-2 flex items-center gap-2">
+                                            {fact.downloadURL && (
+                                                <Button asChild variant="link" size="sm">
+                                                    <a href={fact.downloadURL} target="_blank" rel="noopener noreferrer">
+                                                        <ExternalLink className="mr-1.5 h-3 w-3"/> Ver/Descargar
+                                                    </a>
+                                                </Button>
+                                            )}
+                                            <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 hover:bg-destructive/10"
+                                            onClick={() => handleRemoveFact(fact.id)}
+                                            disabled={isProcessingDelete}
+                                            aria-label="Eliminar hecho preservado"
+                                            >
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </Card>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-muted-foreground italic">No hay hechos preservados adjuntos a este análisis.</p>
+                    )}
+                </div>
             </TabsContent>
         </Tabs>
       </CardContent>
