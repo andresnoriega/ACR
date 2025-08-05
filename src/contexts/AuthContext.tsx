@@ -1,4 +1,3 @@
-
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
@@ -44,10 +43,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loadingAuth, setLoadingAuth] = useState(true);
 
   useEffect(() => {
+    // Check if auth object is valid before using it
+    if (typeof onAuthStateChanged !== 'function') {
+      console.error("[AuthContext] Firebase Auth is not initialized correctly. `onAuthStateChanged` is not a function.");
+      setLoadingAuth(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setLoadingAuth(true);
       if (user) {
         setCurrentUser(user);
+        // Ensure db object is valid before querying
+        if (typeof doc !== 'function') {
+            console.error("[AuthContext] Firestore is not initialized correctly. `doc` is not a function.");
+            setUserProfile(null);
+            setLoadingAuth(false);
+            return;
+        }
         const userDocRef = doc(db, 'users', user.uid);
         try {
           const docSnap = await getDoc(userDocRef);
@@ -68,9 +81,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           }
         } catch (error) {
           console.error(`[AuthContext] Error fetching profile for UID ${user.uid}:`, error);
-          // CRITICAL FIX: Do NOT sign out the user if the profile fetch fails.
-          // This prevents the user from being kicked out on a temporary network issue or race condition.
-          // The user remains logged in, but with a null profile, which the UI should handle gracefully.
           setUserProfile(null);
         }
       } else {

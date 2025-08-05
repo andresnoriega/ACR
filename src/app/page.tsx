@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -47,7 +46,7 @@ const ActionCard: React.FC<ActionCardProps> = ({ title, description, buttonText,
 
 
 export default function InicioPage() {
-    const { userProfile } = useAuth();
+    const { userProfile, loadingAuth } = useAuth();
     const router = useRouter();
     
     const menuItems = [
@@ -58,6 +57,37 @@ export default function InicioPage() {
         { title: 'Mi Perfil', description: 'Gestiona tu información personal y de seguridad.', buttonText: 'Ir a Mi Perfil', href: '/usuario/perfil', icon: UserCircle, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User', 'Usuario Pendiente'] },
         { title: 'Configuración', description: 'Ajuste las preferencias y configuraciones de la aplicación.', buttonText: 'Ir a Configuración', href: '/config', icon: Settings, allowedRoles: ['Admin', 'Super User'] },
     ];
+
+    if (loadingAuth || !userProfile) {
+        // You can return a loading state or a skeleton here if you want.
+        // For now, we'll return the public-facing part of the page.
+        return (
+            <div className="space-y-8 py-8">
+                <header className="text-center space-y-2">
+                    <h1 className="text-4xl font-bold font-headline text-primary">
+                       Bienvenido a Asistente ACR!
+                    </h1>
+                    <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                        Su herramienta intuitiva y eficiente para realizar Análisis de Causa Raíz (ACR) y mejorar continuamente sus procesos.
+                    </p>
+                </header>
+                 <Card className="bg-secondary/30">
+                    <CardHeader>
+                        <div className="flex items-center gap-3 mb-2">
+                            <HelpCircle className="h-7 w-7 text-primary" />
+                            <CardTitle className="text-2xl">¿Qué es un Análisis de Causa Raíz?</CardTitle>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm text-foreground">
+                           El Análisis de Causa Raíz (ACR) es un método sistemático para identificar las causas subyacentes de un problema o incidente. En lugar de simplemente tratar los síntomas, el ACR busca encontrar el origen fundamental para implementar soluciones efectivas y prevenir la recurrencia del problema. Esta herramienta le guiará a través de este proceso.
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    }
+
 
     return (
         <div className="space-y-8 py-8">

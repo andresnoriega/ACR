@@ -1,4 +1,3 @@
-
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
@@ -27,35 +26,34 @@ const appHasAllConfig =
   firebaseConfig.appId;
 
 let app: FirebaseApp;
+let auth: ReturnType<typeof getAuth>;
+let db: ReturnType<typeof getFirestore>;
+let storage: ReturnType<typeof getStorage>;
 
-// Only log the warning on the client-side, where process.env.NODE_ENV is available.
-if (typeof window !== 'undefined' && !appHasAllConfig) {
-  console.warn(
-    'ADVERTENCIA: Faltan variables de configuración de Firebase en el entorno. ' +
-    'La aplicación no se puede inicializar correctamente. ' +
-    'Asegúrese de que la aplicación esté conectada a un backend de Firebase App Hosting y las variables de entorno estén configuradas.'
-  );
-}
 
 if (appHasAllConfig) {
-  if (!getApps().length) {
-    app = initializeApp(firebaseConfig);
-  } else {
-    app = getApp();
-  }
+  app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+  auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
 } else {
-  // We don't initialize app if config is missing.
-  // Services will fail, but the app might still build.
+  if (typeof window !== 'undefined') {
+    console.warn(
+      'ADVERTENCIA: Faltan variables de configuración de Firebase en el entorno. ' +
+      'La aplicación no se puede inicializar correctamente. ' +
+      'Asegúrese de que la aplicación esté conectada a un backend de Firebase App Hosting y las variables de entorno estén configuradas.'
+    );
+  }
+  // Assign dummy objects to prevent crashes on both server and client
+  const dummyApp = { name: 'dummy', options: {}, automaticDataCollectionEnabled: false };
   // @ts-ignore
-  app = {}; // Assign a dummy object to prevent further crashes on server-side rendering
+  app = dummyApp;
+  // @ts-ignore
+  auth = { app: dummyApp };
+  // @ts-ignore
+  db = { app: dummyApp };
+  // @ts-ignore
+  storage = { app: dummyApp };
 }
 
-
-// Se exportan las instancias de los servicios para ser usadas en la aplicación.
-// Si 'app' no se inicializó, estas funciones lanzarán un error, lo cual es esperado.
-const auth = appHasAllConfig ? getAuth(app) : {};
-const db = appHasAllConfig ? getFirestore(app) : {};
-const storage = appHasAllConfig ? getStorage(app) : {};
-
-// @ts-ignore
 export { app, auth, db, storage };
