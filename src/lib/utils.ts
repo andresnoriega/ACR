@@ -12,14 +12,13 @@ export function formatBytes(
     sizeType?: "accurate" | "normal"
   } = {}
 ) {
-  const { decimals = 0, sizeType = "normal" } = options
-
-  const sizes = ["Bytes", "KB", "MB", "GB", "TB"]
-  const K = sizeType === "accurate" ? 1024 : 1000
-
-  const i = Math.floor(Math.log(bytes) / Math.log(K))
-
-  return `${parseFloat((bytes / Math.pow(K, i)).toFixed(decimals))} ${sizes[i]}`
+  if (bytes === 0) return '0 Bytes';
+  const { decimals = 2, sizeType = "normal" } = options;
+  const k = sizeType === "accurate" ? 1024 : 1000;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 
 

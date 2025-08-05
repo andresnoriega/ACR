@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { FC, ChangeEvent } from 'react';
@@ -16,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/AuthContext';
 import { paraphrasePhenomenon, type ParaphrasePhenomenonInput } from '@/ai/flows/paraphrase-phenomenon';
 import { InvestigationTeamManager } from './InvestigationTeamManager';
-import FileUploader from './PreservedFactsManager';
+import PreservedFactsManager from './PreservedFactsManager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db, storage } from '@/lib/firebase';
 import { ref as storageRef, deleteObject } from "firebase/storage";
@@ -359,10 +360,10 @@ Las personas o equipos implicados fueron: "${detailedFacts.quien || 'QUIÉN (no 
                 </div>
             </TabsContent>
             <TabsContent value="preservation" className="mt-4 space-y-4">
-                <FileUploader
+                <PreservedFactsManager
                     analysisId={analysisId}
-                    onUploadSuccess={handleUploadSuccess}
                     onAnalysisSaveRequired={onAnalysisSaveRequired}
+                    onFactAdded={handleUploadSuccess}
                 />
 
                 <div className="space-y-2 pt-4">

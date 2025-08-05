@@ -1,8 +1,9 @@
+
 "use client";
 
 import { useState, useRef, type FC, useCallback } from 'react';
 import { storage } from '@/lib/firebase';
-import { ref, uploadBytesResumable, getDownloadURL, updateMetadata, getMetadata, listAll, deleteObject } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL, updateMetadata, getMetadata } from 'firebase/storage';
 import { UploadCloud, Loader2, File as FileIcon, Trash2, ExternalLink } from 'lucide-react';
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
@@ -23,13 +24,13 @@ const fileToDataUri = (file: File): Promise<string> => {
     });
 };
 
-interface FileUploaderProps {
+interface PreservedFactsManagerProps {
   analysisId: string | null;
-  onUploadSuccess: (file: PreservedFact) => void;
   onAnalysisSaveRequired: () => Promise<string | null>;
+  onFactAdded: (fact: PreservedFact) => void;
 }
 
-const FileUploader: FC<FileUploaderProps> = ({ analysisId, onUploadSuccess, onAnalysisSaveRequired }) => {
+const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({ analysisId, onAnalysisSaveRequired, onFactAdded }) => {
   const [file, setFile] = useState<File | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -88,8 +89,9 @@ const FileUploader: FC<FileUploaderProps> = ({ analysisId, onUploadSuccess, onAn
     setUploadProgress(0);
     setStatusText("Preparando para subir...");
     
-    const storageRef = ref(storage, `uploads/${currentAnalysisId}/${file.name}`);
-    const uploadTask = uploadBytesResumable(storageRef, file);
+    const storagePath = `uploads/${currentAnalysisId}/${Date.now()}-${file.name}`;
+    const storageRefInstance = ref(storage, storagePath);
+    const uploadTask = uploadBytesResumable(storageRefInstance, file);
 
     uploadTask.on('state_changed',
       (snapshot) => {
@@ -100,26 +102,20 @@ const FileUploader: FC<FileUploaderProps> = ({ analysisId, onUploadSuccess, onAn
       (error) => {
         console.error("Fallo en la subida:", error);
         const bucket = storage.app.options.storageBucket || 'N/A';
-        let description = `No se pudo subir al bucket '${bucket}'. Por favor revise su red y configuración de Firebase.`;
+        let description = `No se pudo subir al bucket '${bucket}'. Por favor revise su red y configuración de Firebase, incluyendo CORS.`;
 
         if (error.code) {
             switch(error.code) {
-                case 'storage/bucket-not-found':
-                    description = `Bucket de Firebase Storage '${bucket}' no encontrado. Por favor asegúrese de que Storage esté habilitado y el nombre del bucket en su configuración sea correcto.`;
-                    break;
-                case 'storage/project-not-found':
-                    description = "Proyecto de Firebase no encontrado. Por favor revise su configuración de Firebase.";
-                    break;
                 case 'storage/unauthorized':
-                    description = `Permiso denegado para el bucket '${bucket}'. Por favor revise sus reglas de seguridad de Firebase Storage para permitir escrituras.`;
+                    description = `Permiso denegado para el bucket '${bucket}'. Por favor revise sus reglas de seguridad de Firebase Storage (incluyendo CORS) para permitir escrituras desde su dominio.`;
                     break;
                 case 'storage/unknown':
-                    description = `Un error desconocido ocurrió con el bucket '${bucket}'. Esto podría ser un problema de configuración de CORS. Por favor revise la consola del navegador para más detalles.`;
+                    description = `Un error desconocido ocurrió. Esto suele ser un problema de configuración de CORS en su bucket de Firebase Storage.`;
                     break;
             }
         }
 
-        toast({ variant: "destructive", title: "Fallo en la Subida", description });
+        toast({ variant: "destructive", title: "Fallo en la Subida", description, duration: 9000 });
         setStatusText("Fallo en la subida. Por favor, intente de nuevo.");
         setTimeout(resetState, 4000);
       },
@@ -170,7 +166,7 @@ const FileUploader: FC<FileUploaderProps> = ({ analysisId, onUploadSuccess, onAn
             updatedAt: new Date().toISOString()
           });
 
-          onUploadSuccess(newFact);
+          onFactAdded(newFact);
 
           setStatusText("✅ ¡Éxito! Archivo procesado.");
           toast({
@@ -183,7 +179,7 @@ const FileUploader: FC<FileUploaderProps> = ({ analysisId, onUploadSuccess, onAn
         } catch (error: any) {
           console.error("Fallo en el procesamiento post-subida:", error);
           setStatusText("Fallo en el procesamiento con IA.");
-          toast({ variant: "destructive", title: "Fallo en el Procesamiento", description: "El proceso de etiquetado con IA falló. Por favor intente de nuevo." });
+          toast({ variant: "destructive", title: "Fallo en el Procesamiento", description: `El proceso de etiquetado con IA falló: ${error.message}` });
           setTimeout(resetState, 4000);
         }
       }
@@ -245,4 +241,4 @@ const FileUploader: FC<FileUploaderProps> = ({ analysisId, onUploadSuccess, onAn
   );
 };
 
-export default FileUploader;
+export default PreservedFactsManager;
