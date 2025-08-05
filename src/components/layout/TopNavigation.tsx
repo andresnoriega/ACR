@@ -57,9 +57,8 @@ export function TopNavigation() {
     }
   };
 
-  // Determines if the page is a public-facing one (login, register, etc.)
-  // This logic is crucial for deciding which header version to show.
   const isPublicPage = !currentUser && (pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/registro'));
+  const showNavForAuthenticatedUser = hasMounted && currentUser && !loadingAuth;
 
   return (
     <header className="bg-card border-b border-border shadow-sm no-print sticky top-0 z-40">
@@ -67,12 +66,11 @@ export function TopNavigation() {
         <div className="flex items-center justify-between h-16">
           {/* Logo or Menu Items Section */}
           <div className="flex items-center gap-2 sm:gap-4">
-            {isPublicPage ? (
-              <Link href="/" className="flex items-center gap-2 text-lg font-bold text-primary">
-                <Zap className="h-7 w-7" />
-                <span className="font-headline text-xl hidden sm:inline">Asistente ACR</span>
-              </Link>
-            ) : hasMounted && currentUser ? (
+            <Link href="/" className="flex items-center gap-2 text-lg font-bold text-primary">
+              <Zap className="h-7 w-7" />
+              <span className="font-headline text-xl hidden sm:inline">Asistente ACR</span>
+            </Link>
+            {showNavForAuthenticatedUser && (
               <div className="flex space-x-1 sm:space-x-2 md:space-x-4 overflow-x-auto py-2">
                 {visibleMenuItems.map((item) => {
                   let isActive = false;
@@ -102,18 +100,12 @@ export function TopNavigation() {
                   );
                 })}
               </div>
-            ) : (
-              // This is a fallback for the loading state, showing the logo.
-              <Link href="/" className="flex items-center gap-2 text-lg font-bold text-primary">
-                 <Zap className="h-7 w-7" />
-                 <span className="font-headline text-xl hidden sm:inline">Asistente ACR</span>
-              </Link>
             )}
           </div>
           
           {/* Auth Buttons Section */}
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-            {hasMounted && !loadingAuth ? (
+            {hasMounted ? (
               <>
                 {currentUser ? (
                   <>
@@ -137,7 +129,7 @@ export function TopNavigation() {
                 )}
               </>
             ) : (
-              <div className="h-9 w-28 animate-pulse bg-muted rounded-md" /> 
+              <div className="h-9 w-28" /> // Render an empty div as a placeholder to avoid hydration mismatch
             )}
           </div>
         </div>
