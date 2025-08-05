@@ -178,7 +178,7 @@ export const PreservedFactsManager: FC<PreservedFactsManagerProps> = ({
       } else if (error.code) {
         errorDesc = `No se pudo eliminar de Storage. Código: ${error.code}`
       }
-      toast({ title: "Error de Eliminación", description: errorDesc, variant: 'destructive' });
+      toast({ title: "Error de Eliminación", description: errorDesc, variant: "destructive" });
     } finally {
       setIsProcessing(false);
     }
