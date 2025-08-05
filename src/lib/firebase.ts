@@ -5,10 +5,10 @@ import { getFirestore, initializeFirestore, memoryLocalCache } from "firebase/fi
 import { getStorage } from "firebase/storage";
 
 // =================================================================================
-// CONFIGURACIÓN CENTRALIZADA DE FIREBASE
+// NOTA IMPORTANTE: La API Key ahora se gestiona desde el archivo .env
 // =================================================================================
-// La API Key se lee desde las variables de entorno configuradas en next.config.ts
-// Asegúrate de que tu clave esté en el archivo .env como NEXT_PUBLIC_FIREBASE_API_KEY
+// Asegúrese de que su archivo .env en la raíz del proyecto contenga la línea:
+// NEXT_PUBLIC_FIREBASE_API_KEY="SU_API_KEY_AQUI"
 // =================================================================================
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -21,9 +21,10 @@ const firebaseConfig = {
 };
 
 let app: FirebaseApp;
+
 if (!getApps().length) {
-  if (!firebaseConfig.apiKey) {
-    console.error("¡ERROR CRÍTICO! La API Key de Firebase no está definida. Revisa tu archivo .env y la configuración en next.config.ts");
+  if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "TU_API_KEY_VA_AQUI") {
+    console.error("¡ERROR CRÍTICO DE CONFIGURACIÓN! La API Key de Firebase no está definida en el archivo .env. La aplicación no funcionará.");
   }
   app = initializeApp(firebaseConfig);
 } else {

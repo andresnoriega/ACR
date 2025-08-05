@@ -23,20 +23,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // Expose environment variables to the client-side
-  env: {
-    NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  },
-  // Remove the root redirect, AuthContext will handle it.
-  // async redirects() {
-  //   return [
-  //     {
-  //       source: '/',
-  //       destination: '/inicio',
-  //       permanent: true,
-  //     },
-  //   ]
-  // },
 };
 
 export default nextConfig;
