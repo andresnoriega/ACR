@@ -1,9 +1,27 @@
+
 'use server';
 
 import { db } from '@/lib/firebase';
 import { collection, getDocs, writeBatch, doc, query, updateDoc, where } from 'firebase/firestore';
-import type { RCAAnalysisDocument, FullUserProfile, PlannedAction } from '@/types/rca';
+import type { RCAAnalysisDocument, FullUserProfile, PlannedAction, SuggestLatentRootCausesInput, GenerateRcaInsightsInput, ParaphrasePhenomenonInput } from '@/types/rca';
 import { differenceInCalendarDays, startOfToday, parseISO } from 'date-fns';
+import { generateRcaInsights } from '@/ai/flows/generate-rca-insights';
+import { paraphrasePhenomenon } from '@/ai/flows/paraphrase-phenomenon';
+import { suggestLatentRootCauses } from '@/ai/flows/suggest-root-causes';
+
+
+export async function paraphrasePhenomenonAction(input: ParaphrasePhenomenonInput) {
+    return await paraphrasePhenomenon(input);
+}
+
+export async function suggestLatentRootCausesAction(input: SuggestLatentRootCausesInput) {
+    return await suggestLatentRootCauses(input);
+}
+
+export async function generateRcaInsightsAction(input: GenerateRcaInsightsInput) {
+    return await generateRcaInsights(input);
+}
+
 
 interface EmailPayload {
   to: string;
