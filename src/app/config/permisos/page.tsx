@@ -39,6 +39,7 @@ export default function ConfiguracionPermisosPage() {
         const usersCollectionRef = collection(db, "users");
         const queryConstraints: QueryConstraint[] = [];
         
+        // Super User sees all, Admin sees their company's users
         if (profile.role === 'Admin' && profile.empresa) {
           queryConstraints.push(where("empresa", "==", profile.empresa));
         }
@@ -47,7 +48,6 @@ export default function ConfiguracionPermisosPage() {
         const querySnapshot = await getDocs(q);
         const profilesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FullUserProfile));
 
-        // Sort on the client to avoid composite index
         profilesData.sort((a, b) => a.name.localeCompare(b.name));
         
         setUserProfiles(profilesData);
@@ -68,9 +68,11 @@ export default function ConfiguracionPermisosPage() {
   }, [loadingAuth, loggedInUserProfile, fetchUserProfiles]);
   
   const availableRolesForDropdown = useMemo(() => {
+    // Super User can assign any role.
     if (loggedInUserProfile?.role === 'Super User') {
       return ALL_ROLES;
     }
+    // Admin can assign any role except Super User.
     return ALL_ROLES.filter(r => r !== 'Super User');
   }, [loggedInUserProfile]);
 
@@ -82,13 +84,7 @@ export default function ConfiguracionPermisosPage() {
   };
 
   const handleSaveChanges = async () => {
-    if (!currentUserToEdit || !loggedInUserProfile) return;
-    
-    // Security check: An Admin cannot edit a Super User's profile
-    if (loggedInUserProfile.role === 'Admin' && currentUserToEdit.role === 'Super User') {
-      toast({ title: "Acción no permitida", description: "Los Administradores no pueden modificar los perfiles de Super Usuarios.", variant: "destructive"});
-      return;
-    }
+    if (!currentUserToEdit) return;
     
     setIsSubmitting(true);
 
@@ -99,15 +95,16 @@ export default function ConfiguracionPermisosPage() {
         permissionLevel: editPermissionLevel,
       }));
 
-      // Force a re-fetch to ensure data consistency
-      if (loggedInUserProfile) {
-        await fetchUserProfiles(loggedInUserProfile);
-      }
-
       toast({
         title: "Permisos Actualizados",
         description: `Se actualizaron los permisos para ${currentUserToEdit.name}.`,
       });
+
+      // Optimistically update UI before refetching
+      setUserProfiles(prev => prev.map(u => 
+        u.id === currentUserToEdit.id ? { ...u, role: editRole, permissionLevel: editPermissionLevel } : u
+      ));
+
       setIsEditDialogOpen(false);
       setCurrentUserToEdit(null);
     } catch (error) {
@@ -176,6 +173,7 @@ export default function ConfiguracionPermisosPage() {
                 </TableHeader>
                 <TableBody>
                   {userProfiles.map((user) => {
+                    // Super User can edit anyone. Admin can edit anyone but Super Users.
                     const canEditUser = loggedInUserProfile?.role === 'Super User' || (loggedInUserProfile?.role === 'Admin' && user.role !== 'Super User');
                     return (
                         <TableRow key={user.id}>

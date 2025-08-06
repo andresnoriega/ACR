@@ -244,36 +244,36 @@ export default function ConfiguracionUsuariosPage() {
         finalEmpresa = loggedInUserProfile.empresa;
     }
 
-    if (isEditing && currentUserToEdit) {
-      const wasPending = currentUserToEdit.role === 'Usuario Pendiente';
-      const isNowActive = formState.role && formState.role !== 'Usuario Pendiente' && formState.role !== '';
-      
-      const dataToUpdate = {
+    const dataToSave = {
         name: formState.name.trim(),
         email: formState.email.trim(),
         role: formState.role,
         empresa: finalEmpresa,
         assignedSites: formState.assignedSites.trim(),
         emailNotifications: formState.emailNotifications,
-        permissionLevel: isNowActive && !currentUserToEdit.permissionLevel ? defaultPermissionLevel : formState.permissionLevel,
-      };
+        permissionLevel: formState.permissionLevel || defaultPermissionLevel,
+    };
+    
+    if (isEditing && currentUserToEdit) {
+      const wasPending = currentUserToEdit.role === 'Usuario Pendiente';
+      const isNowActive = dataToSave.role && dataToSave.role !== 'Usuario Pendiente' && dataToSave.role !== '';
       
       try {
         const userRef = doc(db, "users", currentUserToEdit.id);
-        await updateDoc(userRef, sanitizeForFirestore(dataToUpdate));
+        await updateDoc(userRef, sanitizeForFirestore(dataToSave));
         
         if (wasPending && isNowActive) {
             await sendEmailAction({
-                to: formState.email.trim(),
+                to: dataToSave.email,
                 subject: "¡Tu cuenta en Asistente ACR ha sido activada!",
-                body: `Hola ${formState.name.trim()},\n\nTu cuenta en Asistente ACR ha sido aprobada por un administrador. Ya puedes iniciar sesión con tu correo y contraseña.\n\nSaludos,\nEl equipo de Asistente ACR`
+                body: `Hola ${dataToSave.name},\n\nTu cuenta en Asistente ACR ha sido aprobada por un administrador. Ya puedes iniciar sesión con tu correo y contraseña.\n\nSaludos,\nEl equipo de Asistente ACR`
             });
              toast({
                 title: "Usuario Actualizado y Notificado",
-                description: `El usuario "${formState.name}" fue activado y se le envió un correo.`,
+                description: `El usuario "${dataToSave.name}" fue activado y se le envió un correo.`,
             });
         } else {
-            toast({ title: "Usuario Actualizado", description: `El usuario "${formState.name}" ha sido actualizado.` });
+            toast({ title: "Usuario Actualizado", description: `El usuario "${dataToSave.name}" ha sido actualizado.` });
         }
         if(loggedInUserProfile) fetchInitialData(loggedInUserProfile);
         handleDialogClose(false);
@@ -282,18 +282,9 @@ export default function ConfiguracionUsuariosPage() {
         toast({ title: "Error al Actualizar", description: "No se pudo actualizar el usuario.", variant: "destructive" });
       }
     } else {
-      const newUserPayload: Omit<UserConfigProfile, 'id'> = {
-        name: formState.name.trim(),
-        email: formState.email.trim(),
-        role: formState.role,
-        permissionLevel: formState.role === 'Usuario Pendiente' ? '' : defaultPermissionLevel, 
-        empresa: finalEmpresa,
-        assignedSites: formState.assignedSites.trim(),
-        emailNotifications: formState.emailNotifications,
-      };
       try {
-        await addDoc(collection(db, "users"), sanitizeForFirestore(newUserPayload));
-        toast({ title: "Perfil de Usuario Añadido", description: `El perfil para "${newUserPayload.name}" ha sido añadido.` });
+        await addDoc(collection(db, "users"), sanitizeForFirestore(dataToSave));
+        toast({ title: "Perfil de Usuario Añadido", description: `El perfil para "${dataToSave.name}" ha sido añadido.` });
         if(loggedInUserProfile) fetchInitialData(loggedInUserProfile);
         handleDialogClose(false);
       } catch (error) {
@@ -519,7 +510,7 @@ export default function ConfiguracionUsuariosPage() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="user-email">Correo <span className="text-destructive">*</span></Label>
-                          <Input id="user-email" type="email" value={formState.email} onChange={(e) => setFormState(s => ({...s, email: e.target.value}))} placeholder="Ej: juan.perez@example.com" disabled={isEditing} />
+                          <Input id="user-email" type="email" value={formState.email} onChange={(e) => setFormState(s => ({...s, email: e.target.value}))} placeholder="Ej: juan.perez@example.com" />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="user-role">Rol <span className="text-destructive">*</span></Label>
