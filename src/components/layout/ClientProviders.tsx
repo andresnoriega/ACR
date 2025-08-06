@@ -93,31 +93,23 @@ function AppContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  // Define public pages that don't require authentication
-  const isPublicPage = pathname === '/inicio' || pathname.startsWith('/login') || pathname.startsWith('/registro');
+  const isPublicPage = pathname === '/login' || pathname.startsWith('/registro') || pathname === '/precios';
   const isRootPage = pathname === '/';
 
   useEffect(() => {
-    if (loadingAuth) {
-      return; // Wait for authentication to resolve
-    }
-    
-    // If user is authenticated, they should not be on a public page. Redirect them.
-    if (currentUser && isPublicPage) {
-      router.replace('/home');
-    }
-    
-    // If user is not authenticated, they should not be on a protected page.
-    if (!currentUser && !isPublicPage && !isRootPage) {
-      router.replace('/login');
-    }
-    
+    if (loadingAuth) return;
+    if (currentUser && isPublicPage) router.replace('/home');
+    if (!currentUser && !isPublicPage && !isRootPage) router.replace('/login');
   }, [currentUser, loadingAuth, isPublicPage, isRootPage, pathname, router]);
 
+  // If it's a public page and we are not in the initial auth loading phase, render it immediately.
+  if (!loadingAuth && isPublicPage) {
+    return <main className="flex-grow w-full">{children}</main>;
+  }
 
-  // Show a full-page loader for the root page or while auth is loading on any page.
+  // Handle protected pages flow
   if (loadingAuth || isRootPage) {
-     return (
+    return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="mt-4 text-muted-foreground">Cargando aplicación...</p>
@@ -125,9 +117,8 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
   
-  // If we are on a protected page, we need to ensure the user profile is also loaded.
-  if (currentUser && !userProfile && !isPublicPage) {
-     return (
+  if (currentUser && !userProfile) {
+    return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="mt-4 text-muted-foreground">Cargando perfil de usuario...</p>
@@ -135,28 +126,26 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
 
-  // Determine if the main navigation should be shown.
-  const showTopNav = !isPublicPage && !isRootPage && currentUser;
+  // User is authenticated and profile is loaded
+  if (currentUser && userProfile) {
+    return (
+      <>
+        <TopNavigation />
+        <main className="flex-grow w-full print-container">
+          <div className="container mx-auto p-4 sm:p-6 lg:p-8 h-full">
+            {children}
+          </div>
+        </main>
+        <Toaster />
+        <IdleManager />
+      </>
+    );
+  }
 
-  return (
-    <>
-      {showTopNav && <TopNavigation />}
-      <main className="flex-grow w-full print-container">
-        {isPublicPage ? (
-            children // Render public pages (like login, register, public home) without the main layout
-        ) : (
-            showTopNav ? ( // Only render protected content if navigation is shown
-                <div className="container mx-auto p-4 sm:p-6 lg:p-8 h-full">
-                    {children}
-                </div>
-            ) : null // While redirecting or in an intermediate state, show nothing to prevent flashes
-        )}
-      </main>
-      <Toaster />
-      <IdleManager />
-    </>
-  );
+  // Fallback for non-authed users on protected routes, redirection will handle it
+  return null;
 }
+
 
 export default function ClientProviders({ children }: { children: ReactNode }) {
   return (
