@@ -21,10 +21,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
-import { sendEmailAction } from '@/app/actions';
-import { paraphrasePhenomenon } from '@/ai/flows/paraphrase-phenomenon';
-import { suggestLatentRootCauses } from '@/ai/flows/suggest-root-causes';
-import { generateRcaInsights } from '@/ai/flows/generate-rca-insights';
+import { sendEmailAction, generateRcaInsightsAction, paraphrasePhenomenonAction, suggestLatentRootCausesAction } from '@/app/actions';
 import { format, parse, isValid, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 

@@ -1,5 +1,3 @@
-
-'use server';
 /**
  * @fileOverview Generates insights and a summary for an RCA process.
  *

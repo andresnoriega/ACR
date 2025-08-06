@@ -1,5 +1,3 @@
-
-'use server';
 // Este archivo está marcado como 'use server' para asegurar que su contenido,
 // especialmente la inicialización de Genkit y la API key, solo se ejecute en el servidor.
 
