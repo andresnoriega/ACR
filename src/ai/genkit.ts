@@ -1,17 +1,18 @@
+
 import {genkit, type GenkitConfig} from 'genkit';
 import {googleAI} from '@genkit-ai/googleai'; 
 import { firebaseConfig } from '@/lib/firebase'; // Importar la configuración de firebase
 
 // Prioritize a dedicated GEMINI_API_KEY from environment variables
 // Fallback to the general Firebase API key if it's not set.
+// LEER DIRECTAMENTE de process.env en lugar de la config importada,
+// para asegurar que las variables del lado del servidor sean leídas correctamente.
 const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
 if (!apiKey && process.env.NODE_ENV === 'development') {
     console.warn(
-        '[AI Genkit] Advertencia: No se encontró la variable de entorno `GEMINI_API_KEY`. ' +
-        'Se está utilizando la clave de API de Firebase como respaldo. ' +
-        'Para producción y para evitar errores de permisos, se recomienda crear una API Key dedicada ' +
-        'sin restricciones en Google Cloud y asignarla a `GEMINI_API_KEY` en su archivo .env.'
+        '[AI Genkit] Advertencia: No se encontró la variable de entorno `GEMINI_API_KEY` o `NEXT_PUBLIC_FIREBASE_API_KEY`. ' +
+        'Se recomienda crear una API Key dedicada para GenAI en Google Cloud y asignarla a `GEMINI_API_KEY` en su archivo .env.'
     );
 }
 
