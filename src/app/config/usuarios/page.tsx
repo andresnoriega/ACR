@@ -235,6 +235,7 @@ export default function ConfiguracionUsuariosPage() {
     if (isEditing && currentUser) {
       const wasPending = currentUser.role === 'Usuario Pendiente';
       const isNowActive = userRole && userRole !== 'Usuario Pendiente' && userRole !== '';
+      
       const updatedUserData: Partial<UserConfigProfile> = {
         name: userName.trim(),
         email: userEmail.trim(),
@@ -243,6 +244,12 @@ export default function ConfiguracionUsuariosPage() {
         assignedSites: userAssignedSites.trim(),
         emailNotifications: userEmailNotifications,
       };
+
+      // Ensure permissionLevel is set if the user is being activated
+      if (wasPending && isNowActive && !currentUser.permissionLevel) {
+          updatedUserData.permissionLevel = defaultPermissionLevel;
+      }
+      
       try {
         const userRef = doc(db, "users", currentUser.id);
         await updateDoc(userRef, sanitizeForFirestore(updatedUserData));

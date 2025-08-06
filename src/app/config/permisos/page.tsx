@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { db } from '@/lib/firebase';
 import { collection, getDocs, doc, updateDoc, query, orderBy, where, QueryConstraint } from "firebase/firestore";
 import { useAuth } from '@/contexts/AuthContext';
+import { sanitizeForFirestore } from '@/lib/utils';
 
 const ALL_ROLES: FullUserProfile['role'][] = ['Super User', 'Admin', 'Analista', 'Revisor', 'Usuario Pendiente', ''];
 const ALL_PERMISSION_LEVELS: FullUserProfile['permissionLevel'][] = ['Total', 'Lectura', 'Limitado', ''];
@@ -93,18 +94,16 @@ export default function ConfiguracionPermisosPage() {
 
     try {
       const userRef = doc(db, "users", currentUserToEdit.id);
-      await updateDoc(userRef, {
+      await updateDoc(userRef, sanitizeForFirestore({
         role: editRole,
         permissionLevel: editPermissionLevel,
-      });
+      }));
 
-      setUserProfiles(prevProfiles =>
-        prevProfiles.map(profile =>
-          profile.id === currentUserToEdit.id
-            ? { ...profile, role: editRole, permissionLevel: editPermissionLevel }
-            : profile
-        ).sort((a,b) => a.name.localeCompare(b.name))
-      );
+      // Force a re-fetch to ensure data consistency
+      if (loggedInUserProfile) {
+        await fetchUserProfiles(loggedInUserProfile);
+      }
+
       toast({
         title: "Permisos Actualizados",
         description: `Se actualizaron los permisos para ${currentUserToEdit.name}.`,
