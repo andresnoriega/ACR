@@ -246,7 +246,7 @@ export default function ConfiguracionUsuariosPage() {
 
     const dataToSave = {
         name: formState.name.trim(),
-        email: formState.email.trim(),
+        email: formState.email.trim(), // Ensure email is included
         role: formState.role,
         empresa: finalEmpresa,
         assignedSites: formState.assignedSites.trim(),
