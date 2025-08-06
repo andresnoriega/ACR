@@ -21,7 +21,7 @@ export default function RootPage() {
       router.replace('/home');
     } else {
       // If no user, redirect to the public home/landing page
-      router.replace('/inicio');
+      router.replace('/login');
     }
   }, [currentUser, loadingAuth, router]);
 
