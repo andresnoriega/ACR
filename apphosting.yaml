@@ -11,3 +11,7 @@ runConfig:
 env:
   - variable: GEMINI_API_KEY
     secret: GEMINI_API_KEY
+  - variable: SENDGRID_SENDER_EMAIL
+    secret: SENDGRID_SENDER_EMAIL
+  - variable: SENDGRID_API_KEY
+    secret: SENDGRID_API_KEY
