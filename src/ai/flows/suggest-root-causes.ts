@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Suggests potential latent root causes based on validated findings from various analysis techniques.
@@ -7,8 +8,10 @@
  * - SuggestLatentRootCausesOutput - The return type for the function.
  */
 
-import {ai} from '@/ai/genkit';
+import { getAi } from '@/ai/genkit';
 import {z} from 'zod';
+
+const aiPromise = getAi();
 
 // --- Ishikawa Schemas ---
 const IshikawaCauseSchema = z.object({
@@ -95,7 +98,7 @@ const SuggestLatentRootCausesOutputSchema = z.object({
 export type SuggestLatentRootCausesOutput = z.infer<typeof SuggestLatentRootCausesOutputSchema>;
 
 
-const prompt = ai.definePrompt({
+const promptPromise = aiPromise.then(ai => ai.definePrompt({
   name: 'suggestLatentRootCausesPrompt',
   model: 'googleai/gemini-1.5-pro-latest',
   input: { schema: SuggestLatentRootCausesInputSchema },
@@ -167,9 +170,9 @@ const prompt = ai.definePrompt({
 
     Ahora, basándote en la información validada anterior, genera tus sugerencias de causas raíz latentes.
   `,
-});
+}));
 
-const suggestLatentRootCausesFlow = ai.defineFlow(
+const suggestLatentRootCausesFlowPromise = aiPromise.then(ai => ai.defineFlow(
   {
     name: 'suggestLatentRootCausesFlow',
     inputSchema: SuggestLatentRootCausesInputSchema,
@@ -209,7 +212,8 @@ const suggestLatentRootCausesFlow = ai.defineFlow(
       fiveWhysData: filtered5Whys,
       ctmData: filteredCtm,
     };
-
+    
+    const prompt = await promptPromise;
     const { output } = await prompt(promptInput);
 
     if (!output || !output.suggestedLatentCauses || output.suggestedLatentCauses.length === 0) {
@@ -217,16 +221,18 @@ const suggestLatentRootCausesFlow = ai.defineFlow(
     }
     return output;
   }
-);
+));
 
 
 export async function suggestLatentRootCauses(input: SuggestLatentRootCausesInput): Promise<SuggestLatentRootCausesOutput> {
+  const ai = await aiPromise;
   if (ai.isMocked) {
     console.warn("Genkit 'ai' object is mocked. AI functionality will be disabled.");
     return { suggestedLatentCauses: ["[Sugerencias IA Deshabilitadas] Genkit no está configurado correctamente."] };
   }
   
   try {
+    const suggestLatentRootCausesFlow = await suggestLatentRootCausesFlowPromise;
     const result = await suggestLatentRootCausesFlow(input);
     return result;
   } catch (error) {

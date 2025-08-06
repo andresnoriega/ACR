@@ -8,8 +8,10 @@
  * - ParaphrasePhenomenonOutput - The return type for the paraphrasePhenomenon function.
  */
 
-import {ai} from '@/ai/genkit';
+import { getAi } from '@/ai/genkit';
 import {z} from 'zod';
+
+const aiPromise = getAi();
 
 const ParaphrasePhenomenonInputSchema = z.object({
   quien: z.string().optional().describe('Quién estuvo involucrado.'),
@@ -26,7 +28,7 @@ const ParaphrasePhenomenonOutputSchema = z.object({
 });
 export type ParaphrasePhenomenonOutput = z.infer<typeof ParaphrasePhenomenonOutputSchema>;
 
-const prompt = ai.definePrompt({
+const promptPromise = aiPromise.then(ai => ai.definePrompt({
   name: 'paraphrasePhenomenonPrompt',
   model: 'googleai/gemini-1.5-pro-latest',
   input: {schema: ParaphrasePhenomenonInputSchema},
@@ -46,30 +48,33 @@ const prompt = ai.definePrompt({
 
     Genera un único párrafo que integre esta información de forma natural.
   `,
-});
+}));
 
-const paraphrasePhenomenonFlow = ai.defineFlow(
+const paraphrasePhenomenonFlowPromise = aiPromise.then(ai => ai.defineFlow(
   {
     name: 'paraphrasePhenomenonFlow',
     inputSchema: ParaphrasePhenomenonInputSchema,
     outputSchema: ParaphrasePhenomenonOutputSchema,
   },
   async (input) => {
+    const prompt = await promptPromise;
     const {output} = await prompt(input);
     if (!output) {
       return { paraphrasedText: "[IA no disponible: No se generó respuesta]" };
     }
     return output;
   }
-);
+));
 
 export async function paraphrasePhenomenon(input: ParaphrasePhenomenonInput): Promise<ParaphrasePhenomenonOutput> {
+  const ai = await aiPromise;
   if (ai.isMocked) {
     console.warn("Genkit 'ai' object is mocked. AI functionality will be disabled.");
     return { paraphrasedText: "[IA Deshabilitada por problemas de Genkit]" };
   }
   
   try {
+    const paraphrasePhenomenonFlow = await paraphrasePhenomenonFlowPromise;
     const result = await paraphrasePhenomenonFlow(input);
     return result;
   } catch (error) {

@@ -8,8 +8,10 @@
  * - GenerateRcaInsightsOutput - The return type for the generateRcaInsights function.
  */
 
-import {ai} from '@/ai/genkit';
+import { getAi } from '@/ai/genkit';
 import { z } from 'zod'; 
+
+const aiPromise = getAi();
 
 const GenerateRcaInsightsInputSchema = z.object({
   focusEventDescription: z.string().describe('The main description of the event being analyzed.'),
@@ -27,7 +29,7 @@ const GenerateRcaInsightsOutputSchema = z.object({
 });
 export type GenerateRcaInsightsOutput = z.infer<typeof GenerateRcaInsightsOutputSchema>;
 
-const prompt = ai.definePrompt({
+const promptPromise = aiPromise.then(ai => ai.definePrompt({
   name: 'generateRcaInsightsPrompt',
   model: 'googleai/gemini-1.5-pro-latest',
   input: {schema: GenerateRcaInsightsInputSchema},
@@ -71,15 +73,16 @@ const prompt = ai.definePrompt({
 
     Genere el resumen a continuación:
   `,
-});
+}));
 
-const generateRcaInsightsFlowInternal = ai.defineFlow(
+const generateRcaInsightsFlowInternalPromise = aiPromise.then(ai => ai.defineFlow(
   {
     name: 'generateRcaInsightsFlow',
     inputSchema: GenerateRcaInsightsInputSchema,
     outputSchema: GenerateRcaInsightsOutputSchema,
   },
   async (input) => {
+    const prompt = await promptPromise;
     const {output} = await prompt(input);
     if (!output) {
       console.error("The AI model did not return an output for generateRcaInsightsFlow. Input:", input);
@@ -87,10 +90,11 @@ const generateRcaInsightsFlowInternal = ai.defineFlow(
     }
     return output;
   }
-);
+));
 
 
 export async function generateRcaInsights(input: GenerateRcaInsightsInput): Promise<GenerateRcaInsightsOutput> {
+  const ai = await aiPromise;
   // Check if the AI object is a mock, indicating an initialization issue.
   if (ai.isMocked) {
       console.warn("Genkit 'ai' object is mocked. AI insights will be disabled.");
@@ -98,6 +102,7 @@ export async function generateRcaInsights(input: GenerateRcaInsightsInput): Prom
   }
 
   try {
+    const generateRcaInsightsFlowInternal = await generateRcaInsightsFlowInternalPromise;
     const result = await generateRcaInsightsFlowInternal(input);
     return result;
 

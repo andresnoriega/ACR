@@ -1,5 +1,4 @@
 
-'use server';
 import {genkit, type GenkitConfig} from 'genkit';
 import {googleAI} from '@genkit-ai/googleai';
 
@@ -37,56 +36,66 @@ const genkitConfig: GenkitConfig = {
 };
 
 // Attempt to initialize Genkit, provide a mock if it fails
-export let ai: any;
+let aiInstance: any;
 
-try {
-  if (!apiKey) {
-    throw new Error("La API Key para Genkit no está definida. La funcionalidad de IA será simulada.");
-  }
-  
-  ai = genkit(genkitConfig);
-
-} catch (error) {
-  console.error('[AI Genkit] Error inicializando Genkit. La IA será simulada/deshabilitada:', error);
-  
-  const aiMockMessage = "La funcionalidad de IA está deshabilitada por un problema de configuración o inicialización.";
-  
-  ai = {
-    isMocked: true, // Flag to easily check if AI is mocked
-    defineFlow: (config: any, func: any) => {
-      return async (input: any) => {
-        console.warn(`Genkit flow '${config.name}' llamado pero la IA está simulada. Input:`, input);
-        if (config.name === 'generateRcaInsightsFlow') {
-          return { summary: `[Resumen IA Deshabilitado] ${aiMockMessage}` };
-        }
-        if (config.name === 'suggestRootCausesFlow' || config.name === 'suggestLatentRootCausesFlow') {
-          return { suggestedLatentCauses: [`[Sugerencias IA Deshabilitadas] ${aiMockMessage}`] };
-        }
-         if (config.name === 'paraphrasePhenomenonFlow') {
-          return { paraphrasedText: `[IA Deshabilitada] ${aiMockMessage}` };
-        }
-        if (config.name === 'generateTagsForFileFlow') {
-          return { tags: [`tag-ia-deshabilitada`] };
-        }
-        return { error: `Flow '${config.name}' está deshabilitado. ${aiMockMessage}` };
-      };
-    },
-    definePrompt: (config: any) => {
-      return async (input: any) => {
-        console.warn(`Genkit prompt '${config.name}' llamado pero la IA está simulada. Input:`, input);
-        return Promise.resolve({ output: null, usage: {} });
-      };
-    },
-    generate: async (options: any) => {
-      console.warn("ai.generate() llamado, pero la IA está simulada. Opciones:", options);
-      const mockGenerateResponse = {
-        text: () => `[Respuesta IA Deshabilitada] ${aiMockMessage}`,
-        output: () => null,
-        usage: {},
-        toString: () => aiMockMessage,
-      };
+function initializeAi() {
+    if (aiInstance) {
+        return aiInstance;
+    }
+    try {
+      if (!apiKey) {
+        throw new Error("La API Key para Genkit no está definida. La funcionalidad de IA será simulada.");
+      }
       
-      return Promise.resolve(mockGenerateResponse);
-    },
-  };
+      aiInstance = genkit(genkitConfig);
+    
+    } catch (error) {
+      console.error('[AI Genkit] Error inicializando Genkit. La IA será simulada/deshabilitada:', error);
+      
+      const aiMockMessage = "La funcionalidad de IA está deshabilitada por un problema de configuración o inicialización.";
+      
+      aiInstance = {
+        isMocked: true, // Flag to easily check if AI is mocked
+        defineFlow: (config: any, func: any) => {
+          return async (input: any) => {
+            console.warn(`Genkit flow '${config.name}' llamado pero la IA está simulada. Input:`, input);
+            if (config.name === 'generateRcaInsightsFlow') {
+              return { summary: `[Resumen IA Deshabilitado] ${aiMockMessage}` };
+            }
+            if (config.name === 'suggestRootCausesFlow' || config.name === 'suggestLatentRootCausesFlow') {
+              return { suggestedLatentCauses: [`[Sugerencias IA Deshabilitadas] ${aiMockMessage}`] };
+            }
+             if (config.name === 'paraphrasePhenomenonFlow') {
+              return { paraphrasedText: `[IA Deshabilitada] ${aiMockMessage}` };
+            }
+            if (config.name === 'generateTagsForFileFlow') {
+              return { tags: [`tag-ia-deshabilitada`] };
+            }
+            return { error: `Flow '${config.name}' está deshabilitado. ${aiMockMessage}` };
+          };
+        },
+        definePrompt: (config: any) => {
+          return async (input: any) => {
+            console.warn(`Genkit prompt '${config.name}' llamado pero la IA está simulada. Input:`, input);
+            return Promise.resolve({ output: null, usage: {} });
+          };
+        },
+        generate: async (options: any) => {
+          console.warn("ai.generate() llamado, pero la IA está simulada. Opciones:", options);
+          const mockGenerateResponse = {
+            text: () => `[Respuesta IA Deshabilitada] ${aiMockMessage}`,
+            output: () => null,
+            usage: {},
+            toString: () => aiMockMessage,
+          };
+          
+          return Promise.resolve(mockGenerateResponse);
+        },
+      };
+    }
+    return aiInstance;
+}
+
+export async function getAi() {
+    return initializeAi();
 }
