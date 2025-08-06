@@ -1,3 +1,4 @@
+'use server';
 /**
  * @fileOverview Paraphrases a structured phenomenon description into a fluid text.
  *
