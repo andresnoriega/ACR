@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Loader2 } from 'lucide-react';
+import { sendEmailAction } from '@/app/actions';
 
 export default function RegistroPage() {
   const [name, setName] = useState('');
@@ -34,8 +35,17 @@ export default function RegistroPage() {
     }
     setIsLoading(true);
     try {
-      await registerWithEmail(email, password, name);
-      toast({ title: 'Registro Exitoso', description: 'Hemos notificado al Administrador de la aplicación para que active su cuenta.' });
+      const userCredential = await registerWithEmail(email, password, name);
+      // Now, directly notify the admin after a successful registration.
+      try {
+        const emailSubject = `Nuevo Usuario Pendiente de Aprobación: ${name}`;
+        const emailBody = `Hola,\n\nUn nuevo usuario se ha registrado y está pendiente de aprobación:\n\nNombre: ${name}\nCorreo: ${email}\n\nPor favor, revise la lista de usuarios en la sección de Configuración para aprobar esta cuenta.\n\nSaludos,\nSistema Asistente ACR`;
+        await sendEmailAction({ to: 'contacto@damc.cl', subject: emailSubject, body: emailBody });
+        toast({ title: 'Registro Exitoso', description: 'Hemos notificado al Administrador de la aplicación para que active su cuenta.' });
+      } catch (notifyError) {
+        console.error("Failed to notify admin about new pending user:", notifyError);
+        toast({ title: 'Registro Exitoso', description: 'Tu cuenta ha sido creada y está pendiente de aprobación (falló la notificación al admin).', variant: 'default' });
+      }
       router.push('/login'); 
     } catch (error: any) {
       console.error("Error en registro:", error);

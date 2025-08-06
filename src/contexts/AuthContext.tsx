@@ -8,7 +8,6 @@ import { getStorage, ref as storageRef, uploadString, getDownloadURL } from "fir
 import { app, auth, db, storage } from '@/lib/firebase';
 import type { FullUserProfile } from '@/types/rca';
 import { sanitizeForFirestore } from '@/lib/utils';
-import { sendEmailAction } from '@/app/actions';
 
 
 interface AuthContextType {
@@ -124,16 +123,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const userDocRef = doc(db, 'users', user.uid);
     await setDoc(userDocRef, sanitizeForFirestore(newUserProfileData));
     
-    if (!isFirstUser) {
-      try {
-        const emailSubject = `Nuevo Usuario Pendiente de Aprobación: ${newUserProfileData.name}`;
-        const emailBody = `Hola,\n\nUn nuevo usuario se ha registrado y está pendiente de aprobación:\n\nNombre: ${newUserProfileData.name}\nCorreo: ${newUserProfileData.email}\n\nPor favor, revise la lista de usuarios en la sección de Configuración para aprobar esta cuenta.\n\nSaludos,\nSistema Asistente ACR`;
-        await sendEmailAction({ to: 'contacto@damc.cl', subject: emailSubject, body: emailBody });
-      } catch (notifyError) {
-        console.error("[AuthContext] Failed to notify admins about new pending user:", notifyError);
-      }
-    }
-
+    // The notification logic is now handled directly in the registration page component.
     return userCredential;
   };
 
