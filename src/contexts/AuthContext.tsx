@@ -44,11 +44,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loadingAuth, setLoadingAuth] = useState(true);
 
   useEffect(() => {
-    // Si los servicios de Firebase no están disponibles, no podemos continuar.
+    // onAuthStateChanged will handle the user state.
+    // If services are null, it will not proceed, which is the intended behavior.
     if (!auth || !db) {
-      console.warn("[AuthContext] Firebase Auth o Firestore no están disponibles. Verifique la configuración de firebase.ts.");
-      setLoadingAuth(false);
-      return;
+        setLoadingAuth(false); // Stop loading if Firebase isn't configured
+        return;
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
