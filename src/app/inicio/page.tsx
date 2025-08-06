@@ -16,7 +16,7 @@ import { sendEmailAction } from '@/app/actions';
 
 
 export default function InicioPage() {
-  const { userProfile } = useAuth(); // Removed loadingAuth
+  const { userProfile, loadingAuth } = useAuth(); // Added loadingAuth
   const { toast } = useToast();
   
   const [isSupportDialogOpen, setIsSupportDialogOpen] = useState(false);
@@ -69,8 +69,14 @@ export default function InicioPage() {
     setIsSendingSupport(false);
   };
   
-  // We no longer render a loading state here. The layout handles it.
-  // The component will only render when userProfile is available.
+  if (loadingAuth) {
+    return (
+      <div className="flex h-screen w-full flex-col items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">Cargando...</p>
+      </div>
+    );
+  }
 
   const menuItems = [
     {
