@@ -5,7 +5,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile, reauthenticateWithCredential, EmailAuthProvider, updatePassword, deleteUser, type User as FirebaseUser, type UserCredential } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, limit, deleteDoc, updateDoc } from 'firebase/firestore';
 import { getStorage, ref as storageRef, uploadString, getDownloadURL } from "firebase/storage";
-import { app, auth, db, storage, appHasAllConfig } from '@/lib/firebase';
+import { app, auth, db, storage } from '@/lib/firebase';
 import type { FullUserProfile } from '@/types/rca';
 import { sanitizeForFirestore } from '@/lib/utils';
 import { sendEmailAction } from '@/app/actions';
@@ -44,10 +44,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loadingAuth, setLoadingAuth] = useState(true);
 
   useEffect(() => {
-    // If the Firebase config is not available, we should not proceed.
-    // We set loading to false and exit, preventing errors from onAuthStateChanged.
-    if (!appHasAllConfig || !auth) {
-      console.warn("[AuthContext] Firebase Auth service is not available due to missing config. Skipping authentication.");
+    // Si los servicios de Firebase no están disponibles, no podemos continuar.
+    if (!auth || !db) {
+      console.warn("[AuthContext] Firebase Auth o Firestore no están disponibles. Verifique la configuración de firebase.ts.");
       setLoadingAuth(false);
       return;
     }
@@ -56,13 +55,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setLoadingAuth(true);
       if (user) {
         setCurrentUser(user);
-        // Ensure db object is valid before querying
-        if (!db) {
-            console.error("[AuthContext] Firestore is not initialized correctly.");
-            setUserProfile(null);
-            setLoadingAuth(false);
-            return;
-        }
         const userDocRef = doc(db, 'users', user.uid);
         try {
           const docSnap = await getDoc(userDocRef);
@@ -95,14 +87,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const loginWithEmail = (email: string, pass: string) => {
-    if (!appHasAllConfig || !auth) {
+    if (!auth) {
       return Promise.reject(new Error("El servicio de autenticación no está disponible. Verifique la configuración."));
     }
     return signInWithEmailAndPassword(auth, email, pass);
   };
   
   const registerWithEmail = async (email: string, pass: string, name: string) => {
-    if (!appHasAllConfig || !db || !auth) {
+    if (!db || !auth) {
       return Promise.reject(new Error("El servicio de registro no está disponible. Verifique la configuración."));
     }
     
@@ -146,12 +138,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logoutUser = () => {
-    if (!appHasAllConfig || !auth) return Promise.resolve();
+    if (!auth) return Promise.resolve();
     return signOut(auth);
   };
 
   const updateUserProfileFunc = async (data: { name?: string }) => {
-    if (!currentUser || !db || !appHasAllConfig) throw new Error("No hay un usuario autenticado para actualizar o Firestore no está disponible.");
+    if (!currentUser || !db) throw new Error("No hay un usuario autenticado o Firestore no está disponible.");
     const updates: { displayName?: string } = {};
     if (data.name) updates.displayName = data.name;
     await updateProfile(currentUser, updates);
@@ -159,11 +151,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await updateDoc(userDocRef, { name: data.name });
     setUserProfile(prev => prev ? { ...prev, name: data.name ?? prev.name } : null);
     await currentUser.reload();
-    setCurrentUser(auth?.currentUser || null);
+    if(auth) setCurrentUser(auth.currentUser || null);
   };
   
   const updateUserProfilePictureFunc = async (file: File): Promise<string> => {
-    if (!currentUser || !db || !storage || !appHasAllConfig) throw new Error("Servicios de Firebase no disponibles.");
+    if (!currentUser || !db || !storage) throw new Error("Servicios de Firebase no disponibles.");
     const filePath = `profile_pictures/${currentUser.uid}/${file.name}`;
     const fileRef = storageRef(storage, filePath);
     const reader = new FileReader();
@@ -179,12 +171,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     await updateDoc(userDocRef, { photoURL: downloadURL });
     setUserProfile(prev => prev ? { ...prev, photoURL: downloadURL } : null);
     await currentUser.reload();
-    setCurrentUser(auth?.currentUser || null);
+    if(auth) setCurrentUser(auth.currentUser || null);
     return downloadURL;
   };
 
   const changePasswordFunc = async (currentPass: string, newPass: string) => {
-    if (!currentUser || !currentUser.email || !appHasAllConfig) throw new Error("No hay un usuario autenticado o falta el correo electrónico.");
+    if (!currentUser || !currentUser.email) throw new Error("No hay un usuario autenticado o falta el correo electrónico.");
     try {
       const credential = EmailAuthProvider.credential(currentUser.email, currentPass);
       await reauthenticateWithCredential(currentUser, credential);
@@ -198,7 +190,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const deleteAccountFunc = async (currentPass: string) => {
-    if (!currentUser || !currentUser.email || !db || !appHasAllConfig) throw new Error("No hay un usuario autenticado o Firestore no está disponible.");
+    if (!currentUser || !currentUser.email || !db) throw new Error("No hay un usuario autenticado o Firestore no está disponible.");
     try {
         const credential = EmailAuthProvider.credential(currentUser.email, currentPass);
         await reauthenticateWithCredential(currentUser, credential);
@@ -228,5 +220,3 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-
-    

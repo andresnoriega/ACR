@@ -1,25 +1,25 @@
+
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 // =================================================================================
-// CONFIGURACIÓN CENTRALIZADA Y ROBUSTA DE FIREBASE
+// CONFIGURACIÓN CENTRALIZADA USANDO VARIABLES DE ENTORNO
 // =================================================================================
-// Estas claves son públicas y seguras. Su propósito es identificar el proyecto 
-// de Firebase correcto en el lado del cliente. La seguridad se gestiona a través 
-// de las Reglas de Seguridad de Firebase, no por mantener estas claves en secreto.
+// Las variables de entorno son proporcionadas por el entorno de App Hosting en producción
+// o por un archivo .env.local en desarrollo.
 export const firebaseConfig = {
-  apiKey: "AIzaSyBpRAXR8mTcBTXwuXV5VaXdqCP6yx85MUE",
-  authDomain: "almacenador-cloud.firebaseapp.com",
-  projectId: "almacenador-cloud",
-  storageBucket: "almacenador-cloud.appspot.com",
-  messagingSenderId: "790911154631",
-  appId: "1:790911154631:web:91e2d71d8ccfbf058301e2",
-  measurementId: "G-R2NQTYM2GX"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-// Esta variable de verificación ahora es crucial.
+// Verificación crucial para saber si la configuración está completa.
 export const appHasAllConfig =
   !!firebaseConfig.apiKey &&
   !!firebaseConfig.authDomain &&
@@ -33,16 +33,14 @@ let auth: Auth;
 let db: Firestore;
 let storage: FirebaseStorage;
 
-
-// Inicialización robusta que se ejecuta solo si la configuración es completa.
-// Este patrón es seguro para usarse en cliente y servidor en Next.js.
 if (appHasAllConfig) {
+  // Este patrón previene la reinicialización de la app en el lado del cliente (HMR)
   app = getApps().length ? getApp() : initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
   storage = getStorage(app);
 } else {
-  // En el lado del cliente, esto advertirá al desarrollador si falta configuración.
+  // Si estamos en el navegador, advertimos al desarrollador que faltan las claves.
   if (typeof window !== 'undefined') {
     console.warn(
       'ADVERTENCIA: Faltan variables de configuración de Firebase en el entorno. ' +
@@ -50,9 +48,7 @@ if (appHasAllConfig) {
       'Asegúrese de que la aplicación esté conectada a un backend de Firebase App Hosting y las variables de entorno estén configuradas.'
     );
   }
-  // En el servidor, los servicios simplemente no estarán disponibles, previniendo crashes.
 }
 
-// @ts-ignore: Se exportan las variables aunque puedan no estar inicializadas si falta config.
-// El resto de la app debe usar `appHasAllConfig` para verificar su disponibilidad.
+// @ts-ignore
 export { app, auth, db, storage };
