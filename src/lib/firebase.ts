@@ -1,3 +1,4 @@
+
 // Import the functions you need from the SDKs you need
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
@@ -6,6 +7,10 @@ import {
   getFirestore,
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file for local development
+dotenv.config();
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
