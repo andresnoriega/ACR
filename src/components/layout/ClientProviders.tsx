@@ -93,35 +93,33 @@ function AppContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  const isPublicPage = pathname === '/login' || pathname.startsWith('/registro') || pathname === '/inicio';
+  const isPublicPage = pathname === '/inicio' || pathname === '/login' || pathname.startsWith('/registro');
 
   useEffect(() => {
-    if (loadingAuth) return; // Don't do anything until auth is resolved
+    if (loadingAuth) return;
 
     if (currentUser && isPublicPage) {
       router.replace('/home');
     }
     
-    if (!currentUser && !isPublicPage) {
-      router.replace('/login');
+    if (!currentUser && !isPublicPage && pathname !== '/') {
+        router.replace('/inicio');
     }
+
   }, [currentUser, loadingAuth, isPublicPage, pathname, router]);
 
-  // If it's a public page, render it immediately without the main layout wrapper if user is not logged in.
-  if (isPublicPage && !currentUser) {
-    // For public pages, we can decide to show a simpler layout or none at all
-    // Here we show it within a flex container, but without TopNavigation
-     return (
-        <>
-            <main className="flex-grow w-full">{children}</main>
-            <Toaster />
-        </>
+
+  if (isPublicPage) {
+    return (
+      <>
+        <TopNavigation />
+        <main className="flex-grow w-full">{children}</main>
+        <Toaster />
+      </>
     );
   }
-  
-  // For all other cases (protected routes or public routes when logged in and redirecting)
-  // wait for auth to finish loading.
-  if (loadingAuth || (isPublicPage && currentUser)) {
+
+  if (loadingAuth) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -131,18 +129,14 @@ function AppContent({ children }: { children: ReactNode }) {
   }
   
   if (!currentUser) {
-      // This case is for when loading is finished, user is null, and it's not a public page.
-      // The useEffect above will trigger a redirect to /login. In the meantime, show the loader.
       return (
          <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="mt-4 text-muted-foreground">Redirigiendo a inicio de sesión...</p>
+            <p className="mt-4 text-muted-foreground">Redirigiendo...</p>
          </div>
       );
   }
 
-
-  // If we reach here, user is authenticated and we can show the protected layout.
   return (
     <>
       <TopNavigation />

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,7 +30,7 @@ export default function InicioPage() {
                     <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
                         Asistente ACR es una herramienta intuitiva que te guía para identificar el origen de los problemas, definir acciones efectivas y prevenir su recurrencia, potenciando la mejora continua en tu organización.
                     </p>
-                    <Link href="/registro" passHref>
+                    <Link href="/login" passHref>
                         <Button size="lg">
                             Comienza Ahora <ArrowRight className="ml-2 h-5 w-5" />
                         </Button>

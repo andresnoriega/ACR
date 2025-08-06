@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, BarChart3, FileText, SettingsIcon, UserCheck, ListOrdered, DollarSign, LogOut, LogIn as LogInIcon, BookOpen, Zap, UserCircle } from 'lucide-react';
+import { Home, BarChart3, FileText, SettingsIcon, UserCheck, ListOrdered, DollarSign, LogOut, LogIn as LogInIcon, BookOpen, Zap, UserCircle, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -51,23 +51,21 @@ export function TopNavigation() {
     try {
       await logoutUser();
       toast({ title: 'Sesión Cerrada', description: 'Has cerrado sesión exitosamente.' });
-      window.location.href = '/'; // Redirect to the public home page
+      window.location.href = '/inicio';
     } catch (error) {
       console.error("Error al cerrar sesión:", error);
       toast({ title: 'Error', description: 'No se pudo cerrar la sesión.', variant: 'destructive' });
     }
   };
 
-  const isPublicPage = !currentUser && (pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/registro') || pathname.startsWith('/inicio'));
   const showNavForAuthenticatedUser = hasMounted && currentUser && !loadingAuth;
 
   return (
     <header className="bg-card border-b border-border shadow-sm no-print sticky top-0 z-40">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo or Menu Items Section */}
           <div className="flex items-center gap-2 sm:gap-4">
-            <Link href="/home" className="flex items-center gap-2 text-lg font-bold text-primary">
+            <Link href={currentUser ? "/home" : "/inicio"} className="flex items-center gap-2 text-lg font-bold text-primary">
               <Zap className="h-7 w-7" />
               <span className="font-headline text-xl hidden sm:inline">Asistente ACR</span>
             </Link>
@@ -104,7 +102,6 @@ export function TopNavigation() {
             )}
           </div>
           
-          {/* Auth Buttons Section */}
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             {hasMounted ? (
               <>
@@ -119,18 +116,24 @@ export function TopNavigation() {
                     </Button>
                   </>
                 ) : (
-                  !isPublicPage && (
-                    <Button asChild variant="default" size="sm">
-                      <Link href="/login">
-                        <LogInIcon className="h-4 w-4 mr-0 sm:mr-2" />
-                        <span className="hidden sm:inline">Iniciar Sesión</span>
-                      </Link>
+                  <div className="flex items-center gap-2">
+                    <Button asChild variant="outline" size="sm">
+                        <Link href="/login">
+                          <LogInIcon className="h-4 w-4 mr-0 sm:mr-2" />
+                          <span className="hidden sm:inline">Iniciar Sesión</span>
+                        </Link>
                     </Button>
-                  )
+                    <Button asChild variant="default" size="sm">
+                        <Link href="/registro">
+                           <UserPlus className="h-4 w-4 mr-0 sm:mr-2" />
+                           <span className="hidden sm:inline">Registrarse</span>
+                        </Link>
+                    </Button>
+                  </div>
                 )}
               </>
             ) : (
-              <div className="h-9 w-28" /> // Render an empty div as a placeholder to avoid hydration mismatch
+              <div className="h-9 w-28" />
             )}
           </div>
         </div>
