@@ -358,7 +358,7 @@ export default function EventosReportadosPage() {
           Eventos Registrados
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Visualice y gestione todos los eventos reportados en el sistema desde Firestore.
+          Visualice y gestione todos los eventos reportados.
         </p>
       </header>
 
