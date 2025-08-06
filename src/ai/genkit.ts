@@ -4,15 +4,14 @@ import {googleAI} from '@genkit-ai/googleai';
 
 // Este archivo es de SERVIDOR. Lee las variables de entorno del lado del servidor.
 // 1. Busca una GEMINI_API_KEY dedicada (mejor práctica para producción).
-// 2. Si no la encuentra, usa la NEXT_PUBLIC_FIREBASE_API_KEY como respaldo para desarrollo local.
-const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+const apiKey = process.env.GEMINI_API_KEY;
 
 if (!apiKey && process.env.NODE_ENV === 'development') {
     console.warn(
-        '[AI Genkit] Advertencia: No se encontró la variable de entorno `GEMINI_API_KEY` o `NEXT_PUBLIC_FIREBASE_API_KEY`. ' +
+        '[AI Genkit] Advertencia: No se encontró la variable de entorno `GEMINI_API_KEY`. ' +
         'La funcionalidad de IA no se inicializará correctamente. ' +
-        'Para producción y para evitar errores de permisos, se recomienda crear una API Key dedicada ' +
-        'para IA en Google Cloud y asignarla a `GEMINI_API_KEY` en su entorno.'
+        'Para producción, es crucial crear una API Key dedicada ' +
+        'para IA en Google Cloud (con la "Generative Language API" habilitada) y asignarla a `GEMINI_API_KEY` en su entorno de Firebase App Hosting.'
     );
 }
 
@@ -44,7 +43,7 @@ function initializeAi() {
     }
     try {
       if (!apiKey) {
-        throw new Error("La API Key para Genkit no está definida. La funcionalidad de IA será simulada.");
+        throw new Error("La API Key de Gemini (GEMINI_API_KEY) no está definida. La funcionalidad de IA será simulada.");
       }
       
       aiInstance = genkit(genkitConfig);
