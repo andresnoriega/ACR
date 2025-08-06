@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -11,8 +10,59 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from "@/hooks/use-toast";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { sendEmailAction } from '@/app/actions';
+
+const menuItemsBase = [
+    {
+      title: 'Reporta y Analiza',
+      description: 'Inicie un nuevo análisis o continúe uno existente, siguiendo un proceso guiado paso a paso.',
+      href: '/analisis',
+      icon: BarChart3,
+      cta: 'Ir a Análisis',
+      allowedRoles: ['Admin', 'Analista', 'Super User']
+    },
+    {
+      title: 'Eventos Reportados',
+      description: 'Visualice y gestione todos los eventos reportados y pendientes de análisis.',
+      href: '/eventos',
+      icon: ListOrdered,
+      cta: 'Ver Eventos',
+      allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User']
+    },
+    {
+      title: 'Informes',
+      description: 'Visualice y gestione los informes de sus análisis completados.',
+      href: '/informes',
+      icon: FileText,
+      cta: 'Ver Informes',
+       allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User']
+    },
+    {
+      title: 'Mis Tareas',
+      description: 'Gestione sus planes de acción y tareas asignadas.',
+      href: '/usuario/planes',
+      icon: UserCheck,
+      cta: 'Ir a Mis Tareas',
+      allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User']
+    },
+    {
+      title: 'Mi Perfil',
+      description: 'Gestiona tu información personal y de seguridad.',
+      href: '/usuario/perfil',
+      icon: UserCircle,
+      cta: 'Ir a Mi Perfil',
+      allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User', 'Usuario Pendiente']
+    },
+    {
+      title: 'Configuración',
+      description: 'Ajuste las preferencias y configuraciones de la aplicación.',
+      href: '/config',
+      icon: Settings,
+      cta: 'Ir a Configuración',
+      allowedRoles: ['Super User']
+    },
+];
 
 export default function InicioPage() {
   const { userProfile, loadingAuth } = useAuth();
@@ -30,6 +80,11 @@ export default function InicioPage() {
       setSupportEmail(userProfile.email || '');
     }
   }, [userProfile]);
+  
+  const visibleMenuItems = useMemo(() => {
+    if (!userProfile?.role) return [];
+    return menuItemsBase.filter(item => item.allowedRoles.includes(userProfile.role));
+  }, [userProfile?.role]);
 
   const handleSupportSubmit = async () => {
     if (!supportName.trim() || !supportEmail.trim() || !supportMessage.trim()) {
@@ -68,67 +123,21 @@ export default function InicioPage() {
     setIsSendingSupport(false);
   };
   
-  // Muestra un loader principal solo durante la verificación inicial de autenticación.
-  if (loadingAuth) {
+  if (loadingAuth || !userProfile) {
     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center">
+      <div className="flex h-[calc(100vh-150px)] w-full flex-col items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="mt-4 text-muted-foreground">Cargando...</p>
       </div>
     );
   }
 
-  const menuItems = [
-    {
-      title: 'Reporta y Analiza',
-      description: 'Inicie un nuevo análisis o continúe uno existente, siguiendo un proceso guiado paso a paso.',
-      href: '/analisis',
-      icon: BarChart3,
-      cta: 'Ir a Análisis',
-    },
-    {
-      title: 'Eventos Reportados',
-      description: 'Visualice y gestione todos los eventos reportados y pendientes de análisis.',
-      href: '/eventos',
-      icon: ListOrdered,
-      cta: 'Ver Eventos',
-    },
-    {
-      title: 'Informes',
-      description: 'Visualice y gestione los informes de sus análisis completados.',
-      href: '/informes',
-      icon: FileText,
-      cta: 'Ver Informes',
-    },
-    {
-      title: 'Mis Tareas',
-      description: 'Gestione sus planes de acción y tareas asignadas.',
-      href: '/usuario/planes',
-      icon: UserCheck,
-      cta: 'Ir a Mis Tareas',
-    },
-    {
-      title: 'Mi Perfil',
-      description: 'Gestiona tu información personal y de seguridad.',
-      href: '/usuario/perfil',
-      icon: UserCircle,
-      cta: 'Ir a Mi Perfil',
-    },
-    {
-      title: 'Configuración',
-      description: 'Ajuste las preferencias y configuraciones de la aplicación.',
-      href: '/config',
-      icon: Settings,
-      cta: 'Ir a Configuración',
-    },
-  ];
-
   return (
     <>
       <div className="space-y-8 py-8">
         <header className="text-center space-y-2">
           <h1 className="text-4xl font-bold font-headline text-primary">
-            ¡Bienvenido a Asistente ACR{userProfile ? `, ${userProfile.name}` : ''}!
+            ¡Bienvenido a Asistente ACR, {userProfile.name}!
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Su herramienta intuitiva y eficiente para realizar Análisis de Causa Raíz (ACR) y mejorar continuamente sus procesos.
@@ -136,7 +145,7 @@ export default function InicioPage() {
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {menuItems.map((item) => (
+          {visibleMenuItems.map((item) => (
             <Card key={item.title} className="hover:shadow-lg transition-shadow flex flex-col">
               <CardHeader>
                 <div className="flex items-center gap-3 mb-2">
@@ -156,7 +165,7 @@ export default function InicioPage() {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
                <CardHeader>
                    <div className="flex items-center gap-3 mb-2">
