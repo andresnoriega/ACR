@@ -1,7 +1,6 @@
 
 import {genkit, type GenkitConfig} from 'genkit';
 import {googleAI} from '@genkit-ai/googleai'; 
-import { firebaseConfig } from '@/lib/firebase'; // Importar la configuración de firebase
 
 // Prioritize a dedicated GEMINI_API_KEY from environment variables
 // Fallback to the general Firebase API key if it's not set.
