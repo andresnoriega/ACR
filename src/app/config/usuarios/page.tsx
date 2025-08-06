@@ -64,12 +64,15 @@ export default function ConfiguracionUsuariosPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentUserToEdit, setCurrentUserToEdit] = useState<UserConfigProfile | null>(null);
 
-  const [userName, setUserName] = useState('');
-  const [userEmail, setUserEmail] = useState('');
-  const [userRole, setUserRole] = useState<FullUserProfile['role']>('');
-  const [userEmpresa, setUserEmpresa] = useState('');
-  const [userAssignedSites, setUserAssignedSites] = useState('');
-  const [userEmailNotifications, setUserEmailNotifications] = useState(false);
+  // States for the form fields
+  const [formState, setFormState] = useState({
+      name: '',
+      email: '',
+      role: '' as FullUserProfile['role'],
+      empresa: '',
+      assignedSites: '',
+      emailNotifications: false,
+  });
   
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserConfigProfile | null>(null);
@@ -182,74 +185,77 @@ export default function ConfiguracionUsuariosPage() {
     return ALL_USER_ROLES.filter(role => role !== 'Super User');
   }, [loggedInUserProfile]);
 
-  const resetUserForm = () => {
-    setUserName('');
-    setUserEmail('');
-    setUserRole('');
-    setUserEmpresa(loggedInUserProfile?.role === 'Admin' && loggedInUserProfile.empresa ? loggedInUserProfile.empresa : '');
-    setUserAssignedSites('');
-    setUserEmailNotifications(false);
+  const resetFormState = () => {
+    setFormState({
+        name: '',
+        email: '',
+        role: '',
+        empresa: loggedInUserProfile?.role === 'Admin' && loggedInUserProfile.empresa ? loggedInUserProfile.empresa : '',
+        assignedSites: '',
+        emailNotifications: false,
+    });
     setCurrentUserToEdit(null);
-    setIsEditing(false);
   };
 
   const openAddUserDialog = () => {
-    resetUserForm();
+    resetFormState();
     setIsEditing(false);
     setIsUserDialogOpen(true);
   };
 
   const openEditUserDialog = (user: UserConfigProfile) => {
-    resetUserForm();
     setIsEditing(true);
     setCurrentUserToEdit(user);
-    setUserName(user.name);
-    setUserEmail(user.email);
-    setUserRole(user.role);
-    setUserEmpresa(user.empresa || '');
-    setUserAssignedSites(user.assignedSites || '');
-    setUserEmailNotifications(user.emailNotifications || false); 
+    setFormState({
+        name: user.name || '',
+        email: user.email || '',
+        role: user.role || '',
+        empresa: user.empresa || '',
+        assignedSites: user.assignedSites || '',
+        emailNotifications: user.emailNotifications || false,
+    });
     setIsUserDialogOpen(true);
   };
 
   const handleDialogClose = (open: boolean) => {
       if (!open) {
-          resetUserForm();
+          resetFormState();
       }
       setIsUserDialogOpen(open);
   };
 
   const handleSaveUser = async () => {
-    if (!userName.trim()) {
+    if (!formState.name.trim()) {
       toast({ title: "Error", description: "El nombre completo es obligatorio.", variant: "destructive" });
       return;
     }
-    if (!userEmail.trim() || !/^\S+@\S+\.\S+$/.test(userEmail)) {
+    if (!formState.email.trim() || !/^\S+@\S+\.\S+$/.test(formState.email)) {
       toast({ title: "Error", description: "El correo electrónico no es válido.", variant: "destructive" });
       return;
     }
-    if (!userRole) {
+    if (!formState.role) {
       toast({ title: "Error", description: "El rol es obligatorio.", variant: "destructive" });
       return;
     }
 
     setIsSubmitting(true);
-    let finalEmpresa = userEmpresa.trim() || undefined;
+    
+    let finalEmpresa = formState.empresa.trim() || undefined;
     if (loggedInUserProfile?.role === 'Admin' && loggedInUserProfile.empresa) {
         finalEmpresa = loggedInUserProfile.empresa;
     }
 
     if (isEditing && currentUserToEdit) {
       const wasPending = currentUserToEdit.role === 'Usuario Pendiente';
-      const isNowActive = userRole && userRole !== 'Usuario Pendiente' && userRole !== '';
+      const isNowActive = formState.role && formState.role !== 'Usuario Pendiente' && formState.role !== '';
       
       const updatedUserData: Partial<UserConfigProfile> = {
-        name: userName.trim(),
-        email: userEmail.trim(),
-        role: userRole,
+        name: formState.name.trim(),
+        email: formState.email.trim(),
+        role: formState.role,
         empresa: finalEmpresa,
-        assignedSites: userAssignedSites.trim(),
-        emailNotifications: userEmailNotifications,
+        assignedSites: formState.assignedSites.trim(),
+        emailNotifications: formState.emailNotifications,
       };
 
       if (wasPending && isNowActive && !currentUserToEdit.permissionLevel) {
@@ -262,45 +268,47 @@ export default function ConfiguracionUsuariosPage() {
         
         if (wasPending && isNowActive) {
             const emailResult = await sendEmailAction({
-                to: userEmail.trim(),
+                to: formState.email.trim(),
                 subject: "¡Tu cuenta en Asistente ACR ha sido activada!",
-                body: `Hola ${userName.trim()},\n\nTu cuenta en Asistente ACR ha sido aprobada por un administrador. Ya puedes iniciar sesión con tu correo y contraseña.\n\nSaludos,\nEl equipo de Asistente ACR`,
-                htmlBody: `<p>Hola ${userName.trim()},</p><p>Tu cuenta en Asistente ACR ha sido aprobada por un administrador. Ya puedes <strong>iniciar sesión</strong> con tu correo y contraseña.</p><p>Saludos,<br/>El equipo de Asistente ACR</p>`
+                body: `Hola ${formState.name.trim()},\n\nTu cuenta en Asistente ACR ha sido aprobada por un administrador. Ya puedes iniciar sesión con tu correo y contraseña.\n\nSaludos,\nEl equipo de Asistente ACR`,
+                htmlBody: `<p>Hola ${formState.name.trim()},</p><p>Tu cuenta en Asistente ACR ha sido aprobada por un administrador. Ya puedes <strong>iniciar sesión</strong> con tu correo y contraseña.</p><p>Saludos,<br/>El equipo de Asistente ACR</p>`
             });
             if (emailResult.success) {
                 toast({
                     title: "Usuario Actualizado y Notificado",
-                    description: `El usuario "${userName}" fue activado y se le envió un correo de notificación.`,
+                    description: `El usuario "${formState.name}" fue activado y se le envió un correo de notificación.`,
                 });
             } else {
                 toast({
                     title: "Usuario Actualizado con Error de Notificación",
-                    description: `El rol de "${userName}" fue actualizado, pero falló el envío del correo de notificación.`,
+                    description: `El rol de "${formState.name}" fue actualizado, pero falló el envío del correo de notificación.`,
                     variant: "destructive",
                 });
             }
         } else {
-            toast({ title: "Usuario Actualizado", description: `El usuario "${userName}" ha sido actualizado.` });
+            toast({ title: "Usuario Actualizado", description: `El usuario "${formState.name}" ha sido actualizado.` });
         }
         if(loggedInUserProfile) fetchInitialData(loggedInUserProfile);
+        handleDialogClose(false);
       } catch (error) {
         console.error("Error updating user in Firestore: ", error);
         toast({ title: "Error al Actualizar", description: "No se pudo actualizar el usuario.", variant: "destructive" });
       }
     } else {
       const newUserPayload: Omit<UserConfigProfile, 'id'> = {
-        name: userName.trim(),
-        email: userEmail.trim(),
-        role: userRole,
-        permissionLevel: userRole === 'Usuario Pendiente' ? '' : defaultPermissionLevel, 
+        name: formState.name.trim(),
+        email: formState.email.trim(),
+        role: formState.role,
+        permissionLevel: formState.role === 'Usuario Pendiente' ? '' : defaultPermissionLevel, 
         empresa: finalEmpresa,
-        assignedSites: userAssignedSites.trim(),
-        emailNotifications: userEmailNotifications,
+        assignedSites: formState.assignedSites.trim(),
+        emailNotifications: formState.emailNotifications,
       };
       try {
         await addDoc(collection(db, "users"), sanitizeForFirestore(newUserPayload));
         toast({ title: "Perfil de Usuario Añadido", description: `El perfil para "${newUserPayload.name}" ha sido añadido a Firestore. El usuario deberá registrarse con este mismo correo para activar la cuenta.` });
         if(loggedInUserProfile) fetchInitialData(loggedInUserProfile);
+        handleDialogClose(false);
       } catch (error) {
         console.error("Error adding user profile to Firestore: ", error);
         toast({ title: "Error al Añadir Perfil", description: "No se pudo añadir el perfil de usuario a Firestore.", variant: "destructive" });
@@ -308,7 +316,6 @@ export default function ConfiguracionUsuariosPage() {
     }
     
     setIsSubmitting(false);
-    handleDialogClose(false);
   };
 
   const openDeleteDialog = (user: UserConfigProfile) => {
@@ -521,20 +528,20 @@ export default function ConfiguracionUsuariosPage() {
                     <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
                         <div className="space-y-2">
                           <Label htmlFor="user-name">Nombre <span className="text-destructive">*</span></Label>
-                          <Input id="user-name" value={userName} onChange={(e) => setUserName(e.target.value)} placeholder="Ej: Juan Pérez" />
+                          <Input id="user-name" value={formState.name} onChange={(e) => setFormState(s => ({...s, name: e.target.value}))} placeholder="Ej: Juan Pérez" />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="user-email">Correo <span className="text-destructive">*</span></Label>
-                          <Input id="user-email" type="email" value={userEmail} onChange={(e) => setUserEmail(e.target.value)} placeholder="Ej: juan.perez@example.com" disabled={isEditing} />
+                          <Input id="user-email" type="email" value={formState.email} onChange={(e) => setFormState(s => ({...s, email: e.target.value}))} placeholder="Ej: juan.perez@example.com" disabled={isEditing} />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="user-role">Rol <span className="text-destructive">*</span></Label>
-                          <Select value={userRole} onValueChange={(value) => setUserRole(value as FullUserProfile['role'])}>
+                          <Select value={formState.role} onValueChange={(value) => setFormState(s => ({...s, role: value as FullUserProfile['role']}))}>
                               <SelectTrigger>
                               <SelectValue placeholder="-- Seleccione un rol --" />
                               </SelectTrigger>
                               <SelectContent>
-                              {ALL_USER_ROLES.filter(r => r !== '').map(role => (
+                              {availableRolesForDropdown.filter(r => r !== '').map(role => (
                                   <SelectItem key={role} value={role}>{role}</SelectItem>
                               ))}
                               </SelectContent>
@@ -543,8 +550,8 @@ export default function ConfiguracionUsuariosPage() {
                         <div className="space-y-2">
                           <Label htmlFor="user-empresa">Empresa</Label>
                            <Select 
-                            value={userEmpresa} 
-                            onValueChange={setUserEmpresa}
+                            value={formState.empresa} 
+                            onValueChange={(value) => setFormState(s => ({...s, empresa: value}))}
                             disabled={loggedInUserProfile?.role !== 'Super User'}
                            >
                             <SelectTrigger id="user-empresa">
@@ -562,10 +569,10 @@ export default function ConfiguracionUsuariosPage() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="user-sites">Sitio(s) Asignados</Label>
-                          <Input id="user-sites" value={userAssignedSites} onChange={(e) => setUserAssignedSites(e.target.value)} placeholder="Ej: Planta A, Bodega Central (separado por comas)" />
+                          <Input id="user-sites" value={formState.assignedSites} onChange={(e) => setFormState(s => ({...s, assignedSites: e.target.value}))} placeholder="Ej: Planta A, Bodega Central (separado por comas)" />
                         </div>
                         <div className="flex items-center space-x-2 pt-2">
-                            <Switch id="user-notifications" checked={userEmailNotifications} onCheckedChange={setUserEmailNotifications} />
+                            <Switch id="user-notifications" checked={formState.emailNotifications} onCheckedChange={(checked) => setFormState(s => ({...s, emailNotifications: checked}))} />
                             <Label htmlFor="user-notifications">Recibir Notificaciones por Correo</Label>
                         </div>
                     </div>
@@ -701,3 +708,4 @@ export default function ConfiguracionUsuariosPage() {
     </div>
   );
 }
+
