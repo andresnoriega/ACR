@@ -1,3 +1,4 @@
+
 "use client";
 
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
@@ -18,7 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { Toaster } from "@/components/ui/toaster";
 import { TopNavigation } from '@/components/layout/TopNavigation';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 function IdleManager() {
   const { currentUser, logoutUser } = useAuth();
@@ -90,10 +91,47 @@ function IdleManager() {
 }
 
 function AppContent({ children }: { children: ReactNode }) {
-  const { currentUser } = useAuth();
+  const { currentUser, loadingAuth, userProfile } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
+
   const isPublicPage = pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/registro');
 
+  useEffect(() => {
+    if (!loadingAuth && !currentUser && !isPublicPage) {
+      router.replace('/login');
+    }
+  }, [loadingAuth, currentUser, isPublicPage, router]);
+
+  if (loadingAuth && !isPublicPage) {
+    return (
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">Cargando...</p>
+      </div>
+    );
+  }
+
+  // If there's a user but no profile yet on a protected page, keep showing loading state.
+  if (currentUser && !userProfile && !isPublicPage) {
+     return (
+      <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">Cargando perfil de usuario...</p>
+      </div>
+    );
+  }
+
+  // If there's no user on a protected page, the useEffect will redirect, so we can show a loader
+  if (!currentUser && !isPublicPage) {
+    return (
+       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">Redirigiendo...</p>
+      </div>
+    );
+  }
+  
   return (
     <>
       {!isPublicPage && currentUser && <TopNavigation />}

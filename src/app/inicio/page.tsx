@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -15,7 +16,7 @@ import { sendEmailAction } from '@/app/actions';
 
 
 export default function InicioPage() {
-  const { userProfile, loadingAuth } = useAuth();
+  const { userProfile } = useAuth(); // Removed loadingAuth
   const { toast } = useToast();
   
   const [isSupportDialogOpen, setIsSupportDialogOpen] = useState(false);
@@ -67,15 +68,9 @@ export default function InicioPage() {
     }
     setIsSendingSupport(false);
   };
-
-  if (loadingAuth || !userProfile) {
-    return (
-      <div className="flex flex-col justify-center items-center min-h-[calc(100vh-10rem)]">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-lg text-muted-foreground">Cargando...</p>
-      </div>
-    );
-  }
+  
+  // We no longer render a loading state here. The layout handles it.
+  // The component will only render when userProfile is available.
 
   const menuItems = [
     {
@@ -127,7 +122,7 @@ export default function InicioPage() {
       <div className="space-y-8 py-8">
         <header className="text-center space-y-2">
           <h1 className="text-4xl font-bold font-headline text-primary">
-            ¡Bienvenido a Asistente ACR, {userProfile.name}!
+            ¡Bienvenido a Asistente ACR, {userProfile?.name}!
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Su herramienta intuitiva y eficiente para realizar Análisis de Causa Raíz (ACR) y mejorar continuamente sus procesos.
