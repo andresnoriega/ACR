@@ -7,19 +7,17 @@ import { getStorage, type FirebaseStorage } from "firebase/storage";
 // =================================================================================
 // CONFIGURACIÓN CENTRALIZADA USANDO VARIABLES DE ENTORNO
 // =================================================================================
-// Las variables de entorno son proporcionadas por el entorno de App Hosting en producción
-// o por un archivo .env.local en desarrollo.
+// Las variables de entorno son proporcionadas por el entorno de App Hosting.
 export const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  apiKey: "AIzaSyBpRAXR8mTcBTXwuXV5VaXdqCP6yx85MUE",
+  authDomain: "almacenador-cloud.firebaseapp.com",
+  projectId: "almacenador-cloud",
+  storageBucket: "almacenador-cloud.firebasestorage.app",
+  messagingSenderId: "790911154631",
+  appId: "1:790911154631:web:91e2d71d8ccfbf058301e2",
+  measurementId: "G-R2NQTYM2GX"
 };
 
-// Verificación crucial para saber si la configuración está completa.
 export const appHasAllConfig =
   !!firebaseConfig.apiKey &&
   !!firebaseConfig.authDomain &&
@@ -28,19 +26,26 @@ export const appHasAllConfig =
   !!firebaseConfig.messagingSenderId &&
   !!firebaseConfig.appId;
 
-let app: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
-let storage: FirebaseStorage;
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let db: Firestore | null = null;
+let storage: FirebaseStorage | null = null;
 
 if (appHasAllConfig) {
-  // Este patrón previene la reinicialización de la app en el lado del cliente (HMR)
-  app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db = getFirestore(app);
-  storage = getStorage(app);
+  try {
+    app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
+  } catch (error) {
+    console.error("Error initializing Firebase:", error);
+    // In case of initialization error, ensure services are null
+    app = null;
+    auth = null;
+    db = null;
+    storage = null;
+  }
 } else {
-  // Si estamos en el navegador, advertimos al desarrollador que faltan las claves.
   if (typeof window !== 'undefined') {
     console.warn(
       'ADVERTENCIA: Faltan variables de configuración de Firebase en el entorno. ' +
@@ -50,5 +55,4 @@ if (appHasAllConfig) {
   }
 }
 
-// @ts-ignore
 export { app, auth, db, storage };
