@@ -3,8 +3,6 @@
 
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import React, { useState, useEffect, type ReactNode } from 'react';
-// useRouter no es necesario aquí si IdleManager no navega directamente
-// import { useRouter } from 'next/navigation'; 
 import { useIdleTimer } from '@/hooks/useIdleTimer';
 import {
   AlertDialog,
@@ -31,7 +29,7 @@ function IdleManager() {
   }, []);
 
   const handleIdlePrompt = () => {
-    // console.log("User is idle, warning dialog should be visible.");
+    // This function is called when the idle prompt should be shown.
   };
 
   const handleConfirmLogout = async () => {
@@ -39,7 +37,7 @@ function IdleManager() {
     setIsLoggingOut(true);
     try {
       await logoutUser();
-      window.location.href = '/login'; // Redirect to login page on idle logout
+      window.location.href = '/login'; 
     } catch (error) {
       console.error("Error during automatic logout for inactivity:", error);
     } finally {
@@ -50,8 +48,8 @@ function IdleManager() {
   const { showPrompt, countdown, stayActive } = useIdleTimer({
     onIdlePrompt: handleIdlePrompt,
     onConfirmLogout: handleConfirmLogout,
-    idleTime: 5 * 60 * 1000,      // 5 minutos
-    promptTime: 1 * 60 * 1000,     // 1 minuto de advertencia
+    idleTime: 15 * 60 * 1000, // 15 minutes of inactivity
+    promptTime: 1 * 60 * 1000, // 1 minute warning
     isActive: !!currentUser && isClient, 
   });
 
@@ -98,21 +96,33 @@ function AppContent({ children }: { children: ReactNode }) {
   const isPublicPage = pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/registro');
 
   useEffect(() => {
-    if (!loadingAuth && !currentUser && !isPublicPage) {
+    if (loadingAuth) {
+      return; // Do nothing while loading
+    }
+    
+    // After loading, if there's a user and a profile, and we are on a public page, redirect to home.
+    if (currentUser && userProfile && isPublicPage) {
+      router.replace('/inicio');
+    }
+    
+    // After loading, if there's NO user and we are on a protected page, redirect to login.
+    if (!currentUser && !isPublicPage) {
       router.replace('/login');
     }
-  }, [loadingAuth, currentUser, isPublicPage, router]);
+    
+  }, [currentUser, userProfile, loadingAuth, isPublicPage, router]);
 
-  if (loadingAuth && !isPublicPage) {
-    return (
+  if (loadingAuth) {
+     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="mt-4 text-muted-foreground">Cargando...</p>
       </div>
     );
   }
-
-  // If there's a user but no profile yet on a protected page, keep showing loading state.
+  
+  // If there's an auth user but no profile yet on a protected page, it means the profile is still loading or failed.
+  // We show a more specific loader.
   if (currentUser && !userProfile && !isPublicPage) {
      return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
@@ -122,26 +132,22 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
 
-  // If there's no user on a protected page, the useEffect will redirect, so we can show a loader
-  if (!currentUser && !isPublicPage) {
-    return (
-       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">Redirigiendo...</p>
-      </div>
-    );
-  }
-  
+  // At this point, if we are on a protected page, we have a user and profile.
+  // If we are on a public page, there's no user.
+  const showTopNav = !isPublicPage && currentUser && userProfile;
+
   return (
     <>
-      {!isPublicPage && currentUser && <TopNavigation />}
+      {showTopNav && <TopNavigation />}
       <main className="flex-grow w-full print-container">
         {isPublicPage ? (
             children
         ) : (
-            <div className="container mx-auto p-4 sm:p-6 lg:p-8 h-full">
-                {children}
-            </div>
+            showTopNav ? (
+                <div className="container mx-auto p-4 sm:p-6 lg:p-8 h-full">
+                    {children}
+                </div>
+            ) : null // Don't render protected content if user is not ready
         )}
       </main>
       <Toaster />

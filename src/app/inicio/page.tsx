@@ -167,68 +167,67 @@ export default function InicioPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-6">
-            <Card>
-               <CardHeader>
-                   <div className="flex items-center gap-3 mb-2">
-                      <Phone className="h-7 w-7 text-primary" />
-                      <CardTitle>Soporte Técnico</CardTitle>
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3 mb-2">
+                <Phone className="h-7 w-7 text-primary" />
+                <CardTitle>Soporte Técnico</CardTitle>
+              </div>
+              <CardDescription>¿Necesita ayuda? Nuestro equipo está listo para asistirlo.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Dialog open={isSupportDialogOpen} onOpenChange={setIsSupportDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>Solicitar Soporte</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Formulario de Soporte Técnico</DialogTitle>
+                    <DialogDescription>
+                      Complete el formulario y nos pondremos en contacto con usted.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="support-name">Su Nombre</Label>
+                      <Input id="support-name" value={supportName} onChange={(e) => setSupportName(e.target.value)} disabled={isSendingSupport} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="support-email">Su Correo</Label>
+                      <Input id="support-email" type="email" value={supportEmail} onChange={(e) => setSupportEmail(e.target.value)} disabled={isSendingSupport} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="support-message">Soporte Requerido</Label>
+                      <Textarea id="support-message" placeholder="Describa su problema o consulta aquí..." rows={4} value={supportMessage} onChange={(e) => setSupportMessage(e.target.value)} disabled={isSendingSupport} />
+                    </div>
                   </div>
-                   <CardDescription>¿Necesita ayuda? Nuestro equipo está listo para asistirlo.</CardDescription>
-               </CardHeader>
-               <CardContent>
-                  <Dialog open={isSupportDialogOpen} onOpenChange={setIsSupportDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button>Solicitar Soporte</Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Formulario de Soporte Técnico</DialogTitle>
-                        <DialogDescription>
-                          Complete el formulario y nos pondremos en contacto con usted.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="grid gap-4 py-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="support-name">Su Nombre</Label>
-                          <Input id="support-name" value={supportName} onChange={(e) => setSupportName(e.target.value)} disabled={isSendingSupport} />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="support-email">Su Correo</Label>
-                          <Input id="support-email" type="email" value={supportEmail} onChange={(e) => setSupportEmail(e.target.value)} disabled={isSendingSupport} />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="support-message">Soporte Requerido</Label>
-                          <Textarea id="support-message" placeholder="Describa su problema o consulta aquí..." rows={4} value={supportMessage} onChange={(e) => setSupportMessage(e.target.value)} disabled={isSendingSupport} />
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <DialogClose asChild>
-                          <Button type="button" variant="outline" disabled={isSendingSupport}>Cancelar</Button>
-                        </DialogClose>
-                        <Button type="button" onClick={handleSupportSubmit} disabled={isSendingSupport}>
-                          {isSendingSupport && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                          Enviar Solicitud
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-               </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                  <div className="flex items-center gap-3 mb-2">
-                      <HelpCircle className="h-7 w-7 text-primary" />
-                      <CardTitle>¿Qué es un Análisis de Causa Raíz?</CardTitle>
-                  </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  El Análisis de Causa Raíz (ACR) es un método sistemático para identificar las causas subyacentes de un problema o incidente. En lugar de simplemente tratar los síntomas, el ACR busca encontrar el origen fundamental para implementar soluciones efectivas y prevenir la recurrencia del problema. Esta herramienta le guiará a través de este proceso.
-                </p>
-              </CardContent>
-            </Card>
+                  <DialogFooter>
+                    <DialogClose asChild>
+                      <Button type="button" variant="outline" disabled={isSendingSupport}>Cancelar</Button>
+                    </DialogClose>
+                    <Button type="button" onClick={handleSupportSubmit} disabled={isSendingSupport}>
+                      {isSendingSupport && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Enviar Solicitud
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3 mb-2">
+                <HelpCircle className="h-7 w-7 text-primary" />
+                <CardTitle>¿Qué es un Análisis de Causa Raíz?</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                El Análisis de Causa Raíz (ACR) es un método sistemático para identificar las causas subyacentes de un problema o incidente. En lugar de simplemente tratar los síntomas, el ACR busca encontrar el origen fundamental para implementar soluciones efectivas y prevenir la recurrencia del problema. Esta herramienta le guiará a través de este proceso.
+              </p>
+            </CardContent>
+          </Card>
         </div>
-
       </div>
     </>
   );

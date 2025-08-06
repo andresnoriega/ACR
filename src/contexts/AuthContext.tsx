@@ -41,7 +41,7 @@ interface AuthContextType {
   currentUser: FirebaseUser | null;
   loadingAuth: boolean;
   userProfile: FullUserProfile | null; 
-  loginWithEmail: (email: string, pass: string) => Promise<UserCredential>;
+  loginWithEmail: (email: string, pass: string) => Promise<void>; // Return void, success is handled by state change
   registerWithEmail: (email: string, pass: string, name: string) => Promise<UserCredential>;
   logoutUser: () => Promise<void>;
   updateUserProfile: (data: { name?: string }) => Promise<void>;
@@ -69,48 +69,82 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [userProfile, setUserProfile] = useState<FullUserProfile | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
 
+  // This effect handles auth state changes from Firebase
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setLoadingAuth(true); // Start loading whenever auth state might change
       if (user) {
-        const userDocRef = doc(db, 'users', user.uid);
-        const docSnap = await getDoc(userDocRef);
-        if (docSnap.exists()) {
-          setUserProfile({ id: user.uid, ...docSnap.data() } as FullUserProfile);
-        } else {
-            console.warn(`User profile for ${user.email} not found in Firestore. Creating a default Super User profile.`);
-            
-            // Assign Super User by default if profile doesn't exist to fix access issue.
-            const assignedRole = 'Super User';
-            const assignedPermissionLevel = 'Total';
-            const nameFromEmail = user.displayName || user.email?.split('@')[0] || 'Nuevo Usuario';
-
-            const newUserProfile: Omit<FullUserProfile, 'id'> = {
-                name: nameFromEmail,
-                email: user.email!,
-                role: assignedRole,
-                permissionLevel: assignedPermissionLevel,
-                photoURL: user.photoURL || '',
-                emailNotifications: true,
-                empresa: '',
-                assignedSites: '',
-            };
-            await setDoc(doc(db, 'users', user.uid), sanitizeForFirestore(newUserProfile));
-            setUserProfile({ id: user.uid, ...newUserProfile });
-        }
         setCurrentUser(user);
+        // Fetch profile, but don't mark loading as false until profile is fetched
+        const userDocRef = doc(db, 'users', user.uid);
+        try {
+            const docSnap = await getDoc(userDocRef);
+            if (docSnap.exists()) {
+              setUserProfile({ id: user.uid, ...docSnap.data() } as FullUserProfile);
+            } else {
+              // Handle case where auth user exists but no profile in Firestore
+              console.warn(`User profile not found for ${user.email}, logging out.`);
+              await signOut(auth); // Log out inconsistent user
+              setUserProfile(null);
+              setCurrentUser(null);
+            }
+        } catch(error) {
+            console.error("Error fetching user profile:", error);
+            // On error, treat as if logged out
+            setUserProfile(null);
+            setCurrentUser(null);
+        }
+
       } else {
         setCurrentUser(null);
         setUserProfile(null);
       }
-      setLoadingAuth(false);
+      setLoadingAuth(false); // Finish loading after all user data is settled
     });
 
     return () => unsubscribe();
   }, []);
 
-  const loginWithEmail = (email: string, pass: string) => {
-    return signInWithEmailAndPassword(auth, email, pass);
-  };
+  const loginWithEmail = useCallback(async (email: string, pass: string): Promise<void> => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, email, pass);
+        // `onAuthStateChanged` will fire upon successful sign-in.
+        // We need to wait for the userProfile state to be updated by its listener.
+        
+        // This is a common pattern to wait for state that's updated by an external listener.
+        const checkUserProfile = () => {
+          // The user from the credential
+          const loggedInUser = userCredential.user;
+
+          // Directly fetch profile after login instead of waiting for the listener
+          const userDocRef = doc(db, 'users', loggedInUser.uid);
+          getDoc(userDocRef).then(docSnap => {
+            if (docSnap.exists()) {
+              // Manually update state here for immediate feedback and resolve promise
+              setUserProfile({ id: loggedInUser.uid, ...docSnap.data() } as FullUserProfile);
+              setCurrentUser(loggedInUser);
+              setLoadingAuth(false);
+              resolve();
+            } else {
+              // If profile doesn't exist, it's an inconsistent state. Reject.
+              signOut(auth);
+              reject(new Error("El perfil de usuario no se encontró. Contacte al administrador."));
+            }
+          }).catch(error => {
+            signOut(auth);
+            reject(error);
+          });
+        };
+        
+        // We can call it directly since onAuthStateChanged might have a delay
+        checkUserProfile();
+
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }, []);
   
   const registerWithEmail = async (email: string, pass: string, name: string) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);

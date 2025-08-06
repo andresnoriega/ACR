@@ -26,11 +26,14 @@ export default function PublicHomePage() {
   const router = useRouter();
 
   useEffect(() => {
+    // This effect now simply ensures that if a user is logged in, they are redirected.
+    // The main layout provider handles the initial redirection logic.
     if (!loadingAuth && currentUser) {
       router.replace('/inicio');
     }
   }, [currentUser, loadingAuth, router]);
 
+  // If we are still checking auth or if the user is logged in (and about to be redirected), show a loader.
   if (loadingAuth || currentUser) {
      return (
       <div className="flex h-screen w-full flex-col items-center justify-center">
@@ -39,7 +42,8 @@ export default function PublicHomePage() {
       </div>
     );
   }
-
+  
+  // This content will only be visible to non-authenticated users after the auth check is complete.
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
