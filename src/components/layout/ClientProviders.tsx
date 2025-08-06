@@ -89,21 +89,21 @@ function IdleManager() {
 }
 
 function AppContent({ children }: { children: ReactNode }) {
-  const { currentUser, loadingAuth, userProfile } = useAuth();
+  const { currentUser, loadingAuth } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
 
-  const isPublicPage = pathname === '/inicio' || pathname === '/login' || pathname.startsWith('/registro');
+  const isPublicPage = pathname === '/' || pathname === '/login' || pathname.startsWith('/registro');
 
   useEffect(() => {
     if (loadingAuth) return;
 
-    if (currentUser && isPublicPage) {
+    if (currentUser && isPublicPage && pathname !== '/home') {
       router.replace('/home');
     }
     
-    if (!currentUser && !isPublicPage && pathname !== '/') {
-        router.replace('/inicio');
+    if (!currentUser && !isPublicPage) {
+        router.replace('/');
     }
 
   }, [currentUser, loadingAuth, isPublicPage, pathname, router]);
@@ -119,7 +119,7 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
 
-  if (loadingAuth) {
+  if (loadingAuth || !currentUser) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -128,15 +128,6 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
   
-  if (!currentUser) {
-      return (
-         <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="mt-4 text-muted-foreground">Redirigiendo...</p>
-         </div>
-      );
-  }
-
   return (
     <>
       <TopNavigation />

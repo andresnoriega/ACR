@@ -51,7 +51,7 @@ export function TopNavigation() {
     try {
       await logoutUser();
       toast({ title: 'Sesión Cerrada', description: 'Has cerrado sesión exitosamente.' });
-      window.location.href = '/inicio';
+      window.location.href = '/';
     } catch (error) {
       console.error("Error al cerrar sesión:", error);
       toast({ title: 'Error', description: 'No se pudo cerrar la sesión.', variant: 'destructive' });
@@ -65,7 +65,7 @@ export function TopNavigation() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-2 sm:gap-4">
-            <Link href={currentUser ? "/home" : "/inicio"} className="flex items-center gap-2 text-lg font-bold text-primary">
+            <Link href={currentUser ? "/home" : "/"} className="flex items-center gap-2 text-lg font-bold text-primary">
               <Zap className="h-7 w-7" />
               <span className="font-headline text-xl hidden sm:inline">Asistente ACR</span>
             </Link>
