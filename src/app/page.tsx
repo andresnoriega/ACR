@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Layers, BrainCircuit, Activity, Shield, ClipboardCheck, Workflow, ArrowRight, Loader2, GitBranch, Share2, ListChecks } from 'lucide-react';
+import { Layers, BrainCircuit, Activity, Shield, ClipboardCheck, Workflow, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -85,20 +85,20 @@ export default function PublicHomePage() {
               <FeatureCard icon={Workflow} title="Análisis Guiado en 5 Pasos">
                 Sigue un flujo de trabajo estructurado, desde la iniciación del evento hasta la validación de resultados, asegurando un análisis completo.
               </FeatureCard>
-              <FeatureCard icon={Share2} title="Técnicas de Análisis Integradas">
-                Utiliza herramientas interactivas como Ishikawa, 5 Porqués y Árbol de Causas (CTM) para explorar y documentar las causas de forma visual.
-              </FeatureCard>
               <FeatureCard icon={BrainCircuit} title="Asistencia con IA">
                 Obtén sugerencias de causas raíz latentes y genera borradores de resúmenes ejecutivos con inteligencia artificial para acelerar tu análisis.
               </FeatureCard>
-              <FeatureCard icon={ListChecks} title="Gestión de Planes de Acción">
+              <FeatureCard icon={ClipboardCheck} title="Gestión de Planes de Acción">
                 Define, asigna y da seguimiento a las acciones correctivas. Los responsables pueden adjuntar evidencias y marcar tareas para su validación.
               </FeatureCard>
               <FeatureCard icon={Layers} title="Informes y Dashboards">
                 Visualiza el estado de tus análisis y planes de acción con gráficos y resúmenes. Exporta tus datos y comparte informes completos.
               </FeatureCard>
-              <FeatureCard icon={Activity} title="Colaboración en Equipo">
+               <FeatureCard icon={Activity} title="Colaboración en Equipo">
                 Gestiona roles y permisos para tu equipo. Define líderes de proyecto y equipos de investigación para cada análisis.
+              </FeatureCard>
+               <FeatureCard icon={Shield} title="Técnicas de Análisis Integradas">
+                Utiliza herramientas interactivas como Ishikawa, 5 Porqués y Árbol de Causas (CTM) para explorar y documentar las causas de forma visual.
               </FeatureCard>
             </div>
           </div>
