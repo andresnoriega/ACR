@@ -49,4 +49,4 @@ if (typeof window !== 'undefined') {
   }
 }
 
-export { db, auth, storage, app };
+export { db, auth, storage };
