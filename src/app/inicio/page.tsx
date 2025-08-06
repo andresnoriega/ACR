@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -74,6 +73,11 @@ export default function InicioPage() {
   const [supportEmail, setSupportEmail] = useState('');
   const [supportMessage, setSupportMessage] = useState('');
   const [isSendingSupport, setIsSendingSupport] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   useEffect(() => {
     if (userProfile) {
@@ -83,9 +87,9 @@ export default function InicioPage() {
   }, [userProfile]);
   
   const visibleMenuItems = useMemo(() => {
-    if (!userProfile?.role) return [];
+    if (!hasMounted || !userProfile?.role) return [];
     return menuItemsBase.filter(item => item.allowedRoles.includes(userProfile.role));
-  }, [userProfile?.role]);
+  }, [userProfile?.role, hasMounted]);
 
   const handleSupportSubmit = async () => {
     if (!supportName.trim() || !supportEmail.trim() || !supportMessage.trim()) {
@@ -124,7 +128,7 @@ export default function InicioPage() {
     setIsSendingSupport(false);
   };
   
-  if (loadingAuth || !userProfile) {
+  if (loadingAuth || !userProfile || !hasMounted) {
     return (
       <div className="flex h-[calc(100vh-150px)] w-full flex-col items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
