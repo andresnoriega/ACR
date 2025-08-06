@@ -5,3 +5,11 @@ runConfig:
   # Increase this value if you'd like to automatically spin up
   # more instances in response to increased traffic.
   maxInstances: 1
+
+# Environment variables for the backend.
+# IMPORTANT: Replace the placeholder value with your actual API key.
+# For better security, consider managing secrets with Google Secret Manager:
+# https://firebase.google.com/docs/app-hosting/configure#manage-secrets
+env:
+  - variable: GEMINI_API_KEY
+    value: "PEGA_AQUÍ_TU_CLAVE_DE_API_2"
