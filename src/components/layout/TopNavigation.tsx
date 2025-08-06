@@ -11,7 +11,8 @@ import { useToast } from '@/hooks/use-toast';
 import React, { useState, useEffect, useMemo } from 'react';
 
 const mainMenuItemsBase = [
-  { href: '/inicio', label: 'Inicio', icon: Home, section: 'inicio', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User', 'Usuario Pendiente'] },
+  { href: '/home', label: 'Home', icon: Home, section: 'home', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User', 'Usuario Pendiente'] },
+  { href: '/inicio', label: 'Inicio', icon: Zap, section: 'inicio', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User', 'Usuario Pendiente'] },
   { href: '/eventos', label: 'Eventos', icon: ListOrdered, section: 'eventos', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] },
   { href: '/analisis', label: 'Análisis', icon: BarChart3, section: 'analisis', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Super User'] },
   { href: '/informes', label: 'Informes', icon: FileText, section: 'informes', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] },
@@ -75,8 +76,8 @@ export function TopNavigation() {
               <div className="flex space-x-1 sm:space-x-2 md:space-x-4 overflow-x-auto py-2">
                 {visibleMenuItems.map((item) => {
                   let isActive = false;
-                  if (item.href === '/inicio') { 
-                      isActive = pathname === '/inicio' || pathname === '/';
+                  if (item.href === '/inicio' || item.href === '/home') { 
+                      isActive = pathname === item.href || (pathname === '/' && (item.href === '/home' || item.href === '/inicio'));
                   } else if (item.section === 'config' || item.section === 'usuario' || item.section === 'analisis') {
                     isActive = pathname.startsWith(item.href);
                   } else {

@@ -102,7 +102,7 @@ function AppContent({ children }: { children: ReactNode }) {
     
     // After loading, if there's a user and a profile, and we are on a public page, redirect to home.
     if (currentUser && userProfile && isPublicPage) {
-      router.replace('/inicio');
+      router.replace('/home');
     }
     
     // After loading, if there's NO user and we are on a protected page, redirect to login.
