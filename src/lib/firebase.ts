@@ -4,15 +4,16 @@ import { getFirestore, type Firestore } from "firebase/firestore";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 // =================================================================================
-// CONFIGURACIÓN CENTRALIZADA USANDO VARIABLES DE ENTORNO
+// CONFIGURACIÓN CENTRALIZADA Y ROBUSTA DE FIREBASE
 // =================================================================================
-// Las variables de entorno son proporcionadas por el entorno de App Hosting en producción
-// y por un archivo .env.local (no incluido en git) durante el desarrollo local.
+// Estas claves son públicas y seguras. Su propósito es identificar el proyecto 
+// de Firebase correcto en el lado del cliente. La seguridad se gestiona a través 
+// de las Reglas de Seguridad de Firebase, no por mantener estas claves en secreto.
 export const firebaseConfig = {
   apiKey: "AIzaSyBpRAXR8mTcBTXwuXV5VaXdqCP6yx85MUE",
   authDomain: "almacenador-cloud.firebaseapp.com",
   projectId: "almacenador-cloud",
-  storageBucket: "almacenador-cloud.firebasestorage.app",
+  storageBucket: "almacenador-cloud.appspot.com",
   messagingSenderId: "790911154631",
   appId: "1:790911154631:web:91e2d71d8ccfbf058301e2",
   measurementId: "G-R2NQTYM2GX"
