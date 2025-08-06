@@ -246,12 +246,12 @@ export default function ConfiguracionUsuariosPage() {
 
     const dataToSave = {
         name: formState.name.trim(),
-        email: formState.email.trim(), // Ensure email is included
         role: formState.role,
         empresa: finalEmpresa,
         assignedSites: formState.assignedSites.trim(),
         emailNotifications: formState.emailNotifications,
         permissionLevel: formState.permissionLevel || defaultPermissionLevel,
+        // email field is explicitly omitted from the update object
     };
     
     if (isEditing && currentUserToEdit) {
@@ -260,11 +260,15 @@ export default function ConfiguracionUsuariosPage() {
       
       try {
         const userRef = doc(db, "users", currentUserToEdit.id);
-        await updateDoc(userRef, sanitizeForFirestore(dataToSave));
+        
+        // Create an update object that doesn't include the email
+        const updatePayload = { ...dataToSave };
+        
+        await updateDoc(userRef, sanitizeForFirestore(updatePayload));
         
         if (wasPending && isNowActive) {
             await sendEmailAction({
-                to: dataToSave.email,
+                to: formState.email, // Use email from formState for notification
                 subject: "¡Tu cuenta en Asistente ACR ha sido activada!",
                 body: `Hola ${dataToSave.name},\n\nTu cuenta en Asistente ACR ha sido aprobada por un administrador. Ya puedes iniciar sesión con tu correo y contraseña.\n\nSaludos,\nEl equipo de Asistente ACR`
             });
@@ -282,9 +286,11 @@ export default function ConfiguracionUsuariosPage() {
         toast({ title: "Error al Actualizar", description: "No se pudo actualizar el usuario.", variant: "destructive" });
       }
     } else {
+      // Logic for adding a new user, which includes the email
+      const createPayload = { ...dataToSave, email: formState.email.trim() };
       try {
-        await addDoc(collection(db, "users"), sanitizeForFirestore(dataToSave));
-        toast({ title: "Perfil de Usuario Añadido", description: `El perfil para "${dataToSave.name}" ha sido añadido.` });
+        await addDoc(collection(db, "users"), sanitizeForFirestore(createPayload));
+        toast({ title: "Perfil de Usuario Añadido", description: `El perfil para "${createPayload.name}" ha sido añadido.` });
         if(loggedInUserProfile) fetchInitialData(loggedInUserProfile);
         handleDialogClose(false);
       } catch (error) {
@@ -510,7 +516,7 @@ export default function ConfiguracionUsuariosPage() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="user-email">Correo <span className="text-destructive">*</span></Label>
-                          <Input id="user-email" type="email" value={formState.email} onChange={(e) => setFormState(s => ({...s, email: e.target.value}))} placeholder="Ej: juan.perez@example.com" />
+                          <Input id="user-email" type="email" value={formState.email} onChange={(e) => setFormState(s => ({...s, email: e.target.value}))} placeholder="Ej: juan.perez@example.com" disabled={isEditing} />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="user-role">Rol <span className="text-destructive">*</span></Label>
