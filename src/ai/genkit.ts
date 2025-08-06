@@ -4,7 +4,7 @@ import { firebaseConfig } from '@/lib/firebase'; // Importar la configuración d
 
 // Prioritize a dedicated GEMINI_API_KEY from environment variables
 // Fallback to the general Firebase API key if it's not set.
-const apiKey = process.env.GEMINI_API_KEY || firebaseConfig.apiKey;
+const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
 if (!apiKey && process.env.NODE_ENV === 'development') {
     console.warn(

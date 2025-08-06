@@ -9,13 +9,13 @@ import { getStorage, type FirebaseStorage } from "firebase/storage";
 // =================================================================================
 // Las variables de entorno son proporcionadas por el entorno de App Hosting.
 export const firebaseConfig = {
-  apiKey: "AIzaSyBpRAXR8mTcBTXwuXV5VaXdqCP6yx85MUE",
-  authDomain: "almacenador-cloud.firebaseapp.com",
-  projectId: "almacenador-cloud",
-  storageBucket: "almacenador-cloud.firebasestorage.app",
-  messagingSenderId: "790911154631",
-  appId: "1:790911154631:web:91e2d71d8ccfbf058301e2",
-  measurementId: "G-R2NQTYM2GX"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 export const appHasAllConfig =
@@ -56,5 +56,3 @@ if (appHasAllConfig) {
 }
 
 export { app, auth, db, storage };
-
-    

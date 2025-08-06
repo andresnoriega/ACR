@@ -639,10 +639,11 @@ export const Step5Results: FC<Step5ResultsProps> = ({
 
           <section>
             <SectionTitle title="Anexos" icon={FileArchive} />
-            <SectionContent>
-                <h4 className="font-semibold text-md mb-2">Equipo de Investigación</h4>
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-semibold text-md mb-2 text-primary">Equipo de Investigación</h4>
                 {investigationSessions && investigationSessions.length > 0 ? (
-                  <div className="space-y-3">
+                  <div className="space-y-3 text-sm">
                     {investigationSessions.map((session, index) => (
                       <div key={session.id}>
                         <p className="font-medium text-primary/90">Sesión #{index + 1} - Fecha: {session.sessionDate ? format(parseISO(session.sessionDate), "dd/MM/yyyy") : 'N/A'}</p>
@@ -657,10 +658,11 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                     ))}
                   </div>
                 ) : (
-                  <p>No se registraron sesiones del equipo de investigación.</p>
+                  <p className="text-sm text-muted-foreground">No se registraron sesiones del equipo de investigación.</p>
                 )}
-
-                <h4 className="font-semibold text-md mb-2 mt-4">Hechos Preservados</h4>
+              </div>
+              <div className="pt-2">
+                <h4 className="font-semibold text-md mb-2 text-primary">Hechos Preservados</h4>
                 {preservedFacts && preservedFacts.length > 0 ? (
                     <ul className="list-none pl-0 space-y-2">
                     {preservedFacts.map((fact) => (
@@ -681,9 +683,10 @@ export const Step5Results: FC<Step5ResultsProps> = ({
                     ))}
                     </ul>
                 ) : (
-                    <p>No hay hechos preservados adjuntos a este análisis.</p>
+                    <p className="text-sm text-muted-foreground">No hay hechos preservados adjuntos a este análisis.</p>
                 )}
-            </SectionContent>
+              </div>
+            </div>
           </section>
 
         </CardContent>

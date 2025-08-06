@@ -306,5 +306,3 @@ export interface EfficacyVerificationTask {
     objective: string;
     finalizedDate: string; // ISO string
 }
-
-export type ReportedEventType = 'Incidente' | 'Falla de Equipo' | 'Accidente' | 'No Conformidad' | 'Evento Operacional' | 'No Conformidad Potencial' | 'Hallazgo' | '';
