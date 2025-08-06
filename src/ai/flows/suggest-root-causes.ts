@@ -234,7 +234,7 @@ export async function suggestLatentRootCauses(input: SuggestLatentRootCausesInpu
         } else if (error.message.includes("Billing not enabled")) {
           errorMessage = "[IA no disponible] La facturación no está habilitada en el proyecto de Google Cloud. Por favor, active la facturación para usar la API.";
         } else if (error.message.includes("API_KEY_SERVICE_BLOCKED") || error.message.includes("SERVICE_DISABLED") || error.message.includes("it is disabled")) {
-            errorMessage = "[IA no disponible] La API de Lenguaje Generativo está deshabilitada. Habilítela en Google Cloud y reintente.";
+            errorMessage = "[IA no disponible] La API de Lenguaje Generativo está deshabilitada en Google Cloud. Verifique que esté habilitada y que la facturación del proyecto esté activa.";
         } else {
              errorMessage += ` (${error.message})`;
         }

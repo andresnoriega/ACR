@@ -75,7 +75,7 @@ export async function paraphrasePhenomenon(input: ParaphrasePhenomenonInput): Pr
         } else if (error.message.includes("Billing not enabled")) {
           errorMessage = "[IA no disponible: La facturación no está habilitada en el proyecto de Google Cloud.]";
         } else if (error.message.includes("API_KEY_SERVICE_BLOCKED") || error.message.includes("SERVICE_DISABLED") || error.message.includes("it is disabled")) {
-          errorMessage = "[IA no disponible: La API de Lenguaje Generativo está deshabilitada en Google Cloud.]";
+            errorMessage = "[IA no disponible: La API de Lenguaje Generativo está deshabilitada en Google Cloud. Verifique que esté habilitada y que la facturación del proyecto esté activa.]";
         } else {
           errorMessage += ` (${error.message})`;
         }
