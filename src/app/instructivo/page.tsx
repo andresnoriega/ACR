@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -102,10 +103,10 @@ export default function InstructivoPage() {
                         Comience por describir el evento. Complete los campos obligatorios como el lugar, fecha, tipo, prioridad y una descripción clara del evento foco. Puede registrar acciones inmediatas que se tomaron. Un Admin o Super User debe aprobar el evento para poder continuar.
                     </AccordionContent>
                 </AccordionItem>
-                <AccordionItem value="step-2">
+                <AccordionItem value="item-2">
                     <AccordionTrigger><strong>Paso 2: Hechos</strong> - Recopilación de Datos</AccordionTrigger>
                     <AccordionContent>
-                        Documente los hechos con el formato Quién, Qué, Dónde, Cuándo, Cómo y Cuál/Cuánto. Asigne un Líder de Proyecto y Equipo de Investigación.
+                        Documente los hechos con el formato Quién, Qué, Dónde, Cuándo, Cómo y Cuál/Cuánto. Asigne un Líder de Proyecto y Equipo de Investigación. Si existen, suba los Hechos Preservados (fotos, documentos, etc.) como evidencia.
                     </AccordionContent>
                 </AccordionItem>
                 <AccordionItem value="step-3">
