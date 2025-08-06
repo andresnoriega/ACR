@@ -1,6 +1,5 @@
-
 'use client';
-import { Suspense, useState, useEffect, useCallback, useMemo } from 'react';
+import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
 import { StepNavigation } from '@/components/rca/StepNavigation';
 import { Step1Initiation } from '@/components/rca/Step1Initiation';
@@ -21,7 +20,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
-import { sendEmailAction, paraphrasePhenomenon, suggestLatentRootCauses, generateRcaInsights } from '@/app/actions';
+import { sendEmailAction, paraphrasePhenomenonAction, suggestLatentRootCausesAction, generateRcaInsightsAction } from '@/app/actions';
 import { format, parse, isValid, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -152,7 +151,7 @@ function RCAAnalysisPageComponent() {
   const [isSaving, setIsSaving] = useState(false);
   const [configDataLoaded, setConfigDataLoaded] = useState(false);
 
-  const [lastLoadedAnalysisId, setLastLoadedAnalysisId] = useState<string | null>(null);
+  const lastLoadedAnalysisIdRef = useRef<string | null>(null);
 
   const [availableSitesFromDB, setAvailableSitesFromDB] = useState<Site[]>([]);
   const [availableUsersFromDB, setAvailableUsersFromDB] = useState<FullUserProfile[]>([]);
@@ -304,10 +303,10 @@ function RCAAnalysisPageComponent() {
         setCreatedBy(data.createdBy);
         setAnalysisDocumentId(id);
 
-        if (lastLoadedAnalysisId !== null && lastLoadedAnalysisId !== id) {
+        if (lastLoadedAnalysisIdRef.current !== null && lastLoadedAnalysisIdRef.current !== id) {
           toast({ title: "Análisis Cargado", description: `Se cargó el análisis ID: ${id}` });
         }
-        setLastLoadedAnalysisId(id);
+        lastLoadedAnalysisIdRef.current = id;
         
         const isIshikawaPopulated = data.ishikawaData?.some(cat => cat.causes.length > 0);
         const is5WhysPopulated = data.fiveWhysData?.length > 0 && data.fiveWhysData[0] && data.fiveWhysData[0].becauses && data.fiveWhysData[0].becauses.some(b => b.description.trim() !== '');
@@ -327,7 +326,7 @@ function RCAAnalysisPageComponent() {
 
         return true;
       } else {
-        if (lastLoadedAnalysisId !== id || lastLoadedAnalysisId === null) {
+        if (lastLoadedAnalysisIdRef.current !== id || lastLoadedAnalysisIdRef.current === null) {
             toast({ title: "Análisis No Encontrado", description: `No se encontró un análisis con ID: ${id}. Iniciando nuevo análisis.`, variant: "destructive" });
             setEventData(initialRCAAnalysisState.eventData);
             setImmediateActions(initialRCAAnalysisState.immediateActions);
@@ -358,7 +357,7 @@ function RCAAnalysisPageComponent() {
             setCurrentEventStatus('Pendiente');
             setAnalysisDocumentId(null); 
             setMaxCompletedStep(0); 
-            setLastLoadedAnalysisId(null); 
+            lastLoadedAnalysisIdRef.current = null; 
             router.replace('/analisis', { scroll: false });
         }
         return false;
@@ -399,14 +398,14 @@ function RCAAnalysisPageComponent() {
     } finally {
         setIsLoadingPage(false);
     }
-  }, [toast, router, userProfile, lastLoadedAnalysisId]);
+  }, [toast, router, userProfile]);
 
   const analysisIdFromParams = useMemo(() => searchParams.get('id'), [searchParams]);
 
  useEffect(() => {
     const currentId = analysisIdFromParams;
     const stepParam = searchParams.get('step');
-    const previousLoadedId = lastLoadedAnalysisId;
+    const previousLoadedId = lastLoadedAnalysisIdRef.current;
 
     if (currentId && configDataLoaded) { // Only load if ID exists AND config is loaded
         if (currentId === previousLoadedId && !stepParam) {
@@ -436,7 +435,7 @@ function RCAAnalysisPageComponent() {
             setIsLoadingPage(false);
         });
     } else if (!currentId) { // No ID, just reset
-        if (lastLoadedAnalysisId !== null) { 
+        if (lastLoadedAnalysisIdRef.current !== null) { 
             setEventData(initialRCAAnalysisState.eventData);
             setImmediateActions(initialRCAAnalysisState.immediateActions);
             setImmediateActionCounter(1);
@@ -467,7 +466,7 @@ function RCAAnalysisPageComponent() {
             setAnalysisDocumentId(null); 
             setMaxCompletedStep(0); 
             setStep(1); 
-            setLastLoadedAnalysisId(null); 
+            lastLoadedAnalysisIdRef.current = null; 
         }
         setIsLoadingPage(false);
     } else {
@@ -718,7 +717,7 @@ function RCAAnalysisPageComponent() {
       if (isNewEventCreation && !suppressNavigation) {
         const currentStep = step; 
         const targetUrl = `/analisis?id=${currentId}&step=${currentStep}`;
-        setLastLoadedAnalysisId(currentId); 
+        lastLoadedAnalysisIdRef.current = currentId; 
         router.replace(targetUrl, { scroll: false });
       }
 
@@ -731,7 +730,7 @@ function RCAAnalysisPageComponent() {
       console.error("Error saving data to Firestore: ", error);
       if (isNewEventCreation) { 
         setAnalysisDocumentId(null); 
-        setLastLoadedAnalysisId(null); 
+        lastLoadedAnalysisIdRef.current = null; 
       }
       if (showToast) {
         toast({ title: "Error al Guardar", description: `No se pudo guardar la información. Error: ${(error as Error).message}`, variant: "destructive" });

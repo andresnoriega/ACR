@@ -1,14 +1,11 @@
-
 'use server';
 
-import { db } from '@/lib/firebase';
-import { collection, getDocs, writeBatch, doc, query, updateDoc, where } from 'firebase/firestore';
-import type { RCAAnalysisDocument, FullUserProfile, PlannedAction, SuggestLatentRootCausesInput, GenerateRcaInsightsInput, ParaphrasePhenomenonInput } from '@/types/rca';
-import { differenceInCalendarDays, startOfToday, parseISO } from 'date-fns';
+import type { GenerateRcaInsightsInput, ParaphrasePhenomenonInput, SuggestLatentRootCausesInput } from '@/types/rca';
 import { generateRcaInsights } from '@/ai/flows/generate-rca-insights';
 import { paraphrasePhenomenon } from '@/ai/flows/paraphrase-phenomenon';
 import { suggestLatentRootCauses } from '@/ai/flows/suggest-root-causes';
 
+// Este archivo es el único punto de entrada para las acciones del servidor de IA.
 
 export async function paraphrasePhenomenonAction(input: ParaphrasePhenomenonInput) {
     return await paraphrasePhenomenon(input);
