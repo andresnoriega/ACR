@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -76,6 +77,7 @@ export default function InicioPage() {
   const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
+    // This now confirms the component is running on the client.
     setHasMounted(true);
   }, []);
 
@@ -87,9 +89,12 @@ export default function InicioPage() {
   }, [userProfile]);
   
   const visibleMenuItems = useMemo(() => {
-    if (!hasMounted || !userProfile?.role) return [];
+    // The check now includes `hasMounted` and `!loadingAuth` to be absolutely sure
+    // we are on the client and auth state is settled before calculating the menu.
+    if (!hasMounted || loadingAuth || !userProfile?.role) return [];
+    
     return menuItemsBase.filter(item => item.allowedRoles.includes(userProfile.role));
-  }, [userProfile?.role, hasMounted]);
+  }, [userProfile?.role, hasMounted, loadingAuth]);
 
   const handleSupportSubmit = async () => {
     if (!supportName.trim() || !supportEmail.trim() || !supportMessage.trim()) {
@@ -128,11 +133,14 @@ export default function InicioPage() {
     setIsSendingSupport(false);
   };
   
-  if (loadingAuth || !userProfile || !hasMounted) {
+  // This is the critical part: we show a loader if the component hasn't mounted
+  // or if auth is still loading. This prevents the server from rendering one thing
+  // and the client another.
+  if (!hasMounted || loadingAuth || !userProfile) {
     return (
       <div className="flex h-[calc(100vh-150px)] w-full flex-col items-center justify-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">Cargando...</p>
+        <p className="mt-4 text-muted-foreground">Cargando bienvenida...</p>
       </div>
     );
   }

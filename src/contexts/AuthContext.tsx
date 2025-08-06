@@ -72,78 +72,51 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // This effect handles auth state changes from Firebase
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setLoadingAuth(true); // Start loading whenever auth state might change
+      setLoadingAuth(true); // Always start loading on auth change
       if (user) {
+        // We have a firebase user, but we need the firestore profile.
+        // Keep loading until the profile is fetched or fails.
         setCurrentUser(user);
-        // Fetch profile, but don't mark loading as false until profile is fetched
         const userDocRef = doc(db, 'users', user.uid);
         try {
             const docSnap = await getDoc(userDocRef);
             if (docSnap.exists()) {
               setUserProfile({ id: user.uid, ...docSnap.data() } as FullUserProfile);
             } else {
-              // Handle case where auth user exists but no profile in Firestore
               console.warn(`User profile not found for ${user.email}, logging out.`);
-              await signOut(auth); // Log out inconsistent user
+              await signOut(auth);
               setUserProfile(null);
               setCurrentUser(null);
             }
         } catch(error) {
             console.error("Error fetching user profile:", error);
-            // On error, treat as if logged out
             setUserProfile(null);
             setCurrentUser(null);
+        } finally {
+            setLoadingAuth(false); // Finish loading only after profile fetch attempt
         }
-
       } else {
+        // No user, clear all data and finish loading.
         setCurrentUser(null);
         setUserProfile(null);
+        setLoadingAuth(false);
       }
-      setLoadingAuth(false); // Finish loading after all user data is settled
     });
 
     return () => unsubscribe();
   }, []);
 
   const loginWithEmail = useCallback(async (email: string, pass: string): Promise<void> => {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const userCredential = await signInWithEmailAndPassword(auth, email, pass);
-        // `onAuthStateChanged` will fire upon successful sign-in.
-        // We need to wait for the userProfile state to be updated by its listener.
-        
-        // This is a common pattern to wait for state that's updated by an external listener.
-        const checkUserProfile = () => {
-          // The user from the credential
-          const loggedInUser = userCredential.user;
-
-          // Directly fetch profile after login instead of waiting for the listener
-          const userDocRef = doc(db, 'users', loggedInUser.uid);
-          getDoc(userDocRef).then(docSnap => {
-            if (docSnap.exists()) {
-              // Manually update state here for immediate feedback and resolve promise
-              setUserProfile({ id: loggedInUser.uid, ...docSnap.data() } as FullUserProfile);
-              setCurrentUser(loggedInUser);
-              setLoadingAuth(false);
-              resolve();
-            } else {
-              // If profile doesn't exist, it's an inconsistent state. Reject.
-              signOut(auth);
-              reject(new Error("El perfil de usuario no se encontró. Contacte al administrador."));
-            }
-          }).catch(error => {
-            signOut(auth);
-            reject(error);
-          });
-        };
-        
-        // We can call it directly since onAuthStateChanged might have a delay
-        checkUserProfile();
-
-      } catch (error) {
-        reject(error);
-      }
-    });
+    setLoadingAuth(true); // Start loading process on login attempt
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, pass);
+      // onAuthStateChanged will handle setting the user and profile.
+      // We don't need to resolve the promise here; the state change will trigger re-renders.
+      // The `loadingAuth` state will be managed by the onAuthStateChanged listener.
+    } catch (error) {
+      setLoadingAuth(false); // On error, stop loading so UI can respond
+      throw error; // Re-throw the error to be caught by the login page
+    }
   }, []);
   
   const registerWithEmail = async (email: string, pass: string, name: string) => {

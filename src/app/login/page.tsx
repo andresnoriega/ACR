@@ -28,24 +28,21 @@ export default function LoginPage() {
     }
     setIsLoading(true);
     try {
-      // The loginWithEmail function from context now handles the full
-      // user profile loading and will only resolve when ready.
+      // The loginWithEmail function now handles the loading state internally.
+      // We just need to wait for it to complete. The redirection will be handled
+      // by the ClientProviders layout component based on the updated auth state.
       await loginWithEmail(email, password);
       
-      // The redirect is now handled by the main layout component based on auth state,
-      // which is more reliable. We can just show a success message here.
-      toast({ title: 'Inicio de Sesión Exitoso', description: 'Bienvenido de nuevo.' });
+      // We don't need to manually push to router here. The layout component will do it.
+      // A success toast is also good to have.
+      toast({ title: 'Inicio de Sesión Exitoso', description: 'Redirigiendo a la página de inicio...' });
       
-      // The redirect will be handled automatically by the effect in ClientProviders.tsx
-      // router.push('/inicio'); // This immediate push is removed.
-
     } catch (error: any) {
-      // Log the full error for debugging purposes in the developer console
       console.error("Error en inicio de sesión:", error);
       
       let errorMessage = "Ocurrió un error desconocido.";
 
-      if (error.code) { // Firebase errors have a 'code' property
+      if (error.code) { 
         switch (error.code) {
           case 'auth/user-not-found':
           case 'auth/wrong-password':
@@ -59,7 +56,6 @@ export default function LoginPage() {
             errorMessage = `Error: ${error.message}`;
         }
       } else {
-        // Handle custom errors thrown from the context
         errorMessage = error.message;
       }
       
@@ -68,9 +64,8 @@ export default function LoginPage() {
         description: errorMessage,
         variant: 'destructive',
       });
-      setIsLoading(false);
+      setIsLoading(false); // Only set loading to false on error, so button stays disabled on success
     }
-    // Don't set isLoading to false on success, to prevent button re-enabling during the redirect transition
   };
 
   return (
