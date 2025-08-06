@@ -1,5 +1,4 @@
 
-'use server';
 /**
  * @fileOverview Suggests potential latent root causes based on validated findings from various analysis techniques.
  *
