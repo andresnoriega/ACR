@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Layers, BrainCircuit, Activity, Shield, ClipboardCheck, Workflow, ArrowRight, Loader2 } from 'lucide-react';
+import { Layers, BrainCircuit, Activity, Shield, ClipboardCheck, Workflow, ArrowRight, Loader2, GitBranch, Share2, ListChecks } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -62,10 +62,10 @@ export default function PublicHomePage() {
         <section className="py-20 text-center bg-secondary/30">
           <div className="container">
             <h1 className="text-4xl md:text-5xl font-bold font-headline text-primary mb-4 leading-tight">
-              Más que un CMMS: La Evolución a la Gestión del Rendimiento de Activos (APM)
+              Simplifica tu Análisis de Causa Raíz (ACR)
             </h1>
             <p className="max-w-3xl mx-auto text-lg text-muted-foreground mb-8">
-              Diamant no solo gestiona tu mantenimiento. Lo optimiza. Unifica tus operaciones de CMMS con la inteligencia del APM para maximizar la fiabilidad, predecir fallos y tomar decisiones estratégicas que impulsan tu rentabilidad.
+              Asistente ACR es una herramienta intuitiva que te guía para identificar el origen de los problemas, definir acciones efectivas y prevenir su recurrencia, potenciando la mejora continua en tu organización.
             </p>
             <Button asChild size="lg">
               <Link href="/registro">
@@ -79,26 +79,26 @@ export default function PublicHomePage() {
           <div className="container">
             <div className="text-center mb-12">
               <h2 className="text-3xl font-bold font-headline">Funcionalidades Clave</h2>
-              <p className="text-muted-foreground mt-2">Descubre cómo Diamant transforma cada aspecto de tu gestión de mantenimiento.</p>
+              <p className="text-muted-foreground mt-2">Descubre cómo Asistente ACR potencia tus análisis.</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              <FeatureCard icon={Layers} title="Gemelos Digitales Interactivos">
-                Visualiza tus activos con diagramas dinámicos que muestran componentes y datos de telemetría en tiempo real, facilitando el diagnóstico.
+              <FeatureCard icon={Workflow} title="Análisis Guiado en 5 Pasos">
+                Sigue un flujo de trabajo estructurado, desde la iniciación del evento hasta la validación de resultados, asegurando un análisis completo.
               </FeatureCard>
-              <FeatureCard icon={BrainCircuit} title="Análisis de Confiabilidad (MTBF/MTTR y Disponibilidad)">
-                Calcula automáticamente MTBF, MTTR y Disponibilidad. Utiliza el análisis Jack-Knife para identificar activos críticos y tomar decisiones basadas en datos.
+              <FeatureCard icon={Share2} title="Técnicas de Análisis Integradas">
+                Utiliza herramientas interactivas como Ishikawa, 5 Porqués y Árbol de Causas (CTM) para explorar y documentar las causas de forma visual.
               </FeatureCard>
-              <FeatureCard icon={Activity} title="Indicadores de Salud">
-                Monitoriza la condición de tus activos con un índice de salud en tiempo real, calculado a partir de las variables de telemetría que tú definas.
+              <FeatureCard icon={BrainCircuit} title="Asistencia con IA">
+                Obtén sugerencias de causas raíz latentes y genera borradores de resúmenes ejecutivos con inteligencia artificial para acelerar tu análisis.
               </FeatureCard>
-              <FeatureCard icon={Shield} title="Gestión de Riesgos">
-                Evalúa la criticidad de tus activos con una matriz de riesgo configurable. Prioriza recursos donde más importa.
+              <FeatureCard icon={ListChecks} title="Gestión de Planes de Acción">
+                Define, asigna y da seguimiento a las acciones correctivas. Los responsables pueden adjuntar evidencias y marcar tareas para su validación.
               </FeatureCard>
-              <FeatureCard icon={ClipboardCheck} title="Planificación Inteligente">
-                Genera planes de mantenimiento detallados basados en el tipo de activo o manuales técnicos, ahorrando horas de trabajo.
+              <FeatureCard icon={Layers} title="Informes y Dashboards">
+                Visualiza el estado de tus análisis y planes de acción con gráficos y resúmenes. Exporta tus datos y comparte informes completos.
               </FeatureCard>
-              <FeatureCard icon={Workflow} title="Flujo de Trabajo Completo">
-                Gestiona todo el ciclo de tu mantenimiento, desde la creación de un aviso con QR hasta el cierre de la orden.
+              <FeatureCard icon={Activity} title="Colaboración en Equipo">
+                Gestiona roles y permisos para tu equipo. Define líderes de proyecto y equipos de investigación para cada análisis.
               </FeatureCard>
             </div>
           </div>
@@ -106,9 +106,9 @@ export default function PublicHomePage() {
         
         <section className="py-20 bg-secondary/30">
            <div className="container text-center">
-             <h2 className="text-3xl font-bold font-headline">Mejora la Gestión de tus Activos</h2>
+             <h2 className="text-3xl font-bold font-headline">Transforma Problemas en Oportunidades</h2>
              <p className="max-w-3xl mx-auto text-lg text-muted-foreground mt-4">
-                Toma el control total de tus activos. Diamant te ofrece las herramientas para centralizar información, optimizar el ciclo de vida de tus equipos y tomar decisiones basadas en el riesgo para maximizar su rendimiento y disponibilidad.
+                Deja de tratar solo los síntomas. Con Asistente ACR, obtienes las herramientas para descubrir las causas fundamentales, implementar soluciones duraderas y fomentar una cultura de mejora continua.
              </p>
            </div>
         </section>
