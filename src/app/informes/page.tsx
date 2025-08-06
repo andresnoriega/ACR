@@ -9,13 +9,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from "@/hooks/use-toast";
 import type { ReportedEvent, ReportedEventType, PriorityType, Site, RCAAnalysisDocument, IdentifiedRootCause, PlannedAction } from '@/types/rca';
-import { ListOrdered, PieChart as PieChartIcon, BarChart as BarChartIcon, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, Loader2, FileDown, History, ChevronsRight, Home, ListChecks, Bell, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
+import { ListOrdered, PieChart as PieChartIcon, BarChart as BarChartIcon, ListFilter, Globe, CalendarDays, AlertTriangle, Flame, ActivityIcon, Search, RefreshCcw, Loader2, FileDown, History, ChevronsRight, Home, ListChecks, Bell, ArrowUp, ArrowDown, ChevronsUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, query, orderBy, where, type QueryConstraint } from "firebase/firestore";
 import { useAuth } from '@/contexts/AuthContext';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format, parseISO, isValid as isValidDate } from 'date-fns';
+import { format, parseISO, isValid as isValidDate, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, addDays, subDays, addMonths, subMonths, addYears, subYears } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -63,6 +63,91 @@ interface SortConfigActionPlan {
     key: SortableActionPlanKey | null;
     direction: 'ascending' | 'descending';
 }
+
+// --- Componente de Fecha Mejorado ---
+const DatePickerWithPresets: FC<{
+  dateRange: DateRange | undefined;
+  setDateRange: (range: DateRange | undefined) => void;
+}> = ({ dateRange, setDateRange }) => {
+  const [currentView, setCurrentView] = useState<'week' | 'month' | 'year' | 'range'>('range');
+  const [referenceDate, setReferenceDate] = useState(new Date());
+
+  const setPresetRange = (preset: 'week' | 'month' | 'year') => {
+    setCurrentView(preset);
+    const now = new Date();
+    setReferenceDate(now);
+    if (preset === 'week') {
+      setDateRange({ from: startOfWeek(now, { weekStartsOn: 1 }), to: endOfWeek(now, { weekStartsOn: 1 }) });
+    } else if (preset === 'month') {
+      setDateRange({ from: startOfMonth(now), to: endOfMonth(now) });
+    } else if (preset === 'year') {
+      setDateRange({ from: startOfYear(now), to: endOfYear(now) });
+    }
+  };
+
+  const navigatePeriod = (direction: 'prev' | 'next') => {
+    let newRefDate;
+    if (currentView === 'week') {
+      newRefDate = direction === 'prev' ? subDays(referenceDate, 7) : addDays(referenceDate, 7);
+      setDateRange({ from: startOfWeek(newRefDate, { weekStartsOn: 1 }), to: endOfWeek(newRefDate, { weekStartsOn: 1 }) });
+    } else if (currentView === 'month') {
+      newRefDate = direction === 'prev' ? subMonths(referenceDate, 1) : addMonths(referenceDate, 1);
+      setDateRange({ from: startOfMonth(newRefDate), to: endOfMonth(newRefDate) });
+    } else if (currentView === 'year') {
+      newRefDate = direction === 'prev' ? subYears(referenceDate, 1) : addYears(referenceDate, 1);
+      setDateRange({ from: startOfYear(newRefDate), to: endOfYear(newRefDate) });
+    } else {
+      return; // No navigation for custom range
+    }
+    setReferenceDate(newRefDate);
+  };
+  
+  const handleManualDateChange = (range: DateRange | undefined) => {
+    setDateRange(range);
+    setCurrentView('range');
+  };
+
+  return (
+    <div className="flex items-center gap-1">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button id="filter-date-range" variant="outline" className="w-full justify-start text-left font-normal flex-grow">
+            {dateRange?.from ? (
+              dateRange.to ? (
+                `${format(dateRange.from, "LLL dd, y", { locale: es })} - ${format(dateRange.to, "LLL dd, y", { locale: es })}`
+              ) : (
+                format(dateRange.from, "LLL dd, y", { locale: es })
+              )
+            ) : (
+              <span>Seleccione un rango</span>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            initialFocus
+            mode="range"
+            defaultMonth={dateRange?.from}
+            selected={dateRange}
+            onSelect={handleManualDateChange}
+            numberOfMonths={2}
+            locale={es}
+          />
+        </PopoverContent>
+      </Popover>
+      <div className="flex items-center gap-1 bg-secondary p-1 rounded-md">
+         <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => setPresetRange('week')}>Semana</Button>
+         <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => setPresetRange('month')}>Mes</Button>
+         <Button variant="ghost" size="sm" className="h-8 px-2" onClick={() => setPresetRange('year')}>Año</Button>
+      </div>
+      <div className="flex items-center gap-0.5">
+        <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => navigatePeriod('prev')} disabled={currentView === 'range'}><ChevronLeft className="h-4 w-4" /></Button>
+        <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => navigatePeriod('next')} disabled={currentView === 'range'}><ChevronRight className="h-4 w-4" /></Button>
+      </div>
+    </div>
+  );
+};
+
 
 // --- Chart Components ---
 
@@ -580,7 +665,11 @@ export default function InformesPage() {
   };
 
   const handleFilterChange = (field: keyof Filters, value: any) => {
-    setFilters(prev => ({ ...prev, [field]: value === ALL_FILTER_VALUE ? '' : value }));
+    if (field === 'dateRange') {
+        setFilters(prev => ({ ...prev, dateRange: value }));
+    } else {
+        setFilters(prev => ({ ...prev, [field]: value === ALL_FILTER_VALUE ? '' : value }));
+    }
   };
 
   const isLoading = isLoadingData || loadingAuth;
@@ -647,34 +736,9 @@ export default function InformesPage() {
               </SelectContent>
             </Select>
           </div>
-           <div>
+           <div className="md:col-span-2 lg:col-span-1">
             <Label htmlFor="filter-date-range" className="flex items-center mb-1"><CalendarDays className="mr-1.5 h-4 w-4 text-muted-foreground"/>Rango de Fechas</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button id="filter-date-range" variant="outline" className="w-full justify-start text-left font-normal">
-                  {filters.dateRange?.from ? (
-                    filters.dateRange.to ? (
-                      `${format(filters.dateRange.from, "LLL dd, y", {locale: es})} - ${format(filters.dateRange.to, "LLL dd, y", {locale: es})}`
-                    ) : (
-                      format(filters.dateRange.from, "LLL dd, y", {locale: es})
-                    )
-                  ) : (
-                    <span>Seleccione un rango</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  initialFocus
-                  mode="range"
-                  defaultMonth={filters.dateRange?.from}
-                  selected={filters.dateRange}
-                  onSelect={(range) => handleFilterChange('dateRange', range)}
-                  numberOfMonths={2}
-                  locale={es}
-                />
-              </PopoverContent>
-            </Popover>
+            <DatePickerWithPresets dateRange={filters.dateRange} setDateRange={(range) => handleFilterChange('dateRange', range)} />
           </div>
         </CardContent>
         <CardFooter className="flex justify-start gap-3 pt-4 border-t">
