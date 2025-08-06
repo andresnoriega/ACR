@@ -62,7 +62,7 @@ export default function ConfiguracionUsuariosPage() {
 
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [currentUser, setCurrentUser] = useState<UserConfigProfile | null>(null);
+  const [currentUserToEdit, setCurrentUserToEdit] = useState<UserConfigProfile | null>(null);
 
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -189,7 +189,7 @@ export default function ConfiguracionUsuariosPage() {
     setUserEmpresa(loggedInUserProfile?.role === 'Admin' && loggedInUserProfile.empresa ? loggedInUserProfile.empresa : '');
     setUserAssignedSites('');
     setUserEmailNotifications(false);
-    setCurrentUser(null);
+    setCurrentUserToEdit(null);
     setIsEditing(false);
   };
 
@@ -202,7 +202,7 @@ export default function ConfiguracionUsuariosPage() {
   const openEditUserDialog = (user: UserConfigProfile) => {
     resetUserForm();
     setIsEditing(true);
-    setCurrentUser(user);
+    setCurrentUserToEdit(user);
     setUserName(user.name);
     setUserEmail(user.email);
     setUserRole(user.role);
@@ -210,6 +210,13 @@ export default function ConfiguracionUsuariosPage() {
     setUserAssignedSites(user.assignedSites || '');
     setUserEmailNotifications(user.emailNotifications || false); 
     setIsUserDialogOpen(true);
+  };
+
+  const handleDialogClose = (open: boolean) => {
+      if (!open) {
+          resetUserForm();
+      }
+      setIsUserDialogOpen(open);
   };
 
   const handleSaveUser = async () => {
@@ -232,8 +239,8 @@ export default function ConfiguracionUsuariosPage() {
         finalEmpresa = loggedInUserProfile.empresa;
     }
 
-    if (isEditing && currentUser) {
-      const wasPending = currentUser.role === 'Usuario Pendiente';
+    if (isEditing && currentUserToEdit) {
+      const wasPending = currentUserToEdit.role === 'Usuario Pendiente';
       const isNowActive = userRole && userRole !== 'Usuario Pendiente' && userRole !== '';
       
       const updatedUserData: Partial<UserConfigProfile> = {
@@ -245,13 +252,12 @@ export default function ConfiguracionUsuariosPage() {
         emailNotifications: userEmailNotifications,
       };
 
-      // Ensure permissionLevel is set if the user is being activated
-      if (wasPending && isNowActive && !currentUser.permissionLevel) {
+      if (wasPending && isNowActive && !currentUserToEdit.permissionLevel) {
           updatedUserData.permissionLevel = defaultPermissionLevel;
       }
       
       try {
-        const userRef = doc(db, "users", currentUser.id);
+        const userRef = doc(db, "users", currentUserToEdit.id);
         await updateDoc(userRef, sanitizeForFirestore(updatedUserData));
         
         if (wasPending && isNowActive) {
@@ -302,8 +308,7 @@ export default function ConfiguracionUsuariosPage() {
     }
     
     setIsSubmitting(false);
-    resetUserForm();
-    setIsUserDialogOpen(false);
+    handleDialogClose(false);
   };
 
   const openDeleteDialog = (user: UserConfigProfile) => {
@@ -499,7 +504,7 @@ export default function ConfiguracionUsuariosPage() {
                 <FileDown className="mr-2 h-4 w-4" />
                 Exportar Excel
               </Button>
-              <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
+              <Dialog open={isUserDialogOpen} onOpenChange={handleDialogClose}>
                 <DialogTrigger asChild>
                   <Button variant="default" onClick={openAddUserDialog} disabled={isLoading || loadingAuth}>
                     <PlusCircle className="mr-2 h-4 w-4" />
@@ -566,7 +571,7 @@ export default function ConfiguracionUsuariosPage() {
                     </div>
                     <DialogFooter>
                         <DialogClose asChild>
-                        <Button type="button" variant="outline" onClick={() => { resetUserForm(); setIsUserDialogOpen(false);}} disabled={isSubmitting}>Cancelar</Button>
+                        <Button type="button" variant="outline" onClick={() => handleDialogClose(false)} disabled={isSubmitting}>Cancelar</Button>
                         </DialogClose>
                         <Button type="button" onClick={handleSaveUser} disabled={isSubmitting}>
                          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
