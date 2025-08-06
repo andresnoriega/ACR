@@ -248,7 +248,7 @@ export default function ConfiguracionUsuariosPage() {
       const wasPending = currentUserToEdit.role === 'Usuario Pendiente';
       const isNowActive = formState.role && formState.role !== 'Usuario Pendiente' && formState.role !== '';
       
-      const dataToUpdate: Partial<UserConfigProfile> = {
+      const dataToUpdate = {
         name: formState.name.trim(),
         email: formState.email.trim(),
         role: formState.role,
