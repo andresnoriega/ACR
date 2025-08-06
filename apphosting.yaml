@@ -12,4 +12,4 @@ runConfig:
 # https://firebase.google.com/docs/app-hosting/configure#manage-secrets
 env:
   - variable: GEMINI_API_KEY
-    value: "PEGA_AQUÍ_TU_CLAVE_DE_API_2"
+    value: AIzaSyBoEFymhTMWNRYZhRM2REEd90wtPtLydwo
