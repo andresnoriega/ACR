@@ -95,7 +95,7 @@ const generateRcaInsightsFlowInternalPromise = aiPromise.then(ai => ai.defineFlo
 
 export async function generateRcaInsights(input: GenerateRcaInsightsInput): Promise<GenerateRcaInsightsOutput> {
   const ai = await aiPromise;
-  // Check if the AI object is a mock, indicating an initialization issue.
+  // Check if the AI object is mocked, indicating an initialization issue.
   if (ai.isMocked) {
       console.warn("Genkit 'ai' object is mocked. AI insights will be disabled.");
       return { summary: "[Resumen IA Deshabilitado por problemas de Genkit]" };
@@ -110,14 +110,14 @@ export async function generateRcaInsights(input: GenerateRcaInsightsInput): Prom
     console.error("Error executing generateRcaInsights:", error);
     let errorMessage = "[Resumen IA no disponible: Error al procesar la solicitud con IA]";
     if (error instanceof Error) {
-        if (error.message.includes("API key not valid")) {
+        if (error.message.includes("API_KEY_SERVICE_BLOCKED") || error.message.includes("SERVICE_DISABLED") || error.message.includes("it is disabled")) {
+            errorMessage = "[Resumen IA no disponible: La API de Lenguaje Generativo está deshabilitada. Habilítela en la consola de Google Cloud y reintente.]";
+        } else if (error.message.includes("API key not valid")) {
             errorMessage = "[Resumen IA no disponible: La API Key de Google AI no es válida. Verifique la configuración.]";
         } else if (error.message.includes("model may not exist")) {
             errorMessage = "[Resumen IA no disponible: El modelo configurado no existe o no está disponible.]";
         } else if (error.message.includes("Must supply a `model`")) {
              errorMessage = "[Resumen IA no disponible: Problema con la configuración del modelo o la API Key. Verifique la consola.]";
-        } else if (error.message.includes("SERVICE_DISABLED") || error.message.includes("it is disabled")) {
-            errorMessage = "[Resumen IA no disponible: La API de Lenguaje Generativo está deshabilitada. Habilítela en la consola de Google Cloud y reintente.]";
         } else {
             errorMessage += ` (${error.message})`;
         }

@@ -81,7 +81,7 @@ export async function paraphrasePhenomenon(input: ParaphrasePhenomenonInput): Pr
     console.error("Error executing paraphrasePhenomenon:", error);
     let errorMessage = "[IA no disponible: Error al procesar la solicitud]";
     if (error instanceof Error) {
-        if (error.message.includes("SERVICE_DISABLED") || error.message.includes("it is disabled")) {
+        if (error.message.includes("API_KEY_SERVICE_BLOCKED") || error.message.includes("SERVICE_DISABLED") || error.message.includes("it is disabled")) {
           errorMessage = "[IA no disponible: La API de Lenguaje Generativo está deshabilitada. Habilítela en la consola de Google Cloud y reintente.]";
         } else {
           errorMessage += ` (${error.message})`;
