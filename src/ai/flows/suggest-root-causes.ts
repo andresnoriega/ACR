@@ -1,4 +1,5 @@
 
+'use server';
 /**
  * @fileOverview Suggests potential latent root causes based on validated findings from various analysis techniques.
  *
@@ -7,7 +8,7 @@
  * - SuggestLatentRootCausesOutput - The return type for the function.
  */
 
-import { ai } from '@/ai/genkit';
+import { ai } from '@/ai/dev';
 import {z} from 'zod';
 
 

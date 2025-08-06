@@ -1,4 +1,5 @@
 
+'use server';
 /**
  * @fileOverview Paraphrases a structured phenomenon description into a fluid text.
  *
@@ -7,7 +8,7 @@
  * - ParaphrasePhenomenonOutput - The return type for the paraphrasePhenomenon function.
  */
 
-import { ai } from '@/ai/genkit';
+import { ai } from '@/ai/dev';
 import {z} from 'zod';
 
 const ParaphrasePhenomenonInputSchema = z.object({

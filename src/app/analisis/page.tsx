@@ -1,3 +1,4 @@
+
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
@@ -20,7 +21,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
-import { sendEmailAction, paraphrasePhenomenonAction, suggestLatentRootCausesAction, generateRcaInsightsAction } from '@/app/actions';
+import { sendEmailAction } from '@/app/actions';
+import { paraphrasePhenomenon } from '@/ai/flows/paraphrase-phenomenon';
+import { suggestLatentRootCauses } from '@/ai/flows/suggest-root-causes';
+import { generateRcaInsights } from '@/ai/flows/generate-rca-insights';
 import { format, parse, isValid, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 

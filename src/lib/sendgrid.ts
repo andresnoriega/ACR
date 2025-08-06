@@ -1,24 +1,5 @@
+
 'use server';
-
-import type { GenerateRcaInsightsInput, ParaphrasePhenomenonInput, SuggestLatentRootCausesInput } from '@/types/rca';
-import { generateRcaInsights } from '@/ai/flows/generate-rca-insights';
-import { paraphrasePhenomenon } from '@/ai/flows/paraphrase-phenomenon';
-import { suggestLatentRootCauses } from '@/ai/flows/suggest-root-causes';
-
-// Este archivo es el único punto de entrada para las acciones del servidor de IA.
-
-export async function paraphrasePhenomenonAction(input: ParaphrasePhenomenonInput) {
-    return await paraphrasePhenomenon(input);
-}
-
-export async function suggestLatentRootCausesAction(input: SuggestLatentRootCausesInput) {
-    return await suggestLatentRootCauses(input);
-}
-
-export async function generateRcaInsightsAction(input: GenerateRcaInsightsInput) {
-    return await generateRcaInsights(input);
-}
-
 
 interface EmailPayload {
   to: string;
