@@ -100,7 +100,7 @@ export default function HomePage() {
         ))}
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6">
+      <div className="grid grid-cols-1 gap-6 pt-6">
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-3"><Phone className="h-6 w-6 text-primary" />Soporte Técnico</CardTitle>
