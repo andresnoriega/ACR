@@ -8,10 +8,8 @@
  * - GenerateRcaInsightsOutput - The return type for the generateRcaInsights function.
  */
 
-import { getAi } from '@/ai/genkit';
+import { ai } from 'genkit';
 import { z } from 'zod'; 
-
-const aiPromise = getAi();
 
 const GenerateRcaInsightsInputSchema = z.object({
   focusEventDescription: z.string().describe('The main description of the event being analyzed.'),
@@ -29,7 +27,7 @@ const GenerateRcaInsightsOutputSchema = z.object({
 });
 export type GenerateRcaInsightsOutput = z.infer<typeof GenerateRcaInsightsOutputSchema>;
 
-const promptPromise = aiPromise.then(ai => ai.definePrompt({
+const prompt = ai.definePrompt({
   name: 'generateRcaInsightsPrompt',
   model: 'googleai/gemini-1.5-pro-latest',
   input: {schema: GenerateRcaInsightsInputSchema},
@@ -73,16 +71,15 @@ const promptPromise = aiPromise.then(ai => ai.definePrompt({
 
     Genere el resumen a continuación:
   `,
-}));
+});
 
-const generateRcaInsightsFlowInternalPromise = aiPromise.then(ai => ai.defineFlow(
+const generateRcaInsightsFlowInternal = ai.defineFlow(
   {
     name: 'generateRcaInsightsFlow',
     inputSchema: GenerateRcaInsightsInputSchema,
     outputSchema: GenerateRcaInsightsOutputSchema,
   },
   async (input) => {
-    const prompt = await promptPromise;
     const {output} = await prompt(input);
     if (!output) {
       console.error("The AI model did not return an output for generateRcaInsightsFlow. Input:", input);
@@ -90,34 +87,25 @@ const generateRcaInsightsFlowInternalPromise = aiPromise.then(ai => ai.defineFlo
     }
     return output;
   }
-));
+);
 
 
 export async function generateRcaInsights(input: GenerateRcaInsightsInput): Promise<GenerateRcaInsightsOutput> {
-  const ai = await aiPromise;
-  // Check if the AI object is mocked, indicating an initialization issue.
-  if (ai.isMocked) {
-      console.warn("Genkit 'ai' object is mocked. AI insights will be disabled.");
-      return { summary: "[Resumen IA Deshabilitado por problemas de Genkit]" };
-  }
-
   try {
-    const generateRcaInsightsFlowInternal = await generateRcaInsightsFlowInternalPromise;
     const result = await generateRcaInsightsFlowInternal(input);
     return result;
-
   } catch (error) {
     console.error("Error executing generateRcaInsights:", error);
-    let errorMessage = "[Resumen IA no disponible: Error al procesar la solicitud con IA]";
+    let errorMessage = "[IA no disponible: Error al procesar la solicitud]";
     if (error instanceof Error) {
         if (error.message.includes("API_KEY_SERVICE_BLOCKED") || error.message.includes("SERVICE_DISABLED") || error.message.includes("it is disabled")) {
-            errorMessage = "[Resumen IA no disponible: La API de Lenguaje Generativo está deshabilitada. Habilítela en la consola de Google Cloud y reintente.]";
+            errorMessage = "[IA no disponible: La API de Lenguaje Generativo está deshabilitada. Habilítela en la consola de Google Cloud y reintente.]";
         } else if (error.message.includes("API key not valid")) {
-            errorMessage = "[Resumen IA no disponible: La API Key de Google AI no es válida. Verifique la configuración.]";
+            errorMessage = "[IA no disponible: La API Key de Google AI no es válida. Verifique la configuración.]";
         } else if (error.message.includes("model may not exist")) {
-            errorMessage = "[Resumen IA no disponible: El modelo configurado no existe o no está disponible.]";
+            errorMessage = "[IA no disponible: El modelo configurado no existe o no está disponible.]";
         } else if (error.message.includes("Must supply a `model`")) {
-             errorMessage = "[Resumen IA no disponible: Problema con la configuración del modelo o la API Key. Verifique la consola.]";
+             errorMessage = "[IA no disponible: Problema con la configuración del modelo o la API Key. Verifique la consola.]";
         } else {
             errorMessage += ` (${error.message})`;
         }

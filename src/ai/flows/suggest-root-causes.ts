@@ -8,10 +8,9 @@
  * - SuggestLatentRootCausesOutput - The return type for the function.
  */
 
-import { getAi } from '@/ai/genkit';
+import { ai } from 'genkit';
 import {z} from 'zod';
 
-const aiPromise = getAi();
 
 // --- Ishikawa Schemas ---
 const IshikawaCauseSchema = z.object({
@@ -98,7 +97,7 @@ const SuggestLatentRootCausesOutputSchema = z.object({
 export type SuggestLatentRootCausesOutput = z.infer<typeof SuggestLatentRootCausesOutputSchema>;
 
 
-const promptPromise = aiPromise.then(ai => ai.definePrompt({
+const prompt = ai.definePrompt({
   name: 'suggestLatentRootCausesPrompt',
   model: 'googleai/gemini-1.5-pro-latest',
   input: { schema: SuggestLatentRootCausesInputSchema },
@@ -170,9 +169,9 @@ const promptPromise = aiPromise.then(ai => ai.definePrompt({
 
     Ahora, basándote en la información validada anterior, genera tus sugerencias de causas raíz latentes.
   `,
-}));
+});
 
-const suggestLatentRootCausesFlowPromise = aiPromise.then(ai => ai.defineFlow(
+const suggestLatentRootCausesFlow = ai.defineFlow(
   {
     name: 'suggestLatentRootCausesFlow',
     inputSchema: SuggestLatentRootCausesInputSchema,
@@ -213,7 +212,6 @@ const suggestLatentRootCausesFlowPromise = aiPromise.then(ai => ai.defineFlow(
       ctmData: filteredCtm,
     };
     
-    const prompt = await promptPromise;
     const { output } = await prompt(promptInput);
 
     if (!output || !output.suggestedLatentCauses || output.suggestedLatentCauses.length === 0) {
@@ -221,18 +219,11 @@ const suggestLatentRootCausesFlowPromise = aiPromise.then(ai => ai.defineFlow(
     }
     return output;
   }
-));
+);
 
 
 export async function suggestLatentRootCauses(input: SuggestLatentRootCausesInput): Promise<SuggestLatentRootCausesOutput> {
-  const ai = await aiPromise;
-  if (ai.isMocked) {
-    console.warn("Genkit 'ai' object is mocked. AI functionality will be disabled.");
-    return { suggestedLatentCauses: ["[Sugerencias IA Deshabilitadas] Genkit no está configurado correctamente."] };
-  }
-  
   try {
-    const suggestLatentRootCausesFlow = await suggestLatentRootCausesFlowPromise;
     const result = await suggestLatentRootCausesFlow(input);
     return result;
   } catch (error) {

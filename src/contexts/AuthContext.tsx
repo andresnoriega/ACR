@@ -8,6 +8,7 @@ import { getStorage, ref as storageRef, uploadString, getDownloadURL } from "fir
 import { app, auth, db, storage } from '@/lib/firebase';
 import type { FullUserProfile } from '@/types/rca';
 import { sanitizeForFirestore } from '@/lib/utils';
+import { sendEmailAction } from '@/app/actions';
 
 
 interface AuthContextType {
