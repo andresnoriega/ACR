@@ -72,6 +72,7 @@ export default function ConfiguracionUsuariosPage() {
       empresa: '',
       assignedSites: '',
       emailNotifications: false,
+      permissionLevel: '' as FullUserProfile['permissionLevel'],
   });
   
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -185,7 +186,7 @@ export default function ConfiguracionUsuariosPage() {
     return ALL_USER_ROLES.filter(role => role !== 'Super User');
   }, [loggedInUserProfile]);
 
-  const resetFormState = () => {
+  const resetFormState = useCallback(() => {
     setFormState({
         name: '',
         email: '',
@@ -193,9 +194,10 @@ export default function ConfiguracionUsuariosPage() {
         empresa: loggedInUserProfile?.role === 'Admin' && loggedInUserProfile.empresa ? loggedInUserProfile.empresa : '',
         assignedSites: '',
         emailNotifications: false,
+        permissionLevel: '',
     });
     setCurrentUserToEdit(null);
-  };
+  }, [loggedInUserProfile]);
 
   const openAddUserDialog = () => {
     resetFormState();
@@ -213,28 +215,25 @@ export default function ConfiguracionUsuariosPage() {
         empresa: user.empresa || '',
         assignedSites: user.assignedSites || '',
         emailNotifications: user.emailNotifications || false,
+        permissionLevel: user.permissionLevel || '',
     });
     setIsUserDialogOpen(true);
   };
 
-  const handleDialogClose = (open: boolean) => {
+  const handleDialogClose = useCallback((open: boolean) => {
       if (!open) {
           resetFormState();
       }
       setIsUserDialogOpen(open);
-  };
+  }, [resetFormState]);
 
   const handleSaveUser = async () => {
-    if (!formState.name.trim()) {
-      toast({ title: "Error", description: "El nombre completo es obligatorio.", variant: "destructive" });
+    if (!formState.name.trim() || !formState.email.trim() || !formState.role) {
+      toast({ title: "Error de Validación", description: "Nombre, Correo y Rol son campos obligatorios.", variant: "destructive" });
       return;
     }
-    if (!formState.email.trim() || !/^\S+@\S+\.\S+$/.test(formState.email)) {
-      toast({ title: "Error", description: "El correo electrónico no es válido.", variant: "destructive" });
-      return;
-    }
-    if (!formState.role) {
-      toast({ title: "Error", description: "El rol es obligatorio.", variant: "destructive" });
+    if (!/^\S+@\S+\.\S+$/.test(formState.email)) {
+      toast({ title: "Error de Validación", description: "El correo electrónico no es válido.", variant: "destructive" });
       return;
     }
 
@@ -249,42 +248,30 @@ export default function ConfiguracionUsuariosPage() {
       const wasPending = currentUserToEdit.role === 'Usuario Pendiente';
       const isNowActive = formState.role && formState.role !== 'Usuario Pendiente' && formState.role !== '';
       
-      const updatedUserData: Partial<UserConfigProfile> = {
+      const dataToUpdate: Partial<UserConfigProfile> = {
         name: formState.name.trim(),
         email: formState.email.trim(),
         role: formState.role,
         empresa: finalEmpresa,
         assignedSites: formState.assignedSites.trim(),
         emailNotifications: formState.emailNotifications,
+        permissionLevel: isNowActive && !currentUserToEdit.permissionLevel ? defaultPermissionLevel : formState.permissionLevel,
       };
-
-      if (wasPending && isNowActive && !currentUserToEdit.permissionLevel) {
-          updatedUserData.permissionLevel = defaultPermissionLevel;
-      }
       
       try {
         const userRef = doc(db, "users", currentUserToEdit.id);
-        await updateDoc(userRef, sanitizeForFirestore(updatedUserData));
+        await updateDoc(userRef, sanitizeForFirestore(dataToUpdate));
         
         if (wasPending && isNowActive) {
-            const emailResult = await sendEmailAction({
+            await sendEmailAction({
                 to: formState.email.trim(),
                 subject: "¡Tu cuenta en Asistente ACR ha sido activada!",
-                body: `Hola ${formState.name.trim()},\n\nTu cuenta en Asistente ACR ha sido aprobada por un administrador. Ya puedes iniciar sesión con tu correo y contraseña.\n\nSaludos,\nEl equipo de Asistente ACR`,
-                htmlBody: `<p>Hola ${formState.name.trim()},</p><p>Tu cuenta en Asistente ACR ha sido aprobada por un administrador. Ya puedes <strong>iniciar sesión</strong> con tu correo y contraseña.</p><p>Saludos,<br/>El equipo de Asistente ACR</p>`
+                body: `Hola ${formState.name.trim()},\n\nTu cuenta en Asistente ACR ha sido aprobada por un administrador. Ya puedes iniciar sesión con tu correo y contraseña.\n\nSaludos,\nEl equipo de Asistente ACR`
             });
-            if (emailResult.success) {
-                toast({
-                    title: "Usuario Actualizado y Notificado",
-                    description: `El usuario "${formState.name}" fue activado y se le envió un correo de notificación.`,
-                });
-            } else {
-                toast({
-                    title: "Usuario Actualizado con Error de Notificación",
-                    description: `El rol de "${formState.name}" fue actualizado, pero falló el envío del correo de notificación.`,
-                    variant: "destructive",
-                });
-            }
+             toast({
+                title: "Usuario Actualizado y Notificado",
+                description: `El usuario "${formState.name}" fue activado y se le envió un correo.`,
+            });
         } else {
             toast({ title: "Usuario Actualizado", description: `El usuario "${formState.name}" ha sido actualizado.` });
         }
@@ -306,12 +293,12 @@ export default function ConfiguracionUsuariosPage() {
       };
       try {
         await addDoc(collection(db, "users"), sanitizeForFirestore(newUserPayload));
-        toast({ title: "Perfil de Usuario Añadido", description: `El perfil para "${newUserPayload.name}" ha sido añadido a Firestore. El usuario deberá registrarse con este mismo correo para activar la cuenta.` });
+        toast({ title: "Perfil de Usuario Añadido", description: `El perfil para "${newUserPayload.name}" ha sido añadido.` });
         if(loggedInUserProfile) fetchInitialData(loggedInUserProfile);
         handleDialogClose(false);
       } catch (error) {
         console.error("Error adding user profile to Firestore: ", error);
-        toast({ title: "Error al Añadir Perfil", description: "No se pudo añadir el perfil de usuario a Firestore.", variant: "destructive" });
+        toast({ title: "Error al Añadir Perfil", description: "No se pudo añadir el perfil de usuario.", variant: "destructive" });
       }
     }
     
@@ -328,12 +315,12 @@ export default function ConfiguracionUsuariosPage() {
       setIsSubmitting(true);
       try {
         await deleteDoc(doc(db, "users", userToDelete.id));
-        toast({ title: "Perfil de Usuario Eliminado", description: `El perfil de "${userToDelete.name}" ha sido eliminado de Firestore. El usuario de autenticación (si existe) debe eliminarse por separado.`, variant: 'destructive', duration: 7000 });
+        toast({ title: "Perfil de Usuario Eliminado", description: `El perfil de "${userToDelete.name}" ha sido eliminado de Firestore.`, variant: 'destructive', duration: 7000 });
         setUserToDelete(null);
         if(loggedInUserProfile) fetchInitialData(loggedInUserProfile);
       } catch (error) {
         console.error("Error deleting user from Firestore: ", error);
-        toast({ title: "Error al Eliminar Perfil", description: "No se pudo eliminar el perfil de usuario de Firestore.", variant: "destructive" });
+        toast({ title: "Error al Eliminar Perfil", description: "No se pudo eliminar el perfil de usuario.", variant: "destructive" });
       } finally {
         setIsSubmitting(false);
       }
@@ -708,4 +695,3 @@ export default function ConfiguracionUsuariosPage() {
     </div>
   );
 }
-
