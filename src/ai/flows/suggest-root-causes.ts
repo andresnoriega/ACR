@@ -8,7 +8,7 @@
  * - SuggestLatentRootCausesOutput - The return type for the function.
  */
 
-import { ai } from 'genkit';
+import { ai } from '@/ai/dev';
 import {z} from 'zod';
 
 

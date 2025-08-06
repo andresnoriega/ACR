@@ -8,7 +8,7 @@
  * - ParaphrasePhenomenonOutput - The return type for the paraphrasePhenomenon function.
  */
 
-import { ai } from 'genkit';
+import { ai } from '@/ai/dev';
 import {z} from 'zod';
 
 const ParaphrasePhenomenonInputSchema = z.object({

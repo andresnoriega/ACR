@@ -8,7 +8,7 @@
  * - GenerateRcaInsightsOutput - The return type for the generateRcaInsights function.
  */
 
-import { ai } from 'genkit';
+import { ai } from '@/ai/dev';
 import { z } from 'zod'; 
 
 const GenerateRcaInsightsInputSchema = z.object({
