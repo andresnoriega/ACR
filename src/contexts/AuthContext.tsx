@@ -1,10 +1,36 @@
 
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile, reauthenticateWithCredential, EmailAuthProvider, updatePassword, deleteUser, type User as FirebaseUser, type UserCredential } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs, limit, deleteDoc, updateDoc } from 'firebase/firestore';
-import { getStorage, ref as storageRef, uploadString, getDownloadURL } from "firebase/storage";
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import { 
+    getAuth, 
+    onAuthStateChanged, 
+    createUserWithEmailAndPassword, 
+    signInWithEmailAndPassword, 
+    signOut, 
+    updateProfile, 
+    reauthenticateWithCredential, 
+    EmailAuthProvider, 
+    updatePassword, 
+    deleteUser, 
+    type User as FirebaseUser, 
+    type UserCredential 
+} from 'firebase/auth';
+import { 
+    getFirestore, 
+    doc, 
+    setDoc, 
+    getDoc, 
+    collection, 
+    query, 
+    where, 
+    getDocs, 
+    limit, 
+    deleteDoc, 
+    updateDoc,
+    serverTimestamp
+} from 'firebase/firestore';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { app, auth, db, storage } from '@/lib/firebase';
 import type { FullUserProfile } from '@/types/rca';
 import { sanitizeForFirestore } from '@/lib/utils';
@@ -44,60 +70,51 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loadingAuth, setLoadingAuth] = useState(true);
 
   useEffect(() => {
-    // onAuthStateChanged will handle the user state.
-    // If services are null, it will not proceed, which is the intended behavior.
-    if (!auth || !db) {
-        setLoadingAuth(false); // Stop loading if Firebase isn't configured
-        return;
-    }
-
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setLoadingAuth(true);
       if (user) {
-        setCurrentUser(user);
         const userDocRef = doc(db, 'users', user.uid);
-        try {
-          const docSnap = await getDoc(userDocRef);
-          if (docSnap.exists()) {
-            setUserProfile({ id: docSnap.id, ...docSnap.data() } as FullUserProfile);
-          } else {
-            console.warn(`No profile found for UID ${user.uid}. Attempting to create a pending profile.`);
-            const pendingProfile: Omit<FullUserProfile, 'id'> = {
-              name: user.displayName || 'Usuario (Pendiente)',
-              email: user.email!,
-              role: 'Usuario Pendiente',
-              permissionLevel: '',
-              photoURL: user.photoURL || '',
-              emailNotifications: true,
+        const docSnap = await getDoc(userDocRef);
+        if (docSnap.exists()) {
+          setUserProfile({ id: user.uid, ...docSnap.data() } as FullUserProfile);
+        } else {
+            console.warn(`User profile for ${user.email} not found in Firestore. Creating a pending profile.`);
+            const usersCollection = collection(db, 'users');
+            const allUsersSnapshot = await getDocs(usersCollection);
+            const isFirstUser = allUsersSnapshot.empty;
+
+            const assignedRole = isFirstUser ? 'Super User' : 'Usuario Pendiente';
+            const assignedPermissionLevel = isFirstUser ? 'Total' : '';
+            const nameFromEmail = user.displayName || user.email?.split('@')[0] || 'Nuevo Usuario';
+
+            const newUserProfile: Omit<FullUserProfile, 'id'> = {
+                name: nameFromEmail,
+                email: user.email!,
+                role: assignedRole,
+                permissionLevel: assignedPermissionLevel,
+                photoURL: user.photoURL || '',
+                emailNotifications: true,
+                empresa: '',
+                assignedSites: '',
             };
-            await setDoc(userDocRef, sanitizeForFirestore(pendingProfile));
-            setUserProfile({ id: user.uid, ...pendingProfile });
-          }
-        } catch (error) {
-          console.error(`[AuthContext] Error fetching profile for UID ${user.uid}:`, error);
-          setUserProfile(null);
+            await setDoc(doc(db, 'users', user.uid), sanitizeForFirestore(newUserProfile));
+            setUserProfile({ id: user.uid, ...newUserProfile });
         }
+        setCurrentUser(user);
       } else {
         setCurrentUser(null);
         setUserProfile(null);
       }
       setLoadingAuth(false);
     });
+
     return () => unsubscribe();
   }, []);
 
   const loginWithEmail = (email: string, pass: string) => {
-    if (!auth) {
-      return Promise.reject(new Error("El servicio de autenticación no está disponible. Verifique la configuración."));
-    }
     return signInWithEmailAndPassword(auth, email, pass);
   };
   
   const registerWithEmail = async (email: string, pass: string, name: string) => {
-    if (!db || !auth) {
-      return Promise.reject(new Error("El servicio de registro no está disponible. Verifique la configuración."));
-    }
-    
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     const user = userCredential.user;
     await updateProfile(user, { displayName: name });
@@ -124,76 +141,49 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const userDocRef = doc(db, 'users', user.uid);
     await setDoc(userDocRef, sanitizeForFirestore(newUserProfileData));
     
-    // The notification logic is now handled directly in the registration page component.
     return userCredential;
   };
 
   const logoutUser = () => {
-    if (!auth) return Promise.resolve();
     return signOut(auth);
   };
 
   const updateUserProfileFunc = async (data: { name?: string }) => {
-    if (!currentUser || !db) throw new Error("No hay un usuario autenticado o Firestore no está disponible.");
-    const updates: { displayName?: string } = {};
-    if (data.name) updates.displayName = data.name;
-    await updateProfile(currentUser, updates);
-    const userDocRef = doc(db, 'users', currentUser.uid);
-    await updateDoc(userDocRef, { name: data.name });
-    setUserProfile(prev => prev ? { ...prev, name: data.name ?? prev.name } : null);
-    await currentUser.reload();
-    if(auth) setCurrentUser(auth.currentUser || null);
+    if (!currentUser) throw new Error("No hay un usuario autenticado.");
+    if (data.name) {
+        await updateProfile(currentUser, { displayName: data.name });
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        await updateDoc(userDocRef, { name: data.name });
+        setUserProfile(prev => prev ? { ...prev, name: data.name! } : null);
+    }
   };
   
   const updateUserProfilePictureFunc = async (file: File): Promise<string> => {
-    if (!currentUser || !db || !storage) throw new Error("Servicios de Firebase no disponibles.");
+    if (!currentUser) throw new Error("No hay un usuario autenticado.");
     const filePath = `profile_pictures/${currentUser.uid}/${file.name}`;
     const fileRef = storageRef(storage, filePath);
-    const reader = new FileReader();
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = (error) => reject(error);
-        reader.readAsDataURL(file);
-    });
-    await uploadString(fileRef, dataUrl, 'data_url');
+    await uploadBytes(fileRef, file);
     const downloadURL = await getDownloadURL(fileRef);
     await updateProfile(currentUser, { photoURL: downloadURL });
     const userDocRef = doc(db, 'users', currentUser.uid);
     await updateDoc(userDocRef, { photoURL: downloadURL });
     setUserProfile(prev => prev ? { ...prev, photoURL: downloadURL } : null);
-    await currentUser.reload();
-    if(auth) setCurrentUser(auth.currentUser || null);
     return downloadURL;
   };
 
   const changePasswordFunc = async (currentPass: string, newPass: string) => {
     if (!currentUser || !currentUser.email) throw new Error("No hay un usuario autenticado o falta el correo electrónico.");
-    try {
-      const credential = EmailAuthProvider.credential(currentUser.email, currentPass);
-      await reauthenticateWithCredential(currentUser, credential);
-      await updatePassword(currentUser, newPass);
-    } catch (error: any) {
-        if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-          throw new Error("La contraseña actual es incorrecta.");
-        }
-        throw error;
-    }
+    const credential = EmailAuthProvider.credential(currentUser.email, currentPass);
+    await reauthenticateWithCredential(currentUser, credential);
+    await updatePassword(currentUser, newPass);
   };
 
   const deleteAccountFunc = async (currentPass: string) => {
-    if (!currentUser || !currentUser.email || !db) throw new Error("No hay un usuario autenticado o Firestore no está disponible.");
-    try {
-        const credential = EmailAuthProvider.credential(currentUser.email, currentPass);
-        await reauthenticateWithCredential(currentUser, credential);
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        await deleteDoc(userDocRef);
-        await deleteUser(currentUser);
-    } catch (error: any) {
-        if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-            throw new Error("La contraseña actual es incorrecta.");
-        }
-        throw error;
-    }
+    if (!currentUser || !currentUser.email) throw new Error("No hay un usuario autenticado.");
+    const credential = EmailAuthProvider.credential(currentUser.email, currentPass);
+    await reauthenticateWithCredential(currentUser, credential);
+    await deleteDoc(doc(db, 'users', currentUser.uid));
+    await deleteUser(currentUser);
   };
 
   const value: AuthContextType = {

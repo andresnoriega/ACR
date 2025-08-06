@@ -1,46 +1,52 @@
+// Import the functions you need from the SDKs you need
+import { getApp, getApps, initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import {
+  enableIndexedDbPersistence,
+  getFirestore,
+} from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
-import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
-import { getAuth, type Auth } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
-import { getStorage, type FirebaseStorage } from "firebase/storage";
-
-// =================================================================================
-// CONFIGURACIÓN CENTRALIZADA USANDO VARIABLES DE ENTORNO
-// =================================================================================
-// Las variables de entorno son proporcionadas por el entorno de App Hosting.
+// Your web app's Firebase configuration
+// IMPORTANT: This object is sourced from your project's Firebase setup and is safe to be public.
 export const firebaseConfig = {
   apiKey: "AIzaSyBpRAXR8mTcBTXwuXV5VaXdqCP6yx85MUE",
   authDomain: "almacenador-cloud.firebaseapp.com",
   projectId: "almacenador-cloud",
-  storageBucket: "almacenador-cloud.firebasestorage.app",
+  storageBucket: "almacenador-cloud.appspot.com",
   messagingSenderId: "790911154631",
   appId: "1:790911154631:web:91e2d71d8ccfbf058301e2",
   measurementId: "G-R2NQTYM2GX"
 };
 
-const appHasAllConfig =
-  !!firebaseConfig.apiKey &&
-  !!firebaseConfig.authDomain &&
-  !!firebaseConfig.projectId;
 
-let app: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
-let storage: FirebaseStorage;
+// Initialize Firebase
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const db = getFirestore(app);
+const auth = getAuth(app);
+const storage = getStorage(app);
 
-if (appHasAllConfig) {
-  app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db = getFirestore(app);
-  storage = getStorage(app);
-} else {
-  if (typeof window !== 'undefined') {
-    console.warn(
-      'ADVERTENCIA: Faltan variables de configuración de Firebase en el entorno. ' +
-      'La aplicación no se puede inicializar correctamente. ' +
-      'Asegúrese de que la aplicación esté conectada a un backend de Firebase App Hosting y las variables de entorno estén configuradas.'
-    );
+// Enable offline persistence
+if (typeof window !== 'undefined') {
+  try {
+    enableIndexedDbPersistence(db).catch((err) => {
+      if (err.code == 'failed-precondition') {
+        // Multiple tabs open, persistence can only be enabled
+        // in one tab at a a time.
+        console.warn(
+          'Firestore persistence failed to initialize. This is normal if you have multiple tabs open.'
+        );
+      } else if (err.code == 'unimplemented') {
+        // The current browser does not support all of the
+        // features required to enable persistence
+        console.warn(
+          'Firestore persistence is not supported in this browser.'
+        );
+      }
+    });
+  } catch (e) {
+    console.error('Error enabling firestore persistence', e);
   }
 }
 
-export { app, auth, db, storage };
+export { db, auth, storage, app };
