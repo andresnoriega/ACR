@@ -1,4 +1,3 @@
-
 "use client";
 
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
@@ -93,13 +92,13 @@ function IdleManager() {
 function AppContent({ children }: { children: ReactNode }) {
   const { currentUser } = useAuth();
   const pathname = usePathname();
-  const isPublicHomePage = pathname === '/';
+  const isPublicPage = pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/registro');
 
   return (
     <>
-      {!isPublicHomePage && currentUser && <TopNavigation />}
+      {!isPublicPage && currentUser && <TopNavigation />}
       <main className="flex-grow w-full print-container">
-        {isPublicHomePage ? (
+        {isPublicPage ? (
             children
         ) : (
             <div className="container mx-auto p-4 sm:p-6 lg:p-8 h-full">
