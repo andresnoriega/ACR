@@ -94,46 +94,33 @@ function AppContent({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   const isPublicPage = pathname === '/login' || pathname.startsWith('/registro');
-  const isRootPage = pathname === '/';
 
-  // This effect handles redirection logic once auth state is known.
   useEffect(() => {
-    if (loadingAuth) return; // Wait until loading is complete
-    
+    if (loadingAuth) return; // Don't do anything until auth is resolved
+
     // If user is logged in, but tries to access a public page, redirect to home.
     if (currentUser && isPublicPage) {
       router.replace('/home');
     }
     
     // If user is NOT logged in and tries to access a protected page, redirect to login.
-    if (!currentUser && !isPublicPage && !isRootPage) {
+    if (!currentUser && !isPublicPage) {
       router.replace('/login');
     }
-  }, [currentUser, loadingAuth, isPublicPage, isRootPage, pathname, router]);
-  
-  // IMMEDIATELY RENDER public pages without waiting for auth.
+  }, [currentUser, loadingAuth, isPublicPage, pathname, router]);
+
+  // If it's a public page, render it immediately without waiting for authentication.
   if (isPublicPage) {
     return <main className="flex-grow w-full">{children}</main>;
   }
   
   // For all other pages (protected routes), wait for auth to finish loading.
-  if (loadingAuth || (currentUser && !userProfile) || isRootPage) {
+  if (loadingAuth || !currentUser) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="mt-4 text-muted-foreground">Cargando aplicación...</p>
       </div>
-    );
-  }
-
-  // If loading is done, but there's no user, it means the redirection is in progress.
-  // Show loader to prevent flashing content.
-  if (!currentUser) {
-    return (
-        <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="mt-4 text-muted-foreground">Redirigiendo...</p>
-        </div>
     );
   }
 
