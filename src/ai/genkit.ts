@@ -1,22 +1,26 @@
 
 import {genkit, type GenkitConfig} from 'genkit';
 import {googleAI} from '@genkit-ai/googleai'; 
+import { firebaseConfig } from '@/lib/firebase'; // Importar la configuración de firebase
 
-// Prioritize a dedicated GEMINI_API_KEY from environment variables for server-side use.
-// Fallback to the public Firebase API key if it's not set. This is a safe fallback.
-const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+// Prioritize a dedicated GEMINI_API_KEY from environment variables
+// Fallback to the general Firebase API key if it's not set.
+const apiKey = process.env.GEMINI_API_KEY || firebaseConfig.apiKey;
 
 if (!apiKey && process.env.NODE_ENV === 'development') {
     console.warn(
-        '[AI Genkit] Advertencia: No se encontró la variable de entorno `GEMINI_API_KEY` o `NEXT_PUBLIC_FIREBASE_API_KEY`. ' +
-        'La funcionalidad de IA generativa no funcionará. Se recomienda crear una clave de API dedicada para GenAI en Google Cloud.'
+        '[AI Genkit] Advertencia: No se encontró la variable de entorno `GEMINI_API_KEY`. ' +
+        'Se está utilizando la clave de API de Firebase como respaldo. ' +
+        'Para producción y para evitar errores de permisos, se recomienda crear una API Key dedicada ' +
+        'sin restricciones en Google Cloud y asignarla a `GEMINI_API_KEY` en su archivo .env.'
     );
 }
+
 
 // Define Genkit configuration
 const genkitConfig: GenkitConfig = {
   plugins: [
-    googleAI({apiKey: apiKey}), // Use the determined API key
+    googleAI({apiKey: apiKey}), // Usar la clave de API determinada
   ],
   // flowStateStore: 'firebase', // Optional: Store flow states in Firestore
   // traceStore: 'firebase',     // Optional: Store traces in Firestore
@@ -36,9 +40,9 @@ const genkitConfig: GenkitConfig = {
 // Attempt to initialize Genkit, provide a mock if it fails
 export let ai: any;
 try {
-  // Check if an API key is available before initializing Genkit
+  // Check if firebaseConfig is valid before initializing Genkit
   if (!apiKey) {
-    throw new Error("La API Key de Gemini/Firebase no está definida en la configuración. No se puede inicializar Genkit.");
+    throw new Error("La API Key de Firebase/Gemini no está definida en la configuración. No se puede inicializar Genkit.");
   }
   
   ai = genkit(genkitConfig);
@@ -49,12 +53,16 @@ try {
       if (typeof ai.generate !== 'function') {
         throw new Error("ai.generate is not a function, Genkit likely initialized without model plugins or googleAI failed.");
       }
+      // console.log('[AI Genkit] Genkit initialized. Actual model availability will be tested by flows.');
     } catch (testError) {
       console.warn('[AI Genkit] Genkit initialized but model plugins might be missing or failed to load. Error during test: ', testError);
       throw testError; // Re-throw to fall into the main catch block
     }
   };
   
+  // It's better to not call testGenerate() here as it might involve async operations
+  // that are not ideal during module initialization. The presence of ai.generate
+  // can be checked by the flows themselves.
   console.log('[AI Genkit] Genkit initialization attempted with plugins.');
 
 } catch (error) {
