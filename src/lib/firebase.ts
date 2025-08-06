@@ -18,33 +18,21 @@ export const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-export const appHasAllConfig =
+const appHasAllConfig =
   !!firebaseConfig.apiKey &&
   !!firebaseConfig.authDomain &&
-  !!firebaseConfig.projectId &&
-  !!firebaseConfig.storageBucket &&
-  !!firebaseConfig.messagingSenderId &&
-  !!firebaseConfig.appId;
+  !!firebaseConfig.projectId;
 
-let app: FirebaseApp | null = null;
-let auth: Auth | null = null;
-let db: Firestore | null = null;
-let storage: FirebaseStorage | null = null;
+let app: FirebaseApp;
+let auth: Auth;
+let db: Firestore;
+let storage: FirebaseStorage;
 
 if (appHasAllConfig) {
-  try {
-    app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getFirestore(app);
-    storage = getStorage(app);
-  } catch (error) {
-    console.error("Error initializing Firebase:", error);
-    // In case of initialization error, ensure services are null
-    app = null;
-    auth = null;
-    db = null;
-    storage = null;
-  }
+  app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
 } else {
   if (typeof window !== 'undefined') {
     console.warn(

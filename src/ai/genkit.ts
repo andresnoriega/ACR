@@ -1,10 +1,11 @@
 
+'use server';
 import {genkit, type GenkitConfig} from 'genkit';
-import {googleAI} from '@genkit-ai/googleai'; 
+import {googleAI} from '@genkit-ai/googleai';
 
 // Este archivo es de SERVIDOR. Lee las variables de entorno del lado del servidor.
 // 1. Busca una GEMINI_API_KEY dedicada (mejor práctica para producción).
-// 2. Si no la encuentra, usa la NEXT_PUBLIC_FIREBASE_API_KEY como respaldo.
+// 2. Si no la encuentra, usa la NEXT_PUBLIC_FIREBASE_API_KEY como respaldo para desarrollo local.
 const apiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
 if (!apiKey && process.env.NODE_ENV === 'development') {
