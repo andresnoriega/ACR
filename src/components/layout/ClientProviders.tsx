@@ -93,30 +93,30 @@ function AppContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  const isPublicPage = pathname === '/login' || pathname.startsWith('/registro') || pathname === '/precios';
+  const isPublicPage = pathname === '/login' || pathname.startsWith('/registro');
   const isRootPage = pathname === '/';
 
+  // This effect handles redirection logic once auth state is known.
   useEffect(() => {
-    if (loadingAuth) return; // Wait until authentication state is resolved
+    if (loadingAuth) return; // Wait until loading is complete
     
-    // If the user is logged in, redirect them away from public pages to the home page.
+    // If user is logged in, but tries to access a public page, redirect to home.
     if (currentUser && isPublicPage) {
       router.replace('/home');
     }
     
-    // If the user is not logged in, and they are trying to access a protected page, redirect them to login.
+    // If user is NOT logged in and tries to access a protected page, redirect to login.
     if (!currentUser && !isPublicPage && !isRootPage) {
       router.replace('/login');
     }
   }, [currentUser, loadingAuth, isPublicPage, isRootPage, pathname, router]);
   
-  // If it's a public page, render it immediately without waiting for auth.
+  // IMMEDIATELY RENDER public pages without waiting for auth.
   if (isPublicPage) {
     return <main className="flex-grow w-full">{children}</main>;
   }
-
-  // For protected routes, show a loader while auth state is resolving
-  // or while the user profile is being fetched.
+  
+  // For all other pages (protected routes), wait for auth to finish loading.
   if (loadingAuth || (currentUser && !userProfile) || isRootPage) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
@@ -126,8 +126,8 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
 
-  // If we are on a protected route and there's no user, auth effect will redirect.
-  // We can return null or a loader here to prevent flashing content.
+  // If loading is done, but there's no user, it means the redirection is in progress.
+  // Show loader to prevent flashing content.
   if (!currentUser) {
     return (
         <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
@@ -137,8 +137,7 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
 
-  // At this point, user is authenticated, profile is loaded, and it's a protected page.
-  // Render the full app layout.
+  // If we reach here, user is authenticated and we can show the protected layout.
   return (
     <>
       <TopNavigation />
