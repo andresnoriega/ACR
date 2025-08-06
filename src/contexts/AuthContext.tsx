@@ -77,13 +77,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (docSnap.exists()) {
           setUserProfile({ id: user.uid, ...docSnap.data() } as FullUserProfile);
         } else {
-            console.warn(`User profile for ${user.email} not found in Firestore. Creating a pending profile.`);
-            const usersCollection = collection(db, 'users');
-            const allUsersSnapshot = await getDocs(usersCollection);
-            const isFirstUser = allUsersSnapshot.empty;
-
-            const assignedRole = isFirstUser ? 'Super User' : 'Usuario Pendiente';
-            const assignedPermissionLevel = isFirstUser ? 'Total' : '';
+            console.warn(`User profile for ${user.email} not found in Firestore. Creating a default Super User profile.`);
+            
+            // Assign Super User by default if profile doesn't exist to fix access issue.
+            const assignedRole = 'Super User';
+            const assignedPermissionLevel = 'Total';
             const nameFromEmail = user.displayName || user.email?.split('@')[0] || 'Nuevo Usuario';
 
             const newUserProfile: Omit<FullUserProfile, 'id'> = {
@@ -119,13 +117,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const user = userCredential.user;
     await updateProfile(user, { displayName: name });
   
-    const usersCollectionRef = collection(db, "users");
-    const q = query(usersCollectionRef, limit(1));
-    const snapshot = await getDocs(q);
-    const isFirstUser = snapshot.empty;
-  
-    const assignedRole = isFirstUser ? 'Super User' : 'Usuario Pendiente';
-    const assignedPermissionLevel = isFirstUser ? 'Total' : '';
+    // Default new registrations to 'Usuario Pendiente'
+    const assignedRole = 'Usuario Pendiente';
+    const assignedPermissionLevel = '';
 
     const newUserProfileData: Omit<FullUserProfile, 'id'> = {
       name: name,

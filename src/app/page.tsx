@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect } from 'react';
@@ -13,8 +12,7 @@ export default function RootRedirector() {
   useEffect(() => {
     if (!loadingAuth) {
       if (currentUser) {
-        // If user is logged in, redirect to the dashboard.
-        // Replace with your actual dashboard route if different.
+        // If user is logged in, redirect to the analysis page.
         router.replace('/analisis'); 
       } else {
         // If no user, redirect to the login page.
