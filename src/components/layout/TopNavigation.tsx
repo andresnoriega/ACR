@@ -11,8 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import React, { useState, useEffect, useMemo } from 'react';
 
 const mainMenuItemsBase = [
-  { href: '/home', label: 'Home', icon: Home, section: 'home', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User', 'Usuario Pendiente'] },
-  { href: '/inicio', label: 'Inicio', icon: Zap, section: 'inicio', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User', 'Usuario Pendiente'] },
+  { href: '/home', label: 'Inicio', icon: Home, section: 'home', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User', 'Usuario Pendiente'] },
   { href: '/eventos', label: 'Eventos', icon: ListOrdered, section: 'eventos', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] },
   { href: '/analisis', label: 'Análisis', icon: BarChart3, section: 'analisis', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Super User'] },
   { href: '/informes', label: 'Informes', icon: FileText, section: 'informes', requiresAuth: true, allowedRoles: ['Admin', 'Analista', 'Revisor', 'Super User'] },
@@ -59,7 +58,7 @@ export function TopNavigation() {
     }
   };
 
-  const isPublicPage = !currentUser && (pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/registro'));
+  const isPublicPage = !currentUser && (pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/registro') || pathname.startsWith('/inicio'));
   const showNavForAuthenticatedUser = hasMounted && currentUser && !loadingAuth;
 
   return (
@@ -68,7 +67,7 @@ export function TopNavigation() {
         <div className="flex items-center justify-between h-16">
           {/* Logo or Menu Items Section */}
           <div className="flex items-center gap-2 sm:gap-4">
-            <Link href="/" className="flex items-center gap-2 text-lg font-bold text-primary">
+            <Link href="/home" className="flex items-center gap-2 text-lg font-bold text-primary">
               <Zap className="h-7 w-7" />
               <span className="font-headline text-xl hidden sm:inline">Asistente ACR</span>
             </Link>
@@ -76,8 +75,8 @@ export function TopNavigation() {
               <div className="flex space-x-1 sm:space-x-2 md:space-x-4 overflow-x-auto py-2">
                 {visibleMenuItems.map((item) => {
                   let isActive = false;
-                  if (item.href === '/inicio' || item.href === '/home') { 
-                      isActive = pathname === item.href || (pathname === '/' && (item.href === '/home' || item.href === '/inicio'));
+                  if (item.href === '/home') { 
+                      isActive = pathname === item.href;
                   } else if (item.section === 'config' || item.section === 'usuario' || item.section === 'analisis') {
                     isActive = pathname.startsWith(item.href);
                   } else {
