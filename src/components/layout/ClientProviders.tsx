@@ -97,18 +97,27 @@ function AppContent({ children }: { children: ReactNode }) {
   const isRootPage = pathname === '/';
 
   useEffect(() => {
-    if (loadingAuth) return;
-    if (currentUser && isPublicPage) router.replace('/home');
-    if (!currentUser && !isPublicPage && !isRootPage) router.replace('/login');
+    if (loadingAuth) return; // Wait until authentication state is resolved
+    
+    // If the user is logged in, redirect them away from public pages to the home page.
+    if (currentUser && isPublicPage) {
+      router.replace('/home');
+    }
+    
+    // If the user is not logged in, and they are trying to access a protected page, redirect them to login.
+    if (!currentUser && !isPublicPage && !isRootPage) {
+      router.replace('/login');
+    }
   }, [currentUser, loadingAuth, isPublicPage, isRootPage, pathname, router]);
-
-  // If it's a public page and we are not in the initial auth loading phase, render it immediately.
-  if (!loadingAuth && isPublicPage) {
+  
+  // If it's a public page, render it immediately without waiting for auth.
+  if (isPublicPage) {
     return <main className="flex-grow w-full">{children}</main>;
   }
 
-  // Handle protected pages flow
-  if (loadingAuth || isRootPage) {
+  // For protected routes, show a loader while auth state is resolving
+  // or while the user profile is being fetched.
+  if (loadingAuth || (currentUser && !userProfile) || isRootPage) {
     return (
       <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -116,34 +125,32 @@ function AppContent({ children }: { children: ReactNode }) {
       </div>
     );
   }
-  
-  if (currentUser && !userProfile) {
+
+  // If we are on a protected route and there's no user, auth effect will redirect.
+  // We can return null or a loader here to prevent flashing content.
+  if (!currentUser) {
     return (
-      <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-muted-foreground">Cargando perfil de usuario...</p>
-      </div>
+        <div className="flex h-screen w-full flex-col items-center justify-center bg-background">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="mt-4 text-muted-foreground">Redirigiendo...</p>
+        </div>
     );
   }
 
-  // User is authenticated and profile is loaded
-  if (currentUser && userProfile) {
-    return (
-      <>
-        <TopNavigation />
-        <main className="flex-grow w-full print-container">
-          <div className="container mx-auto p-4 sm:p-6 lg:p-8 h-full">
-            {children}
-          </div>
-        </main>
-        <Toaster />
-        <IdleManager />
-      </>
-    );
-  }
-
-  // Fallback for non-authed users on protected routes, redirection will handle it
-  return null;
+  // At this point, user is authenticated, profile is loaded, and it's a protected page.
+  // Render the full app layout.
+  return (
+    <>
+      <TopNavigation />
+      <main className="flex-grow w-full print-container">
+        <div className="container mx-auto p-4 sm:p-6 lg:p-8 h-full">
+          {children}
+        </div>
+      </main>
+      <Toaster />
+      <IdleManager />
+    </>
+  );
 }
 
 
