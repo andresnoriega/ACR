@@ -522,7 +522,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
                     title="Exportar el informe completo del análisis a PDF."
                 >
                     <Printer className="mr-2 h-4 w-4" />
-                    Exportar PDF
+                    Exportar a PDF
                 </Button>
             </div>
 
