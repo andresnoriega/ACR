@@ -110,10 +110,16 @@ body {
 
 /* Print specific styles */
 @media print {
+  body.print-active .print-main-content {
+      display: none !important;
+  }
+  body.print-active .print-only-step5 {
+      display: block !important;
+  }
   body {
-    font-family: 'Inter', sans-serif; /* Ensure font consistency */
-    -webkit-print-color-adjust: exact; /* Chrome, Safari */
-    color-adjust: exact; /* Firefox, Edge */
+    font-family: 'Inter', sans-serif;
+    -webkit-print-color-adjust: exact;
+    color-adjust: exact;
   }
   .no-print {
     display: none !important;
@@ -124,9 +130,10 @@ body {
     box-shadow: none;
     border: none;
   }
-  /* Ensure charts are visible if they use background colors for fills */
-  .recharts-surface, .recharts-pie-sector path {
-    fill: currentColor !important; /* Fallback, try to preserve colors if possible */
+  .print-only-step5 {
+    display: block !important;
   }
-  /* Specific colors for print may be needed if theme colors don't print well */
+  .print-main-content {
+    display: none !important;
+  }
 }

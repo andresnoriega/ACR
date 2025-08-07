@@ -1,3 +1,4 @@
+
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
@@ -1273,10 +1274,11 @@ function RCAAnalysisPageComponent() {
 
 
   const handlePrintReport = () => {
-    const nonPrintableElements = document.querySelectorAll('.no-print');
-    nonPrintableElements.forEach(el => el.classList.add('hidden'));
-    window.print();
-    nonPrintableElements.forEach(el => el.classList.remove('hidden'));
+    document.body.classList.add('print-active');
+    setTimeout(() => {
+        window.print();
+        document.body.classList.remove('print-active');
+    }, 100);
   };
 
   const handleMarkAsFinalized = async () => {
@@ -1362,6 +1364,42 @@ function RCAAnalysisPageComponent() {
     );
   }
 
+  const allDataForReport = {
+    eventId: analysisDocumentId || eventData.id,
+    eventData,
+    availableSites,
+    projectLeader,
+    investigationSessions,
+    detailedFacts,
+    analysisDetails,
+    analysisTechnique,
+    analysisTechniqueNotes,
+    ishikawaData,
+    fiveWhysData,
+    ctmData,
+    timelineEvents,
+    brainstormingIdeas,
+    identifiedRootCauses,
+    plannedActions,
+    preservedFacts,
+    finalComments,
+    onFinalCommentsChange: setFinalComments,
+    leccionesAprendidas,
+    onLeccionesAprendidasChange: setLeccionesAprendidas,
+    onPrintReport: handlePrintReport,
+    availableUsers: availableUsersFromDB,
+    isFinalized,
+    onMarkAsFinalized: handleMarkAsFinalized,
+    onSaveAnalysis: () => handleSaveAnalysisData(true),
+    isSaving,
+    investigationObjective,
+    onInvestigationObjectiveChange: setInvestigationObjective,
+    efficacyVerification,
+    onVerifyEfficacy: handleVerifyEfficacy,
+    onPlanEfficacyVerification: handlePlanEfficacyVerification,
+  };
+
+
   return (
     <>
       <header className="text-center mb-8 no-print">
@@ -1378,6 +1416,10 @@ function RCAAnalysisPageComponent() {
           )}
         </p>
       </header>
+      
+      <div className="hidden print:block">
+        <Step5Results {...allDataForReport} />
+      </div>
 
       <div className="no-print">
         <StepNavigation
@@ -1389,147 +1431,120 @@ function RCAAnalysisPageComponent() {
         <Separator className="my-6" />
       </div>
 
-      <div className={step === 1 ? "" : "print:hidden"}>
-        {step === 1 && (
-          <Step1Initiation
-            eventData={eventData}
-            onEventDataChange={handleEventDataChange}
-            immediateActions={immediateActions}
-            onAddImmediateAction={handleAddImmediateAction}
-            onUpdateImmediateAction={handleUpdateImmediateAction}
-            onRemoveImmediateAction={handleRemoveImmediateAction}
-            availableSites={availableSitesFromDB}
+      <div className="print-main-content">
+        <div className={step === 1 ? "" : "hidden"}>
+          {step === 1 && (
+            <Step1Initiation
+              eventData={eventData}
+              onEventDataChange={handleEventDataChange}
+              immediateActions={immediateActions}
+              onAddImmediateAction={handleAddImmediateAction}
+              onUpdateImmediateAction={handleUpdateImmediateAction}
+              onRemoveImmediateAction={handleRemoveImmediateAction}
+              availableSites={availableSitesFromDB}
+              availableUsers={availableUsersFromDB}
+              onContinue={handleNextStep}
+              onForceEnsureEventId={ensureEventId}
+              onSaveAnalysis={(showToast, options) => handleSaveAnalysisData(showToast, options)}
+              onPrintReport={handlePrintReport}
+              isSaving={isSaving}
+              onApproveEvent={handleApproveEvent}
+              onRejectEvent={() => {
+                setRejectionReason(''); 
+                setIsRejectConfirmOpen(true);
+              }}
+              isEventFinalized={isFinalized}
+              currentEventStatus={currentEventStatus}
+              validateStep1PreRequisites={validateStep1PreRequisites} 
+            />
+          )}
+        </div>
+        <div className={step === 2 ? "" : "hidden"}>
+        {step === 2 && (
+          <Step2Facts
+            detailedFacts={detailedFacts}
+            onDetailedFactChange={onDetailedFactChange}
+            projectLeader={projectLeader}
+            onProjectLeaderChange={handleProjectLeaderChange}
+            investigationObjective={investigationObjective}
+            onInvestigationObjectiveChange={setInvestigationObjective}
+            investigationSessions={investigationSessions}
+            onSetInvestigationSessions={setInvestigationSessions}
+            analysisDetails={analysisDetails}
+            onAnalysisDetailsChange={setAnalysisDetails}
+            preservedFacts={preservedFacts}
+            setPreservedFacts={setPreservedFacts}
+            onAnalysisSaveRequired={() => handleSaveAnalysisData(false).then(res => res.newEventId || analysisDocumentId)}
             availableUsers={availableUsersFromDB}
-            onContinue={handleNextStep}
-            onForceEnsureEventId={ensureEventId}
-            onSaveAnalysis={handleSaveAnalysisData}
+            availableSites={availableSitesFromDB}
             isSaving={isSaving}
-            onApproveEvent={handleApproveEvent}
-            onRejectEvent={() => {
-              setRejectionReason(''); 
-              setIsRejectConfirmOpen(true);
-            }}
-            isEventFinalized={isFinalized}
-            currentEventStatus={currentEventStatus}
-            validateStep1PreRequisites={validateStep1PreRequisites} 
+            onPrevious={handlePreviousStep}
+            onNext={handleNextStep}
+            analysisId={analysisDocumentId}
+            activeTab={factsTab}
+            onTabChange={setFactsTab}
           />
         )}
+        </div>
+        <div className={step === 3 ? "" : "hidden"}>
+        {step === 3 && (
+          <Step3Analysis
+            eventData={eventData}
+            availableSites={availableSitesFromDB}
+            timelineEvents={timelineEvents}
+            onSetTimelineEvents={setTimelineEvents}
+            brainstormingIdeas={brainstormingIdeas}
+            onAddBrainstormIdea={handleAddBrainstormIdea}
+            onUpdateBrainstormIdea={handleUpdateBrainstormIdea}
+            onRemoveBrainstormIdea={handleRemoveBrainstormIdea}
+            analysisTechnique={analysisTechnique}
+            onAnalysisTechniqueChange={handleAnalysisTechniqueChange}
+            analysisTechniqueNotes={analysisTechniqueNotes}
+            onAnalysisTechniqueNotesChange={setAnalysisTechniqueNotes}
+            ishikawaData={ishikawaData}
+            onSetIshikawaData={setIshikawaData}
+            fiveWhysData={fiveWhysData}
+            onSetFiveWhysData={setFiveWhysData}
+            ctmData={ctmData}
+            onSetCtmData={setCtmData}
+            identifiedRootCauses={identifiedRootCauses}
+            onAddIdentifiedRootCause={handleAddIdentifiedRootCause}
+            onUpdateIdentifiedRootCause={handleUpdateIdentifiedRootCause}
+            onRemoveIdentifiedRootCause={handleRemoveIdentifiedRootCause}
+            plannedActions={plannedActions}
+            onAddPlannedAction={handleAddPlannedAction}
+            onUpdatePlannedAction={handleUpdatePlannedAction}
+            onRemovePlannedAction={handleRemovePlannedAction}
+            availableUsers={availableUsersFromDB}
+            onPrevious={handlePreviousStep}
+            onNext={handleNextStep}
+            onSaveAnalysis={() => handleSaveAnalysisData(true)}
+            isSaving={isSaving}
+          />
+        )}
+        </div>
+        <div className={step === 4 ? "" : "hidden"}>
+        {step === 4 && (
+          <Step4Validation
+            plannedActions={plannedActions}
+            validations={validations}
+            onToggleValidation={handleToggleValidation}
+            projectLeader={projectLeader}
+            availableUserProfiles={availableUsersFromDB}
+            onPrevious={handlePreviousStep}
+            onNext={handleNextStep}
+            onSaveAnalysis={() => handleSaveAnalysisData(true)}
+            isSaving={isSaving}
+          />
+        )}
+        </div>
+        {step === 5 && (
+          <div className="print-only-step5">
+            <Step5Results {...allDataForReport} />
+          </div>
+        )}
       </div>
-      <div className={step === 2 ? "" : "print:hidden"}>
-      {step === 2 && (
-        <Step2Facts
-          detailedFacts={detailedFacts}
-          onDetailedFactChange={onDetailedFactChange}
-          projectLeader={projectLeader}
-          onProjectLeaderChange={handleProjectLeaderChange}
-          investigationObjective={investigationObjective}
-          onInvestigationObjectiveChange={setInvestigationObjective}
-          investigationSessions={investigationSessions}
-          onSetInvestigationSessions={setInvestigationSessions}
-          analysisDetails={analysisDetails}
-          onAnalysisDetailsChange={setAnalysisDetails}
-          preservedFacts={preservedFacts}
-          setPreservedFacts={setPreservedFacts}
-          onAnalysisSaveRequired={() => handleSaveAnalysisData(false).then(res => res.newEventId || analysisDocumentId)}
-          availableUsers={availableUsersFromDB}
-          availableSites={availableSitesFromDB}
-          isSaving={isSaving}
-          onPrevious={handlePreviousStep}
-          onNext={handleNextStep}
-          analysisId={analysisDocumentId}
-          activeTab={factsTab}
-          onTabChange={setFactsTab}
-        />
-      )}
-      </div>
-      <div className={step === 3 ? "" : "print:hidden"}>
-      {step === 3 && (
-        <Step3Analysis
-          eventData={eventData}
-          availableSites={availableSitesFromDB}
-          timelineEvents={timelineEvents}
-          onSetTimelineEvents={setTimelineEvents}
-          brainstormingIdeas={brainstormingIdeas}
-          onAddBrainstormIdea={handleAddBrainstormIdea}
-          onUpdateBrainstormIdea={handleUpdateBrainstormIdea}
-          onRemoveBrainstormIdea={handleRemoveBrainstormIdea}
-          analysisTechnique={analysisTechnique}
-          onAnalysisTechniqueChange={handleAnalysisTechniqueChange}
-          analysisTechniqueNotes={analysisTechniqueNotes}
-          onAnalysisTechniqueNotesChange={setAnalysisTechniqueNotes}
-          ishikawaData={ishikawaData}
-          onSetIshikawaData={setIshikawaData}
-          fiveWhysData={fiveWhysData}
-          onSetFiveWhysData={setFiveWhysData}
-          ctmData={ctmData}
-          onSetCtmData={setCtmData}
-          identifiedRootCauses={identifiedRootCauses}
-          onAddIdentifiedRootCause={handleAddIdentifiedRootCause}
-          onUpdateIdentifiedRootCause={handleUpdateIdentifiedRootCause}
-          onRemoveIdentifiedRootCause={handleRemoveIdentifiedRootCause}
-          plannedActions={plannedActions}
-          onAddPlannedAction={handleAddPlannedAction}
-          onUpdatePlannedAction={handleUpdatePlannedAction}
-          onRemovePlannedAction={handleRemovePlannedAction}
-          availableUsers={availableUsersFromDB}
-          onPrevious={handlePreviousStep}
-          onNext={handleNextStep}
-          onSaveAnalysis={handleSaveAnalysisData}
-          isSaving={isSaving}
-        />
-      )}
-      </div>
-      <div className={step === 4 ? "" : "print:hidden"}>
-      {step === 4 && (
-        <Step4Validation
-          plannedActions={plannedActions}
-          validations={validations}
-          onToggleValidation={handleToggleValidation}
-          projectLeader={projectLeader}
-          availableUserProfiles={availableUsersFromDB}
-          onPrevious={handlePreviousStep}
-          onNext={handleNextStep}
-          onSaveAnalysis={handleSaveAnalysisData}
-          isSaving={isSaving}
-        />
-      )}
-      </div>
-      {step === 5 && (
-        <Step5Results
-          eventId={analysisDocumentId || eventData.id}
-          eventData={eventData}
-          availableSites={availableSitesFromDB}
-          projectLeader={projectLeader}
-          investigationSessions={investigationSessions}
-          detailedFacts={detailedFacts}
-          analysisDetails={analysisDetails}
-          analysisTechnique={analysisTechnique}
-          analysisTechniqueNotes={analysisTechniqueNotes}
-          ishikawaData={ishikawaData}
-          fiveWhysData={fiveWhysData}
-          ctmData={ctmData}
-          timelineEvents={timelineEvents}
-          brainstormingIdeas={brainstormingIdeas}
-          identifiedRootCauses={identifiedRootCauses}
-          plannedActions={plannedActions}
-          preservedFacts={preservedFacts}
-          finalComments={finalComments}
-          onFinalCommentsChange={setFinalComments}
-          leccionesAprendidas={leccionesAprendidas}
-          onLeccionesAprendidasChange={setLeccionesAprendidas}
-          onPrintReport={handlePrintReport}
-          availableUsers={availableUsersFromDB}
-          isFinalized={isFinalized}
-          onMarkAsFinalized={handleMarkAsFinalized}
-          onSaveAnalysis={handleSaveAnalysisData}
-          isSaving={isSaving}
-          investigationObjective={investigationObjective}
-          onInvestigationObjectiveChange={setInvestigationObjective}
-          efficacyVerification={efficacyVerification}
-          onVerifyEfficacy={handleVerifyEfficacy}
-          onPlanEfficacyVerification={handlePlanEfficacyVerification}
-        />
-      )}
+
       <AlertDialog open={isRejectConfirmOpen} onOpenChange={(open) => {
         if(!isSaving) {
           setIsRejectConfirmOpen(open);

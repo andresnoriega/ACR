@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Trash2, Save, Send, Mail, Loader2, Bell, UserCog, XCircle, CheckCircle, Edit, Settings2, HardHat } from 'lucide-react'; // Added HardHat for Equipo
+import { PlusCircle, Trash2, Save, Send, Mail, Loader2, Bell, UserCog, XCircle, CheckCircle, Edit, Settings2, HardHat, Printer } from 'lucide-react'; // Added HardHat for Equipo
 import { useToast } from "@/hooks/use-toast";
 import { sendEmailAction } from '@/app/actions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -30,7 +30,8 @@ interface Step1InitiationProps {
   availableUsers: FullUserProfile[];
   onContinue: () => void;
   onForceEnsureEventId: () => string; 
-  onSaveAnalysis: (showToast?: boolean, options?: { suppressNavigation?: boolean }) => Promise<{ success: boolean; newEventId?: string; needsNavigationUrl?: string }>;
+  onSaveAnalysis: (showToast?: boolean, options?: { suppressNavigation?: boolean }) => Promise<{ success: boolean; newEventId?: string; }>;
+  onPrintReport: () => void;
   isSaving: boolean;
   onApproveEvent: () => Promise<void>; 
   onRejectEvent: () => Promise<void>; 
@@ -232,6 +233,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   onContinue,
   onForceEnsureEventId,
   onSaveAnalysis,
+  onPrintReport,
   isSaving,
   onApproveEvent,
   onRejectEvent,
@@ -515,7 +517,18 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
             </Button>
           </div>
         </CardContent>
-        <CardFooter className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2">
+        <CardFooter className="flex flex-col sm:flex-row justify-end items-center gap-2 pt-4 border-t">
+          <Button
+            variant="outline"
+            onClick={onPrintReport}
+            disabled={isSaving || !eventData.id}
+            className="w-full sm:w-auto mr-auto"
+            title="Exportar el informe completo del análisis a PDF."
+          >
+            <Printer className="mr-2 h-4 w-4" />
+            Exportar PDF
+          </Button>
+
           <Button 
             onClick={handlePrepareNotification} 
             variant="secondary" 
