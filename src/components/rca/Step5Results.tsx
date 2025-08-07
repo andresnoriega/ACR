@@ -352,14 +352,14 @@ export const Step5Results: FC<Step5ResultsProps> = ({
   return (
     <>
       <Card id="printable-report-area">
-        <CardHeader className="text-center">
+        <CardHeader className="print-header-container">
           <div className="flex items-center justify-center gap-4">
             <Zap className="h-10 w-10 text-primary" />
             <div>
               <h1 className="text-3xl font-bold font-headline text-primary">
                 Informe de Análisis de Causa Raíz
               </h1>
-              <p className="text-5xl font-bold text-muted-foreground">Asistente ACR</p>
+              <p className="print-main-title">Asistente ACR</p>
             </div>
           </div>
         </CardHeader>

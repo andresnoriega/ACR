@@ -136,4 +136,14 @@ body {
     box-shadow: none;
     border: none;
   }
+
+  .print-header-container {
+    text-align: center;
+  }
+
+  .print-main-title {
+    font-size: 24pt !important;
+    font-weight: bold !important;
+    color: black !important;
+  }
 }
