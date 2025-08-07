@@ -1409,6 +1409,8 @@ function RCAAnalysisPageComponent() {
             <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-semibold ${
                 currentEventStatus === 'Rechazado' ? 'bg-destructive text-destructive-foreground' :
                 currentEventStatus === 'Finalizado' ? 'bg-green-500 text-green-50' :
+                currentEventStatus === 'Verificado' ? 'bg-indigo-500 text-indigo-50' :
+                currentEventStatus === 'En validación' ? 'bg-blue-500 text-blue-50' :
                 'bg-secondary text-secondary-foreground'}`}>
                 Estado: {currentEventStatus}
             </span>
