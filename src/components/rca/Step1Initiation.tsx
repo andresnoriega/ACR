@@ -159,7 +159,7 @@ const NotifyEventCreationDialog: FC<NotifyEventCreationDialogProps> = ({
         </DialogHeader>
         <div className="space-y-3 py-2">
           <p className="text-sm text-muted-foreground">
-            Evento: "{eventDescription.substring(0,50)}{eventDescription.length > 50 ? '...' : ''}" (ID: {eventId})
+            Evento: "${eventDescription.substring(0,50)}{eventDescription.length > 50 ? '...' : ''}" (ID: {eventId})
           </p>
           <Input 
             placeholder="Buscar Admin/Super User por nombre o correo..."
