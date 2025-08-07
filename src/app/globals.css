@@ -130,10 +130,4 @@ body {
     box-shadow: none;
     border: none;
   }
-  .print-only-step5 {
-    display: block !important;
-  }
-  .print-main-content {
-    display: none !important;
-  }
 }

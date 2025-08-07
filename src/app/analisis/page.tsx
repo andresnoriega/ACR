@@ -1,4 +1,3 @@
-
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
@@ -1367,7 +1366,7 @@ function RCAAnalysisPageComponent() {
   const allDataForReport = {
     eventId: analysisDocumentId || eventData.id,
     eventData,
-    availableSites,
+    availableSites: availableSitesFromDB,
     projectLeader,
     investigationSessions,
     detailedFacts,
@@ -1417,11 +1416,11 @@ function RCAAnalysisPageComponent() {
         </p>
       </header>
       
-      <div className="hidden print:block">
+      <div className="hidden print-only-step5">
         <Step5Results {...allDataForReport} />
       </div>
 
-      <div className="no-print">
+      <div className="no-print print-main-content">
         <StepNavigation
          currentStep={step}
          onNavigate={handleGoToStep}
