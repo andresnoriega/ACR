@@ -374,10 +374,10 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     return userProfile.role === 'Admin' || userProfile.role === 'Super User';
   }, [userProfile]);
 
-  const isManageStateButtonDisabled = !eventData.id || isEventFinalized || isSaving || !canUserManageEventState;
+  const isManageStateButtonDisabled = isEventFinalized || isSaving || !canUserManageEventState;
   
   const getRejectButtonTitle = () => {
-    if (!eventData.id) return "Guarde el evento para habilitar opciones de estado.";
+    if (!eventData.id && canUserManageEventState) return "Guarde el evento para habilitar opciones de estado.";
     if (isEventFinalized) return "El evento ya está finalizado, no se puede cambiar el estado.";
     if (currentEventStatus === 'Rechazado') return "El evento ya está rechazado.";
     if (!canUserManageEventState) return "No tiene permisos para gestionar el estado de este evento.";
