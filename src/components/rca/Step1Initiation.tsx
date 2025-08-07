@@ -339,11 +339,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
             description: eventData.focusEventDescription,
             site: eventData.place
         });
-        if (saveResult.needsNavigationUrl) {
-            setNavigationTaskUrl(saveResult.needsNavigationUrl);
-        } else {
-            setNavigationTaskUrl(null);
-        }
+        setNavigationTaskUrl(null);
         setIsNotifyDialogOpen(true);
     } else {
         toast({
