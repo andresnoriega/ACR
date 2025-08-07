@@ -1,4 +1,3 @@
-
 'use client';
 import type { FC, ChangeEvent } from 'react';
 import { useState, useEffect, useMemo } from 'react'; 
@@ -513,8 +512,8 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
             </Button>
           </div>
         </CardContent>
-        <CardFooter className="flex flex-col sm:flex-row justify-between items-center gap-2 pt-4 border-t">
-          <div className="w-full sm:w-auto mr-auto">
+        <CardFooter className="flex justify-between items-center gap-2 pt-4 border-t">
+          <div className="mr-auto">
             <Button
               variant="outline"
               onClick={onPrintReport}
