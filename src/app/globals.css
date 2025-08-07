@@ -111,6 +111,10 @@ body {
 /* Print specific styles */
 @media print {
   body.print-active .print-main-content {
+      display: block !important;
+  }
+  body.print-active .no-print,
+  body.print-active .print-main-content .hidden {
       display: none !important;
   }
   body.print-active .print-only-step5 {
@@ -120,9 +124,6 @@ body {
     font-family: 'Inter', sans-serif;
     -webkit-print-color-adjust: exact;
     color-adjust: exact;
-  }
-  .no-print {
-    display: none !important;
   }
   .print-container {
     padding: 0;

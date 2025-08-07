@@ -520,7 +520,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
           <Button
             variant="outline"
             onClick={onPrintReport}
-            disabled={isSaving || !eventData.id}
+            disabled={isSaving}
             className="w-full sm:w-auto mr-auto"
             title="Exportar el informe completo del análisis a PDF."
           >
