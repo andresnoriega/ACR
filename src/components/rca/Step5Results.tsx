@@ -353,10 +353,15 @@ export const Step5Results: FC<Step5ResultsProps> = ({
     <>
       <Card id="printable-report-area">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl sm:text-3xl font-bold font-headline text-primary">
-            | Paso 5: Presentación de Resultados |
-          </CardTitle>
-          <CardDescription>Informe Final del Análisis de Causa Raíz. Evento ID: <span className="font-semibold text-primary">{eventId || "No generado"}</span></CardDescription>
+          <div className="flex items-center justify-center gap-4">
+            <Zap className="h-10 w-10 text-primary" />
+            <div>
+              <h1 className="text-3xl font-bold font-headline text-primary">
+                Informe de Análisis de Causa Raíz
+              </h1>
+              <p className="text-2xl font-semibold text-muted-foreground">Asistente ACR</p>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-6 px-4 md:px-6 py-6">
           <section>
