@@ -110,21 +110,26 @@ body {
 
 /* Print specific styles */
 @media print {
-  body.print-active .print-main-content {
-      display: block !important;
+  .no-print {
+    display: none !important;
   }
-  body.print-active .no-print,
-  body.print-active .print-main-content .hidden {
-      display: none !important;
+  
+  .print-only-step5,
+  [data-print-section] {
+    display: none !important;
   }
-  body.print-active .print-only-step5 {
-      display: block !important;
+
+  body.print-step-1 [data-print-section="step-1"],
+  body.print-step-5 .print-only-step5 {
+    display: block !important;
   }
+  
   body {
     font-family: 'Inter', sans-serif;
     -webkit-print-color-adjust: exact;
     color-adjust: exact;
   }
+  
   .print-container {
     padding: 0;
     margin: 0;

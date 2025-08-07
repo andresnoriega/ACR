@@ -1273,10 +1273,10 @@ function RCAAnalysisPageComponent() {
 
 
   const handlePrintReport = () => {
-    document.body.classList.add('print-active');
+    document.body.classList.add(`print-step-${step}`);
     setTimeout(() => {
         window.print();
-        document.body.classList.remove('print-active');
+        document.body.classList.remove(`print-step-${step}`);
     }, 100);
   };
 
@@ -1433,7 +1433,7 @@ function RCAAnalysisPageComponent() {
       </div>
 
       <div className="print-main-content">
-        <div className={step === 1 ? "" : "hidden"}>
+        <div className={step === 1 ? "" : "hidden"} data-print-section="step-1">
           {step === 1 && (
             <Step1Initiation
               eventData={eventData}
