@@ -1,86 +1,157 @@
-
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
-import { ArrowRight, Bot, ListOrdered, BarChart3, Shield, Users, GitBranch } from 'lucide-react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { storage } from '@/lib/firebase';
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject, listAll, getMetadata } from 'firebase/storage';
+import FileUploader from '@/components/file-uploader';
+import FileList from '@/components/file-list';
+import { useToast } from "@/hooks/use-toast";
 
-const FeatureCard = ({ icon: Icon, title, description }: { icon: React.ElementType, title: string, description: string }) => (
-    <Card className="text-center shadow-md hover:shadow-lg transition-shadow h-full flex flex-col">
-        <CardHeader className="items-center">
-            <div className="p-3 bg-primary/10 rounded-full w-fit">
-                <Icon className="h-8 w-8 text-primary" />
-            </div>
-            <CardTitle>{title}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex-grow">
-            <p className="text-muted-foreground text-sm">{description}</p>
-        </CardContent>
-    </Card>
-);
+export interface UploadedFile {
+  name: string;
+  size: number;
+  type: string;
+  url: string;
+  fullPath: string;
+  uploadedAt: string;
+}
 
-export default function PublicHomePage() {
-    return (
-        <div className="w-full">
-            <section className="text-center py-20 lg:py-28 bg-white dark:bg-gray-900">
-                <div className="container mx-auto px-4">
-                    <h1 className="text-4xl md:text-5xl font-bold text-primary mb-4 font-headline">
-                        Simplifica tu Análisis de Causa Raíz (ACR)
-                    </h1>
-                    <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
-                        Asistente ACR es una herramienta intuitiva que te guía para identificar el origen de los
-                        problemas, definir acciones efectivas y prevenir su recurrencia, potenciando la mejora
-                        continua en tu organización.
-                    </p>
-                    <Link href="/registro" passHref>
-                        <Button size="lg">
-                            Comienza Ahora <ArrowRight className="ml-2 h-5 w-5" />
-                        </Button>
-                    </Link>
-                </div>
-            </section>
+export type SortKey = 'name' | 'size' | 'type' | 'uploadedAt';
+export type SortDirection = 'asc' | 'desc';
 
-            <section className="py-16 bg-muted/40">
-                <div className="container mx-auto px-4">
-                    <div className="text-center mb-12">
-                        <h2 className="text-3xl font-bold">Funcionalidades Clave</h2>
-                        <p className="text-muted-foreground">Descubre cómo Asistente ACR potencia tus análisis.</p>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
-                        <FeatureCard
-                            icon={ListOrdered}
-                            title="Análisis Guiado en 5 Pasos"
-                            description="Sigue un flujo de trabajo estructurado, desde la iniciación del evento hasta la validación de resultados, asegurando un análisis completo."
-                        />
-                        <FeatureCard
-                            icon={Bot}
-                            title="Asistencia con IA"
-                            description="Obtén sugerencias de causas raíz latentes y genera borradores de resúmenes ejecutivos con inteligencia artificial para acelerar tu análisis."
-                        />
-                        <FeatureCard
-                            icon={Shield}
-                            title="Gestión de Planes de Acción"
-                            description="Define, asigna y da seguimiento a las acciones correctivas. Los responsables pueden adjuntar evidencias y marcar tareas para su validación."
-                        />
-                        <FeatureCard
-                            icon={BarChart3}
-                            title="Informes y Dashboards"
-                            description="Visualiza el estado de tus análisis y planes de acción con gráficos y resúmenes. Exporta tus datos y comparte informes completos."
-                        />
-                         <FeatureCard
-                            icon={Users}
-                            title="Colaboración en Equipo"
-                            description="Gestiona roles y permisos para tu equipo. Define líderes de proyecto y equipos de investigación para cada análisis."
-                        />
-                        <FeatureCard
-                            icon={GitBranch}
-                            title="Técnicas de Análisis Integradas"
-                            description="Utiliza herramientas interactivas como Ishikawa, 5 Porqués y Árbol de Causas (CTM) para explorar y documentar las causas de forma visual."
-                        />
-                    </div>
-                </div>
-            </section>
+export default function Home() {
+  const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [sortKey, setSortKey] = useState<SortKey>('uploadedAt');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const { toast } = useToast();
+
+  const fetchFiles = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const listRef = ref(storage, 'uploads');
+      const res = await listAll(listRef);
+      const filesData = await Promise.all(
+        res.items.map(async (itemRef) => {
+          const url = await getDownloadURL(itemRef);
+          const metadata = await getMetadata(itemRef);
+          return {
+            name: metadata.name,
+            size: metadata.size,
+            type: metadata.contentType || 'unknown',
+            url: url,
+            fullPath: itemRef.fullPath,
+            uploadedAt: metadata.timeCreated
+          };
+        })
+      );
+      setFiles(filesData);
+    } catch (error) {
+        const bucket = storage.app.options.storageBucket || 'N/A';
+        let description = `No se pudo listar los archivos del bucket '${bucket}'. Por favor, revise su red y la configuración de Firebase.`;
+
+        // More specific error handling could be added here if needed
+        if (error instanceof Error && 'code' in error) {
+             switch((error as any).code) {
+                case 'storage/bucket-not-found':
+                    description = `El bucket de Firebase Storage '${bucket}' no fue encontrado. Asegúrese de que Storage esté habilitado y el nombre del bucket sea correcto.`;
+                    break;
+                case 'storage/unauthorized':
+                     description = `Permiso denegado para el bucket '${bucket}'. Por favor, revise las reglas de seguridad de Firebase Storage para permitir lecturas (allow read).`;
+                    break;
+             }
+        }
+        
+        toast({
+            variant: "destructive",
+            title: "Error al Cargar Archivos",
+            description: description,
+        });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchFiles();
+  }, [fetchFiles]);
+  
+
+  const handleUploadSuccess = (uploadedFile: UploadedFile) => {
+    setFiles(prevFiles => [...prevFiles, uploadedFile]);
+  };
+
+  const handleFileDelete = async (path: string) => {
+    const fileRef = ref(storage, path);
+    try {
+      await deleteObject(fileRef);
+      setFiles(prevFiles => prevFiles.filter(f => f.fullPath !== path));
+      toast({
+          title: "Archivo Eliminado",
+          description: `El archivo fue eliminado exitosamente.`,
+      });
+    } catch (error) {
+      console.error("Error deleting file:", error);
+      toast({
+          variant: "destructive",
+          title: "Error al Eliminar",
+          description: "No se pudo eliminar el archivo.",
+      });
+    }
+  };
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedFiles = useMemo(() => {
+    const sorted = [...files].sort((a, b) => {
+      if (sortKey === 'size') {
+        return a.size - b.size;
+      }
+      if (sortKey === 'uploadedAt') {
+        return new Date(a.uploadedAt).getTime() - new Date(b.uploadedAt).getTime();
+      }
+      return a[sortKey].localeCompare(b[sortKey]);
+    });
+
+    if (sortDirection === 'desc') {
+      return sorted.reverse();
+    }
+    return sorted;
+  }, [files, sortKey, sortDirection]);
+
+
+  return (
+    <div className="container mx-auto p-4 md:p-8">
+      <header className="text-center mb-12">
+        <h1 className="text-4xl font-bold font-headline text-primary">Firebase Storage Uploader</h1>
+        <p className="text-muted-foreground mt-2">
+          Sube y gestiona archivos directamente en Firebase Storage con esta interfaz.
+        </p>
+      </header>
+
+      <main className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-1">
+          <FileUploader onUploadSuccess={handleUploadSuccess} />
         </div>
-    );
+        <div className="lg:col-span-2">
+          <h2 className="text-2xl font-semibold mb-4">Archivos Subidos</h2>
+          <FileList 
+            files={sortedFiles} 
+            onFileDelete={handleFileDelete}
+            isLoading={isLoading}
+            sortKey={sortKey}
+            sortDirection={sortDirection}
+            onSort={handleSort}
+          />
+        </div>
+      </main>
+    </div>
+  );
 }
