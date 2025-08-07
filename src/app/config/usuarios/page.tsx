@@ -58,7 +58,7 @@ export default function ConfiguracionUsuariosPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [companies, setCompanies] = useState<Company[]>([]);
-  const { userProfile: loggedInUserProfile, loadingAuth } = useAuth();
+  const { userProfile: loggedInUserProfile, loadingAuth, updateUser } = useAuth(); // Import `updateUser` from context
 
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -227,86 +227,64 @@ export default function ConfiguracionUsuariosPage() {
       setIsUserDialogOpen(open);
   }, [resetFormState]);
 
-  const handleSaveUser = async () => {
+  const onUserSubmit = async () => {
+    // Validation
     if (!formState.name.trim() || !formState.role) {
       toast({ title: "Error de Validación", description: "Nombre y Rol son campos obligatorios.", variant: "destructive" });
       return;
     }
-    // Solo valida email al crear
-    if (!isEditing && !formState.email.trim()) {
-      toast({ title: "Error de Validación", description: "El correo electrónico es obligatorio.", variant: "destructive" });
-      return;
-    }
     if (!isEditing && !/^\S+@\S+\.\S+$/.test(formState.email)) {
-      toast({ title: "Error de Validación", description: "El correo electrónico no es válido.", variant: "destructive" });
+      toast({ title: "Error de Validación", description: "El correo electrónico no es válido o está vacío.", variant: "destructive" });
       return;
     }
 
     setIsSubmitting(true);
     
-    const finalEmpresa = formState.empresa.trim() || undefined;
-
     if (isEditing && currentUserToEdit) {
-      const wasPending = currentUserToEdit.role === 'Usuario Pendiente';
-      const isNowActive = formState.role && formState.role !== 'Usuario Pendiente' && formState.role !== '';
-      
-      // Objeto solo con los campos que se pueden modificar.
-      const dataToUpdate = {
-          name: formState.name.trim(),
-          role: formState.role,
-          empresa: finalEmpresa,
-          assignedSites: formState.assignedSites.trim(),
-          emailNotifications: formState.emailNotifications,
-          permissionLevel: formState.permissionLevel || defaultPermissionLevel,
+      // Logic for updating an existing user
+      const updatedUserData: UserConfigProfile = {
+        ...currentUserToEdit,
+        name: formState.name.trim(),
+        role: formState.role,
+        empresa: formState.empresa.trim() || '',
+        assignedSites: formState.assignedSites.trim(),
+        emailNotifications: formState.emailNotifications,
+        permissionLevel: formState.permissionLevel || defaultPermissionLevel,
       };
 
       try {
-        const userRef = doc(db, "users", currentUserToEdit.id);
-        await updateDoc(userRef, sanitizeForFirestore(dataToUpdate));
-        
-        if (wasPending && isNowActive) {
-            await sendEmailAction({
-                to: formState.email, 
-                subject: "¡Tu cuenta en Asistente ACR ha sido activada!",
-                body: `Hola ${dataToUpdate.name},\n\nTu cuenta en Asistente ACR ha sido aprobada por un administrador. Ya puedes iniciar sesión con tu correo y contraseña.\n\nSaludos,\nEl equipo de Asistente ACR`
-            });
-             toast({
-                title: "Usuario Actualizado y Notificado",
-                description: `El usuario "${dataToUpdate.name}" fue activado y se le envió un correo.`,
-            });
-        } else {
-            toast({ title: "Usuario Actualizado", description: `El usuario "${dataToUpdate.name}" ha sido actualizado.` });
-        }
-        if(loggedInUserProfile) fetchInitialData(loggedInUserProfile);
+        await updateUser(updatedUserData);
+        toast({ title: "Usuario Actualizado", description: `El perfil de "${updatedUserData.name}" ha sido actualizado.` });
+        if(loggedInUserProfile) await fetchInitialData(loggedInUserProfile);
         handleDialogClose(false);
       } catch (error) {
-        console.error("Error updating user in Firestore: ", error);
-        toast({ title: "Error al Actualizar", description: "No se pudo actualizar el usuario.", variant: "destructive" });
+        console.error("Error updating user:", error);
+        toast({ title: "Error al Actualizar", description: (error as Error).message, variant: "destructive" });
       }
     } else {
-      // Lógica para crear un nuevo usuario (sin cambios)
-      const dataToSave: Omit<UserConfigProfile, 'id'> = {
-          name: formState.name.trim(),
-          email: formState.email.trim(),
-          role: formState.role,
-          empresa: finalEmpresa,
-          assignedSites: formState.assignedSites.trim(),
-          emailNotifications: formState.emailNotifications,
-          permissionLevel: formState.permissionLevel || defaultPermissionLevel,
+      // Logic for creating a new user profile
+      const newUserProfileData: Omit<UserConfigProfile, 'id'> = {
+        name: formState.name.trim(),
+        email: formState.email.trim(),
+        role: formState.role,
+        empresa: formState.empresa.trim() || undefined,
+        assignedSites: formState.assignedSites.trim(),
+        emailNotifications: formState.emailNotifications,
+        permissionLevel: formState.permissionLevel || defaultPermissionLevel,
       };
       try {
-        await addDoc(collection(db, "users"), sanitizeForFirestore(dataToSave));
-        toast({ title: "Perfil de Usuario Añadido", description: `El perfil para "${dataToSave.name}" ha sido añadido.` });
-        if(loggedInUserProfile) fetchInitialData(loggedInUserProfile);
+        await addDoc(collection(db, "users"), sanitizeForFirestore(newUserProfileData));
+        toast({ title: "Perfil de Usuario Añadido", description: `El perfil para "${newUserProfileData.name}" ha sido añadido. Este usuario no podrá iniciar sesión hasta que se cree una cuenta de autenticación con el mismo correo.` });
+        if(loggedInUserProfile) await fetchInitialData(loggedInUserProfile);
         handleDialogClose(false);
       } catch (error) {
         console.error("Error adding user profile to Firestore: ", error);
         toast({ title: "Error al Añadir Perfil", description: "No se pudo añadir el perfil de usuario.", variant: "destructive" });
       }
     }
-    
     setIsSubmitting(false);
   };
+
 
   const openDeleteDialog = (user: UserConfigProfile) => {
     setUserToDelete(user);
@@ -570,7 +548,7 @@ export default function ConfiguracionUsuariosPage() {
                         <DialogClose asChild>
                         <Button type="button" variant="outline" onClick={() => handleDialogClose(false)} disabled={isSubmitting}>Cancelar</Button>
                         </DialogClose>
-                        <Button type="button" onClick={handleSaveUser} disabled={isSubmitting}>
+                        <Button type="button" onClick={onUserSubmit} disabled={isSubmitting}>
                          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                          {isEditing ? 'Guardar Cambios' : 'Crear Perfil'}
                         </Button>

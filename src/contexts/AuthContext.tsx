@@ -41,10 +41,11 @@ interface AuthContextType {
   currentUser: FirebaseUser | null;
   loadingAuth: boolean;
   userProfile: FullUserProfile | null; 
-  loginWithEmail: (email: string, pass: string) => Promise<void>; // Return void, success is handled by state change
+  loginWithEmail: (email: string, pass: string) => Promise<void>;
   registerWithEmail: (email: string, pass: string, name: string) => Promise<UserCredential>;
   logoutUser: () => Promise<void>;
   updateUserProfile: (data: { name?: string }) => Promise<void>;
+  updateUser: (updatedUser: FullUserProfile) => Promise<void>; // New function
   updateUserProfilePicture: (file: File) => Promise<string>;
   changePassword: (currentPass: string, newPass: string) => Promise<void>;
   deleteAccount: (currentPass: string) => Promise<void>;
@@ -159,6 +160,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
   
+  const updateUserFunc = async (updatedUser: FullUserProfile) => {
+    if (!updatedUser.id) throw new Error("ID de usuario es requerido para actualizar.");
+
+    const userDocRef = doc(db, 'users', updatedUser.id);
+    const dataToUpdate = {
+        name: updatedUser.name,
+        role: updatedUser.role,
+        empresa: updatedUser.empresa,
+        assignedSites: updatedUser.assignedSites,
+        emailNotifications: updatedUser.emailNotifications,
+        permissionLevel: updatedUser.permissionLevel,
+    };
+    
+    await updateDoc(userDocRef, sanitizeForFirestore(dataToUpdate));
+};
+
+
   const updateUserProfilePictureFunc = async (file: File): Promise<string> => {
     if (!currentUser) throw new Error("No hay un usuario autenticado.");
     const filePath = `profile_pictures/${currentUser.uid}/${file.name}`;
@@ -195,6 +213,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     registerWithEmail,
     logoutUser,
     updateUserProfile: updateUserProfileFunc,
+    updateUser: updateUserFunc,
     updateUserProfilePicture: updateUserProfilePictureFunc,
     changePassword: changePasswordFunc,
     deleteAccount: deleteAccountFunc,
