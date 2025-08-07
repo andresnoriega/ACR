@@ -228,11 +228,16 @@ export default function ConfiguracionUsuariosPage() {
   }, [resetFormState]);
 
   const handleSaveUser = async () => {
-    if (!formState.name.trim() || !formState.email.trim() || !formState.role) {
-      toast({ title: "Error de Validación", description: "Nombre, Correo y Rol son campos obligatorios.", variant: "destructive" });
+    if (!formState.name.trim() || !formState.role) {
+      toast({ title: "Error de Validación", description: "Nombre y Rol son campos obligatorios.", variant: "destructive" });
       return;
     }
-    if (!/^\S+@\S+\.\S+$/.test(formState.email)) {
+    // Solo valida email al crear
+    if (!isEditing && !formState.email.trim()) {
+      toast({ title: "Error de Validación", description: "El correo electrónico es obligatorio.", variant: "destructive" });
+      return;
+    }
+    if (!isEditing && !/^\S+@\S+\.\S+$/.test(formState.email)) {
       toast({ title: "Error de Validación", description: "El correo electrónico no es válido.", variant: "destructive" });
       return;
     }
