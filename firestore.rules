@@ -1,28 +1,41 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Permite que un usuario autenticado pueda crear su propio perfil.
+
+    // Regla para la colección de usuarios
     match /users/{userId} {
-      allow read, create: if request.auth != null;
-      allow update, delete: if request.auth.uid == userId;
+      // Cualquiera puede leer perfiles (necesario para mostrar nombres, etc.)
+      allow read: if request.auth != null;
+      // Cualquiera puede crear su propio perfil inicial
+      allow create: if request.auth != null;
+      // Permitir la actualización/eliminación si:
+      // 1. El usuario está modificando su propio perfil.
+      // O
+      // 2. El usuario que hace la petición tiene el rol de 'Super User'.
+      allow update, delete: if request.auth.uid == userId 
+                              || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Super User';
     }
     
-    // Permite a los usuarios autenticados leer datos de configuración.
+    // Reglas para la configuración
     match /companies/{companyId} {
         allow read: if request.auth != null;
-        allow write: if request.auth != null; // Ajustado para que los Super Users puedan gestionar
+        // Solo los Super Users pueden crear, editar o eliminar empresas.
+        allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Super User';
     }
+
     match /sites/{siteId} {
         allow read: if request.auth != null;
-        allow write: if request.auth != null; // Ajustado para que los Admins/Super Users puedan gestionar
+        // Solo los Super Users pueden crear, editar o eliminar sitios.
+        allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Super User';
     }
     
-    // Permite a los usuarios autenticados leer y escribir en los análisis y eventos.
-    // Se pueden añadir reglas más granulares posteriormente si es necesario.
+    // Reglas para los análisis y eventos reportados
     match /rcaAnalyses/{analysisId} {
+        // Permitir lectura y escritura a cualquier usuario autenticado por ahora.
+        // Se puede refinar después para que solo usuarios de la misma empresa puedan acceder.
         allow read, write: if request.auth != null;
     }
+
     match /reportedEvents/{eventId} {
         allow read, write: if request.auth != null;
     }
