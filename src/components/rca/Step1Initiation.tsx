@@ -512,65 +512,69 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
             </Button>
           </div>
         </CardContent>
-        <CardFooter className="flex flex-col sm:flex-row justify-end items-center gap-2 pt-4 border-t">
-          <Button
-            variant="outline"
-            onClick={onPrintReport}
-            disabled={isSaving}
-            className="w-full sm:w-auto mr-auto"
-            title="Exportar el informe completo del análisis a PDF."
-          >
-            <Printer className="mr-2 h-4 w-4" />
-            Exportar PDF
-          </Button>
-
-          <Button 
-            onClick={handlePrepareNotification} 
-            variant="secondary" 
-            className="w-full sm:w-auto transition-transform hover:scale-105" 
-            disabled={isSaving || currentEventStatus === 'Rechazado' || isEventFinalized}
-            title={(currentEventStatus === 'Rechazado' || isEventFinalized) ? "Evento rechazado o finalizado." : "Guardar el evento y luego notificar su creación"}
-          >
-             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            <Bell className="mr-2 h-4 w-4" /> Notificar Creación
-          </Button>
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant="destructive" 
-                className="w-full sm:w-auto transition-transform hover:scale-105" 
-                disabled={isManageStateButtonDisabled}
-                title={getRejectButtonTitle()}
+        <CardFooter className="flex flex-col sm:flex-row justify-between items-center gap-2 pt-4 border-t">
+          <div className="w-full sm:w-auto sm:mr-auto">
+              <Button
+                  variant="outline"
+                  onClick={onPrintReport}
+                  disabled={isSaving}
+                  className="w-full sm:w-auto"
+                  title="Exportar el informe completo del análisis a PDF."
               >
-                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                <Settings2 className="mr-2 h-4 w-4" /> Gestionar Estado
+                  <Printer className="mr-2 h-4 w-4" />
+                  Exportar PDF
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Acciones de Estado</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={onApproveEvent}
-                disabled={isSaving || currentEventStatus !== 'Pendiente' || isEventFinalized || !canUserManageEventState}
-                className="text-green-600 focus:bg-green-100 focus:text-green-700"
-              >
-                <CheckCircle className="mr-2 h-4 w-4" /> Aprobar Evento
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={onRejectEvent}
-                disabled={isSaving || currentEventStatus === 'Rechazado' || currentEventStatus === 'Finalizado' || isEventFinalized || !canUserManageEventState}
-                className="text-red-600 focus:bg-red-100 focus:text-red-700"
-              >
-                <XCircle className="mr-2 h-4 w-4" /> Rechazar Reporte
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          </div>
 
-          <Button onClick={handleContinueToNextStep} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || isEventFinalized}>
-            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Continuar
-          </Button>
+          <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+              <Button 
+                  onClick={handlePrepareNotification} 
+                  variant="secondary" 
+                  className="w-full sm:w-auto transition-transform hover:scale-105" 
+                  disabled={isSaving || currentEventStatus === 'Rechazado' || isEventFinalized}
+                  title={(currentEventStatus === 'Rechazado' || isEventFinalized) ? "Evento rechazado o finalizado." : "Guardar el evento y luego notificar su creación"}
+              >
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Bell className="mr-2 h-4 w-4" /> Notificar Creación
+              </Button>
+              
+              <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                  <Button 
+                      variant="destructive" 
+                      className="w-full sm:w-auto transition-transform hover:scale-105" 
+                      disabled={isManageStateButtonDisabled}
+                      title={getRejectButtonTitle()}
+                  >
+                      {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      <Settings2 className="mr-2 h-4 w-4" /> Gestionar Estado
+                  </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Acciones de Estado</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                      onClick={onApproveEvent}
+                      disabled={isSaving || currentEventStatus !== 'Pendiente' || isEventFinalized || !canUserManageEventState}
+                      className="text-green-600 focus:bg-green-100 focus:text-green-700"
+                  >
+                      <CheckCircle className="mr-2 h-4 w-4" /> Aprobar Evento
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                      onClick={onRejectEvent}
+                      disabled={isSaving || currentEventStatus === 'Rechazado' || currentEventStatus === 'Finalizado' || isEventFinalized || !canUserManageEventState}
+                      className="text-red-600 focus:bg-red-100 focus:text-red-700"
+                  >
+                      <XCircle className="mr-2 h-4 w-4" /> Rechazar Reporte
+                  </DropdownMenuItem>
+                  </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Button onClick={handleContinueToNextStep} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || isEventFinalized}>
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Continuar
+              </Button>
+          </div>
         </CardFooter>
       </Card>
 
