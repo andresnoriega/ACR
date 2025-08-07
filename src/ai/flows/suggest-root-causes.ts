@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Suggests potential latent root causes based on validated findings from various analysis techniques.
@@ -176,7 +177,11 @@ const suggestLatentRootCausesFlow = ai.defineFlow(
     inputSchema: SuggestLatentRootCausesInputSchema,
     outputSchema: SuggestLatentRootCausesOutputSchema,
   },
-  async (input) => {
+  async (input, streamingCallback, context) => {
+    
+    if (!context?.auth?.apiKey) {
+      throw new Error("API Key not provided in context.");
+    }
     
     // Pre-filter data to only include accepted items
     const filteredIshikawa = input.ishikawaData?.map(cat => ({
@@ -211,7 +216,7 @@ const suggestLatentRootCausesFlow = ai.defineFlow(
       ctmData: filteredCtm,
     };
     
-    const { output } = await prompt(promptInput);
+    const { output } = await prompt(promptInput, {apiKey: context.auth.apiKey});
 
     if (!output || !output.suggestedLatentCauses || output.suggestedLatentCauses.length === 0) {
       return { suggestedLatentCauses: ["La IA no generó nuevas sugerencias o hubo un error. Intente de nuevo o revise los datos de entrada."] };
@@ -221,9 +226,9 @@ const suggestLatentRootCausesFlow = ai.defineFlow(
 );
 
 
-export async function suggestLatentRootCauses(input: SuggestLatentRootCausesInput): Promise<SuggestLatentRootCausesOutput> {
+export async function suggestLatentRootCauses(input: SuggestLatentRootCausesInput, apiKey: string): Promise<SuggestLatentRootCausesOutput> {
   try {
-    const result = await suggestLatentRootCausesFlow(input);
+    const result = await suggestLatentRootCausesFlow(input, {auth: {apiKey}});
     return result;
   } catch (error) {
     console.error("Error executing suggestLatentRootCauses:", error);

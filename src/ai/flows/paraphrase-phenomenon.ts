@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Paraphrases a structured phenomenon description into a fluid text.
@@ -53,8 +54,11 @@ const paraphrasePhenomenonFlow = ai.defineFlow(
     inputSchema: ParaphrasePhenomenonInputSchema,
     outputSchema: ParaphrasePhenomenonOutputSchema,
   },
-  async (input) => {
-    const {output} = await prompt(input);
+  async (input, streamingCallback, context) => {
+     if (!context?.auth?.apiKey) {
+      throw new Error("API Key not provided in context.");
+    }
+    const {output} = await prompt(input, {apiKey: context.auth.apiKey});
     if (!output) {
       return { paraphrasedText: "[IA no disponible: No se generó respuesta]" };
     }
@@ -62,9 +66,9 @@ const paraphrasePhenomenonFlow = ai.defineFlow(
   }
 );
 
-export async function paraphrasePhenomenon(input: ParaphrasePhenomenonInput): Promise<ParaphrasePhenomenonOutput> {
+export async function paraphrasePhenomenon(input: ParaphrasePhenomenonInput, apiKey: string): Promise<ParaphrasePhenomenonOutput> {
   try {
-    const result = await paraphrasePhenomenonFlow(input);
+    const result = await paraphrasePhenomenonFlow(input, {auth: {apiKey}});
     return result;
   } catch (error) {
     console.error("Error executing paraphrasePhenomenon:", error);

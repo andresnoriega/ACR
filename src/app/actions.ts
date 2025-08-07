@@ -1,3 +1,4 @@
+
 'use server';
 
 // Este archivo centraliza todas las acciones de servidor,
@@ -12,21 +13,33 @@ import { sendEmailAction as sendEmail } from '@/lib/sendgrid';
  * Server Action to generate RCA insights.
  */
 export async function generateRcaInsightsAction(input: GenerateRcaInsightsInput): Promise<GenerateRcaInsightsOutput> {
-  return generateRcaInsights(input);
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return { summary: "[IA no disponible: La API Key de Gemini no está configurada en el backend.]" };
+  }
+  return generateRcaInsights(input, apiKey);
 }
 
 /**
  * Server Action to paraphrase a phenomenon.
  */
 export async function paraphrasePhenomenonAction(input: ParaphrasePhenomenonInput): Promise<ParaphrasePhenomenonOutput> {
-  return paraphrasePhenomenon(input);
+  const apiKey = process.env.GEMINI_API_KEY;
+   if (!apiKey) {
+    return { paraphrasedText: "[IA no disponible: La API Key de Gemini no está configurada en el backend.]" };
+  }
+  return paraphrasePhenomenon(input, apiKey);
 }
 
 /**
  * Server Action to suggest latent root causes.
  */
 export async function suggestLatentRootCausesAction(input: SuggestLatentRootCausesInput): Promise<SuggestLatentRootCausesOutput> {
-  return suggestLatentRootCauses(input);
+  const apiKey = process.env.GEMINI_API_KEY;
+   if (!apiKey) {
+    return { suggestedLatentCauses: ["[IA no disponible: La API Key de Gemini no está configurada en el backend.]"] };
+  }
+  return suggestLatentRootCauses(input, apiKey);
 }
 
 /**

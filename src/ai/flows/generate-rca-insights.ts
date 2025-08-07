@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Generates insights and a summary for an RCA process.
@@ -78,8 +79,11 @@ const generateRcaInsightsFlowInternal = ai.defineFlow(
     inputSchema: GenerateRcaInsightsInputSchema,
     outputSchema: GenerateRcaInsightsOutputSchema,
   },
-  async (input) => {
-    const {output} = await prompt(input);
+  async (input, streamingCallback, context) => {
+     if (!context?.auth?.apiKey) {
+      throw new Error("API Key not provided in context.");
+    }
+    const {output} = await prompt(input, {apiKey: context.auth.apiKey});
     if (!output) {
       console.error("The AI model did not return an output for generateRcaInsightsFlow. Input:", input);
       return { summary: "[Resumen IA no disponible: El modelo no generó una respuesta válida]" };
@@ -89,9 +93,9 @@ const generateRcaInsightsFlowInternal = ai.defineFlow(
 );
 
 
-export async function generateRcaInsights(input: GenerateRcaInsightsInput): Promise<GenerateRcaInsightsOutput> {
+export async function generateRcaInsights(input: GenerateRcaInsightsInput, apiKey: string): Promise<GenerateRcaInsightsOutput> {
   try {
-    const result = await generateRcaInsightsFlowInternal(input);
+    const result = await generateRcaInsightsFlowInternal(input, {auth: {apiKey}});
     return result;
   } catch (error) {
     console.error("Error executing generateRcaInsights:", error);
