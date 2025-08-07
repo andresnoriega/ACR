@@ -244,42 +244,38 @@ export default function ConfiguracionUsuariosPage() {
 
     setIsSubmitting(true);
     
-    let finalEmpresa = formState.empresa.trim() || undefined;
-    if (loggedInUserProfile?.role === 'Admin' && loggedInUserProfile.empresa) {
-        finalEmpresa = loggedInUserProfile.empresa;
-    }
+    const finalEmpresa = formState.empresa.trim() || undefined;
 
-    const dataToSave: Omit<UserConfigProfile, 'id'> = {
-        name: formState.name.trim(),
-        email: formState.email.trim(),
-        role: formState.role,
-        empresa: finalEmpresa,
-        assignedSites: formState.assignedSites.trim(),
-        emailNotifications: formState.emailNotifications,
-        permissionLevel: formState.permissionLevel || defaultPermissionLevel,
-    };
-    
     if (isEditing && currentUserToEdit) {
       const wasPending = currentUserToEdit.role === 'Usuario Pendiente';
-      const isNowActive = dataToSave.role && dataToSave.role !== 'Usuario Pendiente' && dataToSave.role !== '';
+      const isNowActive = formState.role && formState.role !== 'Usuario Pendiente' && formState.role !== '';
       
+      // Objeto solo con los campos que se pueden modificar.
+      const dataToUpdate = {
+          name: formState.name.trim(),
+          role: formState.role,
+          empresa: finalEmpresa,
+          assignedSites: formState.assignedSites.trim(),
+          emailNotifications: formState.emailNotifications,
+          permissionLevel: formState.permissionLevel || defaultPermissionLevel,
+      };
+
       try {
         const userRef = doc(db, "users", currentUserToEdit.id);
-        
-        await updateDoc(userRef, sanitizeForFirestore(dataToSave));
+        await updateDoc(userRef, sanitizeForFirestore(dataToUpdate));
         
         if (wasPending && isNowActive) {
             await sendEmailAction({
                 to: formState.email, 
                 subject: "¡Tu cuenta en Asistente ACR ha sido activada!",
-                body: `Hola ${dataToSave.name},\n\nTu cuenta en Asistente ACR ha sido aprobada por un administrador. Ya puedes iniciar sesión con tu correo y contraseña.\n\nSaludos,\nEl equipo de Asistente ACR`
+                body: `Hola ${dataToUpdate.name},\n\nTu cuenta en Asistente ACR ha sido aprobada por un administrador. Ya puedes iniciar sesión con tu correo y contraseña.\n\nSaludos,\nEl equipo de Asistente ACR`
             });
              toast({
                 title: "Usuario Actualizado y Notificado",
-                description: `El usuario "${dataToSave.name}" fue activado y se le envió un correo.`,
+                description: `El usuario "${dataToUpdate.name}" fue activado y se le envió un correo.`,
             });
         } else {
-            toast({ title: "Usuario Actualizado", description: `El usuario "${dataToSave.name}" ha sido actualizado.` });
+            toast({ title: "Usuario Actualizado", description: `El usuario "${dataToUpdate.name}" ha sido actualizado.` });
         }
         if(loggedInUserProfile) fetchInitialData(loggedInUserProfile);
         handleDialogClose(false);
@@ -288,6 +284,16 @@ export default function ConfiguracionUsuariosPage() {
         toast({ title: "Error al Actualizar", description: "No se pudo actualizar el usuario.", variant: "destructive" });
       }
     } else {
+      // Lógica para crear un nuevo usuario (sin cambios)
+      const dataToSave: Omit<UserConfigProfile, 'id'> = {
+          name: formState.name.trim(),
+          email: formState.email.trim(),
+          role: formState.role,
+          empresa: finalEmpresa,
+          assignedSites: formState.assignedSites.trim(),
+          emailNotifications: formState.emailNotifications,
+          permissionLevel: formState.permissionLevel || defaultPermissionLevel,
+      };
       try {
         await addDoc(collection(db, "users"), sanitizeForFirestore(dataToSave));
         toast({ title: "Perfil de Usuario Añadido", description: `El perfil para "${dataToSave.name}" ha sido añadido.` });
