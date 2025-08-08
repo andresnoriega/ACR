@@ -117,12 +117,11 @@ body {
   }
 
   /* Default behavior: hide everything except what we explicitly show */
-  body.print-step-1 > *, body.print-step-5 > * {
+  body.print-step-5 > *, body > .no-print {
     display: none !important;
   }
   
   /* Show only the targeted print container */
-  body.print-step-1 .print-only-step1,
   body.print-step-5 .print-only-step5 {
     display: block !important;
   }

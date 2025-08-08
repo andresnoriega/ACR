@@ -34,8 +34,7 @@ interface Step1InitiationProps {
   onPrintReport: () => void;
   isSaving: boolean;
   onApproveEvent: () => Promise<void>; 
-  onRejectEvent: () => Promise<void>; 
-  isEventFinalized: boolean;
+  onRejectEvent: () => Promise<void>;
   currentEventStatus: ReportedEventStatus;
   validateStep1PreRequisites: () => { isValid: boolean, message?: string }; // Added prop
 }
@@ -237,7 +236,6 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   isSaving,
   onApproveEvent,
   onRejectEvent,
-  isEventFinalized,
   currentEventStatus,
   validateStep1PreRequisites,
 }) => {
@@ -375,12 +373,11 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     return userProfile.role === 'Admin' || userProfile.role === 'Super User';
   }, [userProfile]);
 
-  const isManageStateButtonDisabled = isEventFinalized || isSaving || !canUserManageEventState;
+  const isManageStateButtonDisabled = isSaving || !canUserManageEventState || (currentEventStatus !== 'Pendiente' && currentEventStatus !== 'En análisis');
   
-  const getRejectButtonTitle = () => {
+  const getManageButtonTitle = () => {
     if (!eventData.id && canUserManageEventState) return "Guarde el evento para habilitar opciones de estado.";
-    if (isEventFinalized) return "El evento ya está finalizado, no se puede cambiar el estado.";
-    if (currentEventStatus === 'Rechazado') return "El evento ya está rechazado.";
+    if (currentEventStatus === 'Rechazado' || currentEventStatus === 'Finalizado' || currentEventStatus === 'Verificado') return `El evento ya está "${currentEventStatus}", no se puede cambiar el estado.`;
     if (!canUserManageEventState) return "No tiene permisos para gestionar el estado de este evento.";
     return "Aprobar o Rechazar este reporte de evento";
   };
@@ -520,6 +517,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
                     variant="outline"
                     className="w-full sm:w-auto"
                     title="Exportar el informe completo del análisis a PDF."
+                    disabled={isSaving}
                 >
                     <Printer className="mr-2 h-4 w-4" />
                     Exportar a PDF
@@ -531,8 +529,8 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
                   onClick={handlePrepareNotification} 
                   variant="secondary" 
                   className="w-full sm:w-auto transition-transform hover:scale-105" 
-                  disabled={isSaving || currentEventStatus === 'Rechazado' || isEventFinalized}
-                  title={(currentEventStatus === 'Rechazado' || isEventFinalized) ? "Evento rechazado o finalizado." : "Guardar el evento y luego notificar su creación"}
+                  disabled={isSaving || currentEventStatus === 'Rechazado' }
+                  title={currentEventStatus === 'Rechazado' ? "Evento rechazado." : "Guardar el evento y luego notificar su creación"}
               >
                   {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   <Bell className="mr-2 h-4 w-4" /> Notificar Creación
@@ -544,7 +542,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
                       variant="destructive" 
                       className="w-full sm:w-auto transition-transform hover:scale-105" 
                       disabled={isManageStateButtonDisabled}
-                      title={getRejectButtonTitle()}
+                      title={getManageButtonTitle()}
                   >
                       {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       <Settings2 className="mr-2 h-4 w-4" /> Gestionar Estado
@@ -555,14 +553,14 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                       onClick={onApproveEvent}
-                      disabled={isSaving || currentEventStatus !== 'Pendiente' || isEventFinalized || !canUserManageEventState}
+                      disabled={isSaving || currentEventStatus !== 'Pendiente'}
                       className="text-green-600 focus:bg-green-100 focus:text-green-700"
                   >
                       <CheckCircle className="mr-2 h-4 w-4" /> Aprobar Evento
                   </DropdownMenuItem>
                   <DropdownMenuItem
                       onClick={onRejectEvent}
-                      disabled={isSaving || currentEventStatus === 'Rechazado' || currentEventStatus === 'Finalizado' || isEventFinalized || !canUserManageEventState}
+                      disabled={isSaving || currentEventStatus === 'Rechazado' || currentEventStatus === 'Finalizado' }
                       className="text-red-600 focus:bg-red-100 focus:text-red-700"
                   >
                       <XCircle className="mr-2 h-4 w-4" /> Rechazar Reporte
@@ -570,7 +568,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
                   </DropdownMenuContent>
               </DropdownMenu>
 
-              <Button onClick={handleContinueToNextStep} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving || isEventFinalized}>
+              <Button onClick={handleContinueToNextStep} className="w-full sm:w-auto transition-transform hover:scale-105" disabled={isSaving}>
                   {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Continuar
               </Button>
