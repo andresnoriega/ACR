@@ -63,7 +63,7 @@ export default function Home() {
         <section className="py-12 md:py-16 text-center bg-card">
           <div className="container mx-auto px-4">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold font-headline text-primary">
-              Más que un Gestor de Incidentes: La Evolución al Análisis Inteligente
+              Más que un Gestor de Eventos: La Evolución al Análisis Inteligente
             </h1>
             <p className="mt-6 text-lg md:text-xl max-w-3xl mx-auto text-muted-foreground">
               Asistente ACR no solo registra tus eventos. Te guía para optimizar tus procesos, unificando el análisis con inteligencia artificial para maximizar la fiabilidad y prevenir futuras recurrencias.
