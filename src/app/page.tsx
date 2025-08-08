@@ -108,7 +108,7 @@ export default function Home() {
 
       <footer className="bg-background border-t">
         <div className="container mx-auto py-6 px-4 text-center text-muted-foreground text-sm">
-          &copy; {new Date().getFullYear()} Asistente ACR. Todos los derechos reservados.
+          2025 <a href="https://www.damc.cl" target="_blank" rel="noopener noreferrer" className="hover:text-primary">DAMC</a>. Todos los derechos reservados. <a href="mailto:contacto@damc.cl" className="hover:text-primary">contacto@damc.cl</a>
         </div>
       </footer>
     </div>
