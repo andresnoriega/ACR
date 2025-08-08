@@ -102,13 +102,6 @@ export default function Home() {
             <p className="mt-4 text-muted-foreground max-w-2xl mx-auto">
               Toma el control total de tus análisis. Asistente ACR te ofrece las herramientas para centralizar información, optimizar el ciclo de resolución de problemas y tomar decisiones basadas en datos para maximizar la eficiencia y seguridad de tu operación.
             </p>
-             <div className="mt-8">
-              <Button asChild size="lg">
-                <Link href="/registro">
-                  Regístrate Gratis
-                </Link>
-              </Button>
-            </div>
           </div>
         </section>
       </main>
