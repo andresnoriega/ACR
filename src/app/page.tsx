@@ -60,7 +60,7 @@ export default function Home() {
     <div className="bg-background text-foreground">
       <main>
         {/* Hero Section */}
-        <section className="py-20 md:py-32 text-center bg-card">
+        <section className="py-16 md:py-24 text-center bg-card">
           <div className="container mx-auto px-4">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold font-headline text-primary">
               Más que un Gestor de Incidentes: La Evolución al Análisis Inteligente
