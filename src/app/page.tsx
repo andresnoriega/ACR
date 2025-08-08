@@ -1,157 +1,123 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { storage } from '@/lib/firebase';
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject, listAll, getMetadata } from 'firebase/storage';
-import FileUploader from '@/components/file-uploader';
-import FileList from '@/components/file-list';
-import { useToast } from "@/hooks/use-toast";
+import { ArrowRight, BarChart3, Bot, CheckSquare, ClipboardList, ListOrdered, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import Logo from '@/components/logo';
 
-export interface UploadedFile {
-  name: string;
-  size: number;
-  type: string;
-  url: string;
-  fullPath: string;
-  uploadedAt: string;
-}
+const FeatureCard = ({ icon: Icon, title, description }: { icon: React.ElementType, title: string, description: string }) => (
+  <Card className="text-center shadow-md hover:shadow-lg transition-shadow duration-300">
+    <CardHeader className="items-center">
+      <div className="p-3 bg-primary/10 rounded-full mb-2">
+        <Icon className="h-8 w-8 text-primary" />
+      </div>
+      <CardTitle className="text-lg font-semibold">{title}</CardTitle>
+    </CardHeader>
+    <CardContent>
+      <p className="text-sm text-muted-foreground">{description}</p>
+    </CardContent>
+  </Card>
+);
 
-export type SortKey = 'name' | 'size' | 'type' | 'uploadedAt';
-export type SortDirection = 'asc' | 'desc';
 
 export default function Home() {
-  const [files, setFiles] = useState<UploadedFile[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [sortKey, setSortKey] = useState<SortKey>('uploadedAt');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  const { toast } = useToast();
 
-  const fetchFiles = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const listRef = ref(storage, 'uploads');
-      const res = await listAll(listRef);
-      const filesData = await Promise.all(
-        res.items.map(async (itemRef) => {
-          const url = await getDownloadURL(itemRef);
-          const metadata = await getMetadata(itemRef);
-          return {
-            name: metadata.name,
-            size: metadata.size,
-            type: metadata.contentType || 'unknown',
-            url: url,
-            fullPath: itemRef.fullPath,
-            uploadedAt: metadata.timeCreated
-          };
-        })
-      );
-      setFiles(filesData);
-    } catch (error) {
-        const bucket = storage.app.options.storageBucket || 'N/A';
-        let description = `No se pudo listar los archivos del bucket '${bucket}'. Por favor, revise su red y la configuración de Firebase.`;
-
-        // More specific error handling could be added here if needed
-        if (error instanceof Error && 'code' in error) {
-             switch((error as any).code) {
-                case 'storage/bucket-not-found':
-                    description = `El bucket de Firebase Storage '${bucket}' no fue encontrado. Asegúrese de que Storage esté habilitado y el nombre del bucket sea correcto.`;
-                    break;
-                case 'storage/unauthorized':
-                     description = `Permiso denegado para el bucket '${bucket}'. Por favor, revise las reglas de seguridad de Firebase Storage para permitir lecturas (allow read).`;
-                    break;
-             }
-        }
-        
-        toast({
-            variant: "destructive",
-            title: "Error al Cargar Archivos",
-            description: description,
-        });
-    } finally {
-      setIsLoading(false);
+  const features = [
+    {
+      icon: ClipboardList,
+      title: 'Proceso de Análisis Guiado',
+      description: 'Sigue un flujo estructurado en 5 pasos, desde la iniciación del evento hasta la verificación de la eficacia de las acciones.',
+    },
+    {
+      icon: BarChart3,
+      title: 'Múltiples Técnicas de Análisis',
+      description: 'Utiliza herramientas integradas como Ishikawa, 5 Porqués y Árbol de Causas (CTM) para encontrar el origen de los problemas.',
+    },
+    {
+      icon: Bot,
+      title: 'Asistencia con IA',
+      description: 'Genera resúmenes ejecutivos y obtén sugerencias de causas raíz latentes para enriquecer tus análisis.',
+    },
+    {
+      icon: ListOrdered,
+      title: 'Gestión de Tareas y Acciones',
+      description: 'Define planes de acción claros, asigna responsables y fechas límite, y gestiona el ciclo de vida de cada tarea.',
+    },
+    {
+      icon: CheckSquare,
+      title: 'Validación y Seguimiento',
+      description: 'Valida la implementación de acciones con evidencias y realiza un seguimiento de la eficacia a largo plazo de las soluciones.',
+    },
+    {
+      icon: ShieldCheck,
+      title: 'Informes y Dashboards',
+      description: 'Visualiza el estado de tus análisis, el cumplimiento de los planes y exporta informes completos en PDF para comunicar los resultados.'
     }
-  }, [toast]);
-
-  useEffect(() => {
-    fetchFiles();
-  }, [fetchFiles]);
-  
-
-  const handleUploadSuccess = (uploadedFile: UploadedFile) => {
-    setFiles(prevFiles => [...prevFiles, uploadedFile]);
-  };
-
-  const handleFileDelete = async (path: string) => {
-    const fileRef = ref(storage, path);
-    try {
-      await deleteObject(fileRef);
-      setFiles(prevFiles => prevFiles.filter(f => f.fullPath !== path));
-      toast({
-          title: "Archivo Eliminado",
-          description: `El archivo fue eliminado exitosamente.`,
-      });
-    } catch (error) {
-      console.error("Error deleting file:", error);
-      toast({
-          variant: "destructive",
-          title: "Error al Eliminar",
-          description: "No se pudo eliminar el archivo.",
-      });
-    }
-  };
-
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortKey(key);
-      setSortDirection('asc');
-    }
-  };
-
-  const sortedFiles = useMemo(() => {
-    const sorted = [...files].sort((a, b) => {
-      if (sortKey === 'size') {
-        return a.size - b.size;
-      }
-      if (sortKey === 'uploadedAt') {
-        return new Date(a.uploadedAt).getTime() - new Date(b.uploadedAt).getTime();
-      }
-      return a[sortKey].localeCompare(b[sortKey]);
-    });
-
-    if (sortDirection === 'desc') {
-      return sorted.reverse();
-    }
-    return sorted;
-  }, [files, sortKey, sortDirection]);
-
+  ];
 
   return (
-    <div className="container mx-auto p-4 md:p-8">
-      <header className="text-center mb-12">
-        <h1 className="text-4xl font-bold font-headline text-primary">Firebase Storage Uploader</h1>
-        <p className="text-muted-foreground mt-2">
-          Sube y gestiona archivos directamente en Firebase Storage con esta interfaz.
-        </p>
-      </header>
+    <div className="bg-background text-foreground">
+      <main>
+        {/* Hero Section */}
+        <section className="py-20 md:py-32 text-center bg-card">
+          <div className="container mx-auto px-4">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold font-headline text-primary">
+              Más que un Gestor de Incidentes: La Evolución al Análisis Inteligente
+            </h1>
+            <p className="mt-6 text-lg md:text-xl max-w-3xl mx-auto text-muted-foreground">
+              Asistente ACR no solo registra tus eventos. Te guía para optimizar tus procesos, unificando el análisis con inteligencia artificial para maximizar la fiabilidad y prevenir futuras recurrencias.
+            </p>
+            <div className="mt-8">
+              <Button asChild size="lg">
+                <Link href="/registro">
+                  Comienza Ahora <ArrowRight className="ml-2 h-5 w-5" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </section>
 
-      <main className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-1">
-          <FileUploader onUploadSuccess={handleUploadSuccess} />
-        </div>
-        <div className="lg:col-span-2">
-          <h2 className="text-2xl font-semibold mb-4">Archivos Subidos</h2>
-          <FileList 
-            files={sortedFiles} 
-            onFileDelete={handleFileDelete}
-            isLoading={isLoading}
-            sortKey={sortKey}
-            sortDirection={sortDirection}
-            onSort={handleSort}
-          />
-        </div>
+        {/* Features Section */}
+        <section className="py-16 md:py-24 bg-background">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl md:text-4xl font-bold font-headline">Funcionalidades Clave</h2>
+              <p className="mt-3 text-muted-foreground max-w-2xl mx-auto">
+                Descubre cómo Asistente ACR transforma cada aspecto de tu gestión de Análisis de Causa Raíz.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {features.map((feature, index) => (
+                <FeatureCard key={index} {...feature} />
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Final CTA Section */}
+        <section className="py-16 md:py-24 bg-card">
+          <div className="container mx-auto px-4 text-center">
+            <h2 className="text-3xl md:text-4xl font-bold font-headline">Mejora la Gestión de tus Procesos</h2>
+            <p className="mt-4 text-muted-foreground max-w-2xl mx-auto">
+              Toma el control total de tus análisis. Asistente ACR te ofrece las herramientas para centralizar información, optimizar el ciclo de resolución de problemas y tomar decisiones basadas en datos para maximizar la eficiencia y seguridad de tu operación.
+            </p>
+             <div className="mt-8">
+              <Button asChild size="lg">
+                <Link href="/registro">
+                  Regístrate Gratis
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </section>
       </main>
+
+      <footer className="bg-background border-t">
+        <div className="container mx-auto py-6 px-4 text-center text-muted-foreground text-sm">
+          &copy; {new Date().getFullYear()} Asistente ACR. Todos los derechos reservados.
+        </div>
+      </footer>
     </div>
   );
 }

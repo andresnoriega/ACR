@@ -1,9 +1,8 @@
-
 'use client';
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, BarChart3, FileText, SettingsIcon, UserCheck, ListOrdered, DollarSign, LogOut, LogIn as LogInIcon, BookOpen, Zap, UserCircle, UserPlus } from 'lucide-react';
+import { Home, BarChart3, FileText, SettingsIcon, UserCheck, ListOrdered, LogOut, LogIn as LogInIcon, BookOpen, Zap, UserCircle, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
