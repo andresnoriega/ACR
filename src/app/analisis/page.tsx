@@ -1,3 +1,4 @@
+
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
@@ -1421,6 +1422,7 @@ function RCAAnalysisPageComponent() {
         </p>
       </header>
       
+      {/* Container to hold the printable content, always available but hidden by default */}
       <div className="hidden print-only-step1">
         <Step1Initiation {...allDataForReport} />
       </div>
@@ -1441,25 +1443,19 @@ function RCAAnalysisPageComponent() {
       <div className={step === 1 ? "" : "hidden"}>
         {step === 1 && (
           <Step1Initiation
-            eventData={eventData}
+            {...allDataForReport}
             onEventDataChange={handleEventDataChange}
             immediateActions={immediateActions}
             onAddImmediateAction={handleAddImmediateAction}
             onUpdateImmediateAction={handleUpdateImmediateAction}
             onRemoveImmediateAction={handleRemoveImmediateAction}
-            availableSites={availableSitesFromDB}
-            availableUsers={availableUsersFromDB}
             onContinue={handleNextStep}
             onForceEnsureEventId={ensureEventId}
-            onSaveAnalysis={(showToast, options) => handleSaveAnalysisData(showToast, options)}
-            onPrintReport={handlePrintReport}
-            isSaving={isSaving}
             onApproveEvent={handleApproveEvent}
             onRejectEvent={() => {
               setRejectionReason(''); 
               setIsRejectConfirmOpen(true);
             }}
-            isEventFinalized={isFinalized}
             currentEventStatus={currentEventStatus}
             validateStep1PreRequisites={validateStep1PreRequisites} 
           />

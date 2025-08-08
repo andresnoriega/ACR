@@ -126,14 +126,4 @@ body {
   body.print-step-5 .print-only-step5 {
     display: block !important;
   }
-  
-  .print-header-container {
-    text-align: center;
-  }
-
-  .print-main-title {
-    font-size: 24pt !important;
-    font-weight: bold !important;
-    color: black !important;
-  }
 }
