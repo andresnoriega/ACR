@@ -1273,7 +1273,9 @@ function RCAAnalysisPageComponent() {
 
 
   const handlePrintReport = () => {
-    const printClass = step === 1 ? 'print-step-1' : 'print-step-5';
+    // This logic ensures that no matter which step we are on,
+    // it always tries to print the Step 5 report.
+    const printClass = 'print-step-5';
     document.body.classList.add(printClass);
     setTimeout(() => {
       window.print();
