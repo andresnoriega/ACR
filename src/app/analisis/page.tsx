@@ -1,4 +1,3 @@
-
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
@@ -1274,10 +1273,11 @@ function RCAAnalysisPageComponent() {
 
 
   const handlePrintReport = () => {
-    document.body.classList.add(`print-step-${step}`);
+    const printClass = step === 1 ? 'print-step-1' : 'print-step-5';
+    document.body.classList.add(printClass);
     setTimeout(() => {
-        window.print();
-        document.body.classList.remove(`print-step-${step}`);
+      window.print();
+      document.body.classList.remove(printClass);
     }, 100);
   };
 
