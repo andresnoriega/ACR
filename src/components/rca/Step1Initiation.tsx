@@ -516,7 +516,6 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
         <CardFooter className="flex justify-between items-center gap-2 pt-4 border-t">
             <div className="mr-auto">
                 <Button
-                    variant="default"
                     onClick={onPrintReport}
                     className="w-full sm:w-auto"
                     title="Exportar el informe completo del análisis a PDF."

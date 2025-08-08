@@ -1419,6 +1419,9 @@ function RCAAnalysisPageComponent() {
         </p>
       </header>
       
+      <div className="hidden print-only-step1">
+        <Step1Initiation {...allDataForReport} />
+      </div>
       <div className="hidden print-only-step5">
         <Step5Results {...allDataForReport} />
       </div>
@@ -1432,36 +1435,35 @@ function RCAAnalysisPageComponent() {
         />
         <Separator className="my-6" />
       </div>
-
-      <div className="print-step-1-container">
-        <div className={step === 1 ? "" : "hidden"} data-print-section="step-1">
-          {step === 1 && (
-            <Step1Initiation
-              eventData={eventData}
-              onEventDataChange={handleEventDataChange}
-              immediateActions={immediateActions}
-              onAddImmediateAction={handleAddImmediateAction}
-              onUpdateImmediateAction={handleUpdateImmediateAction}
-              onRemoveImmediateAction={handleRemoveImmediateAction}
-              availableSites={availableSitesFromDB}
-              availableUsers={availableUsersFromDB}
-              onContinue={handleNextStep}
-              onForceEnsureEventId={ensureEventId}
-              onSaveAnalysis={(showToast, options) => handleSaveAnalysisData(showToast, options)}
-              onPrintReport={handlePrintReport}
-              isSaving={isSaving}
-              onApproveEvent={handleApproveEvent}
-              onRejectEvent={() => {
-                setRejectionReason(''); 
-                setIsRejectConfirmOpen(true);
-              }}
-              isEventFinalized={isFinalized}
-              currentEventStatus={currentEventStatus}
-              validateStep1PreRequisites={validateStep1PreRequisites} 
-            />
-          )}
-        </div>
+      
+      <div className={step === 1 ? "" : "hidden"}>
+        {step === 1 && (
+          <Step1Initiation
+            eventData={eventData}
+            onEventDataChange={handleEventDataChange}
+            immediateActions={immediateActions}
+            onAddImmediateAction={handleAddImmediateAction}
+            onUpdateImmediateAction={handleUpdateImmediateAction}
+            onRemoveImmediateAction={handleRemoveImmediateAction}
+            availableSites={availableSitesFromDB}
+            availableUsers={availableUsersFromDB}
+            onContinue={handleNextStep}
+            onForceEnsureEventId={ensureEventId}
+            onSaveAnalysis={(showToast, options) => handleSaveAnalysisData(showToast, options)}
+            onPrintReport={handlePrintReport}
+            isSaving={isSaving}
+            onApproveEvent={handleApproveEvent}
+            onRejectEvent={() => {
+              setRejectionReason(''); 
+              setIsRejectConfirmOpen(true);
+            }}
+            isEventFinalized={isFinalized}
+            currentEventStatus={currentEventStatus}
+            validateStep1PreRequisites={validateStep1PreRequisites} 
+          />
+        )}
       </div>
+
       <div className={step === 2 ? "" : "hidden"}>
       {step === 2 && (
         <Step2Facts
@@ -1542,7 +1544,7 @@ function RCAAnalysisPageComponent() {
       )}
       </div>
       {step === 5 && (
-        <div className="print-only-step5">
+        <div className="no-print">
           <Step5Results {...allDataForReport} />
         </div>
       )}

@@ -110,36 +110,23 @@ body {
 
 /* Print specific styles */
 @media print {
-  body.print-step-1 .no-print,
-  body.print-step-1 .print-only-step5,
-  body.print-step-1 [data-print-section="step-2"],
-  body.print-step-1 [data-print-section="step-3"],
-  body.print-step-1 [data-print-section="step-4"],
-  body.print-step-1 [data-print-section="step-5"],
-  body.print-step-5 .no-print,
-  body.print-step-5 .print-step-1-container,
-  body.print-step-5 [data-print-section] {
-    display: none !important;
-  }
-
-  body.print-step-1 .print-step-1-container,
-  body.print-step-5 .print-only-step5 {
-    display: block !important;
-  }
-  
   body {
     font-family: 'Inter', sans-serif;
     -webkit-print-color-adjust: exact;
     color-adjust: exact;
   }
-  
-  .print-container {
-    padding: 0;
-    margin: 0;
-    box-shadow: none;
-    border: none;
-  }
 
+  /* Default behavior: hide everything except what we explicitly show */
+  body.print-step-1 > *, body.print-step-5 > * {
+    display: none !important;
+  }
+  
+  /* Show only the targeted print container */
+  body.print-step-1 .print-only-step1,
+  body.print-step-5 .print-only-step5 {
+    display: block !important;
+  }
+  
   .print-header-container {
     text-align: center;
   }
