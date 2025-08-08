@@ -1423,7 +1423,7 @@ function RCAAnalysisPageComponent() {
         <Step5Results {...allDataForReport} />
       </div>
 
-      <div className="no-print print-main-content">
+      <div className="no-print">
         <StepNavigation
          currentStep={step}
          onNavigate={handleGoToStep}
@@ -1433,7 +1433,7 @@ function RCAAnalysisPageComponent() {
         <Separator className="my-6" />
       </div>
 
-      <div className="print-main-content">
+      <div className="print-step-1-container">
         <div className={step === 1 ? "" : "hidden"} data-print-section="step-1">
           {step === 1 && (
             <Step1Initiation
@@ -1461,91 +1461,91 @@ function RCAAnalysisPageComponent() {
             />
           )}
         </div>
-        <div className={step === 2 ? "" : "hidden"}>
-        {step === 2 && (
-          <Step2Facts
-            detailedFacts={detailedFacts}
-            onDetailedFactChange={onDetailedFactChange}
-            projectLeader={projectLeader}
-            onProjectLeaderChange={handleProjectLeaderChange}
-            investigationObjective={investigationObjective}
-            onInvestigationObjectiveChange={setInvestigationObjective}
-            investigationSessions={investigationSessions}
-            onSetInvestigationSessions={setInvestigationSessions}
-            analysisDetails={analysisDetails}
-            onAnalysisDetailsChange={setAnalysisDetails}
-            preservedFacts={preservedFacts}
-            setPreservedFacts={setPreservedFacts}
-            onAnalysisSaveRequired={() => handleSaveAnalysisData(false).then(res => res.newEventId || analysisDocumentId)}
-            availableUsers={availableUsersFromDB}
-            availableSites={availableSitesFromDB}
-            isSaving={isSaving}
-            onPrevious={handlePreviousStep}
-            onNext={handleNextStep}
-            analysisId={analysisDocumentId}
-            activeTab={factsTab}
-            onTabChange={setFactsTab}
-          />
-        )}
-        </div>
-        <div className={step === 3 ? "" : "hidden"}>
-        {step === 3 && (
-          <Step3Analysis
-            eventData={eventData}
-            availableSites={availableSitesFromDB}
-            timelineEvents={timelineEvents}
-            onSetTimelineEvents={setTimelineEvents}
-            brainstormingIdeas={brainstormingIdeas}
-            onAddBrainstormIdea={handleAddBrainstormIdea}
-            onUpdateBrainstormIdea={handleUpdateBrainstormIdea}
-            onRemoveBrainstormIdea={handleRemoveBrainstormIdea}
-            analysisTechnique={analysisTechnique}
-            onAnalysisTechniqueChange={handleAnalysisTechniqueChange}
-            analysisTechniqueNotes={analysisTechniqueNotes}
-            onAnalysisTechniqueNotesChange={setAnalysisTechniqueNotes}
-            ishikawaData={ishikawaData}
-            onSetIshikawaData={setIshikawaData}
-            fiveWhysData={fiveWhysData}
-            onSetFiveWhysData={setFiveWhysData}
-            ctmData={ctmData}
-            onSetCtmData={setCtmData}
-            identifiedRootCauses={identifiedRootCauses}
-            onAddIdentifiedRootCause={handleAddIdentifiedRootCause}
-            onUpdateIdentifiedRootCause={handleUpdateIdentifiedRootCause}
-            onRemoveIdentifiedRootCause={handleRemoveIdentifiedRootCause}
-            plannedActions={plannedActions}
-            onAddPlannedAction={handleAddPlannedAction}
-            onUpdatePlannedAction={handleUpdatePlannedAction}
-            onRemovePlannedAction={handleRemovePlannedAction}
-            availableUsers={availableUsersFromDB}
-            onPrevious={handlePreviousStep}
-            onNext={handleNextStep}
-            onSaveAnalysis={() => handleSaveAnalysisData(true)}
-            isSaving={isSaving}
-          />
-        )}
-        </div>
-        <div className={step === 4 ? "" : "hidden"}>
-        {step === 4 && (
-          <Step4Validation
-            plannedActions={plannedActions}
-            validations={validations}
-            onToggleValidation={handleToggleValidation}
-            projectLeader={projectLeader}
-            availableUserProfiles={availableUsersFromDB}
-            onPrevious={handlePreviousStep}
-            onNext={handleNextStep}
-            onSaveAnalysis={() => handleSaveAnalysisData(true)}
-            isSaving={isSaving}
-          />
-        )}
-        </div>
-        {step === 5 && (
-          <div className="print-only-step5">
-            <Step5Results {...allDataForReport} />
-          </div>
-        )}
       </div>
+      <div className={step === 2 ? "" : "hidden"}>
+      {step === 2 && (
+        <Step2Facts
+          detailedFacts={detailedFacts}
+          onDetailedFactChange={onDetailedFactChange}
+          projectLeader={projectLeader}
+          onProjectLeaderChange={handleProjectLeaderChange}
+          investigationObjective={investigationObjective}
+          onInvestigationObjectiveChange={setInvestigationObjective}
+          investigationSessions={investigationSessions}
+          onSetInvestigationSessions={setInvestigationSessions}
+          analysisDetails={analysisDetails}
+          onAnalysisDetailsChange={setAnalysisDetails}
+          preservedFacts={preservedFacts}
+          setPreservedFacts={setPreservedFacts}
+          onAnalysisSaveRequired={() => handleSaveAnalysisData(false).then(res => res.newEventId || analysisDocumentId)}
+          availableUsers={availableUsersFromDB}
+          availableSites={availableSitesFromDB}
+          isSaving={isSaving}
+          onPrevious={handlePreviousStep}
+          onNext={handleNextStep}
+          analysisId={analysisDocumentId}
+          activeTab={factsTab}
+          onTabChange={setFactsTab}
+        />
+      )}
+      </div>
+      <div className={step === 3 ? "" : "hidden"}>
+      {step === 3 && (
+        <Step3Analysis
+          eventData={eventData}
+          availableSites={availableSitesFromDB}
+          timelineEvents={timelineEvents}
+          onSetTimelineEvents={setTimelineEvents}
+          brainstormingIdeas={brainstormingIdeas}
+          onAddBrainstormIdea={handleAddBrainstormIdea}
+          onUpdateBrainstormIdea={handleUpdateBrainstormIdea}
+          onRemoveBrainstormIdea={handleRemoveBrainstormIdea}
+          analysisTechnique={analysisTechnique}
+          onAnalysisTechniqueChange={handleAnalysisTechniqueChange}
+          analysisTechniqueNotes={analysisTechniqueNotes}
+          onAnalysisTechniqueNotesChange={setAnalysisTechniqueNotes}
+          ishikawaData={ishikawaData}
+          onSetIshikawaData={setIshikawaData}
+          fiveWhysData={fiveWhysData}
+          onSetFiveWhysData={setFiveWhysData}
+          ctmData={ctmData}
+          onSetCtmData={setCtmData}
+          identifiedRootCauses={identifiedRootCauses}
+          onAddIdentifiedRootCause={handleAddIdentifiedRootCause}
+          onUpdateIdentifiedRootCause={handleUpdateIdentifiedRootCause}
+          onRemoveIdentifiedRootCause={handleRemoveIdentifiedRootCause}
+          plannedActions={plannedActions}
+          onAddPlannedAction={handleAddPlannedAction}
+          onUpdatePlannedAction={handleUpdatePlannedAction}
+          onRemovePlannedAction={handleRemovePlannedAction}
+          availableUsers={availableUsersFromDB}
+          onPrevious={handlePreviousStep}
+          onNext={handleNextStep}
+          onSaveAnalysis={() => handleSaveAnalysisData(true)}
+          isSaving={isSaving}
+        />
+      )}
+      </div>
+      <div className={step === 4 ? "" : "hidden"}>
+      {step === 4 && (
+        <Step4Validation
+          plannedActions={plannedActions}
+          validations={validations}
+          onToggleValidation={handleToggleValidation}
+          projectLeader={projectLeader}
+          availableUserProfiles={availableUsersFromDB}
+          onPrevious={handlePreviousStep}
+          onNext={handleNextStep}
+          onSaveAnalysis={() => handleSaveAnalysisData(true)}
+          isSaving={isSaving}
+        />
+      )}
+      </div>
+      {step === 5 && (
+        <div className="print-only-step5">
+          <Step5Results {...allDataForReport} />
+        </div>
+      )}
 
       <AlertDialog open={isRejectConfirmOpen} onOpenChange={(open) => {
         if(!isSaving) {

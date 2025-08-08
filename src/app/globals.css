@@ -110,19 +110,19 @@ body {
 
 /* Print specific styles */
 @media print {
-  .no-print {
+  body.print-step-1 .no-print,
+  body.print-step-1 .print-only-step5,
+  body.print-step-1 [data-print-section="step-2"],
+  body.print-step-1 [data-print-section="step-3"],
+  body.print-step-1 [data-print-section="step-4"],
+  body.print-step-1 [data-print-section="step-5"],
+  body.print-step-5 .no-print,
+  body.print-step-5 .print-step-1-container,
+  body.print-step-5 [data-print-section] {
     display: none !important;
   }
-  
-  .print-only-step5, .print-main-content {
-    display: none !important;
-  }
-  
-  body.print-step-1 .print-main-content,
-  body.print-step-1 [data-print-section="step-1"] {
-    display: block !important;
-  }
-  
+
+  body.print-step-1 .print-step-1-container,
   body.print-step-5 .print-only-step5 {
     display: block !important;
   }
