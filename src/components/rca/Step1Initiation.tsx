@@ -30,7 +30,6 @@ interface Step1InitiationProps {
   onContinue: () => void;
   onForceEnsureEventId: () => string; 
   onSaveAnalysis: (showToast?: boolean, options?: { suppressNavigation?: boolean }) => Promise<{ success: boolean; newEventId?: string; }>;
-  onPrintReport: () => void;
   isSaving: boolean;
   onApproveEvent: () => Promise<void>; 
   onRejectEvent: () => Promise<void>;
@@ -231,7 +230,6 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   onContinue,
   onForceEnsureEventId,
   onSaveAnalysis,
-  onPrintReport,
   isSaving,
   onApproveEvent,
   onRejectEvent,
@@ -506,10 +504,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
             </Button>
           </div>
         </CardContent>
-        <CardFooter className="flex justify-between items-center gap-2 pt-4 border-t flex-wrap">
-            <Button onClick={onPrintReport} variant="outline" className="w-full sm:w-auto" disabled={isSaving}>
-              <Printer className="mr-2 h-4 w-4" /> Exportar a PDF
-            </Button>
+        <CardFooter className="flex justify-end items-center gap-2 pt-4 border-t flex-wrap">
             <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto sm:ml-auto">
               <Button 
                   onClick={handlePrepareNotification} 
