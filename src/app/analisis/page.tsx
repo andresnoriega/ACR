@@ -1,3 +1,4 @@
+
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
@@ -1421,11 +1422,6 @@ function RCAAnalysisPageComponent() {
         </p>
       </header>
       
-      {/* Container to hold the printable content, always available but hidden by default */}
-      <div className="hidden print-only-step5">
-        <Step5Results {...allDataForReport} />
-      </div>
-
       <div className="no-print">
         <StepNavigation
          currentStep={step}
@@ -1537,11 +1533,15 @@ function RCAAnalysisPageComponent() {
         />
       )}
       </div>
-      {step === 5 && (
-        <div className="no-print">
-          <Step5Results {...allDataForReport} />
-        </div>
-      )}
+      
+      <div className={step === 5 ? "" : "hidden no-print"}>
+        {step === 5 && <Step5Results {...allDataForReport} />}
+      </div>
+
+      <div className="hidden print-only-step5">
+        <Step5Results {...allDataForReport} />
+      </div>
+
 
       <AlertDialog open={isRejectConfirmOpen} onOpenChange={(open) => {
         if(!isSaving) {
