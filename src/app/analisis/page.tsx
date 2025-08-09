@@ -1273,38 +1273,51 @@ function RCAAnalysisPageComponent() {
   }, [validations, plannedActions, handleSaveAnalysisData, toast, availableUsersFromDB, eventData.focusEventDescription]);
 
 
-  const handlePrintReport = async () => {
-    if (!analysisDocumentId) {
-      toast({
-        title: "Guardado Requerido",
-        description: "Por favor, guarde el análisis al menos una vez antes de imprimir.",
-        variant: "destructive"
-      });
-      return;
-    }
-  
+const handlePrintReport = async () => {
+  if (!analysisDocumentId) {
     toast({
-      title: "Preparando informe...",
-      description: "Actualizando datos para asegurar la última versión."
+      title: "Guardado Requerido",
+      description: "Por favor, guarde el análisis al menos una vez antes de imprimir.",
+      variant: "destructive"
     });
-  
-    const loadSuccess = await loadAnalysisData(analysisDocumentId);
-  
-    if (loadSuccess) {
-      // Add a small delay to allow React to re-render with the fresh data
-      setTimeout(() => {
-        document.body.classList.add('print-step-5');
-        window.print();
-        document.body.classList.remove('print-step-5');
-      }, 500); // 500ms delay
-    } else {
-      toast({
-        title: "Error al Preparar",
-        description: "No se pudieron cargar los datos más recientes para el informe.",
-        variant: "destructive"
-      });
-    }
+    return;
+  }
+
+  toast({ title: "Preparando informe...", description: "Actualizando datos para asegurar la última versión." });
+
+  const loadSuccess = await loadAnalysisData(analysisDocumentId);
+  if (!loadSuccess) {
+    toast({ title: "Error al Preparar", description: "No se pudieron cargar los datos más recientes para el informe.", variant: "destructive" });
+    return;
+  }
+
+  // Espera a que React pinte el clon imprimible (sobre todo en producción)
+  const nextFrame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  await nextFrame();
+
+  // Asegura que el área imprimible exista (el clon de Step5)
+  const printableClone = document.querySelector('.print-only-step5');
+  if (!printableClone) {
+    toast({ title: "Error de impresión", description: "No se encontró el contenedor imprimible (print-only-step5).", variant: "destructive" });
+    return;
+  }
+
+  // Añade clase para reglas @media print y limpia al terminar (incluso si el usuario cancela)
+  document.body.classList.add('print-step-5');
+
+  const cleanup = () => {
+    document.body.classList.remove('print-step-5');
+    window.removeEventListener('afterprint', cleanup);
   };
+  window.addEventListener('afterprint', cleanup);
+
+  // Da un tiempito a que se apliquen estilos en prod
+  setTimeout(() => {
+    window.print();
+    // Fallback por si afterprint no dispara en algunos navegadores
+    setTimeout(cleanup, 1500);
+  }, 150);
+};
 
   const handleMarkAsFinalized = async () => {
     let currentId = analysisDocumentId;
