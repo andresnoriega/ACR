@@ -130,4 +130,13 @@ body {
   .print-step-5 .print-only-step5 {
     display: block !important;
   }
+
+  /* Same logic for step 1 */
+  .print-step-1 .printable-content > * {
+    display: none !important;
+  }
+
+  .print-step-1 .print-only-step1 {
+    display: block !important;
+  }
 }

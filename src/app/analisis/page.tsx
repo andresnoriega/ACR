@@ -1,4 +1,3 @@
-
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
@@ -1273,7 +1272,7 @@ function RCAAnalysisPageComponent() {
   }, [validations, plannedActions, handleSaveAnalysisData, toast, availableUsersFromDB, eventData.focusEventDescription]);
 
 
-const handlePrintReport = async () => {
+const handlePrintStep5Report = async () => {
   if (!analysisDocumentId) {
     toast({
       title: "Guardado Requerido",
@@ -1318,6 +1317,35 @@ const handlePrintReport = async () => {
     setTimeout(cleanup, 1500);
   }, 150);
 };
+
+const handlePrintStep1Report = async () => {
+  // We can just use the current data for Step 1, no need to reload everything
+  toast({ title: "Preparando informe del Paso 1..." });
+
+  // Espera a que React pinte el clon imprimible
+  const nextFrame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  await nextFrame();
+
+  const printableClone = document.querySelector('.print-only-step1');
+  if (!printableClone) {
+    toast({ title: "Error de impresión", description: "No se encontró el contenedor imprimible para el Paso 1.", variant: "destructive" });
+    return;
+  }
+
+  document.body.classList.add('print-step-1');
+
+  const cleanup = () => {
+    document.body.classList.remove('print-step-1');
+    window.removeEventListener('afterprint', cleanup);
+  };
+  window.addEventListener('afterprint', cleanup);
+
+  setTimeout(() => {
+    window.print();
+    setTimeout(cleanup, 1500);
+  }, 150);
+};
+
 
   const handleMarkAsFinalized = async () => {
     let currentId = analysisDocumentId;
@@ -1424,7 +1452,7 @@ const handlePrintReport = async () => {
     onFinalCommentsChange: setFinalComments,
     leccionesAprendidas,
     onLeccionesAprendidasChange: setLeccionesAprendidas,
-    onPrintReport: handlePrintReport,
+    onPrintReport: handlePrintStep5Report,
     availableUsers: availableUsersFromDB,
     isFinalized,
     onMarkAsFinalized: handleMarkAsFinalized,
@@ -1484,7 +1512,8 @@ const handlePrintReport = async () => {
                 setIsRejectConfirmOpen(true);
                 }}
                 currentEventStatus={currentEventStatus}
-                validateStep1PreRequisites={validateStep1PreRequisites} 
+                validateStep1PreRequisites={validateStep1PreRequisites}
+                onPrintReport={handlePrintStep1Report}
             />
             )}
         </div>
@@ -1545,6 +1574,9 @@ const handlePrintReport = async () => {
             {step === 5 && <Step5Results {...allDataForReport} />}
         </div>
 
+        <div className="hidden print-only-step1">
+          <Step1Initiation {...allDataForReport} onPrintReport={handlePrintStep1Report} />
+        </div>
         <div className="hidden print-only-step5">
             <Step5Results {...allDataForReport} />
         </div>
