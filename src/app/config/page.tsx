@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { SettingsIcon, Users, Globe, KeyRound, ShieldCheck, DollarSign, Building } from 'lucide-react';
+import { SettingsIcon, Users, Globe, KeyRound, ShieldCheck, DollarSign, Building, Calculator } from 'lucide-react';
 
 export default function ConfiguracionHubPage() {
   const router = useRouter();
@@ -111,6 +111,23 @@ export default function ConfiguracionHubPage() {
               <Link href="/config/suscripciones" passHref>
                 <Button className="w-full" size="lg">
                   Gestionar Suscripción
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+          
+           <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+            <CardHeader>
+              <div className="flex items-center gap-3 mb-2">
+                <Calculator className="h-7 w-7 text-primary" />
+                <CardTitle className="text-2xl">Estimación de Costos</CardTitle>
+              </div>
+              <CardDescription>Calcule el costo aproximado de los análisis en Google Cloud.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/config/costos" passHref>
+                <Button className="w-full" size="lg">
+                  Estimar Costos
                 </Button>
               </Link>
             </CardContent>
