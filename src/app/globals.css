@@ -116,16 +116,18 @@ body {
     color-adjust: exact;
   }
 
-  /* Default behavior: hide everything except what we explicitly show */
+  /* Default behavior: hide elements marked as no-print */
   .no-print {
     display: none !important;
   }
   
-  body.print-step-5 .print-only-step5 {
-    display: block !important;
+  /* When printing the report, hide everything in the main layout */
+  .print-step-5 .printable-content > * {
+    display: none !important;
   }
-  
-  body.print-step-5 > *:not(.print-only-step5) {
-      display: none !important;
+
+  /* And specifically show only the printable report container */
+  .print-step-5 .print-only-step5 {
+    display: block !important;
   }
 }
