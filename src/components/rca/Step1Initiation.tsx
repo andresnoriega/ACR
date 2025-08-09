@@ -511,20 +511,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
           </div>
         </CardContent>
         <CardFooter className="flex justify-between items-center gap-2 pt-4 border-t">
-            <div className="mr-auto">
-                <Button
-                    onClick={onPrintReport}
-                    variant="outline"
-                    className="w-full sm:w-auto"
-                    title="Exportar el informe completo del análisis a PDF."
-                    disabled={isSaving}
-                >
-                    <Printer className="mr-2 h-4 w-4" />
-                    Exportar a PDF
-                </Button>
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto sm:ml-auto">
               <Button 
                   onClick={handlePrepareNotification} 
                   variant="secondary" 
