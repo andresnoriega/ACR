@@ -1,3 +1,4 @@
+
 'use client';
 import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { RCAEventData, ImmediateAction, PlannedAction, Validation, AnalysisTechnique, IshikawaData, FiveWhysData, CTMData, DetailedFacts, PreservedFact, IdentifiedRootCause, FullUserProfile, Site, RCAAnalysisDocument, ReportedEvent, ReportedEventStatus, EventType, PriorityType, RejectionDetails, BrainstormIdea, TimelineEvent, InvestigationSession, EfficacyVerification } from '@/types/rca';
@@ -1272,16 +1273,37 @@ function RCAAnalysisPageComponent() {
   }, [validations, plannedActions, handleSaveAnalysisData, toast, availableUsersFromDB, eventData.focusEventDescription]);
 
 
-  const handlePrintReport = () => {
-    // This logic ensures that no matter which step we are on,
-    // it always tries to print the Step 5 report.
-    const printClass = 'print-step-5';
-    document.body.classList.add(printClass);
-    // Add a small delay to allow the browser to apply styles before printing
-    setTimeout(() => {
-      window.print();
-      document.body.classList.remove(printClass);
-    }, 100);
+  const handlePrintReport = async () => {
+    if (!analysisDocumentId) {
+      toast({
+        title: "Guardado Requerido",
+        description: "Por favor, guarde el análisis al menos una vez antes de imprimir.",
+        variant: "destructive"
+      });
+      return;
+    }
+  
+    toast({
+      title: "Preparando informe...",
+      description: "Actualizando datos para asegurar la última versión."
+    });
+  
+    const loadSuccess = await loadAnalysisData(analysisDocumentId);
+  
+    if (loadSuccess) {
+      // Add a small delay to allow React to re-render with the fresh data
+      setTimeout(() => {
+        document.body.classList.add('print-step-5');
+        window.print();
+        document.body.classList.remove('print-step-5');
+      }, 500); // 500ms delay
+    } else {
+      toast({
+        title: "Error al Preparar",
+        description: "No se pudieron cargar los datos más recientes para el informe.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleMarkAsFinalized = async () => {
@@ -1578,3 +1600,4 @@ export default function RCAAnalysisPage() {
     </Suspense>
   );
 }
+
