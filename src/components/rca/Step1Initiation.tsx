@@ -36,7 +36,7 @@ interface Step1InitiationProps {
   onApproveEvent: () => Promise<void>; 
   onRejectEvent: () => Promise<void>;
   currentEventStatus: ReportedEventStatus;
-  validateStep1PreRequisites: () => { isValid: boolean, message?: string }; // Added prop
+  validateStep1PreRequisites: () => { isValid: boolean, message?: string };
 }
 
 const EVENT_TYPES: EventType[] = ['Incidente', 'Accidente', 'Falla de Equipo', 'No Conformidad', 'Evento Operacional', 'No Conformidad Potencial', 'Hallazgo'];
@@ -262,8 +262,6 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
     const siteCompany = siteDetails?.empresa;
 
     if (!siteCompany) {
-      // If no site is selected, or site has no company, show users that also have no company assigned.
-      // This prevents mixing users from different companies if they exist.
       return availableUsers.filter(u => !u.empresa);
     }
 
@@ -273,7 +271,6 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
   useEffect(() => {
     const getTodayDateString = () => {
       const today = new Date();
-      // To format for the `max` attribute of a datetime-local input, we need "YYYY-MM-DD".
       const year = today.getFullYear();
       const month = String(today.getMonth() + 1).padStart(2, '0');
       const day = String(today.getDate()).padStart(2, '0');
@@ -463,7 +460,7 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
 
           <div className="space-y-4">
             <h3 className="text-lg font-semibold font-headline">Acciones Inmediatas (Opcional)</h3>
-            {immediateActions.map((action, index) => (
+            {(immediateActions || []).map((action, index) => (
               <Card key={action.id} className="p-4 space-y-3 bg-secondary/50">
                 <div className="flex justify-between items-center">
                   <p className="font-medium text-sm text-primary">Acción Inmediata #{index + 1}</p>
@@ -510,7 +507,10 @@ export const Step1Initiation: FC<Step1InitiationProps> = ({
             </Button>
           </div>
         </CardContent>
-        <CardFooter className="flex justify-between items-center gap-2 pt-4 border-t">
+        <CardFooter className="flex justify-between items-center gap-2 pt-4 border-t flex-wrap">
+            <Button onClick={onPrintReport} variant="outline" className="w-full sm:w-auto" disabled={isSaving}>
+              <Printer className="mr-2 h-4 w-4" /> Exportar a PDF
+            </Button>
             <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto sm:ml-auto">
               <Button 
                   onClick={handlePrepareNotification} 
