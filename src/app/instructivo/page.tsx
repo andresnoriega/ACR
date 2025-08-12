@@ -3,7 +3,7 @@
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { BookOpen, Users, BarChart3, ListOrdered, FileText, UserCheck, SettingsIcon, Zap, Sparkles, Lightbulb, Bot } from 'lucide-react';
+import { BookOpen, Users, BarChart3, ListOrdered, FileText, UserCheck, SettingsIcon, Zap, Sparkles, Lightbulb, Bot, Edit3 } from 'lucide-react';
 
 export default function InstructivoPage() {
   return (
@@ -136,6 +136,13 @@ export default function InstructivoPage() {
           <CardTitle className="flex items-center"><Bot className="mr-2 h-5 w-5" />Funcionalidades con Inteligencia Artificial</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
+           <div className="flex items-start gap-3">
+            <Edit3 className="h-5 w-5 text-accent-foreground mt-1 flex-shrink-0" />
+            <div>
+              <h4 className="font-semibold">Parafrasear Fenómeno</h4>
+              <p>En el Paso 2, después de completar los "Hechos Detallados" (Qué, Cómo, Cuándo, etc.), puede usar el botón "Parafrasear con IA" para convertir esos datos estructurados en un párrafo coherente y profesional en la sección "Descripción del Fenómeno".</p>
+            </div>
+          </div>
           <div className="flex items-start gap-3">
             <Sparkles className="h-5 w-5 text-accent-foreground mt-1 flex-shrink-0" />
             <div>
