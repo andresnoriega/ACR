@@ -17,7 +17,7 @@ export async function generateRcaInsightsAction(input: GenerateRcaInsightsInput)
   if (!apiKey) {
     return { summary: "[IA no disponible: La API Key de Gemini no está configurada en el backend.]" };
   }
-  return generateRcaInsights(input, apiKey);
+  return generateRcaInsights(input);
 }
 
 /**
@@ -28,7 +28,7 @@ export async function paraphrasePhenomenonAction(input: ParaphrasePhenomenonInpu
    if (!apiKey) {
     return { paraphrasedText: "[IA no disponible: La API Key de Gemini no está configurada en el backend.]" };
   }
-  return paraphrasePhenomenon(input, apiKey);
+  return paraphrasePhenomenon(input);
 }
 
 /**
@@ -39,7 +39,7 @@ export async function suggestLatentRootCausesAction(input: SuggestLatentRootCaus
    if (!apiKey) {
     return { suggestedLatentCauses: ["[IA no disponible: La API Key de Gemini no está configurada en el backend.]"] };
   }
-  return suggestLatentRootCauses(input, apiKey);
+  return suggestLatentRootCauses(input);
 }
 
 /**

@@ -8,7 +8,7 @@
  * - ParaphrasePhenomenonOutput - The return type for the paraphrasePhenomenon function.
  */
 
-import { ai } from '@/ai/dev';
+import { ai } from '@/ai/genkit';
 import {z} from 'zod';
 
 const ParaphrasePhenomenonInputSchema = z.object({
@@ -54,11 +54,8 @@ const paraphrasePhenomenonFlow = ai.defineFlow(
     inputSchema: ParaphrasePhenomenonInputSchema,
     outputSchema: ParaphrasePhenomenonOutputSchema,
   },
-  async (input, streamingCallback, context) => {
-     if (!context?.auth?.apiKey) {
-      throw new Error("API Key not provided in context.");
-    }
-    const {output} = await prompt(input, {apiKey: context.auth.apiKey});
+  async (input) => {
+    const {output} = await prompt(input);
     if (!output) {
       return { paraphrasedText: "[IA no disponible: No se generó respuesta]" };
     }
@@ -66,9 +63,9 @@ const paraphrasePhenomenonFlow = ai.defineFlow(
   }
 );
 
-export async function paraphrasePhenomenon(input: ParaphrasePhenomenonInput, apiKey: string): Promise<ParaphrasePhenomenonOutput> {
+export async function paraphrasePhenomenon(input: ParaphrasePhenomenonInput): Promise<ParaphrasePhenomenonOutput> {
   try {
-    const result = await paraphrasePhenomenonFlow(input, {auth: {apiKey}});
+    const result = await paraphrasePhenomenonFlow(input);
     return result;
   } catch (error) {
     console.error("Error executing paraphrasePhenomenon:", error);

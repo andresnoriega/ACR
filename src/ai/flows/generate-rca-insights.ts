@@ -8,7 +8,7 @@
  * - GenerateRcaInsightsOutput - The return type for the generateRcaInsights function.
  */
 
-import { ai } from '@/ai/dev';
+import { ai } from '@/ai/genkit';
 import { z } from 'zod'; 
 
 const GenerateRcaInsightsInputSchema = z.object({
@@ -79,11 +79,8 @@ const generateRcaInsightsFlowInternal = ai.defineFlow(
     inputSchema: GenerateRcaInsightsInputSchema,
     outputSchema: GenerateRcaInsightsOutputSchema,
   },
-  async (input, streamingCallback, context) => {
-     if (!context?.auth?.apiKey) {
-      throw new Error("API Key not provided in context.");
-    }
-    const {output} = await prompt(input, {apiKey: context.auth.apiKey});
+  async (input) => {
+    const {output} = await prompt(input);
     if (!output) {
       console.error("The AI model did not return an output for generateRcaInsightsFlow. Input:", input);
       return { summary: "[Resumen IA no disponible: El modelo no generó una respuesta válida]" };
@@ -93,9 +90,9 @@ const generateRcaInsightsFlowInternal = ai.defineFlow(
 );
 
 
-export async function generateRcaInsights(input: GenerateRcaInsightsInput, apiKey: string): Promise<GenerateRcaInsightsOutput> {
+export async function generateRcaInsights(input: GenerateRcaInsightsInput): Promise<GenerateRcaInsightsOutput> {
   try {
-    const result = await generateRcaInsightsFlowInternal(input, {auth: {apiKey}});
+    const result = await generateRcaInsightsFlowInternal(input);
     return result;
   } catch (error) {
     console.error("Error executing generateRcaInsights:", error);

@@ -8,7 +8,7 @@
  * - SuggestLatentRootCausesOutput - The return type for the function.
  */
 
-import { ai } from '@/ai/dev';
+import { ai } from '@/ai/genkit';
 import {z} from 'zod';
 
 
@@ -177,11 +177,7 @@ const suggestLatentRootCausesFlow = ai.defineFlow(
     inputSchema: SuggestLatentRootCausesInputSchema,
     outputSchema: SuggestLatentRootCausesOutputSchema,
   },
-  async (input, streamingCallback, context) => {
-    
-    if (!context?.auth?.apiKey) {
-      throw new Error("API Key not provided in context.");
-    }
+  async (input) => {
     
     // Pre-filter data to only include accepted items
     const filteredIshikawa = input.ishikawaData?.map(cat => ({
@@ -216,7 +212,7 @@ const suggestLatentRootCausesFlow = ai.defineFlow(
       ctmData: filteredCtm,
     };
     
-    const { output } = await prompt(promptInput, {apiKey: context.auth.apiKey});
+    const { output } = await prompt(promptInput);
 
     if (!output || !output.suggestedLatentCauses || output.suggestedLatentCauses.length === 0) {
       return { suggestedLatentCauses: ["La IA no generó nuevas sugerencias o hubo un error. Intente de nuevo o revise los datos de entrada."] };
@@ -226,9 +222,9 @@ const suggestLatentRootCausesFlow = ai.defineFlow(
 );
 
 
-export async function suggestLatentRootCauses(input: SuggestLatentRootCausesInput, apiKey: string): Promise<SuggestLatentRootCausesOutput> {
+export async function suggestLatentRootCauses(input: SuggestLatentRootCausesInput): Promise<SuggestLatentRootCausesOutput> {
   try {
-    const result = await suggestLatentRootCausesFlow(input, {auth: {apiKey}});
+    const result = await suggestLatentRootCausesFlow(input);
     return result;
   } catch (error) {
     console.error("Error executing suggestLatentRootCauses:", error);

@@ -1,15 +1,14 @@
-
 import {genkit, type GenkitConfig} from 'genkit';
 import {googleAI} from '@genkit-ai/googleai'; 
 
-// Initialize Genkit without an API key.
-// The key will be provided at runtime by the server actions.
+// Initialize Genkit and attempt to use the API key.
+// The key will be provided at runtime by the server environment.
 export let ai: any;
 
 try {
   ai = genkit({
     plugins: [
-      googleAI(), // Initialize without a key.
+      googleAI(), // API key is read from process.env.GEMINI_API_KEY by default
     ],
   });
 
@@ -18,6 +17,7 @@ try {
   
   const aiMockMessage = "AI functionality is disabled due to a Genkit configuration or initialization issue.";
   
+  // Fallback to a mocked AI object if initialization fails
   ai = {
     isMocked: true,
     defineFlow: (config: any, func: any) => {
